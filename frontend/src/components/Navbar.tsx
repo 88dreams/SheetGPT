@@ -1,9 +1,14 @@
 import React from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useLocation } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
 
 export default function Navbar() {
   const { isAuthenticated, logout } = useAuth()
+  const location = useLocation()
+
+  const isActive = (path: string) => {
+    return location.pathname === path ? 'text-blue-600' : 'text-gray-700'
+  }
 
   return (
     <nav className="bg-white shadow">
@@ -20,9 +25,15 @@ export default function Navbar() {
               <>
                 <Link
                   to="/chat"
-                  className="px-3 py-2 rounded-md text-sm font-medium text-gray-700 hover:text-gray-900"
+                  className={`px-3 py-2 rounded-md text-sm font-medium ${isActive('/chat')} hover:text-gray-900`}
                 >
                   Chat
+                </Link>
+                <Link
+                  to="/data"
+                  className={`px-3 py-2 rounded-md text-sm font-medium ${isActive('/data')} hover:text-gray-900`}
+                >
+                  Data Management
                 </Link>
                 <button
                   onClick={logout}

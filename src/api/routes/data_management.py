@@ -8,195 +8,151 @@ from src.utils.database import get_db
 from src.utils.security import get_current_user_id
 from src.services.data_management import DataManagementService
 from src.schemas.data_management import (
+    StructuredDataCreate,
+    StructuredDataUpdate,
+    StructuredDataResponse,
     ColumnCreate,
     ColumnUpdate,
-    RowOperation,
-    DataUpdate
+    ColumnResponse,
+    DataUpdate,
+    DataChangeHistoryResponse
 )
 
-router = APIRouter(prefix="/data", tags=["Data Management"])
+router = APIRouter()
 
-@router.post("/{structured_data_id}/columns", status_code=status.HTTP_201_CREATED)
-async def add_column(
-    structured_data_id: UUID,
-    column_data: ColumnCreate,
+@router.get("", response_model=List[StructuredDataResponse])
+async def list_structured_data(
     current_user_id: UUID = Depends(get_current_user_id),
     db: AsyncSession = Depends(get_db)
-) -> Dict[str, Any]:
-    """Add a new column to structured data."""
+) -> List[StructuredDataResponse]:
+    """Get all structured data for the current user."""
     service = DataManagementService(db)
-    try:
-        result = await service.add_column(
-            structured_data_id=structured_data_id,
-            user_id=current_user_id,
-            column_data=column_data
-        )
-        return result
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(e)
-        )
+    return await service.get_all_data(current_user_id)
 
-@router.put("/{structured_data_id}/columns/{column_name}")
+@router.post("", response_model=StructuredDataResponse, status_code=status.HTTP_201_CREATED)
+async def create_structured_data(
+    data: StructuredDataCreate,
+    current_user_id: UUID = Depends(get_current_user_id),
+    db: AsyncSession = Depends(get_db)
+) -> StructuredDataResponse:
+    """Create new structured data."""
+    service = DataManagementService(db)
+    return await service.create_structured_data(data, current_user_id)
+
+@router.get("/{data_id}", response_model=StructuredDataResponse)
+async def get_structured_data(
+    data_id: UUID,
+    current_user_id: UUID = Depends(get_current_user_id),
+    db: AsyncSession = Depends(get_db)
+) -> StructuredDataResponse:
+    """Get structured data by ID."""
+    service = DataManagementService(db)
+    return await service.get_data_by_id(data_id, current_user_id)
+
+@router.put("/{data_id}", response_model=StructuredDataResponse)
+async def update_structured_data(
+    data_id: UUID,
+    data: StructuredDataUpdate,
+    current_user_id: UUID = Depends(get_current_user_id),
+    db: AsyncSession = Depends(get_db)
+) -> StructuredDataResponse:
+    """Update structured data."""
+    service = DataManagementService(db)
+    return await service.update_structured_data(data_id, current_user_id, data)
+
+@router.delete("/{data_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_structured_data(
+    data_id: UUID,
+    soft_delete: bool = True,
+    current_user_id: UUID = Depends(get_current_user_id),
+    db: AsyncSession = Depends(get_db)
+) -> None:
+    """Delete structured data."""
+    service = DataManagementService(db)
+    await service.delete_structured_data(data_id, current_user_id, soft_delete)
+
+@router.get("/{data_id}/columns", response_model=List[ColumnResponse])
+async def list_columns(
+    data_id: UUID,
+    current_user_id: UUID = Depends(get_current_user_id),
+    db: AsyncSession = Depends(get_db)
+) -> List[ColumnResponse]:
+    """Get all columns for structured data."""
+    service = DataManagementService(db)
+    return await service.get_columns(data_id, current_user_id)
+
+@router.post("/{data_id}/columns", response_model=ColumnResponse, status_code=status.HTTP_201_CREATED)
+async def create_column(
+    data_id: UUID,
+    column: ColumnCreate,
+    current_user_id: UUID = Depends(get_current_user_id),
+    db: AsyncSession = Depends(get_db)
+) -> ColumnResponse:
+    """Create a new column."""
+    service = DataManagementService(db)
+    return await service.create_column(data_id, current_user_id, column)
+
+@router.put("/{data_id}/columns/{column_name}", response_model=ColumnResponse)
 async def update_column(
-    structured_data_id: UUID,
+    data_id: UUID,
     column_name: str,
-    column_data: ColumnUpdate,
+    column: ColumnUpdate,
     current_user_id: UUID = Depends(get_current_user_id),
     db: AsyncSession = Depends(get_db)
-) -> Dict[str, Any]:
-    """Update an existing column."""
+) -> ColumnResponse:
+    """Update a column."""
     service = DataManagementService(db)
-    try:
-        result = await service.update_column(
-            structured_data_id=structured_data_id,
-            user_id=current_user_id,
-            column_name=column_name,
-            column_data=column_data
-        )
-        return result
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(e)
-        )
+    return await service.update_column(data_id, column_name, current_user_id, column)
 
-@router.delete("/{structured_data_id}/columns/{column_name}")
+@router.delete("/{data_id}/columns/{column_name}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_column(
-    structured_data_id: UUID,
+    data_id: UUID,
     column_name: str,
-    keep_history: bool = True,
     current_user_id: UUID = Depends(get_current_user_id),
     db: AsyncSession = Depends(get_db)
-) -> Dict[str, str]:
+) -> None:
     """Delete a column."""
     service = DataManagementService(db)
-    try:
-        await service.delete_column(
-            structured_data_id=structured_data_id,
-            user_id=current_user_id,
-            column_name=column_name,
-            keep_history=keep_history
-        )
-        return {"status": "success", "message": f"Column '{column_name}' deleted"}
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(e)
-        )
+    await service.delete_column(data_id, column_name, current_user_id)
 
-@router.post("/{structured_data_id}/rows")
-async def add_row(
-    structured_data_id: UUID,
-    row_data: RowOperation,
-    current_user_id: UUID = Depends(get_current_user_id),
-    db: AsyncSession = Depends(get_db)
-) -> Dict[str, Any]:
-    """Add a new row of data."""
-    service = DataManagementService(db)
-    try:
-        result = await service.add_row(
-            structured_data_id=structured_data_id,
-            user_id=current_user_id,
-            row_data=row_data.data
-        )
-        return result
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(e)
-        )
-
-@router.delete("/{structured_data_id}/rows/{row_index}")
-async def delete_row(
-    structured_data_id: UUID,
-    row_index: int,
-    keep_history: bool = True,
-    current_user_id: UUID = Depends(get_current_user_id),
-    db: AsyncSession = Depends(get_db)
-) -> Dict[str, str]:
-    """Delete a row."""
-    service = DataManagementService(db)
-    try:
-        await service.delete_row(
-            structured_data_id=structured_data_id,
-            user_id=current_user_id,
-            row_index=row_index,
-            keep_history=keep_history
-        )
-        return {"status": "success", "message": f"Row {row_index} deleted"}
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(e)
-        )
-
-@router.put("/{structured_data_id}/cells")
+@router.put("/{data_id}/cells", response_model=Dict[str, Any])
 async def update_cell(
-    structured_data_id: UUID,
-    update_data: DataUpdate,
+    data_id: UUID,
+    update: DataUpdate,
     current_user_id: UUID = Depends(get_current_user_id),
     db: AsyncSession = Depends(get_db)
 ) -> Dict[str, Any]:
-    """Update a single cell value."""
+    """Update a cell value."""
     service = DataManagementService(db)
-    try:
-        result = await service.update_cell(
-            structured_data_id=structured_data_id,
-            user_id=current_user_id,
-            column_name=update_data.column_name,
-            row_index=update_data.row_index,
-            value=update_data.value
-        )
-        return result
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(e)
-        )
+    return await service.update_cell(
+        data_id,
+        current_user_id,
+        update.column_name,
+        update.row_index,
+        update.value
+    )
 
-@router.get("/{structured_data_id}/history")
+@router.get("/{data_id}/history", response_model=List[DataChangeHistoryResponse])
 async def get_change_history(
-    structured_data_id: UUID,
-    limit: int = 10,
+    data_id: UUID,
+    limit: int = 50,
     offset: int = 0,
     current_user_id: UUID = Depends(get_current_user_id),
     db: AsyncSession = Depends(get_db)
-) -> List[Dict[str, Any]]:
+) -> List[DataChangeHistoryResponse]:
     """Get change history for structured data."""
     service = DataManagementService(db)
-    try:
-        history = await service.get_history(
-            structured_data_id=structured_data_id,
-            limit=limit,
-            offset=offset
-        )
-        return history
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(e)
-        )
+    return await service.get_change_history(data_id, current_user_id, limit, offset)
 
-@router.post("/{structured_data_id}/revert/{change_id}")
-async def revert_change(
-    structured_data_id: UUID,
-    change_id: UUID,
+@router.post("/{data_id}/export", status_code=status.HTTP_202_ACCEPTED)
+async def export_data(
+    data_id: UUID,
     current_user_id: UUID = Depends(get_current_user_id),
     db: AsyncSession = Depends(get_db)
-) -> Dict[str, Any]:
-    """Revert a specific change."""
-    service = DataManagementService(db)
-    try:
-        result = await service.revert_change(
-            structured_data_id=structured_data_id,
-            user_id=current_user_id,
-            change_id=change_id
-        )
-        return result
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(e)
-        ) 
+) -> Dict[str, str]:
+    """Export structured data to Google Sheets."""
+    # This will be implemented in the export service
+    raise HTTPException(
+        status_code=status.HTTP_501_NOT_IMPLEMENTED,
+        detail="Export functionality coming soon"
+    ) 

@@ -582,4 +582,49 @@ src/
    - Black for code formatting
    - Flake8 for linting
    - MyPy for type checking
-   - Alembic for migrations 
+   - Alembic for migrations
+
+## Authentication System
+
+### Database Schema
+The user authentication system is built on a PostgreSQL database with the following key models:
+
+```sql
+-- User Model
+CREATE TABLE users (
+    id UUID PRIMARY KEY,
+    email VARCHAR(255) UNIQUE NOT NULL,
+    hashed_password VARCHAR(255) NOT NULL,
+    is_active BOOLEAN DEFAULT TRUE,
+    is_superuser BOOLEAN DEFAULT FALSE,
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL,
+    updated_at TIMESTAMP WITH TIME ZONE NOT NULL,
+    deleted_at TIMESTAMP WITH TIME ZONE
+);
+```
+
+### Authentication Flow
+1. **Registration**
+   - User submits email and password
+   - Password is hashed using bcrypt
+   - User record is created in database
+   - JWT token is generated and returned
+
+2. **Login**
+   - User provides email and password
+   - Password is verified against hashed value
+   - JWT token is generated with user ID
+   - Token is returned to client
+
+3. **Token Management**
+   - Tokens include user ID and expiration
+   - Frontend stores token in memory
+   - Token is included in Authorization header
+   - Protected routes verify token validity
+
+### Security Measures
+- Passwords are hashed using bcrypt
+- JWT tokens are signed with a secret key
+- Email addresses must be unique
+- Automatic token expiration
+- Protected routes require valid token 

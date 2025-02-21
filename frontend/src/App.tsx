@@ -1,5 +1,5 @@
 import React from 'react'
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom'
+import { Routes, Route, Navigate } from 'react-router-dom'
 import { useAuth } from './hooks/useAuth'
 import { NotificationProvider } from './contexts/NotificationContext'
 import Layout from './components/Layout'
@@ -31,28 +31,26 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
 export default function App() {
   return (
     <NotificationProvider>
-      <Router>
-        <Routes>
-          {/* Public routes */}
-          <Route path="/login" element={<Login />} />
-          <Route path="/register" element={<Register />} />
+      <Routes>
+        {/* Public routes */}
+        <Route path="/login" element={<Login />} />
+        <Route path="/register" element={<Register />} />
 
-          {/* Protected routes */}
-          <Route
-            path="/"
-            element={
-              <ProtectedRoute>
-                <Layout />
-              </ProtectedRoute>
-            }
-          >
-            {/* Add nested routes here later */}
-            <Route index element={<Navigate to="/chat" />} />
-            <Route path="chat" element={<Chat />} />
-            <Route path="data" element={<DataManagement />} />
-          </Route>
-        </Routes>
-      </Router>
+        {/* Protected routes */}
+        <Route
+          path="/"
+          element={
+            <ProtectedRoute>
+              <Layout />
+            </ProtectedRoute>
+          }
+        >
+          {/* Add nested routes here later */}
+          <Route index element={<Navigate to="/chat" />} />
+          <Route path="chat" element={<Chat />} />
+          <Route path="data" element={<DataManagement />} />
+        </Route>
+      </Routes>
     </NotificationProvider>
   )
 } 

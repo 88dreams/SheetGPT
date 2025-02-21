@@ -1,10 +1,10 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { api } from '../utils/api'
 
 interface User {
   id: string
   email: string
-  name: string
 }
 
 interface AuthState {
@@ -27,24 +27,12 @@ export function useAuth() {
 
   const checkAuthStatus = async () => {
     try {
-      const response = await fetch('/api/v1/auth/me', {
-        credentials: 'include'
+      const user = await api.auth.me()
+      setAuthState({
+        user,
+        isAuthenticated: true,
+        isLoading: false
       })
-      
-      if (response.ok) {
-        const user = await response.json()
-        setAuthState({
-          user,
-          isAuthenticated: true,
-          isLoading: false
-        })
-      } else {
-        setAuthState({
-          user: null,
-          isAuthenticated: false,
-          isLoading: false
-        })
-      }
     } catch (error) {
       console.error('Error checking auth status:', error)
       setAuthState({
@@ -57,26 +45,14 @@ export function useAuth() {
 
   const login = async (email: string, password: string) => {
     try {
-      const response = await fetch('/api/v1/auth/login', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ email, password }),
-        credentials: 'include'
+      const response = await api.auth.login({ email, password })
+      setAuthState({
+        user: response.user,
+        isAuthenticated: true,
+        isLoading: false
       })
-
-      if (response.ok) {
-        const user = await response.json()
-        setAuthState({
-          user,
-          isAuthenticated: true,
-          isLoading: false
-        })
-        navigate('/chat')
-        return true
-      }
-      return false
+      navigate('/chat')
+      return true
     } catch (error) {
       console.error('Login error:', error)
       return false
@@ -85,10 +61,7 @@ export function useAuth() {
 
   const logout = async () => {
     try {
-      await fetch('/api/v1/auth/logout', {
-        method: 'POST',
-        credentials: 'include'
-      })
+      await api.auth.logout()
       setAuthState({
         user: null,
         isAuthenticated: false,
@@ -100,28 +73,16 @@ export function useAuth() {
     }
   }
 
-  const register = async (email: string, password: string, name: string) => {
+  const register = async (email: string, password: string) => {
     try {
-      const response = await fetch('/api/v1/auth/register', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ email, password, name }),
-        credentials: 'include'
+      const user = await api.auth.register({ email, password })
+      setAuthState({
+        user,
+        isAuthenticated: true,
+        isLoading: false
       })
-
-      if (response.ok) {
-        const user = await response.json()
-        setAuthState({
-          user,
-          isAuthenticated: true,
-          isLoading: false
-        })
-        navigate('/chat')
-        return true
-      }
-      return false
+      navigate('/chat')
+      return true
     } catch (error) {
       console.error('Registration error:', error)
       return false

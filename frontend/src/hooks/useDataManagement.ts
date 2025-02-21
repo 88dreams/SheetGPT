@@ -6,32 +6,10 @@ export function useDataManagement(dataId?: string) {
   const queryClient = useQueryClient()
   const { showNotification } = useNotification()
 
-  // Fetch all structured data
-  const {
-    data: structuredDataList,
-    isLoading: isLoadingList,
-    error: listError
-  } = useQuery<StructuredData[]>({
-    queryKey: ['structured-data'],
-    queryFn: async () => {
-      const response = await fetch('/api/v1/data')
-      if (!response.ok) {
-        const errorData = await response.json()
-        throw new Error(errorData.detail || 'Failed to fetch structured data')
-      }
-      return response.json()
-    }
-  })
-
-  // Fetch single structured data
-  const {
-    data: selectedData,
-    isLoading: isLoadingData,
-    error: dataError
-  } = useQuery<StructuredData>({
+  // Fetch structured data
+  const { data: selectedData, isLoading: isLoadingData } = useQuery<StructuredData>({
     queryKey: ['structured-data', dataId],
     queryFn: async () => {
-      if (!dataId) throw new Error('No data ID provided')
       const response = await fetch(`/api/v1/data/${dataId}`)
       if (!response.ok) {
         const errorData = await response.json()
@@ -43,14 +21,9 @@ export function useDataManagement(dataId?: string) {
   })
 
   // Fetch columns
-  const {
-    data: columns,
-    isLoading: isLoadingColumns,
-    error: columnsError
-  } = useQuery<Column[]>({
+  const { data: columns, isLoading: isLoadingColumns } = useQuery<Column[]>({
     queryKey: ['columns', dataId],
     queryFn: async () => {
-      if (!dataId) throw new Error('No data ID provided')
       const response = await fetch(`/api/v1/data/${dataId}/columns`)
       if (!response.ok) {
         const errorData = await response.json()
@@ -61,61 +34,21 @@ export function useDataManagement(dataId?: string) {
     enabled: !!dataId
   })
 
-  // Fetch change history
-  const {
-    data: changeHistory,
-    isLoading: isLoadingHistory,
-    error: historyError
-  } = useQuery<DataChange[]>({
-    queryKey: ['history', dataId],
-    queryFn: async () => {
-      if (!dataId) throw new Error('No data ID provided')
-      const response = await fetch(`/api/v1/data/${dataId}/history`)
-      if (!response.ok) {
-        const errorData = await response.json()
-        throw new Error(errorData.detail || 'Failed to fetch history')
-      }
-      return response.json()
-    },
-    enabled: !!dataId
-  })
-
-  // Update cell mutation
-  const updateCellMutation = useMutation({
-    mutationFn: async (update: CellUpdate) => {
-      if (!dataId) throw new Error('No data ID provided')
-      const response = await fetch(`/api/v1/data/${dataId}/cells`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(update),
-      })
-      if (!response.ok) {
-        const errorData = await response.json()
-        throw new Error(errorData.detail || 'Failed to update cell')
-      }
-      return response.json()
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['structured-data', dataId] })
-      showNotification('success', 'Cell updated successfully')
-    },
-    onError: (error: Error) => {
-      showNotification('error', error.message)
-    },
-  })
-
   // Update column mutation
   const updateColumnMutation = useMutation({
-    mutationFn: async ({ columnName, updates }: { columnName: string; updates: Partial<Column> }) => {
-      if (!dataId) throw new Error('No data ID provided')
+    mutationFn: async ({
+      columnName,
+      updates
+    }: {
+      columnName: string
+      updates: Partial<Column>
+    }) => {
       const response = await fetch(`/api/v1/data/${dataId}/columns/${columnName}`, {
         method: 'PUT',
         headers: {
-          'Content-Type': 'application/json',
+          'Content-Type': 'application/json'
         },
-        body: JSON.stringify(updates),
+        body: JSON.stringify(updates)
       })
       if (!response.ok) {
         const errorData = await response.json()
@@ -129,36 +62,39 @@ export function useDataManagement(dataId?: string) {
     },
     onError: (error: Error) => {
       showNotification('error', error.message)
-    },
+    }
   })
 
-  // Export data mutation
-  const exportDataMutation = useMutation({
-    mutationFn: async () => {
-      if (!dataId) throw new Error('No data ID provided')
-      const response = await fetch(`/api/v1/data/${dataId}/export`, {
-        method: 'POST',
+  // Update cell mutation
+  const updateCellMutation = useMutation({
+    mutationFn: async (update: CellUpdate) => {
+      const response = await fetch(`/api/v1/data/${dataId}/cells`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(update)
       })
       if (!response.ok) {
         const errorData = await response.json()
-        throw new Error(errorData.detail || 'Failed to export data')
+        throw new Error(errorData.detail || 'Failed to update cell')
       }
       return response.json()
     },
     onSuccess: () => {
-      showNotification('success', 'Export started successfully')
+      queryClient.invalidateQueries({ queryKey: ['structured-data', dataId] })
+      showNotification('success', 'Cell updated successfully')
     },
     onError: (error: Error) => {
       showNotification('error', error.message)
-    },
+    }
   })
 
   // Delete data mutation
-  const deleteDataMutation = useMutation({
+  const deleteMutation = useMutation({
     mutationFn: async () => {
-      if (!dataId) throw new Error('No data ID provided')
       const response = await fetch(`/api/v1/data/${dataId}`, {
-        method: 'DELETE',
+        method: 'DELETE'
       })
       if (!response.ok) {
         const errorData = await response.json()
@@ -171,38 +107,19 @@ export function useDataManagement(dataId?: string) {
     },
     onError: (error: Error) => {
       showNotification('error', error.message)
-    },
+    }
   })
 
   return {
-    // Data
-    structuredDataList,
     selectedData,
     columns,
-    changeHistory,
-    
-    // Loading states
-    isLoadingList,
     isLoadingData,
     isLoadingColumns,
-    isLoadingHistory,
-    
-    // Errors
-    listError,
-    dataError,
-    columnsError,
-    historyError,
-    
-    // Mutations
-    updateCell: updateCellMutation.mutateAsync,
-    updateColumn: updateColumnMutation.mutateAsync,
-    exportData: exportDataMutation.mutateAsync,
-    deleteData: deleteDataMutation.mutateAsync,
-    
-    // Mutation states
-    isUpdatingCell: updateCellMutation.isPending,
     isUpdatingColumn: updateColumnMutation.isPending,
-    isExporting: exportDataMutation.isPending,
-    isDeleting: deleteDataMutation.isPending,
+    isUpdatingCell: updateCellMutation.isPending,
+    isDeleting: deleteMutation.isPending,
+    updateColumn: updateColumnMutation.mutate,
+    updateCell: updateCellMutation.mutate,
+    deleteData: deleteMutation.mutate
   }
 } 

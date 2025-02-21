@@ -2,211 +2,190 @@
 
 ## Overview
 
-SheetGPT implements a modern, scalable architecture based on FastAPI for the backend, with clear separation of concerns and modular design. The architecture is designed to handle real-time conversations while maintaining structured data organization and efficient export capabilities.
+The SheetGPT API is built using FastAPI, providing a modern, fast, and type-safe backend for the application. The architecture follows RESTful principles and implements a clean, modular design.
 
 ## Core Components
 
-### 1. API Layer (FastAPI)
-- **Why FastAPI?** 
-  - Modern, fast, and async-capable framework
-  - Automatic OpenAPI documentation
-  - Type checking and validation using Pydantic
-  - Excellent WebSocket support for real-time chat
-- **Current Implementation**:
-  - Async request handling
-  - JWT-based authentication
-  - Modular routing with prefix support
-  - Environment-based configuration
-  - ChatGPT integration with structured responses
+### 1. API Layer
+- **FastAPI Application**
+  - Route registration
+  - Middleware configuration
+  - OpenAPI documentation
+  - CORS and security settings
+
+- **Endpoint Structure**
+  ```
+  /api/v1/
+  ├── auth/
+  │   ├── register
+  │   ├── login
+  │   └── me
+  ├── chat/
+  │   ├── conversations
+  │   └── messages
+  ├── data/
+  │   ├── structured-data
+  │   ├── columns
+  │   └── history
+  └── export/
+      ├── sheets
+      └── templates
+  ```
 
 ### 2. Service Layer
-- **Authentication Service** (Implemented)
-  - User registration and login
-  - Password hashing with bcrypt
-  - JWT token generation and validation
-  - Protected route access control
-  
-- **Conversation Service** (Implemented)
-  - ChatGPT interactions with GPT-4
-  - Conversation context management
-  - Message history tracking
-  - Structured data extraction
-  - Custom response formatting
-  
-- **Data Structure Service** (Planned)
-  - Processes ChatGPT responses into structured formats
-  - Maintains data schemas and validation
-  - Handles data versioning and updates
+- **Authentication Service**
+  - User management
+  - Token handling
+  - Password hashing
 
-- **Export Service** (Planned)
-  - Manages connections to Google Sheets API
-  - Handles Excel file generation
-  - Implements data formatting for different export types
+- **Chat Service**
+  - Conversation management
+  - Message processing
+  - GPT integration
+  - Data extraction
 
-### 3. Data Layer
-- **Schema Design**
-  - SQLAlchemy ORM models
-  - UUID primary keys
-  - Timestamp tracking (created, updated, deleted)
-  - JSON fields for flexible data structures
-  - Relationship management between models
+- **Data Management Service**
+  - Structured data operations
+  - Column configuration
+  - Change tracking
+  - Data validation
 
-- **Storage Strategy**
-  - PostgreSQL with async support
-  - Connection pooling for performance
-  - Alembic migrations for schema changes
-  - Soft deletion for data retention
-  - Efficient query optimization
+- **Export Service**
+  - Google Sheets integration
+  - Template management
+  - Export processing
+  - Status tracking
 
-### 4. Export Layer
-- **Google Sheets Service** (Implemented)
-  - OAuth2 authentication ✓
-  - Template management (planned)
-  - Data conversion ✓
-  - Real-time updates (planned)
-  - Error handling ✓
+### 3. Database Layer
+- **Models**
+  - User
+  - Conversation
+  - Message
+  - StructuredData
+  - DataColumn
+  - DataChangeHistory
 
-- **Template System** (In Progress)
-  - Predefined layouts
-  - Dynamic mapping
-  - Formatting rules
-  - Validation rules
-
-- **Export Management** (Implemented)
-  - Job tracking ✓
-  - Status monitoring ✓
-  - Error recovery ✓
-  - Rate limiting (planned)
-
-## Data Flow
-
-1. User Input → Authentication Service
-   - Request validation
-   - Token verification
-   - User context injection
-
-2. Authenticated Request → Conversation Service
-   - Message validation
-   - Context preparation
-   - ChatGPT interaction
-   - Response processing
-   - Structured data extraction
-
-3. Service Layer → Data Layer
-   - Async database operations
-   - Transaction management
-   - Data integrity checks
-   - Relationship maintenance
-
-4. Export Flow → Google Sheets (Implemented)
-   - OAuth2 authentication ✓
-   - Token management ✓
-   - Spreadsheet creation ✓
-   - Data conversion ✓
-   - Status tracking ✓
+- **Database Operations**
+  - Async SQLAlchemy
+  - Transaction management
+  - Connection pooling
+  - Migration handling
 
 ## Design Principles
 
-1. **Modularity**
-   - Independent service components
-   - Clear interface boundaries
-   - Dependency injection pattern
-   - Reusable utilities
-   - Pluggable AI models
+### 1. Modularity
+- Separation of concerns
+- Independent services
+- Reusable components
+- Clear dependencies
 
-2. **Scalability**
-   - Async database operations
-   - Connection pooling
-   - Stateless authentication
-   - Resource cleanup
-   - Efficient context management
+### 2. Type Safety
+- Pydantic models
+- Type hints
+- Schema validation
+- Error handling
 
-3. **Maintainability**
-   - Type annotations
-   - Consistent code formatting
-   - Comprehensive documentation
-   - Error tracking
-   - Version control
+### 3. Security
+- JWT authentication
+- Role-based access
+- Input validation
+- Rate limiting
 
-4. **Extensibility**
-   - Modular router structure
-   - Plugin-style services
-   - Configurable components
-   - Feature flags support
-   - Custom data formats
+### 4. Performance
+- Async operations
+- Connection pooling
+- Query optimization
+- Caching strategy
 
-5. **Export Integration**
-   - Template-based design
-   - Asynchronous processing
-   - Batch operations
-   - Error recovery
-   - Real-time updates
+## Data Flow
 
-## Security Considerations
+### 1. Request Flow
+```
+Client Request
+  → Authentication Middleware
+  → Route Handler
+  → Service Layer
+  → Database Layer
+  → Response Processing
+  → Client Response
+```
 
-- **Authentication**
-  - Secure password hashing (bcrypt)
-  - JWT token expiration
-  - Protected route decorators
-  - Role-based access (planned)
-  - Session management
-  - OAuth2 token management
-  - API key security
-  - Service account management
+### 2. WebSocket Flow (Future)
+```
+Client Connection
+  → Authentication
+  → Channel Subscription
+  → Message Processing
+  → Broadcast/Direct Message
+  → Client Update
+```
 
-- **Data Protection**
-  - Environment-based secrets
-  - Database connection security
-  - Input validation
-  - SQL injection prevention
-  - API key management
-  - Export permissions
-  - Sheet access control
-  - Data retention policies
+## Integration Points
 
-- **API Security**
-  - CORS configuration
-  - Rate limiting (planned)
-  - Request validation
-  - Error message sanitization
-  - OpenAI key protection
-  - Rate limiting per service
-  - Quota management
-  - Access auditing
+### 1. External Services
+- OpenAI GPT API
+- Google Sheets API
+- Authentication providers
+- Monitoring services
 
-## Future Considerations
+### 2. Internal Services
+- Frontend application
+- Background tasks
+- Caching layer
+- Logging system
 
-1. **Authentication Enhancements**
-   - Refresh token implementation
-   - OAuth integration
-   - Two-factor authentication
-   - Session management
-   - Role-based permissions
+## Error Handling
 
-2. **Performance Optimization**
-   - Response caching
-   - Query optimization
-   - Batch processing
-   - Connection pooling tuning
-   - Context window optimization
+### 1. HTTP Errors
+- Standard HTTP status codes
+- Detailed error messages
+- Error tracking
+- Client-friendly responses
 
-3. **Monitoring**
-   - Performance metrics
-   - Error tracking
-   - Usage analytics
-   - Health checks
-   - Cost monitoring
+### 2. Validation Errors
+- Request validation
+- Data validation
+- Business rule validation
+- Response validation
 
-4. **Integration**
-   - Additional AI models
-   - Export formats
-   - Third-party services
-   - Webhook support
-   - API versioning
+## Security Measures
 
-5. **Export Enhancements**
-   - Additional export formats
-   - Advanced templates
-   - Real-time collaboration
-   - Data validation rules
-   - Custom formatting options 
+### 1. Authentication
+- JWT tokens
+- Token refresh
+- Session management
+- Access control
+
+### 2. Data Protection
+- Input sanitization
+- SQL injection prevention
+- XSS protection
+- CORS configuration
+
+## Monitoring and Logging
+
+### 1. Application Metrics
+- Request tracking
+- Performance metrics
+- Error rates
+- Resource usage
+
+### 2. Logging
+- Structured logging
+- Error tracking
+- Audit trails
+- Performance monitoring
+
+## Future Enhancements
+
+### 1. Planned Features
+- Real-time updates
+- Advanced caching
+- Rate limiting
+- API versioning
+
+### 2. Scalability
+- Horizontal scaling
+- Load balancing
+- Database sharding
+- Cache distribution 

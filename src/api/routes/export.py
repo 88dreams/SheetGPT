@@ -10,6 +10,7 @@ from src.services.export.template_service import SheetTemplate
 from src.utils.database import get_db
 from src.utils.security import get_current_user_id
 from src.config.sheets_config import GoogleSheetsConfig
+from src.services.data_management import DataManagementService
 
 # Add these new model classes at the top
 class SpreadsheetCreate(BaseModel):
@@ -17,6 +18,7 @@ class SpreadsheetCreate(BaseModel):
     title: str
     template_name: Optional[str] = "default"
     data: Optional[List[List[Any]]] = None
+    data_id: Optional[UUID] = None
 
 class SpreadsheetUpdate(BaseModel):
     """Schema for updating spreadsheet data."""
@@ -97,19 +99,91 @@ async def check_auth_status() -> Dict[str, bool]:
             detail=f"Failed to check authorization status: {str(e)}"
         )
 
+@router.get("/preview/{data_id}")
+async def get_export_preview(
+    data_id: UUID,
+    template_name: str = "default",
+    user_id: UUID = Depends(get_current_user_id),
+    db: AsyncSession = Depends(get_db)
+) -> Dict[str, Any]:
+    """Get preview of data export with selected template."""
+    try:
+        # Get data and columns
+        data_service = DataManagementService(db)
+        data = await data_service.get_data_by_id(data_id, user_id)
+        columns = await data_service.get_columns(data_id, user_id)
+
+        # Get active columns in correct order
+        active_columns = sorted(
+            [col for col in columns if col.is_active],
+            key=lambda x: x.order
+        )
+
+        # Get column names
+        column_names = [col.name for col in active_columns]
+
+        # Get sample data (first 5 rows)
+        sample_data = []
+        raw_data = data.data.get("rows", [])
+        for row in raw_data[:5]:
+            sample_row = []
+            for col in active_columns:
+                sample_row.append(row.get(col.name, ""))
+            sample_data.append(sample_row)
+
+        return {
+            "columns": column_names,
+            "sampleData": sample_data
+        }
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e)
+        )
+
 @router.post("/sheets", response_model=Dict[str, Any])
 async def create_spreadsheet(
     data: SpreadsheetCreate,
-    user_id: UUID = Depends(get_current_user_id)
+    user_id: UUID = Depends(get_current_user_id),
+    db: AsyncSession = Depends(get_db)
 ) -> Dict[str, Any]:
-    """Create a new spreadsheet with optional template and data."""
+    """Create a new spreadsheet with structured data."""
     try:
+        # If data_id is provided, fetch and format the data
+        if data.data_id:
+            data_service = DataManagementService(db)
+            structured_data = await data_service.get_data_by_id(data.data_id, user_id)
+            columns = await data_service.get_columns(data.data_id, user_id)
+
+            # Get active columns in correct order
+            active_columns = sorted(
+                [col for col in columns if col.is_active],
+                key=lambda x: x.order
+            )
+
+            # Prepare data for export
+            column_names = [col.name for col in active_columns]
+            rows = structured_data.data.get("rows", [])
+            export_data = [column_names]
+            for row in rows:
+                export_row = []
+                for col in active_columns:
+                    export_row.append(row.get(col.name, ""))
+                export_data.append(export_row)
+        else:
+            export_data = data.data
+
+        # Create spreadsheet with template
         result = await sheets_service.create_spreadsheet_with_template(
-            title=data.title,
+            title=data.title or "Exported Data",
             template_name=data.template_name,
-            data=data.data
+            data=export_data
         )
-        return result
+
+        return {
+            "spreadsheetId": result.get("spreadsheetId"),
+            "spreadsheetUrl": result.get("spreadsheetUrl")
+        }
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,

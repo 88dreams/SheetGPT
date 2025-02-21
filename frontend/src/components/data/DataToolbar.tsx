@@ -1,27 +1,22 @@
 import React, { useState } from 'react'
 import { useDataManagement } from '../../hooks/useDataManagement'
 import LoadingSpinner from '../common/LoadingSpinner'
+import ExportDialog from './ExportDialog'
 
 interface DataToolbarProps {
-  dataId: string | null
+  selectedDataId: string | null
 }
 
-const DataToolbar: React.FC<DataToolbarProps> = ({ dataId }) => {
+const DataToolbar: React.FC<DataToolbarProps> = ({ selectedDataId }) => {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
+  const [showExportDialog, setShowExportDialog] = useState(false)
   const {
-    exportData,
     deleteData,
-    isExporting,
     isDeleting
-  } = useDataManagement(dataId || '')
-
-  const handleExport = async () => {
-    if (!dataId || isExporting) return
-    await exportData()
-  }
+  } = useDataManagement(selectedDataId || '')
 
   const handleDelete = async () => {
-    if (!dataId || isDeleting) return
+    if (!selectedDataId || isDeleting) return
     await deleteData()
     setShowDeleteConfirm(false)
   }
@@ -31,24 +26,17 @@ const DataToolbar: React.FC<DataToolbarProps> = ({ dataId }) => {
       <h3 className="text-lg font-medium">Data Management Tools</h3>
       <div className="flex space-x-4">
         <button
-          onClick={handleExport}
-          disabled={!dataId || isExporting}
-          className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
+          onClick={() => setShowExportDialog(true)}
+          disabled={!selectedDataId}
+          className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          {isExporting ? (
-            <>
-              <LoadingSpinner size="small" />
-              <span>Exporting...</span>
-            </>
-          ) : (
-            <span>Export to Sheets</span>
-          )}
+          Export to Sheets
         </button>
         
         {!showDeleteConfirm ? (
           <button
             onClick={() => setShowDeleteConfirm(true)}
-            disabled={!dataId}
+            disabled={!selectedDataId}
             className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             Delete Data
@@ -80,6 +68,14 @@ const DataToolbar: React.FC<DataToolbarProps> = ({ dataId }) => {
           </div>
         )}
       </div>
+
+      {selectedDataId && showExportDialog && (
+        <ExportDialog
+          isOpen={showExportDialog}
+          onClose={() => setShowExportDialog(false)}
+          dataId={selectedDataId}
+        />
+      )}
     </div>
   )
 }

@@ -188,4 +188,124 @@ Client Connection
 - Horizontal scaling
 - Load balancing
 - Database sharding
-- Cache distribution 
+- Cache distribution
+
+## Authentication System
+
+### Overview
+The authentication system uses a token-based approach with JWT (JSON Web Tokens). The system is designed to be secure, performant, and provide a smooth user experience.
+
+### Components
+
+1. Authentication Hook (`useAuth`)
+   - Central management of authentication state
+   - Handles login, logout, and registration
+   - Manages token storage and validation
+   - Implements throttling and caching for performance
+   - Provides mount-aware state updates
+
+2. Token Management
+   - Storage: LocalStorage for persistence
+   - Validation: Regular checks with throttling
+   - Cleanup: Automatic removal on 401 errors
+   - State: Tracked via React state and refs
+
+3. API Client Integration
+   - Automatic token injection in requests
+   - Error handling for auth failures
+   - Retry logic for failed requests
+   - Comprehensive request logging
+
+### State Management
+```typescript
+interface AuthState {
+  user: User | null
+  isAuthenticated: boolean
+  isLoading: boolean
+  isReady: boolean
+}
+```
+
+### Performance Optimizations
+1. Auth Check Throttling
+   - Minimum 5-second interval between checks
+   - Caching of successful checks
+   - Prevention of simultaneous checks
+
+2. Component Lifecycle Management
+   - Mount status tracking
+   - Cleanup on unmount
+   - Prevention of state updates after unmount
+
+3. Error Handling
+   - Specific handling for 401 errors
+   - Automatic token cleanup
+   - User-friendly error messages
+   - Detailed logging for debugging
+
+### Security Considerations
+1. Token Storage
+   - Secure storage in localStorage
+   - Automatic cleanup on expiry/error
+   - No sensitive data in token payload
+
+2. Request Security
+   - HTTPS only
+   - Token-based authentication
+   - Protected routes
+   - CORS configuration
+
+### Future Enhancements
+1. Token refresh mechanism
+2. Remember me functionality
+3. Session timeout handling
+4. Enhanced security measures
+
+## Authentication Endpoints
+
+### POST /api/v1/auth/register
+Register a new user
+- Request:
+  ```json
+  {
+    "email": "user@example.com",
+    "password": "securepassword"
+  }
+  ```
+- Response:
+  ```json
+  {
+    "email": "user@example.com",
+    "is_active": true,
+    "is_superuser": false
+  }
+  ```
+
+### POST /api/v1/auth/login
+Authenticate user and get token
+- Request:
+  ```json
+  {
+    "email": "user@example.com",
+    "password": "securepassword"
+  }
+  ```
+- Response:
+  ```json
+  {
+    "access_token": "eyJ0eXAiOiJKV1QiLCJhbGc...",
+    "token_type": "bearer",
+    "expires_in": 1800
+  }
+  ```
+
+### GET /api/v1/auth/me
+Get current user information (requires authentication)
+- Response:
+  ```json
+  {
+    "email": "user@example.com",
+    "is_active": true,
+    "is_superuser": false
+  }
+  ``` 

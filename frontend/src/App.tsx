@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useState, useEffect } from 'react'
 import { Routes, Route, Navigate } from 'react-router-dom'
 import { useAuth } from './hooks/useAuth'
 import { NotificationProvider } from './contexts/NotificationContext'
@@ -11,21 +11,40 @@ import LoadingSpinner from './components/common/LoadingSpinner'
 
 // Protected route wrapper component
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
-  const { isAuthenticated, isLoading } = useAuth()
+  const { isAuthenticated, isLoading, isReady } = useAuth()
+  const [showContent, setShowContent] = useState(false)
 
-  if (isLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <LoadingSpinner size="large" />
-      </div>
-    )
-  }
+  // Use an effect to handle the transition
+  useEffect(() => {
+    if (isReady && isAuthenticated) {
+      // Small delay to ensure smooth transition
+      const timer = setTimeout(() => {
+        setShowContent(true)
+      }, 100)
+      return () => clearTimeout(timer)
+    } else {
+      setShowContent(false)
+    }
+  }, [isReady, isAuthenticated])
 
-  if (!isAuthenticated) {
-    return <Navigate to="/login" />
-  }
-
-  return <>{children}</>
+  // Always render a container to prevent remounting
+  return (
+    <div className="min-h-screen">
+      {!isReady || isLoading ? (
+        <div className="h-screen flex items-center justify-center">
+          <LoadingSpinner size="large" />
+        </div>
+      ) : !isAuthenticated ? (
+        <Navigate to="/login" replace />
+      ) : showContent ? (
+        children
+      ) : (
+        <div className="h-screen flex items-center justify-center">
+          <LoadingSpinner size="large" />
+        </div>
+      )}
+    </div>
+  )
 }
 
 export default function App() {

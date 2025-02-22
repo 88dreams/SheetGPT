@@ -15,18 +15,28 @@ export default function Login() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
+    console.log('Login form submitted:', { email, timestamp: new Date().toISOString() });
 
     try {
       const success = await login(email, password);
+      console.log('Login attempt result:', { 
+        success, 
+        timestamp: new Date().toISOString() 
+      });
+      
       if (success) {
         showNotification('success', 'Login successful');
+        console.log('Navigating to chat page...');
         navigate('/chat');
       } else {
         showNotification('error', 'Invalid email or password');
       }
     } catch (error) {
+      console.error('Login error:', {
+        error,
+        timestamp: new Date().toISOString()
+      });
       showNotification('error', 'An error occurred during login');
-      console.error('Login error:', error);
     } finally {
       setIsLoading(false);
     }

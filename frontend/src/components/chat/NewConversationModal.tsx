@@ -6,16 +6,17 @@ interface NewConversationModalProps {
   isOpen: boolean
   onClose: () => void
   onCreate: (title: string, description?: string) => Promise<void>
+  isLoading?: boolean
 }
 
 const NewConversationModal: React.FC<NewConversationModalProps> = ({
   isOpen,
   onClose,
-  onCreate
+  onCreate,
+  isLoading = false
 }) => {
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
-  const [isLoading, setIsLoading] = useState(false)
   const { showNotification } = useNotification()
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -25,17 +26,12 @@ const NewConversationModal: React.FC<NewConversationModalProps> = ({
       return
     }
 
-    setIsLoading(true)
     try {
       await onCreate(title.trim(), description.trim() || undefined)
       setTitle('')
       setDescription('')
-      showNotification('success', 'Conversation created successfully')
-      onClose()
     } catch (error) {
-      showNotification('error', 'Failed to create conversation')
-    } finally {
-      setIsLoading(false)
+      // Error is handled by the parent component
     }
   }
 

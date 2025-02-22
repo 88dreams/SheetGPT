@@ -1,15 +1,10 @@
 import React, { useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useNotification } from '../../contexts/NotificationContext'
+import { api } from '../../utils/api'
 import NewConversationModal from './NewConversationModal'
 import LoadingSpinner from '../common/LoadingSpinner'
-
-interface Conversation {
-  id: string
-  title: string
-  description?: string
-  created_at: string
-}
+import type { Conversation } from '../../utils/api'
 
 interface ConversationListProps {
   conversations: Conversation[]
@@ -29,23 +24,12 @@ const ConversationList: React.FC<ConversationListProps> = ({
   const { showNotification } = useNotification()
 
   const createConversationMutation = useMutation({
-    mutationFn: async (data: { title: string; description?: string }) => {
-      const response = await fetch('/api/v1/chat/conversations', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(data),
-      })
-      if (!response.ok) {
-        const errorData = await response.json()
-        throw new Error(errorData.detail || 'Failed to create conversation')
-      }
-      return response.json()
-    },
+    mutationFn: api.chat.createConversation,
     onSuccess: (newConversation) => {
       queryClient.invalidateQueries({ queryKey: ['conversations'] })
       onSelect(newConversation.id)
+      setIsModalOpen(false)
+      showNotification('success', 'Conversation created successfully')
     },
     onError: (error: Error) => {
       showNotification('error', error.message)
@@ -108,6 +92,7 @@ const ConversationList: React.FC<ConversationListProps> = ({
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
         onCreate={handleCreateConversation}
+        isLoading={createConversationMutation.isPending}
       />
     </>
   )

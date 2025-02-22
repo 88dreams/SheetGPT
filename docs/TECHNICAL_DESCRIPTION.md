@@ -140,66 +140,53 @@ class DataChangeHistory(Base):
 
 ## Frontend Architecture
 
-### Component Structure
+### 1. API Client
+- **Centralized Request Handling**
+  - Unified request function with type safety
+  - Automatic token management
+  - Consistent error handling
+  - Environment-aware configuration
 
-1. **Layout Components**
-   - AppLayout
-   - Navbar
-   - Sidebar
-   - Footer
+- **Authentication Flow**
+  - JWT-based authentication
+  - Token storage in localStorage
+  - Automatic token inclusion in requests
+  - Protected route handling
 
-2. **Authentication Components**
-   - LoginForm
-   - RegisterForm
-   - PasswordReset
+- **Type Safety**
+  - Strong TypeScript integration
+  - API response type definitions
+  - Environment variable typing
+  - Runtime type checking
 
-3. **Chat Components**
-   - ChatInterface
-   - MessageList
-   - MessageInput
-   - ConversationList
+### 2. Component Structure
+- **Layout Components**
+  - Main layout with navigation
+  - Protected route wrapper
+  - Responsive design patterns
 
-4. **Data Management Components**
-   - DataTable
-   - ColumnManager
-   - DataToolbar
-   - ExportDialog
-   - ChangeHistory
+- **Feature Components**
+  - Chat interface with real-time updates
+  - Data management interface
+  - Modal components for actions
+  - Loading and error states
 
-### State Management
+- **State Management**
+  - React Query for server state
+  - Context for global state
+  - Local state for UI components
 
-1. **Authentication State**
-   - User information
-   - Token management
-   - Login status
+### 3. Error Handling
+- **Client-Side Validation**
+  - Form input validation
+  - Data type checking
+  - Environment variable validation
 
-2. **Chat State**
-   - Active conversation
-   - Message history
-   - Real-time updates
-
-3. **Data Management State**
-   - Structured data
-   - Column configurations
-   - Change history
-   - Export status
-
-### API Integration
-
-1. **Authentication API**
-   - Login/Logout
-   - Token refresh
-   - Password management
-
-2. **Chat API**
-   - Conversation management
-   - Message handling
-   - WebSocket connection
-
-3. **Data Management API**
-   - Data operations
-   - Column management
-   - Export functionality
+- **API Error Handling**
+  - Consistent error format
+  - User-friendly error messages
+  - Error boundary implementation
+  - Retry mechanisms (planned)
 
 ## Security Implementation
 
@@ -297,53 +284,37 @@ src/
 ### 2. Component Architecture
 
 #### Common Components
-- **LoadingSpinner**
-  - Reusable loading indicator
-  - Configurable sizes (small, medium, large)
-  - Consistent styling with Tailwind CSS
-  - Used across all async operations
-
-- **Notification**
-  - Toast notification system
-  - Supports success, error, and info types
-  - Auto-dismissal with configurable duration
-  - Consistent styling across the application
+- **LoadingSpinner**: A reusable loading spinner component that supports different sizes (small, medium, large) and custom styling through className props. Used across the application to indicate loading states.
 
 #### Context Providers
-- **NotificationContext**
-  - Global notification management
+- **NotificationContext**: Global notification management
   - Provides showNotification method
   - Handles notification lifecycle
   - Ensures consistent notification display
 
 #### Authentication Components
-- **Login**
-  - Form validation
+- **Login**: Form validation
   - Loading states during submission
   - Error handling with notifications
   - Disabled controls during processing
 
-- **Register**
-  - Extended form validation
+- **Register**: Extended form validation
   - Password confirmation
   - Loading states and error handling
   - User feedback during registration
 
 #### Chat Interface
-- **ConversationList**
-  - Displays all user conversations
+- **ConversationList**: Displays all user conversations
   - Handles conversation selection
   - Loading states for data fetching
   - New conversation creation
 
-- **MessageThread**
-  - Displays conversation messages
+- **MessageThread**: Displays conversation messages
   - Handles different message types
   - Loading states for message fetching
   - Auto-scrolling to latest messages
 
-- **ChatInput**
-  - Message composition
+- **ChatInput**: Message composition
   - Send message handling
   - Loading states during sending
   - Error handling with notifications
@@ -627,4 +598,45 @@ CREATE TABLE users (
 - JWT tokens are signed with a secret key
 - Email addresses must be unique
 - Automatic token expiration
-- Protected routes require valid token 
+- Protected routes require valid token
+
+## Frontend Components
+
+### Common Components
+- `LoadingSpinner`: A reusable loading spinner component that supports different sizes (small, medium, large) and custom styling through className props. Used across the application to indicate loading states.
+
+### Chat Components
+- `NewConversationModal`: A modal component for creating new conversations. Features include:
+  - Title and optional description input fields
+  - Loading state handling during conversation creation
+  - Form validation
+  - Error handling through notification system
+  - Disabled controls during submission
+  - Visual feedback during loading
+
+### API Integration
+The frontend communicates with the backend through a centralized API client (`api.ts`) that:
+- Manages authentication tokens
+- Handles API requests with proper headers
+- Provides type-safe interfaces for API responses
+- Implements chat-related endpoints (createConversation, getConversations, sendMessage) 
+
+### TypeScript Configuration
+
+1. **Environment Variables**
+   - Type definitions for Vite environment variables
+   - Consistent type declarations across the application
+   - Runtime type safety for configuration values
+   - Development and production environment handling
+
+2. **Type Safety**
+   - Strict type checking enabled
+   - Comprehensive interface definitions
+   - Proper type exports and imports
+   - Environment-aware type declarations
+
+3. **Module System**
+   - ES Modules for all TypeScript files
+   - Proper module augmentation
+   - Type declaration files (.d.ts)
+   - Module resolution configuration 

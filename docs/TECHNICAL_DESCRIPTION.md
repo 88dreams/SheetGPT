@@ -640,3 +640,125 @@ The frontend communicates with the backend through a centralized API client (`ap
    - Proper module augmentation
    - Type declaration files (.d.ts)
    - Module resolution configuration 
+
+## Authentication Implementation
+
+### useAuth Hook Implementation
+The authentication system is built around a custom React hook that manages all aspects of user authentication. Here's a detailed breakdown of its implementation:
+
+```typescript
+// Core state management
+const [authState, setAuthState] = useState<AuthState>({
+  user: null,
+  isAuthenticated: false,
+  isLoading: true,
+  isReady: false
+})
+
+// Performance optimization refs
+const authCheckInProgress = React.useRef(false)
+const initialAuthCheckDone = React.useRef(false)
+const isMounted = React.useRef(true)
+const lastAuthCheck = React.useRef<number>(0)
+const AUTH_CHECK_THROTTLE = 5000
+```
+
+### Key Functions
+
+1. Login Process
+```typescript
+const login = async (email: string, password: string) => {
+  // Set loading state
+  setAuthState(prev => ({ ...prev, isLoading: true }))
+  
+  try {
+    // Get token from login endpoint
+    const response = await api.auth.login({ email, password })
+    localStorage.setItem('auth_token', response.access_token)
+    
+    // Fetch user data immediately
+    const user = await api.auth.me()
+    
+    // Update auth state directly
+    setAuthState({
+      user,
+      isAuthenticated: true,
+      isLoading: false,
+      isReady: true
+    })
+    lastAuthCheck.current = Date.now()
+    
+    return true
+  } catch (error) {
+    // Handle errors and cleanup
+    localStorage.removeItem('auth_token')
+    setAuthState({
+      user: null,
+      isAuthenticated: false,
+      isLoading: false,
+      isReady: true
+    })
+    return false
+  }
+}
+```
+
+2. Auth Check Process
+```typescript
+const checkAuthStatus = async (force: boolean = false) => {
+  // Prevent duplicate checks
+  if (authCheckInProgress.current) return
+  
+  // Apply throttling
+  const now = Date.now()
+  if (!force && now - lastAuthCheck.current < AUTH_CHECK_THROTTLE) return
+  
+  // Perform check and update state
+  authCheckInProgress.current = true
+  try {
+    const user = await api.auth.me()
+    setAuthState({
+      user,
+      isAuthenticated: true,
+      isLoading: false,
+      isReady: true
+    })
+    lastAuthCheck.current = now
+  } catch (error) {
+    // Handle 401 errors
+    if (error.message.includes('401')) {
+      localStorage.removeItem('auth_token')
+    }
+    setAuthState({
+      user: null,
+      isAuthenticated: false,
+      isLoading: false,
+      isReady: true
+    })
+  } finally {
+    authCheckInProgress.current = false
+  }
+}
+```
+
+### Recent Improvements
+
+1. Race Condition Fix
+   - Removed dependency on async state updates
+   - Direct user data fetch after login
+   - Immediate state updates
+
+2. Performance Optimization
+   - Added throttling for auth checks
+   - Implemented check caching
+   - Prevented duplicate checks
+
+3. Component Lifecycle
+   - Added mount tracking
+   - Proper cleanup on unmount
+   - Prevention of state updates after unmount
+
+4. Error Handling
+   - Specific handling for 401 errors
+   - Automatic token cleanup
+   - Comprehensive error logging 

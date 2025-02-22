@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   frontend:
     build: 
@@ -28,6 +26,7 @@ services:
       - DEBUG=True
       - DATABASE_URL=postgresql+asyncpg://postgres:postgres@db:5432/sheetgpt
       - PYTHONPATH=/app
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
     depends_on:
       - db
 

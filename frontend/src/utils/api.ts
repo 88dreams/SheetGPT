@@ -1,3 +1,15 @@
+/// <reference types="vite/client" />
+
+import axios from 'axios';
+
+const apiClient = axios.create({
+  baseURL: 'http://localhost:8000',
+  withCredentials: true,
+  headers: {
+    'Content-Type': 'application/json',
+  },
+});
+
 // Types
 export interface TokenResponse {
   access_token: string
@@ -30,13 +42,24 @@ export interface Message {
   meta_data: Record<string, any>
 }
 
+export interface StructuredData {
+  id: string
+  conversation_id: string
+  data_type: string
+  schema_version: string
+  data: Record<string, any>
+  meta_data: Record<string, any>
+  created_at: string
+  updated_at: string
+}
+
 interface RequestOptions extends Omit<RequestInit, 'headers'> {
   requiresAuth?: boolean
   headers?: Record<string, string>
 }
 
 // API URL configuration
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000'
+const API_URL = (import.meta.env.VITE_API_URL as string) || 'http://localhost:8000'
 const API_PREFIX = '/api/v1'
 
 // Token storage
@@ -75,7 +98,8 @@ async function request<T>(endpoint: string, options: RequestOptions = {}): Promi
   console.log(`Making request to: ${url}`, {
     method: options.method || 'GET',
     requiresAuth: options.requiresAuth,
-    hasToken: !!requestHeaders['Authorization']
+    hasToken: !!requestHeaders['Authorization'],
+    body: options.body ? JSON.parse(options.body as string) : undefined
   })
 
   try {
@@ -87,18 +111,30 @@ async function request<T>(endpoint: string, options: RequestOptions = {}): Promi
     console.log(`Response from ${endpoint}:`, {
       status: response.status,
       ok: response.ok,
-      statusText: response.statusText
+      statusText: response.statusText,
+      headers: Object.fromEntries(response.headers.entries())
     })
 
     if (!response.ok) {
       let errorDetail
       try {
         const errorData = await response.json()
+        console.error(`API Error Details:`, {
+          endpoint,
+          status: response.status,
+          errorData,
+          headers: Object.fromEntries(response.headers.entries())
+        })
         errorDetail = errorData.detail || `Request failed with status ${response.status}`
-      } catch {
+      } catch (parseError) {
+        console.error(`Failed to parse error response:`, {
+          endpoint,
+          status: response.status,
+          parseError,
+          responseText: await response.text()
+        })
         errorDetail = `HTTP error! status: ${response.status}`
       }
-      console.error(`API Error for ${endpoint}:`, errorDetail)
       throw new Error(errorDetail)
     }
 
@@ -106,11 +142,18 @@ async function request<T>(endpoint: string, options: RequestOptions = {}): Promi
     console.log(`Successful response from ${endpoint}:`, {
       dataType: typeof data,
       isArray: Array.isArray(data),
-      length: Array.isArray(data) ? data.length : undefined
+      length: Array.isArray(data) ? data.length : undefined,
+      data: data
     })
     return data
   } catch (error) {
-    console.error(`Request failed for ${endpoint}:`, error)
+    console.error(`Request failed for ${endpoint}:`, {
+      error,
+      url,
+      method: options.method || 'GET',
+      headers: requestHeaders,
+      body: options.body ? JSON.parse(options.body as string) : undefined
+    })
     if (error instanceof Error) {
       throw new Error(`API request failed: ${error.message}`)
     }
@@ -158,11 +201,77 @@ export const api = {
     getConversation: (id: string): Promise<Conversation> =>
       request(`/chat/conversations/${id}`, { requiresAuth: true }),
 
-    sendMessage: (conversationId: string, content: string): Promise<Message> =>
-      request(`/chat/conversations/${conversationId}/messages`, {
+    sendMessage: async (
+      conversationId: string,
+      content: string,
+      structuredFormat?: Record<string, any>,
+      onChunk?: (chunk: string) => void
+    ): Promise<Message> => {
+      const token = getToken()
+      if (!token) throw new Error('No authentication token')
+
+      const response = await fetch(`${API_URL}${API_PREFIX}/chat/conversations/${conversationId}/messages`, {
         method: 'POST',
-        body: JSON.stringify({ content }),
-        requiresAuth: true
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ 
+          content,
+          role: 'user',
+          structured_format: structuredFormat
+        })
       })
+
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.detail || `HTTP error! status: ${response.status}`)
+      }
+
+      if (!response.body) throw new Error('No response body')
+
+      const reader = response.body.getReader()
+      const decoder = new TextDecoder()
+      let fullResponse = ''
+
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+
+        const chunk = decoder.decode(value)
+        const lines = chunk.split('\n')
+        
+        for (const line of lines) {
+          if (line.startsWith('data: ')) {
+            const data = JSON.parse(line.slice(6))
+            if (data.text) {
+              fullResponse += data.text
+              if (onChunk) onChunk(data.text)
+            }
+          }
+        }
+      }
+
+      // Return a Message object with the complete response
+      return {
+        id: crypto.randomUUID(),
+        role: 'assistant',
+        content: fullResponse,
+        created_at: new Date().toISOString(),
+        conversation_id: conversationId,
+        meta_data: {}
+      }
+    }
+  },
+
+  data: {
+    getStructuredData: (): Promise<StructuredData[]> =>
+      request('/data', { requiresAuth: true }),
+
+    getStructuredDataById: (id: string): Promise<StructuredData> =>
+      request(`/data/${id}`, { requiresAuth: true }),
+
+    getStructuredDataByMessageId: (messageId: string): Promise<StructuredData> =>
+      request(`/data/by-message/${messageId}`, { requiresAuth: true })
   }
 } 

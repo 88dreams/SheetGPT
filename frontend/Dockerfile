@@ -9,6 +9,7 @@ COPY package*.json ./
 
 # Install dependencies
 RUN npm install
+RUN npm install tailwind-scrollbar@3.0.5 --save-dev
 
 # Copy project files
 COPY . .

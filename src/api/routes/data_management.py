@@ -20,6 +20,16 @@ from src.schemas.data_management import (
 
 router = APIRouter()
 
+@router.get("/by-message/{message_id}", response_model=StructuredDataResponse)
+async def get_structured_data_by_message(
+    message_id: UUID,
+    current_user_id: UUID = Depends(get_current_user_id),
+    db: AsyncSession = Depends(get_db)
+) -> StructuredDataResponse:
+    """Get structured data by message ID."""
+    service = DataManagementService(db)
+    return await service.get_data_by_message_id(message_id, current_user_id)
+
 @router.get("", response_model=List[StructuredDataResponse])
 async def list_structured_data(
     current_user_id: UUID = Depends(get_current_user_id),

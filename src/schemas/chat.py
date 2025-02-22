@@ -53,9 +53,22 @@ class ChatResponse(BaseModel):
     message: str
     structured_data: Optional[Dict] = None
 
+class ConversationListItem(BaseModel):
+    """Schema for conversation list items (without messages)."""
+    id: UUID
+    title: str
+    description: Optional[str]
+    user_id: UUID
+    created_at: datetime
+    updated_at: datetime
+    meta_data: Dict
+
+    class Config:
+        from_attributes = True
+
 class ConversationList(BaseModel):
     """Schema for paginated conversation list."""
-    items: List[ConversationResponse]
+    items: List[ConversationListItem]
     total: int
     skip: int
     limit: int 

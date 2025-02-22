@@ -3,6 +3,8 @@ from uuid import UUID
 
 from openai import AsyncOpenAI
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select
+from sqlalchemy.orm import selectinload
 
 from src.models.models import Conversation, Message, StructuredData
 from src.utils.config import get_settings
@@ -53,20 +55,47 @@ class ChatService:
         self, conversation_id: UUID
     ) -> List[Message]:
         """Get all messages in a conversation."""
-        conversation = await self.db.get(Conversation, conversation_id)
+        # First verify the conversation exists
+        conversation = await self.get_conversation(conversation_id)
         if not conversation:
             raise ValueError("Conversation not found")
-        return conversation.messages
+        
+        # Use select statement with join loading
+        stmt = (
+            select(Message)
+            .where(Message.conversation_id == conversation_id)
+            .order_by(Message.created_at)
+        )
+        result = await self.db.execute(stmt)
+        messages = result.scalars().all()
+        
+        # Return empty list if no messages yet
+        return messages
+
+    async def get_conversation(self, conversation_id: UUID) -> Conversation:
+        """Get a conversation by ID with its messages."""
+        stmt = (
+            select(Conversation)
+            .where(Conversation.id == conversation_id)
+            .options(selectinload(Conversation.messages))
+        )
+        result = await self.db.execute(stmt)
+        conversation = result.scalar_one_or_none()
+        
+        if not conversation:
+            raise ValueError("Conversation not found")
+        
+        return conversation
 
     async def get_chat_response(
         self,
         conversation_id: UUID,
         user_message: str,
         structured_format: Optional[Dict] = None
-    ) -> Dict[str, Any]:
-        """Get response from ChatGPT and optionally extract structured data."""
+    ):
+        """Get streaming response from ChatGPT."""
         # Add user message to conversation
-        await self.add_message(conversation_id, "user", user_message)
+        user_msg = await self.add_message(conversation_id, "user", user_message)
 
         # Get conversation history
         messages = await self.get_conversation_messages(conversation_id)
@@ -89,22 +118,28 @@ class ChatService:
             }
             chat_messages.insert(0, system_message)
 
-        # Get response from ChatGPT
+        # Get response from ChatGPT with streaming
         response = await self.client.chat.completions.create(
             model=self.model,
             messages=chat_messages,
             temperature=0.7,
             max_tokens=2000,
+            stream=True  # Enable streaming
         )
 
-        # Process the response
-        assistant_message = response.choices[0].message.content
-        await self.add_message(conversation_id, "assistant", assistant_message)
+        full_response = ""
+        async for chunk in response:
+            if chunk.choices[0].delta.content is not None:
+                content = chunk.choices[0].delta.content
+                full_response += content
+                yield content
 
-        # Extract structured data if format was requested
-        structured_data = None
-        if structured_format and "---DATA---" in assistant_message:
-            conversation_part, data_part = assistant_message.split("---DATA---")
+        # Save the complete response
+        assistant_msg = await self.add_message(conversation_id, "assistant", full_response)
+
+        # Handle structured data if requested
+        if structured_format and "---DATA---" in full_response:
+            conversation_part, data_part = full_response.split("---DATA---")
             
             # Store structured data
             structured_data = StructuredData(
@@ -112,21 +147,14 @@ class ChatService:
                 data_type="chat_extraction",
                 schema_version="1.0",
                 data={"raw_data": data_part.strip()},
-                meta_data={"format": structured_format}
+                meta_data={
+                    "format": structured_format,
+                    "message_id": str(assistant_msg.id)
+                }
             )
             self.db.add(structured_data)
             await self.db.commit()
             await self.db.refresh(structured_data)
-
-            return {
-                "message": conversation_part.strip(),
-                "structured_data": structured_data.data
-            }
-
-        return {
-            "message": assistant_message,
-            "structured_data": None
-        }
 
     async def update_conversation_title(
         self,
@@ -150,11 +178,15 @@ class ChatService:
         limit: int = 10
     ) -> List[Conversation]:
         """Get all conversations for a user with pagination."""
-        from sqlalchemy import select
-        query = select(Conversation).where(
-            Conversation.user_id == user_id,
-            Conversation.deleted_at.is_(None)
-        ).order_by(Conversation.created_at.desc())
+        query = (
+            select(Conversation)
+            .where(
+                Conversation.user_id == user_id,
+                Conversation.deleted_at.is_(None)
+            )
+            .options(selectinload(Conversation.messages))
+            .order_by(Conversation.created_at.desc())
+        )
         
         result = await self.db.execute(query.offset(skip).limit(limit))
         return result.scalars().all() 

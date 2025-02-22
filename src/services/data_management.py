@@ -3,6 +3,7 @@ from uuid import UUID
 from fastapi import HTTPException, status
 from sqlalchemy import select, desc
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from src.models.models import StructuredData, DataColumn, DataChangeHistory
 from src.schemas.data_management import (
@@ -59,15 +60,43 @@ class DataManagementService:
 
     async def get_all_data(self, user_id: UUID) -> List[StructuredData]:
         """Get all structured data for a user."""
-        query = select(StructuredData).join(
-            StructuredData.conversation
-        ).where(
-            StructuredData.conversation.has(user_id=user_id),
-            StructuredData.deleted_at.is_(None)
-        ).order_by(desc(StructuredData.created_at))
+        query = (
+            select(StructuredData)
+            .join(StructuredData.conversation)
+            .options(selectinload(StructuredData.columns))  # Eagerly load columns
+            .where(
+                StructuredData.conversation.has(user_id=user_id),
+                StructuredData.deleted_at.is_(None)
+            )
+            .order_by(desc(StructuredData.created_at))
+        )
         
         result = await self.db.execute(query)
-        return result.scalars().all()
+        data_list = result.scalars().all()
+        
+        # Process each data item
+        processed_list = []
+        for data in data_list:
+            processed_data = data.__dict__.copy()
+            processed_data['created_at'] = data.created_at.isoformat()
+            processed_data['updated_at'] = data.updated_at.isoformat()
+            processed_data['columns'] = [
+                {
+                    'id': col.id,
+                    'structured_data_id': col.structured_data_id,
+                    'name': col.name,
+                    'data_type': col.data_type,
+                    'format': col.format,
+                    'formula': col.formula,
+                    'order': col.order,
+                    'is_active': col.is_active,
+                    'meta_data': col.meta_data
+                }
+                for col in data.columns
+            ]
+            processed_list.append(StructuredData(**processed_data))
+        
+        return processed_list
 
     async def get_data_by_id(self, data_id: UUID, user_id: UUID) -> StructuredData:
         """Get structured data by ID with user verification."""
@@ -314,4 +343,47 @@ class DataManagementService:
         ).offset(offset).limit(limit)
         
         result = await self.db.execute(query)
-        return result.scalars().all() 
+        return result.scalars().all()
+
+    async def get_data_by_message_id(self, message_id: UUID, user_id: UUID) -> StructuredData:
+        """Get structured data by message ID."""
+        query = (
+            select(StructuredData)
+            .join(StructuredData.conversation)
+            .options(selectinload(StructuredData.columns))  # Eagerly load columns
+            .where(
+                StructuredData.conversation.has(user_id=user_id),
+                StructuredData.meta_data['message_id'].astext == str(message_id),
+                StructuredData.deleted_at.is_(None)
+            )
+        )
+        
+        result = await self.db.execute(query)
+        data = result.scalar_one_or_none()
+        
+        if not data:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Structured data not found for this message"
+            )
+
+        # Process the data
+        processed_data = data.__dict__.copy()
+        processed_data['created_at'] = data.created_at.isoformat()
+        processed_data['updated_at'] = data.updated_at.isoformat()
+        processed_data['columns'] = [
+            {
+                'id': col.id,
+                'structured_data_id': col.structured_data_id,
+                'name': col.name,
+                'data_type': col.data_type,
+                'format': col.format,
+                'formula': col.formula,
+                'order': col.order,
+                'is_active': col.is_active,
+                'meta_data': col.meta_data
+            }
+            for col in data.columns
+        ]
+        
+        return StructuredData(**processed_data) 

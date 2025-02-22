@@ -26,7 +26,10 @@ const ConversationList: React.FC<ConversationListProps> = ({
   const createConversationMutation = useMutation({
     mutationFn: api.chat.createConversation,
     onSuccess: (newConversation) => {
-      queryClient.invalidateQueries({ queryKey: ['conversations'] })
+      queryClient.setQueryData(['conversations'], (old: Conversation[] | undefined) => {
+        const conversations = old || []
+        return [newConversation, ...conversations]
+      })
       onSelect(newConversation.id)
       setIsModalOpen(false)
       showNotification('success', 'Conversation created successfully')

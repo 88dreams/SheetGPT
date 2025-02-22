@@ -12,4 +12,8 @@ interface ImportMeta {
   readonly env: ImportMetaEnv
 }
 
+declare module '@env' {
+  export interface ProcessEnv extends ImportMetaEnv {}
+}
+
 export {} 

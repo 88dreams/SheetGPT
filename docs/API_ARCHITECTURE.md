@@ -24,7 +24,7 @@ The SheetGPT API is built using FastAPI, providing a modern, fast, and type-safe
   │   ├── conversations
   │   └── messages
   ├── data/
-  │   ├── structured-data
+  │   ├── by-message/{message_id}
   │   ├── columns
   │   └── history
   └── export/

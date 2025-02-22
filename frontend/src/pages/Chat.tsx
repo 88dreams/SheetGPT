@@ -1,5 +1,6 @@
 import React, { useState, useEffect, Suspense } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import ConversationList from '../components/chat/ConversationList'
 import MessageThread from '../components/chat/MessageThread'
 import ChatInput from '../components/chat/ChatInput'
@@ -14,10 +15,29 @@ type QueryError = {
 
 const Chat: React.FC = () => {
   const { isAuthenticated, isReady, user } = useAuth()
-  const [selectedConversation, setSelectedConversation] = useState<string | null>(null)
+  const [searchParams, setSearchParams] = useSearchParams()
+  const [selectedConversation, setSelectedConversation] = useState<string | null>(
+    searchParams.get('conversation')
+  )
   const queryClient = useQueryClient()
   const { showNotification } = useNotification()
   const [isInitialLoad, setIsInitialLoad] = useState(true)
+
+  // Update URL when selected conversation changes
+  useEffect(() => {
+    if (selectedConversation) {
+      setSearchParams({ conversation: selectedConversation })
+    } else {
+      setSearchParams({})
+    }
+  }, [selectedConversation, setSearchParams])
+
+  // Reset initial load when auth state changes
+  useEffect(() => {
+    if (!isAuthenticated) {
+      setIsInitialLoad(true)
+    }
+  }, [isAuthenticated])
 
   // Conversations query
   const { 
@@ -44,7 +64,10 @@ const Chat: React.FC = () => {
           isArray: Array.isArray(conversationsArray),
           timestamp: new Date().toISOString()
         })
-        setIsInitialLoad(false)
+        // Only set initial load to false if we have data or explicitly got an empty array
+        if (result !== undefined) {
+          setIsInitialLoad(false)
+        }
         return conversationsArray
       } catch (error) {
         console.error('Error fetching conversations:', {
@@ -55,13 +78,29 @@ const Chat: React.FC = () => {
       }
     },
     retry: 1,
-    staleTime: 30000,
+    staleTime: Infinity, // Keep data fresh indefinitely
+    gcTime: 1000 * 60 * 30, // Cache for 30 minutes
     enabled: isAuthenticated && isReady,
-    refetchOnMount: true,
-    refetchOnWindowFocus: false,
+    refetchOnMount: 'always', // Always refetch on mount
+    refetchOnWindowFocus: true, // Refetch when window regains focus
+    refetchOnReconnect: true, // Refetch when reconnecting
     // Ensure we always return an array even if the query fails
     placeholderData: []
   })
+
+  // Track render states with more detail
+  useEffect(() => {
+    console.log('Chat component state update:', {
+      isAuthenticated,
+      isReady,
+      isInitialLoad,
+      isLoadingConversations,
+      hasUser: !!user,
+      hasError: isConversationsError,
+      errorMessage: conversationsError?.message,
+      timestamp: new Date().toISOString()
+    })
+  }, [isAuthenticated, isReady, isInitialLoad, isLoadingConversations, user, isConversationsError, conversationsError])
 
   // Messages query
   const {
@@ -72,20 +111,100 @@ const Chat: React.FC = () => {
   } = useQuery<Message[], Error>({
     queryKey: ['messages', selectedConversation],
     queryFn: async () => {
+      console.log('Fetching messages for conversation:', {
+        conversationId: selectedConversation,
+        timestamp: new Date().toISOString()
+      })
       if (!selectedConversation) return []
       const conversation = await api.chat.getConversation(selectedConversation)
+      console.log('Messages fetched:', {
+        conversationId: selectedConversation,
+        messageCount: conversation.messages.length,
+        timestamp: new Date().toISOString()
+      })
       return conversation.messages
     },
     enabled: !!selectedConversation && isAuthenticated && isReady,
     retry: 1,
-    staleTime: 5000
+    staleTime: Infinity,
+    gcTime: 1000 * 60 * 30, // Cache for 30 minutes
+    refetchOnMount: true,
+    refetchOnWindowFocus: true,
+    refetchOnReconnect: true
   })
+
+  // Add component mount/unmount tracking
+  useEffect(() => {
+    console.log('Chat component mounted/updated:', {
+      selectedConversation,
+      hasMessages: messages?.length ?? 0,
+      isAuthenticated,
+      isReady,
+      timestamp: new Date().toISOString()
+    })
+  }, [selectedConversation, messages, isAuthenticated, isReady])
+
+  // Track conversation selection changes
+  useEffect(() => {
+    console.log('Selected conversation changed:', {
+      selectedConversation,
+      urlParam: searchParams.get('conversation'),
+      timestamp: new Date().toISOString()
+    })
+  }, [selectedConversation, searchParams])
 
   // Send message mutation
   const sendMessageMutation = useMutation({
-    mutationFn: async (content: string) => {
+    mutationFn: async (params: { content: string; structuredFormat?: Record<string, any> }) => {
       if (!selectedConversation) throw new Error('No conversation selected')
-      return api.chat.sendMessage(selectedConversation, content)
+      
+      // Create a temporary message ID for optimistic updates
+      const tempMessageId = crypto.randomUUID()
+      
+      // Add user message to the UI immediately
+      queryClient.setQueryData(['messages', selectedConversation], (old: Message[] | undefined) => {
+        const messages = old || []
+        return [...messages, {
+          id: tempMessageId,
+          role: 'user',
+          content: params.content,
+          created_at: new Date().toISOString(),
+          conversation_id: selectedConversation,
+          meta_data: {}
+        }]
+      })
+
+      // Create a temporary message for the assistant's response
+      const assistantMessageId = crypto.randomUUID()
+      queryClient.setQueryData(['messages', selectedConversation], (old: Message[] | undefined) => {
+        const messages = old || []
+        return [...messages, {
+          id: assistantMessageId,
+          role: 'assistant',
+          content: '',
+          created_at: new Date().toISOString(),
+          conversation_id: selectedConversation,
+          meta_data: {}
+        }]
+      })
+
+      // Send the message and handle streaming response
+      return api.chat.sendMessage(
+        selectedConversation,
+        params.content,
+        params.structuredFormat,
+        (chunk) => {
+          // Update the assistant's message as chunks arrive
+          queryClient.setQueryData(['messages', selectedConversation], (old: Message[] | undefined) => {
+            const messages = old || []
+            return messages.map(msg => 
+              msg.id === assistantMessageId
+                ? { ...msg, content: msg.content + chunk }
+                : msg
+            )
+          })
+        }
+      )
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['messages', selectedConversation] })
@@ -115,26 +234,6 @@ const Chat: React.FC = () => {
     }
   }, [isAuthenticated, isReady, user, isInitialLoad])
 
-  // Reset initial load when auth state changes
-  useEffect(() => {
-    if (!isAuthenticated) {
-      setIsInitialLoad(true)
-    }
-  }, [isAuthenticated])
-
-  // Track render states
-  useEffect(() => {
-    console.log('Chat render state:', {
-      isAuthenticated,
-      isReady,
-      isLoading: isLoadingConversations,
-      hasError: isConversationsError,
-      hasData: !!conversations,
-      conversationsCount: conversations?.length,
-      timestamp: new Date().toISOString()
-    })
-  }, [isAuthenticated, isReady, isLoadingConversations, isConversationsError, conversations])
-
   // Handle errors
   useEffect(() => {
     if (conversationsError) {
@@ -145,12 +244,12 @@ const Chat: React.FC = () => {
     }
   }, [conversationsError, messagesError, showNotification])
 
-  const handleSendMessage = async (content: string) => {
-    await sendMessageMutation.mutateAsync(content)
+  const handleSendMessage = async (content: string, structuredFormat?: Record<string, any>) => {
+    await sendMessageMutation.mutateAsync({ content, structuredFormat })
   }
 
-  // Combined loading state
-  const isLoading = isInitialLoad || !isReady || isLoadingConversations
+  // Combined loading state - only show loading on initial load
+  const isLoading = !isReady || (isInitialLoad && isLoadingConversations)
 
   // Show loading state for any loading condition
   if (isLoading) {

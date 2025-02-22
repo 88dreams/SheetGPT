@@ -1,6 +1,7 @@
 from typing import Dict, List, Optional, Any
 from uuid import UUID
 from pydantic import BaseModel, Field
+from datetime import datetime
 
 class ColumnBase(BaseModel):
     """Base schema for column configuration."""
@@ -58,16 +59,21 @@ class StructuredDataUpdate(BaseModel):
     data: Optional[Dict[str, Any]] = None
     meta_data: Optional[Dict[str, Any]] = None
 
-class StructuredDataResponse(StructuredDataBase):
-    """Schema for structured data response."""
+class StructuredDataResponse(BaseModel):
+    """Schema for structured data responses."""
     id: UUID
     conversation_id: UUID
-    columns: List[ColumnResponse]
+    data_type: str
+    schema_version: str
+    data: Dict
+    meta_data: Dict
     created_at: str
     updated_at: str
+    columns: List[ColumnResponse]
 
     class Config:
         from_attributes = True
+        populate_by_name = True
 
 class DataChangeHistoryResponse(BaseModel):
     """Schema for change history response."""
@@ -83,4 +89,7 @@ class DataChangeHistoryResponse(BaseModel):
     meta_data: Dict[str, Any]
 
     class Config:
-        from_attributes = True 
+        from_attributes = True
+
+ColumnResponse.model_rebuild()
+StructuredDataResponse.model_rebuild() 

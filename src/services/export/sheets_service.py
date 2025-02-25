@@ -58,22 +58,43 @@ class GoogleSheetsService:
     async def initialize_from_token(self, token_path: str) -> bool:
         """Initialize service from saved token."""
         try:
+            print(f"DEBUG: Initializing from token: {token_path}")
             if os.path.exists(token_path):
+                print(f"DEBUG: Token file exists")
                 with open(token_path, 'r') as token:
                     creds_data = json.load(token)
+                    print(f"DEBUG: Loaded token data with keys: {list(creds_data.keys())}")
                     self.credentials = Credentials.from_authorized_user_info(creds_data, SCOPES)
+                    print(f"DEBUG: Created credentials object")
 
                 if self.credentials and self.credentials.valid:
+                    print(f"DEBUG: Credentials are valid")
                     self.service = build('sheets', 'v4', credentials=self.credentials)
+                    print(f"DEBUG: Built service")
                     return True
                 elif self.credentials and self.credentials.expired and self.credentials.refresh_token:
+                    print(f"DEBUG: Credentials expired, refreshing")
                     self.credentials.refresh(Request())
+                    print(f"DEBUG: Credentials refreshed")
                     with open(token_path, 'w') as token:
                         token.write(self.credentials.to_json())
+                        print(f"DEBUG: Saved refreshed token")
                     self.service = build('sheets', 'v4', credentials=self.credentials)
+                    print(f"DEBUG: Built service after refresh")
                     return True
+                else:
+                    print(f"DEBUG: Credentials invalid or missing refresh token")
+                    print(f"DEBUG: Valid: {self.credentials.valid if self.credentials else 'No credentials'}")
+                    print(f"DEBUG: Expired: {self.credentials.expired if self.credentials else 'No credentials'}")
+                    print(f"DEBUG: Has refresh token: {bool(self.credentials.refresh_token) if self.credentials else 'No credentials'}")
+            else:
+                print(f"DEBUG: Token file does not exist: {token_path}")
             return False
         except Exception as e:
+            print(f"DEBUG: Error in initialize_from_token: {str(e)}")
+            print(f"DEBUG: Error type: {type(e)}")
+            import traceback
+            print(f"DEBUG: Traceback: {traceback.format_exc()}")
             raise HTTPException(
                 status_code=500,
                 detail=f"Failed to initialize from token: {str(e)}"
@@ -82,21 +103,30 @@ class GoogleSheetsService:
     async def create_spreadsheet(self, title: str) -> str:
         """Create a new spreadsheet and return its ID."""
         if not self.service:
+            print(f"DEBUG: Service not initialized in create_spreadsheet")
             raise HTTPException(
                 status_code=500,
                 detail="Service not initialized"
             )
             
         try:
+            print(f"DEBUG: Creating spreadsheet with title: {title}")
             spreadsheet = {
                 'properties': {
                     'title': title
                 }
             }
+            print(f"DEBUG: Calling spreadsheets().create() API")
             request = self.service.spreadsheets().create(body=spreadsheet)
+            print(f"DEBUG: Executing API request")
             response = request.execute()
+            print(f"DEBUG: API response: {response}")
             return response['spreadsheetId']
         except Exception as e:
+            print(f"DEBUG: Error in create_spreadsheet: {str(e)}")
+            print(f"DEBUG: Error type: {type(e)}")
+            import traceback
+            print(f"DEBUG: Traceback: {traceback.format_exc()}")
             raise HTTPException(
                 status_code=500,
                 detail=f"Failed to create spreadsheet: {str(e)}"
@@ -174,6 +204,7 @@ class GoogleSheetsService:
     ) -> Dict[str, Any]:
         """Create a new spreadsheet using a template and optionally populate it with data."""
         if not self.service:
+            print(f"DEBUG: Service not initialized in create_spreadsheet_with_template")
             raise HTTPException(
                 status_code=500,
                 detail="Service not initialized"
@@ -181,41 +212,56 @@ class GoogleSheetsService:
             
         try:
             # Create the spreadsheet
+            print(f"DEBUG: Creating spreadsheet with title: {title}")
             spreadsheet_id = await self.create_spreadsheet(title)
+            print(f"DEBUG: Created spreadsheet with ID: {spreadsheet_id}")
             
             # Get the spreadsheet URL
             spreadsheet_url = f"https://docs.google.com/spreadsheets/d/{spreadsheet_id}"
+            print(f"DEBUG: Spreadsheet URL: {spreadsheet_url}")
             
             # Apply template formatting
             if data:
+                print(f"DEBUG: Applying template formatting to data with {len(data)} rows")
                 # Calculate ranges based on data size
                 header_range = f"A1:{chr(65 + len(data[0]) - 1)}1"
                 data_range = f"A2:{chr(65 + len(data[0]) - 1)}{len(data) + 1}"
                 
+                print(f"DEBUG: Header range: {header_range}")
+                print(f"DEBUG: Data range: {data_range}")
+                
                 # Apply header formatting
+                print(f"DEBUG: Getting header formatting for template: {template_name}")
                 header_format = await self.template_service.get_formatting(template_name, "header")
                 if header_format:
+                    print(f"DEBUG: Applying header formatting")
                     await self.format_range(spreadsheet_id, header_range, header_format)
                 
                 # Apply body formatting
+                print(f"DEBUG: Getting body formatting for template: {template_name}")
                 body_format = await self.template_service.get_formatting(template_name, "body")
                 if body_format:
+                    print(f"DEBUG: Applying body formatting")
                     await self.format_range(spreadsheet_id, data_range, body_format)
                 
                 # Apply alternate row formatting if available
+                print(f"DEBUG: Getting alternate row formatting for template: {template_name}")
                 alternate_format = await self.template_service.get_formatting(template_name, "alternateRow")
                 if alternate_format:
+                    print(f"DEBUG: Applying alternate row formatting")
                     for i in range(3, len(data) + 1, 2):  # Start from row 3 (second data row)
                         alt_range = f"A{i}:{chr(65 + len(data[0]) - 1)}{i}"
                         await self.format_range(spreadsheet_id, alt_range, alternate_format)
                 
                 # Update the data
+                print(f"DEBUG: Updating data in spreadsheet")
                 await self.update_values(
                     spreadsheet_id=spreadsheet_id,
                     range_name=f"A1:{chr(65 + len(data[0]) - 1)}{len(data)}",
                     values=data
                 )
             
+            print(f"DEBUG: Successfully created spreadsheet with template")
             return {
                 "spreadsheet_id": spreadsheet_id,
                 "spreadsheetUrl": spreadsheet_url,
@@ -224,6 +270,10 @@ class GoogleSheetsService:
             }
             
         except Exception as e:
+            print(f"DEBUG: Error in create_spreadsheet_with_template: {str(e)}")
+            print(f"DEBUG: Error type: {type(e)}")
+            import traceback
+            print(f"DEBUG: Traceback: {traceback.format_exc()}")
             raise HTTPException(
                 status_code=500,
                 detail=f"Failed to create spreadsheet with template: {str(e)}"

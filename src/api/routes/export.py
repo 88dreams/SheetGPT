@@ -113,29 +113,59 @@ async def get_export_preview(
         data = await data_service.get_data_by_id(data_id, user_id)
         columns = await data_service.get_columns(data_id, user_id)
 
+        print(f"DEBUG: Export preview for data_id {data_id}")
+        print(f"DEBUG: Data structure: {data.data}")
+        print(f"DEBUG: Columns: {columns}")
+
         # Get active columns in correct order
         active_columns = sorted(
             [col for col in columns if col.is_active],
             key=lambda x: x.order
         )
 
+        print(f"DEBUG: Active columns: {active_columns}")
+
         # Get column names
         column_names = [col.name for col in active_columns]
+
+        print(f"DEBUG: Column names: {column_names}")
 
         # Get sample data (first 5 rows)
         sample_data = []
         raw_data = data.data.get("rows", [])
-        for row in raw_data[:5]:
-            sample_row = []
-            for col in active_columns:
-                sample_row.append(row.get(col.name, ""))
-            sample_data.append(sample_row)
+        
+        print(f"DEBUG: Raw data type: {type(raw_data)}")
+        print(f"DEBUG: Raw data length: {len(raw_data)}")
+        print(f"DEBUG: Raw data sample: {raw_data[:2] if raw_data else 'empty'}")
+
+        # Handle different data structures
+        if raw_data and isinstance(raw_data, list):
+            # If raw_data is a list of dictionaries (objects)
+            if raw_data and isinstance(raw_data[0], dict):
+                for row in raw_data[:5]:
+                    sample_row = []
+                    for col in active_columns:
+                        sample_row.append(row.get(col.name, ""))
+                    sample_data.append(sample_row)
+            # If raw_data is a list of lists (2D array)
+            elif raw_data and isinstance(raw_data[0], list):
+                for row in raw_data[:5]:
+                    sample_row = []
+                    for i, col in enumerate(active_columns):
+                        if i < len(row):
+                            sample_row.append(row[i])
+                        else:
+                            sample_row.append("")
+                    sample_data.append(sample_row)
+
+        print(f"DEBUG: Sample data: {sample_data}")
 
         return {
             "columns": column_names,
             "sampleData": sample_data
         }
     except Exception as e:
+        print(f"DEBUG: Error in export preview: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=str(e)
@@ -151,9 +181,14 @@ async def create_spreadsheet(
     try:
         # If data_id is provided, fetch and format the data
         if data.data_id:
+            print(f"DEBUG: Creating spreadsheet for data_id {data.data_id}")
+            
             data_service = DataManagementService(db)
             structured_data = await data_service.get_data_by_id(data.data_id, user_id)
             columns = await data_service.get_columns(data.data_id, user_id)
+
+            print(f"DEBUG: Structured data: {structured_data.data}")
+            print(f"DEBUG: Columns: {columns}")
 
             # Get active columns in correct order
             active_columns = sorted(
@@ -161,30 +196,81 @@ async def create_spreadsheet(
                 key=lambda x: x.order
             )
 
+            print(f"DEBUG: Active columns: {active_columns}")
+
             # Prepare data for export
             column_names = [col.name for col in active_columns]
             rows = structured_data.data.get("rows", [])
+            
+            print(f"DEBUG: Column names: {column_names}")
+            print(f"DEBUG: Rows type: {type(rows)}")
+            print(f"DEBUG: Rows length: {len(rows)}")
+            print(f"DEBUG: Rows sample: {rows[:2] if rows else 'empty'}")
+
             export_data = [column_names]
-            for row in rows:
-                export_row = []
-                for col in active_columns:
-                    export_row.append(row.get(col.name, ""))
-                export_data.append(export_row)
+            
+            # Handle different data structures
+            if rows and isinstance(rows, list):
+                # If rows is a list of dictionaries (objects)
+                if rows and isinstance(rows[0], dict):
+                    for row in rows:
+                        export_row = []
+                        for col in active_columns:
+                            export_row.append(row.get(col.name, ""))
+                        export_data.append(export_row)
+                # If rows is a list of lists (2D array)
+                elif rows and isinstance(rows[0], list):
+                    for row in rows:
+                        export_row = []
+                        for i, col in enumerate(active_columns):
+                            if i < len(row):
+                                export_row.append(row[i])
+                            else:
+                                export_row.append("")
+                        export_data.append(export_row)
+            
+            print(f"DEBUG: Export data: {export_data}")
         else:
             export_data = data.data
+            print(f"DEBUG: Using provided data: {export_data}")
 
         # Create spreadsheet with template
-        result = await sheets_service.create_spreadsheet_with_template(
-            title=data.title or "Exported Data",
-            template_name=data.template_name,
-            data=export_data
-        )
+        try:
+            print(f"DEBUG: Initializing sheets service from token")
+            is_authorized = await sheets_service.initialize_from_token(sheets_config.TOKEN_PATH)
+            if not is_authorized:
+                print(f"DEBUG: Not authorized with Google Sheets")
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail="Not authorized with Google Sheets. Please authenticate first."
+                )
+            
+            print(f"DEBUG: Creating spreadsheet with template: {data.template_name}")
+            print(f"DEBUG: Title: {data.title or 'Exported Data'}")
+            print(f"DEBUG: Export data length: {len(export_data) if export_data else 0}")
+            
+            result = await sheets_service.create_spreadsheet_with_template(
+                title=data.title or "Exported Data",
+                template_name=data.template_name,
+                data=export_data
+            )
 
-        return {
-            "spreadsheetId": result.get("spreadsheet_id"),
-            "spreadsheetUrl": result.get("spreadsheetUrl", "")
-        }
+            print(f"DEBUG: Spreadsheet creation result: {result}")
+            return {
+                "spreadsheetId": result.get("spreadsheet_id"),
+                "spreadsheetUrl": result.get("spreadsheetUrl", "")
+            }
+        except Exception as sheet_error:
+            print(f"DEBUG: Error in sheets service: {str(sheet_error)}")
+            print(f"DEBUG: Error type: {type(sheet_error)}")
+            import traceback
+            print(f"DEBUG: Traceback: {traceback.format_exc()}")
+            raise
     except Exception as e:
+        print(f"DEBUG: Error creating spreadsheet: {str(e)}")
+        print(f"DEBUG: Error type: {type(e)}")
+        import traceback
+        print(f"DEBUG: Traceback: {traceback.format_exc()}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=str(e)

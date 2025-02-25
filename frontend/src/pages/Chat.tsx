@@ -56,29 +56,78 @@ const Chat: React.FC = () => {
         timestamp: new Date().toISOString()
       })
       try {
-        const result = await api.chat.getConversations()
-        // Ensure result is an array
-        const conversationsArray = Array.isArray(result) ? result : []
-        console.log('Conversations fetched:', {
-          count: conversationsArray.length,
-          isArray: Array.isArray(conversationsArray),
-          timestamp: new Date().toISOString()
-        })
-        // Only set initial load to false if we have data or explicitly got an empty array
-        if (result !== undefined) {
-          setIsInitialLoad(false)
+        // Add retry logic for fetching conversations
+        let attempts = 0;
+        const maxAttempts = 3;
+        let lastError: any = null;
+        
+        while (attempts < maxAttempts) {
+          try {
+            console.log(`Attempt ${attempts + 1} to fetch conversations`);
+            const result = await api.chat.getConversations();
+            
+            // Ensure result is an array
+            const conversationsArray = Array.isArray(result) ? result : [];
+            
+            console.log('Conversations fetched successfully:', {
+              count: conversationsArray.length,
+              isArray: Array.isArray(conversationsArray),
+              timestamp: new Date().toISOString(),
+              sampleIds: conversationsArray.slice(0, 3).map(c => c.id)
+            });
+            
+            // Only set initial load to false if we have data or explicitly got an empty array
+            if (result !== undefined) {
+              setIsInitialLoad(false);
+            }
+            
+            // Store conversation IDs in localStorage for debugging
+            try {
+              localStorage.setItem('last_conversation_ids', 
+                JSON.stringify(conversationsArray.map(c => ({ id: c.id, title: c.title })))
+              );
+              localStorage.setItem('last_conversation_fetch', new Date().toISOString());
+            } catch (e) {
+              console.error('Failed to store conversation IDs in localStorage:', e);
+            }
+            
+            return conversationsArray;
+          } catch (error) {
+            console.error(`Attempt ${attempts + 1} failed:`, error);
+            lastError = error;
+            attempts++;
+            
+            if (attempts < maxAttempts) {
+              // Wait before retrying (exponential backoff)
+              await new Promise(resolve => setTimeout(resolve, 1000 * attempts));
+            }
+          }
         }
-        return conversationsArray
+        
+        // If we get here, all attempts failed
+        throw lastError || new Error('Failed to fetch conversations after multiple attempts');
       } catch (error) {
         console.error('Error fetching conversations:', {
           error,
           timestamp: new Date().toISOString()
-        })
-        throw error
+        });
+        
+        // Check if there are any cached conversation IDs in localStorage
+        try {
+          const cachedIds = localStorage.getItem('last_conversation_ids');
+          if (cachedIds) {
+            console.log('Found cached conversation IDs:', cachedIds);
+          }
+        } catch (e) {
+          console.error('Failed to check cached conversation IDs:', e);
+        }
+        
+        throw error;
       }
     },
-    retry: 1,
-    staleTime: Infinity, // Keep data fresh indefinitely
+    retry: 2, // Increase retry attempts
+    retryDelay: attempt => Math.min(1000 * 2 ** attempt, 30000), // Exponential backoff with max 30s
+    staleTime: 60000, // Reduce stale time to 1 minute to refresh more often
     gcTime: 1000 * 60 * 30, // Cache for 30 minutes
     enabled: isAuthenticated && isReady,
     refetchOnMount: 'always', // Always refetch on mount

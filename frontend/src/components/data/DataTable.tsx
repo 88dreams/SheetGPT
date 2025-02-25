@@ -3,7 +3,8 @@ import { useQuery } from '@tanstack/react-query'
 import { api } from '../../utils/api'
 import LoadingSpinner from '../common/LoadingSpinner'
 // @ts-ignore
-import { FaEye, FaEyeSlash } from 'react-icons/fa'
+import { FaEye, FaEyeSlash, FaFileExport } from 'react-icons/fa'
+import ExportDialog from './ExportDialog'
 
 interface DataTableProps {
   dataId: string
@@ -12,6 +13,7 @@ interface DataTableProps {
 const DataTable: React.FC<DataTableProps> = ({ dataId }) => {
   const [showHeaders, setShowHeaders] = useState(true)
   const [showRowNumbers, setShowRowNumbers] = useState(true)
+  const [showExportDialog, setShowExportDialog] = useState(false)
   
   // Get the data for the given data ID
   const { data, isLoading, error } = useQuery({
@@ -285,6 +287,13 @@ const DataTable: React.FC<DataTableProps> = ({ dataId }) => {
               {showRowNumbers ? <FaEyeSlash size={12} /> : <FaEye size={12} />}
               <span>{showRowNumbers ? 'Hide Rows' : 'Show Rows'}</span>
             </button>
+            <button
+              onClick={() => setShowExportDialog(true)}
+              className="px-2 py-1 text-xs rounded flex items-center space-x-1 bg-green-100 text-green-700 hover:bg-green-200"
+            >
+              <FaFileExport size={12} />
+              <span>Export to Sheets</span>
+            </button>
           </div>
         </div>
         
@@ -344,6 +353,15 @@ const DataTable: React.FC<DataTableProps> = ({ dataId }) => {
           </pre>
         </div>
       </div>
+      
+      {/* Export Dialog */}
+      {showExportDialog && (
+        <ExportDialog
+          isOpen={showExportDialog}
+          onClose={() => setShowExportDialog(false)}
+          dataId={dataId}
+        />
+      )}
     </div>
   )
 }

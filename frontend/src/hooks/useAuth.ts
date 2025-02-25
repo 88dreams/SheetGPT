@@ -59,6 +59,14 @@ export function useAuth() {
 
     const token = localStorage.getItem('auth_token')
     
+    // Log token status for debugging
+    console.log('Auth token status:', {
+      exists: !!token,
+      length: token ? token.length : 0,
+      initialCheckDone: initialAuthCheckDone.current,
+      timestamp: new Date().toISOString()
+    });
+    
     // If there's no token and we've already done the initial check, skip
     if (!token && initialAuthCheckDone.current) {
       return
@@ -81,6 +89,7 @@ export function useAuth() {
     
     console.log('Starting auth check:', {
       hasToken: true,
+      tokenLength: token.length,
       currentAuthState: authState,
       timestamp: new Date().toISOString()
     })
@@ -88,21 +97,55 @@ export function useAuth() {
     authCheckInProgress.current = true
     
     try {
-      const user = await api.auth.me()
-      console.log('Auth check successful:', {
-        user,
-        timestamp: new Date().toISOString()
-      })
+      // Add retry logic for auth check
+      let attempts = 0;
+      const maxAttempts = 2;
+      let lastError: any = null;
       
-      if (isMounted.current) {
-        setAuthState({
-          user,
-          isAuthenticated: true,
-          isLoading: false,
-          isReady: true
-        })
-        lastAuthCheck.current = now
+      while (attempts < maxAttempts) {
+        try {
+          console.log(`Auth check attempt ${attempts + 1}`);
+          const user = await api.auth.me();
+          console.log('Auth check successful:', {
+            user,
+            timestamp: new Date().toISOString()
+          });
+          
+          if (isMounted.current) {
+            setAuthState({
+              user,
+              isAuthenticated: true,
+              isLoading: false,
+              isReady: true
+            });
+            lastAuthCheck.current = now;
+            
+            // Store auth status in localStorage for debugging
+            try {
+              localStorage.setItem('last_auth_check', new Date().toISOString());
+              localStorage.setItem('last_auth_user', JSON.stringify({
+                email: user.email,
+                is_active: user.is_active
+              }));
+            } catch (e) {
+              console.error('Failed to store auth status in localStorage:', e);
+            }
+          }
+          return;
+        } catch (error) {
+          console.error(`Auth check attempt ${attempts + 1} failed:`, error);
+          lastError = error;
+          attempts++;
+          
+          if (attempts < maxAttempts) {
+            // Wait before retrying
+            await new Promise(resolve => setTimeout(resolve, 1000));
+          }
+        }
       }
+      
+      // If we get here, all attempts failed
+      throw lastError || new Error('Auth check failed after multiple attempts');
     } catch (error) {
       console.error('Auth check failed:', {
         error,

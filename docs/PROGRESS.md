@@ -47,7 +47,30 @@
   - [x] Grid-based data display
   - [x] Raw data preview toggle
 
-### Recent Improvements (March 2024)
+### Recent Improvements (April 2024)
+1. Conversation Persistence Enhancement
+   - [x] Improved conversation fetching with retry logic
+   - [x] Enhanced error handling for conversation retrieval
+   - [x] Added detailed logging for debugging conversation persistence issues
+   - [x] Implemented localStorage backup for conversation IDs
+   - [x] Reduced stale time for conversation queries to ensure fresh data
+   - [x] Added safeguards to ensure queries always return arrays even on failure
+
+2. Authentication Improvements
+   - [x] Enhanced token persistence with better error handling
+   - [x] Added retry logic for authentication checks
+   - [x] Implemented detailed logging of authentication state
+   - [x] Added localStorage backup for authentication status
+   - [x] Improved token validation and error recovery
+   - [x] Enhanced debugging information for authentication issues
+
+3. "Export to Sheets" Implementation
+   - [x] Added "Export to Sheets" button to DataTable component
+   - [x] Integrated ExportDialog component for template selection
+   - [x] Implemented proper state management for export dialog visibility
+   - [x] Styled export button to match existing UI components
+
+### Previous Improvements (March 2024)
 1. "Send to Data" Feature Enhancement
    - [x] Fixed issues with duplicate data entries when sending data from chat
    - [x] Implemented robust error handling and recovery for data creation

@@ -1,16 +1,17 @@
 from typing import Dict, Any, List, Optional
 from uuid import UUID
 from fastapi import HTTPException, status
-from sqlalchemy import select, desc
+from sqlalchemy import select, desc, String, cast, text
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from src.models.models import StructuredData, DataColumn, DataChangeHistory
+from src.models.models import StructuredData, DataColumn, DataChangeHistory, Conversation
 from src.schemas.data_management import (
     ColumnCreate,
     ColumnUpdate,
     StructuredDataCreate,
     StructuredDataUpdate,
+    StructuredDataResponse,
 )
 
 class DataManagementService:
@@ -19,9 +20,16 @@ class DataManagementService:
 
     async def _get_structured_data(self, structured_data_id: UUID) -> StructuredData:
         """Get structured data by ID."""
-        query = select(StructuredData).where(
-            StructuredData.id == structured_data_id,
-            StructuredData.deleted_at.is_(None)
+        query = (
+            select(StructuredData)
+            .options(
+                selectinload(StructuredData.conversation),
+                selectinload(StructuredData.columns)
+            )
+            .where(
+                StructuredData.id == structured_data_id,
+                StructuredData.deleted_at.is_(None)
+            )
         )
         result = await self.db.execute(query)
         data = result.scalar_one_or_none()
@@ -58,12 +66,12 @@ class DataManagementService:
         self.db.add(change)
         await self.db.commit()
 
-    async def get_all_data(self, user_id: UUID) -> List[StructuredData]:
+    async def get_all_data(self, user_id: UUID) -> List[StructuredDataResponse]:
         """Get all structured data for a user."""
         query = (
             select(StructuredData)
             .join(StructuredData.conversation)
-            .options(selectinload(StructuredData.columns))  # Eagerly load columns
+            .options(selectinload(StructuredData.columns))
             .where(
                 StructuredData.conversation.has(user_id=user_id),
                 StructuredData.deleted_at.is_(None)
@@ -74,31 +82,9 @@ class DataManagementService:
         result = await self.db.execute(query)
         data_list = result.scalars().all()
         
-        # Process each data item
-        processed_list = []
-        for data in data_list:
-            processed_data = data.__dict__.copy()
-            processed_data['created_at'] = data.created_at.isoformat()
-            processed_data['updated_at'] = data.updated_at.isoformat()
-            processed_data['columns'] = [
-                {
-                    'id': col.id,
-                    'structured_data_id': col.structured_data_id,
-                    'name': col.name,
-                    'data_type': col.data_type,
-                    'format': col.format,
-                    'formula': col.formula,
-                    'order': col.order,
-                    'is_active': col.is_active,
-                    'meta_data': col.meta_data
-                }
-                for col in data.columns
-            ]
-            processed_list.append(StructuredData(**processed_data))
-        
-        return processed_list
+        return [StructuredDataResponse.from_orm(data) for data in data_list]
 
-    async def get_data_by_id(self, data_id: UUID, user_id: UUID) -> StructuredData:
+    async def get_data_by_id(self, data_id: UUID, user_id: UUID) -> StructuredDataResponse:
         """Get structured data by ID with user verification."""
         data = await self._get_structured_data(data_id)
         if data.conversation.user_id != user_id:
@@ -106,7 +92,34 @@ class DataManagementService:
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Not authorized to access this data"
             )
-        return data
+        
+        # Convert SQLAlchemy model to dict with relationships
+        data_dict = {
+            "id": data.id,
+            "conversation_id": data.conversation_id,
+            "data_type": data.data_type,
+            "schema_version": data.schema_version,
+            "data": data.data,
+            "meta_data": data.meta_data,
+            "created_at": data.created_at,
+            "updated_at": data.updated_at,
+            "columns": [
+                {
+                    "id": col.id,
+                    "structured_data_id": col.structured_data_id,
+                    "name": col.name,
+                    "data_type": col.data_type,
+                    "format": col.format,
+                    "formula": col.formula,
+                    "order": col.order,
+                    "is_active": col.is_active,
+                    "meta_data": col.meta_data
+                }
+                for col in data.columns
+            ]
+        }
+        
+        return StructuredDataResponse.model_validate(data_dict)
 
     async def create_structured_data(
         self,
@@ -166,7 +179,33 @@ class DataManagementService:
         soft_delete: bool = True
     ) -> None:
         """Delete structured data."""
-        structured_data = await self.get_data_by_id(data_id, user_id)
+        # Get the raw model first
+        query = (
+            select(StructuredData)
+            .where(
+                StructuredData.id == data_id,
+                StructuredData.deleted_at.is_(None)
+            )
+        )
+        result = await self.db.execute(query)
+        structured_data = result.scalar_one_or_none()
+        
+        if not structured_data:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Structured data not found"
+            )
+
+        # Check authorization
+        query = select(Conversation).where(Conversation.id == structured_data.conversation_id)
+        result = await self.db.execute(query)
+        conversation = result.scalar_one_or_none()
+        
+        if not conversation or conversation.user_id != user_id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Not authorized to access this data"
+            )
         
         if soft_delete:
             from datetime import datetime
@@ -290,6 +329,132 @@ class DataManagementService:
             meta_data={"column_config": column.meta_data}
         )
 
+    async def get_rows(
+        self,
+        data_id: UUID,
+        user_id: UUID,
+        skip: int = 0,
+        limit: int = 50
+    ) -> Dict[str, Any]:
+        """Get rows for structured data with pagination."""
+        data = await self.get_data_by_id(data_id, user_id)
+        
+        if not isinstance(data.data, dict) or "rows" not in data.data:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Data is not in row-based format"
+            )
+        
+        total_rows = len(data.data["rows"])
+        rows = data.data["rows"][skip:skip + limit]
+        
+        return {
+            "total": total_rows,
+            "rows": rows,
+            "column_order": data.data.get("column_order", [])
+        }
+
+    async def add_row(
+        self,
+        data_id: UUID,
+        user_id: UUID,
+        row_data: Dict[str, Any]
+    ) -> Dict[str, Any]:
+        """Add a new row to structured data."""
+        data = await self.get_data_by_id(data_id, user_id)
+        
+        if not isinstance(data.data, dict) or "rows" not in data.data:
+            data.data = {"rows": [], "column_order": list(row_data.keys())}
+        
+        # Ensure all columns exist
+        for col_name in row_data.keys():
+            if col_name not in data.data.get("column_order", []):
+                data.data["column_order"].append(col_name)
+        
+        # Add the new row
+        data.data["rows"].append(row_data)
+        await self.db.commit()
+        
+        await self._record_change(
+            structured_data_id=data.id,
+            user_id=user_id,
+            change_type="ADD_ROW",
+            meta_data={"row_data": row_data}
+        )
+        
+        return row_data
+
+    async def update_row(
+        self,
+        data_id: UUID,
+        user_id: UUID,
+        row_index: int,
+        row_data: Dict[str, Any]
+    ) -> Dict[str, Any]:
+        """Update a row in structured data."""
+        data = await self.get_data_by_id(data_id, user_id)
+        
+        if not isinstance(data.data, dict) or "rows" not in data.data:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Data is not in row-based format"
+            )
+        
+        if row_index < 0 or row_index >= len(data.data["rows"]):
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Row index out of range"
+            )
+        
+        old_row = data.data["rows"][row_index].copy()
+        data.data["rows"][row_index].update(row_data)
+        await self.db.commit()
+        
+        await self._record_change(
+            structured_data_id=data.id,
+            user_id=user_id,
+            change_type="UPDATE_ROW",
+            row_index=row_index,
+            meta_data={
+                "old_data": old_row,
+                "new_data": row_data
+            }
+        )
+        
+        return data.data["rows"][row_index]
+
+    async def delete_row(
+        self,
+        data_id: UUID,
+        user_id: UUID,
+        row_index: int
+    ) -> None:
+        """Delete a row from structured data."""
+        data = await self.get_data_by_id(data_id, user_id)
+        
+        if not isinstance(data.data, dict) or "rows" not in data.data:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Data is not in row-based format"
+            )
+        
+        if row_index < 0 or row_index >= len(data.data["rows"]):
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Row index out of range"
+            )
+        
+        deleted_row = data.data["rows"].pop(row_index)
+        await self.db.commit()
+        
+        await self._record_change(
+            structured_data_id=data.id,
+            user_id=user_id,
+            change_type="DELETE_ROW",
+            row_index=row_index,
+            meta_data={"deleted_row": deleted_row}
+        )
+
     async def update_cell(
         self,
         data_id: UUID,
@@ -299,23 +464,27 @@ class DataManagementService:
         value: Any
     ) -> Dict[str, Any]:
         """Update a cell value."""
-        structured_data = await self.get_data_by_id(data_id, user_id)
+        data = await self.get_data_by_id(data_id, user_id)
         
-        if not structured_data.data:
-            structured_data.data = []
+        if not isinstance(data.data, dict) or "rows" not in data.data:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Data is not in row-based format"
+            )
         
-        # Ensure row exists
-        while len(structured_data.data) <= row_index:
-            structured_data.data.append({})
+        if row_index < 0 or row_index >= len(data.data["rows"]):
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Row index out of range"
+            )
         
-        old_value = structured_data.data[row_index].get(column_name)
-        structured_data.data[row_index][column_name] = value
-        
+        row = data.data["rows"][row_index]
+        old_value = row.get(column_name)
+        row[column_name] = value
         await self.db.commit()
-        await self.db.refresh(structured_data)
         
         await self._record_change(
-            structured_data_id=structured_data.id,
+            structured_data_id=data.id,
             user_id=user_id,
             change_type="UPDATE_CELL",
             column_name=column_name,
@@ -324,7 +493,7 @@ class DataManagementService:
             new_value=str(value)
         )
         
-        return structured_data.data[row_index]
+        return row
 
     async def get_change_history(
         self,
@@ -345,15 +514,20 @@ class DataManagementService:
         result = await self.db.execute(query)
         return result.scalars().all()
 
-    async def get_data_by_message_id(self, message_id: UUID, user_id: UUID) -> StructuredData:
+    async def get_data_by_message_id(self, message_id: UUID, user_id: UUID) -> StructuredDataResponse:
         """Get structured data by message ID."""
         query = (
             select(StructuredData)
             .join(StructuredData.conversation)
-            .options(selectinload(StructuredData.columns))  # Eagerly load columns
+            .options(
+                selectinload(StructuredData.conversation),
+                selectinload(StructuredData.columns)
+            )
             .where(
                 StructuredData.conversation.has(user_id=user_id),
-                StructuredData.meta_data['message_id'].astext == str(message_id),
+                text("structured_data.meta_data->>'message_id' = :message_id").bindparams(
+                    message_id=str(message_id)
+                ),
                 StructuredData.deleted_at.is_(None)
             )
         )
@@ -366,24 +540,31 @@ class DataManagementService:
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Structured data not found for this message"
             )
-
-        # Process the data
-        processed_data = data.__dict__.copy()
-        processed_data['created_at'] = data.created_at.isoformat()
-        processed_data['updated_at'] = data.updated_at.isoformat()
-        processed_data['columns'] = [
-            {
-                'id': col.id,
-                'structured_data_id': col.structured_data_id,
-                'name': col.name,
-                'data_type': col.data_type,
-                'format': col.format,
-                'formula': col.formula,
-                'order': col.order,
-                'is_active': col.is_active,
-                'meta_data': col.meta_data
-            }
-            for col in data.columns
-        ]
         
-        return StructuredData(**processed_data) 
+        # Convert SQLAlchemy model to dict with relationships
+        data_dict = {
+            "id": data.id,
+            "conversation_id": data.conversation_id,
+            "data_type": data.data_type,
+            "schema_version": data.schema_version,
+            "data": data.data,
+            "meta_data": data.meta_data,
+            "created_at": data.created_at,
+            "updated_at": data.updated_at,
+            "columns": [
+                {
+                    "id": col.id,
+                    "structured_data_id": col.structured_data_id,
+                    "name": col.name,
+                    "data_type": col.data_type,
+                    "format": col.format,
+                    "formula": col.formula,
+                    "order": col.order,
+                    "is_active": col.is_active,
+                    "meta_data": col.meta_data
+                }
+                for col in data.columns
+            ]
+        }
+        
+        return StructuredDataResponse.model_validate(data_dict) 

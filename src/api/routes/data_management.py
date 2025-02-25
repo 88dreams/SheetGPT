@@ -165,4 +165,50 @@ async def export_data(
     raise HTTPException(
         status_code=status.HTTP_501_NOT_IMPLEMENTED,
         detail="Export functionality coming soon"
-    ) 
+    )
+
+@router.get("/{data_id}/rows", response_model=Dict[str, Any])
+async def get_rows(
+    data_id: UUID,
+    skip: int = 0,
+    limit: int = 50,
+    current_user_id: UUID = Depends(get_current_user_id),
+    db: AsyncSession = Depends(get_db)
+) -> Dict[str, Any]:
+    """Get rows for structured data with pagination."""
+    service = DataManagementService(db)
+    return await service.get_rows(data_id, current_user_id, skip, limit)
+
+@router.post("/{data_id}/rows", response_model=Dict[str, Any])
+async def add_row(
+    data_id: UUID,
+    row_data: Dict[str, Any],
+    current_user_id: UUID = Depends(get_current_user_id),
+    db: AsyncSession = Depends(get_db)
+) -> Dict[str, Any]:
+    """Add a new row to structured data."""
+    service = DataManagementService(db)
+    return await service.add_row(data_id, current_user_id, row_data)
+
+@router.put("/{data_id}/rows/{row_index}", response_model=Dict[str, Any])
+async def update_row(
+    data_id: UUID,
+    row_index: int,
+    row_data: Dict[str, Any],
+    current_user_id: UUID = Depends(get_current_user_id),
+    db: AsyncSession = Depends(get_db)
+) -> Dict[str, Any]:
+    """Update a row in structured data."""
+    service = DataManagementService(db)
+    return await service.update_row(data_id, current_user_id, row_index, row_data)
+
+@router.delete("/{data_id}/rows/{row_index}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_row(
+    data_id: UUID,
+    row_index: int,
+    current_user_id: UUID = Depends(get_current_user_id),
+    db: AsyncSession = Depends(get_db)
+) -> None:
+    """Delete a row from structured data."""
+    service = DataManagementService(db)
+    await service.delete_row(data_id, current_user_id, row_index) 

@@ -65,15 +65,18 @@ class StructuredDataResponse(BaseModel):
     conversation_id: UUID
     data_type: str
     schema_version: str
-    data: Dict
-    meta_data: Dict
-    created_at: str
-    updated_at: str
+    data: Dict[str, Any]
+    meta_data: Dict[str, Any]
+    created_at: datetime
+    updated_at: datetime
     columns: List[ColumnResponse]
 
     class Config:
         from_attributes = True
-        populate_by_name = True
+        json_encoders = {
+            datetime: lambda v: v.isoformat(),
+            UUID: lambda v: str(v)
+        }
 
 class DataChangeHistoryResponse(BaseModel):
     """Schema for change history response."""

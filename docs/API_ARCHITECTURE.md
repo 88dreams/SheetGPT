@@ -26,6 +26,12 @@ The SheetGPT API is built using FastAPI, providing a modern, fast, and type-safe
   ├── data/
   │   ├── by-message/{message_id}
   │   ├── columns
+  │   ├── rows
+  │   │   ├── get
+  │   │   ├── add
+  │   │   ├── update
+  │   │   └── delete
+  │   ├── cells
   │   └── history
   └── export/
       ├── sheets
@@ -47,8 +53,11 @@ The SheetGPT API is built using FastAPI, providing a modern, fast, and type-safe
 - **Data Management Service**
   - Structured data operations
   - Column configuration
+  - Row management
   - Change tracking
   - Data validation
+  - Data transformation
+  - Cell updates
 
 - **Export Service**
   - Google Sheets integration
@@ -70,6 +79,101 @@ The SheetGPT API is built using FastAPI, providing a modern, fast, and type-safe
   - Transaction management
   - Connection pooling
   - Migration handling
+
+## Data Management
+
+### 1. Data Structure
+```typescript
+interface StructuredData {
+  id: string
+  conversation_id: string
+  data_type: string
+  schema_version: string
+  data: {
+    rows: Array<Record<string, any>>
+    column_order: string[]
+  }
+  meta_data: Record<string, any>
+  columns: Column[]
+}
+
+interface Column {
+  id: string
+  name: string
+  data_type: string
+  format?: string
+  formula?: string
+  order: number
+  is_active: boolean
+  meta_data: Record<string, any>
+}
+```
+
+### 2. Row Operations
+- **Get Rows**
+  ```
+  GET /api/v1/data/{data_id}/rows
+  Query Parameters:
+    - skip: number
+    - limit: number
+  Response:
+    - total: number
+    - rows: Array<Record<string, any>>
+    - column_order: string[]
+  ```
+
+- **Add Row**
+  ```
+  POST /api/v1/data/{data_id}/rows
+  Body:
+    - Record<string, any>
+  Response:
+    - Added row data
+  ```
+
+- **Update Row**
+  ```
+  PUT /api/v1/data/{data_id}/rows/{row_index}
+  Body:
+    - Record<string, any>
+  Response:
+    - Updated row data
+  ```
+
+- **Delete Row**
+  ```
+  DELETE /api/v1/data/{data_id}/rows/{row_index}
+  Response:
+    - 204 No Content
+  ```
+
+### 3. Cell Operations
+- **Update Cell**
+  ```
+  PUT /api/v1/data/{data_id}/cells
+  Body:
+    - column_name: string
+    - row_index: number
+    - value: any
+  Response:
+    - Updated row data
+  ```
+
+### 4. Change Tracking
+```typescript
+interface DataChangeHistory {
+  id: string
+  structured_data_id: string
+  user_id: string
+  change_type: string
+  column_name?: string
+  row_index?: number
+  old_value?: string
+  new_value?: string
+  meta_data: Record<string, any>
+  created_at: string
+}
+```
 
 ## Design Principles
 
@@ -97,6 +201,15 @@ The SheetGPT API is built using FastAPI, providing a modern, fast, and type-safe
 - Query optimization
 - Caching strategy
 
+### 5. Resilience
+- Retry mechanisms for critical operations
+- Verification steps for data creation
+- Automatic recovery from partial failures
+- Duplicate detection and cleanup
+- Race condition prevention
+- Comprehensive error handling
+- State restoration after failures
+
 ## Data Flow
 
 ### 1. Request Flow
@@ -110,14 +223,32 @@ Client Request
   → Client Response
 ```
 
-### 2. WebSocket Flow (Future)
+### 2. Data Transformation Flow
 ```
-Client Connection
-  → Authentication
-  → Channel Subscription
-  → Message Processing
-  → Broadcast/Direct Message
-  → Client Update
+Raw Data
+  → Data Extraction
+  → Structure Validation
+  → Row Format Conversion
+  → Column Mapping
+  → Change Recording
+  → Final Response
+```
+
+### 3. "Send to Data" Flow
+```
+Client                                  API                                 Database
+  |                                      |                                     |
+  |--- Check for existing data --------->|--- Query by message_id ------------>|
+  |<-- Return existing or null ----------|<-- Return results ------------------|
+  |                                      |                                     |
+  |--- Create structured data (if new) ->|--- Insert new record -------------->|
+  |<-- Success or error ----------------|<-- Confirm or error ----------------|
+  |                                      |                                     |
+  |--- Verify data exists (if error) --->|--- Query by message_id ------------>|
+  |<-- Return data if exists ------------|<-- Return results ------------------|
+  |                                      |                                     |
+  |--- Clean up duplicates (if any) ---->|--- Delete duplicate records ------->|
+  |<-- Success --------------------------|<-- Confirm deletion ----------------|
 ```
 
 ## Integration Points
@@ -147,6 +278,15 @@ Client Connection
 - Data validation
 - Business rule validation
 - Response validation
+
+### 3. Recovery Strategies
+- Automatic retries with exponential backoff
+- Verification steps after failures
+- Duplicate detection and resolution
+- Comprehensive logging for debugging
+- Graceful degradation
+- User-friendly error messages
+- State preservation during recovery
 
 ## Security Measures
 
@@ -183,6 +323,8 @@ Client Connection
 - Advanced caching
 - Rate limiting
 - API versioning
+- Bulk operations
+- Advanced filtering
 
 ### 2. Scalability
 - Horizontal scaling

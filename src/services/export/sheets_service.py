@@ -183,6 +183,9 @@ class GoogleSheetsService:
             # Create the spreadsheet
             spreadsheet_id = await self.create_spreadsheet(title)
             
+            # Get the spreadsheet URL
+            spreadsheet_url = f"https://docs.google.com/spreadsheets/d/{spreadsheet_id}"
+            
             # Apply template formatting
             if data:
                 # Calculate ranges based on data size
@@ -215,6 +218,7 @@ class GoogleSheetsService:
             
             return {
                 "spreadsheet_id": spreadsheet_id,
+                "spreadsheetUrl": spreadsheet_url,
                 "title": title,
                 "template": template_name
             }

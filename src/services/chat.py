@@ -6,7 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 
-from src.models.models import Conversation, Message, StructuredData
+from src.models.models import Conversation, Message, StructuredData, DataColumn
 from src.utils.config import get_settings
 
 settings = get_settings()
@@ -108,11 +108,13 @@ class ChatService:
 
         # If structured format is requested, add it to the system message
         if structured_format:
+            import json
+            format_str = json.dumps(structured_format, ensure_ascii=False)
             system_message = {
                 "role": "system",
                 "content": f"""Please provide responses in two parts:
                 1. A natural conversation response
-                2. Structured data in the following format: {structured_format}
+                2. Structured data in the following format: {format_str}
                 
                 Separate the parts with '---DATA---'"""
             }
@@ -139,22 +141,93 @@ class ChatService:
 
         # Handle structured data if requested
         if structured_format and "---DATA---" in full_response:
-            conversation_part, data_part = full_response.split("---DATA---")
-            
-            # Store structured data
-            structured_data = StructuredData(
-                conversation_id=conversation_id,
-                data_type="chat_extraction",
-                schema_version="1.0",
-                data={"raw_data": data_part.strip()},
-                meta_data={
-                    "format": structured_format,
-                    "message_id": str(assistant_msg.id)
-                }
-            )
-            self.db.add(structured_data)
-            await self.db.commit()
-            await self.db.refresh(structured_data)
+            try:
+                conversation_part, data_part = full_response.split("---DATA---")
+                data_str = data_part.strip()
+                
+                # Try to parse the data as JSON if possible
+                try:
+                    parsed_data = json.loads(data_str)
+                except json.JSONDecodeError:
+                    parsed_data = {"raw_text": data_str}
+                
+                # Get conversation for the title
+                conversation = await self.get_conversation(conversation_id)
+                
+                # Transform data into row-based format if it's a dictionary
+                transformed_data = {"rows": [], "column_order": []}
+                if isinstance(parsed_data, dict):
+                    # Get all keys as columns
+                    columns = list(parsed_data.keys())
+                    transformed_data["column_order"] = columns
+                    
+                    # Find the maximum length of any column's data
+                    max_rows = 1
+                    for value in parsed_data.values():
+                        if isinstance(value, list):
+                            max_rows = max(max_rows, len(value))
+                    
+                    # Create rows
+                    for i in range(max_rows):
+                        row = {}
+                        for col in columns:
+                            value = parsed_data[col]
+                            if isinstance(value, list):
+                                row[col] = value[i] if i < len(value) else None
+                            else:
+                                row[col] = value if i == 0 else None
+                        transformed_data["rows"].append(row)
+                else:
+                    transformed_data = {"rows": [{"raw_text": str(parsed_data)}], "column_order": ["raw_text"]}
+                
+                # Store structured data
+                structured_data = StructuredData(
+                    conversation_id=conversation_id,
+                    data_type="chat_extraction",
+                    schema_version="1.0",
+                    data=transformed_data,
+                    meta_data={
+                        "format": structured_format,
+                        "message_id": str(assistant_msg.id),
+                        "title": conversation.title
+                    }
+                )
+                self.db.add(structured_data)
+                await self.db.commit()
+                await self.db.refresh(structured_data)
+
+                # Create default columns based on the column order
+                columns = []
+                for i, col_name in enumerate(transformed_data["column_order"]):
+                    # Determine data type from the first row if available
+                    data_type = "string"
+                    if transformed_data["rows"]:
+                        value = transformed_data["rows"][0].get(col_name)
+                        if isinstance(value, (int, float)):
+                            data_type = "number"
+                        elif isinstance(value, bool):
+                            data_type = "boolean"
+                        elif isinstance(value, dict):
+                            data_type = "object"
+                        elif isinstance(value, list):
+                            data_type = "array"
+
+                    column = DataColumn(
+                        structured_data_id=structured_data.id,
+                        name=col_name,
+                        data_type=data_type,
+                        order=i,
+                        is_active=True,
+                        meta_data={}
+                    )
+                    columns.append(column)
+                
+                self.db.add_all(columns)
+                await self.db.commit()
+                    
+            except Exception as e:
+                print(f"Error processing structured data: {str(e)}")
+                # Continue even if structured data processing fails
 
     async def update_conversation_title(
         self,

@@ -42,6 +42,18 @@ export interface Message {
   meta_data: Record<string, any>
 }
 
+export interface Column {
+  id: string
+  structured_data_id: string
+  name: string
+  data_type: string
+  format?: string
+  formula?: string
+  order: number
+  is_active: boolean
+  meta_data: Record<string, any>
+}
+
 export interface StructuredData {
   id: string
   conversation_id: string
@@ -51,6 +63,18 @@ export interface StructuredData {
   meta_data: Record<string, any>
   created_at: string
   updated_at: string
+  columns: Column[]
+}
+
+// Add row management types
+export interface RowData {
+  [key: string]: any
+}
+
+export interface RowsResponse {
+  total: number
+  rows: RowData[]
+  column_order: string[]
 }
 
 interface RequestOptions extends Omit<RequestInit, 'headers'> {
@@ -75,6 +99,16 @@ function getToken(): string | null {
 
 function removeToken() {
   localStorage.removeItem(TOKEN_KEY)
+}
+
+// Custom error class for API errors
+export class APIError extends Error {
+  status: number
+  constructor(message: string, status: number) {
+    super(message)
+    this.name = 'APIError'
+    this.status = status
+  }
 }
 
 async function request<T>(endpoint: string, options: RequestOptions = {}): Promise<T> {
@@ -105,7 +139,8 @@ async function request<T>(endpoint: string, options: RequestOptions = {}): Promi
   try {
     const response = await fetch(url, {
       ...restOptions,
-      headers: requestHeaders
+      headers: requestHeaders,
+      credentials: 'include'
     })
 
     console.log(`Response from ${endpoint}:`, {
@@ -135,7 +170,12 @@ async function request<T>(endpoint: string, options: RequestOptions = {}): Promi
         })
         errorDetail = `HTTP error! status: ${response.status}`
       }
-      throw new Error(errorDetail)
+      throw new APIError(errorDetail, response.status)
+    }
+
+    // Handle 204 No Content responses
+    if (response.status === 204) {
+      return undefined as T
     }
 
     const data = await response.json()
@@ -154,10 +194,13 @@ async function request<T>(endpoint: string, options: RequestOptions = {}): Promi
       headers: requestHeaders,
       body: options.body ? JSON.parse(options.body as string) : undefined
     })
-    if (error instanceof Error) {
-      throw new Error(`API request failed: ${error.message}`)
+    if (error instanceof APIError) {
+      throw error
     }
-    throw error
+    if (error instanceof Error) {
+      throw new APIError(`API request failed: ${error.message}`, 500)
+    }
+    throw new APIError('Unknown error occurred', 500)
   }
 }
 
@@ -233,22 +276,51 @@ export const api = {
       const reader = response.body.getReader()
       const decoder = new TextDecoder()
       let fullResponse = ''
+      let buffer = ''
 
       while (true) {
         const { done, value } = await reader.read()
         if (done) break
 
         const chunk = decoder.decode(value)
-        const lines = chunk.split('\n')
+        buffer += chunk
+        
+        // Process complete lines from the buffer
+        const lines = buffer.split('\n')
+        buffer = lines.pop() || '' // Keep the last incomplete line in the buffer
         
         for (const line of lines) {
           if (line.startsWith('data: ')) {
-            const data = JSON.parse(line.slice(6))
+            try {
+              const jsonStr = line.slice(6).trim()
+              if (jsonStr) {
+                const data = JSON.parse(jsonStr)
+                if (data.text) {
+                  fullResponse += data.text
+                  if (onChunk) onChunk(data.text)
+                }
+              }
+            } catch (error) {
+              console.error('Error parsing streaming response:', error)
+              // Continue processing other chunks even if one fails
+            }
+          }
+        }
+      }
+
+      // Process any remaining data in the buffer
+      if (buffer.startsWith('data: ')) {
+        try {
+          const jsonStr = buffer.slice(6).trim()
+          if (jsonStr) {
+            const data = JSON.parse(jsonStr)
             if (data.text) {
               fullResponse += data.text
               if (onChunk) onChunk(data.text)
             }
           }
+        } catch (error) {
+          console.error('Error parsing final chunk:', error)
         }
       }
 
@@ -272,6 +344,103 @@ export const api = {
       request(`/data/${id}`, { requiresAuth: true }),
 
     getStructuredDataByMessageId: (messageId: string): Promise<StructuredData> =>
-      request(`/data/by-message/${messageId}`, { requiresAuth: true })
+      request(`/data/by-message/${messageId}`, { requiresAuth: true }),
+      
+    createStructuredData: (data: Partial<StructuredData>): Promise<StructuredData> =>
+      request('/data', {
+        method: 'POST',
+        body: JSON.stringify(data),
+        requiresAuth: true
+      }),
+      
+    deleteStructuredData: (id: string): Promise<void> =>
+      request(`/data/${id}`, { 
+        method: 'DELETE',
+        requiresAuth: true 
+      }),
+      
+    updateStructuredData: (id: string, updates: Partial<StructuredData>): Promise<StructuredData> =>
+      request(`/data/${id}`, {
+        method: 'PUT',
+        body: JSON.stringify(updates),
+        requiresAuth: true
+      }),
+
+    getColumns: (dataId: string): Promise<Column[]> =>
+      request(`/data/${dataId}/columns`, { requiresAuth: true }),
+
+    updateColumn: (dataId: string, columnName: string, updates: Partial<Column>): Promise<Column> =>
+      request(`/data/${dataId}/columns/${columnName}`, {
+        method: 'PUT',
+        body: JSON.stringify(updates),
+        requiresAuth: true
+      }),
+
+    updateCell: (dataId: string, update: { column_name: string; row_index: number; value: any }): Promise<any> =>
+      request(`/data/${dataId}/cells`, {
+        method: 'PUT',
+        body: JSON.stringify(update),
+        requiresAuth: true
+      }),
+
+    addRow: (dataId: string, rowData: Record<string, any>): Promise<any> =>
+      request(`/data/${dataId}/rows`, {
+        method: 'POST',
+        body: JSON.stringify(rowData),
+        requiresAuth: true
+      }),
+
+    deleteRow: (dataId: string, rowIndex: number): Promise<void> =>
+      request(`/data/${dataId}/rows/${rowIndex}`, {
+        method: 'DELETE',
+        requiresAuth: true
+      }),
+
+    updateRow: (dataId: string, rowIndex: number, rowData: Record<string, any>): Promise<any> =>
+      request(`/data/${dataId}/rows/${rowIndex}`, {
+        method: 'PUT',
+        body: JSON.stringify(rowData),
+        requiresAuth: true
+      })
+  },
+
+  export: {
+    // Authentication endpoints
+    getAuthUrl: (): Promise<{ url: string }> =>
+      request('/export/auth/google', { requiresAuth: true }),
+
+    getAuthStatus: (): Promise<{ authenticated: boolean }> =>
+      request('/export/auth/status', { requiresAuth: true }),
+
+    // Template endpoints
+    getTemplates: (): Promise<string[]> =>
+      request('/export/templates', { requiresAuth: true }),
+
+    // Preview endpoint
+    getExportPreview: (dataId: string, templateName: string): Promise<{
+      columns: string[];
+      sampleData: any[][];
+    }> =>
+      request(`/export/preview/${dataId}?template=${templateName}`, { requiresAuth: true }),
+
+    // Export endpoints
+    exportToSheets: (dataId: string, templateName: string): Promise<any> =>
+      request('/export/sheets', {
+        method: 'POST',
+        body: JSON.stringify({
+          data_id: dataId,
+          template_name: templateName
+        }),
+        requiresAuth: true
+      }),
+
+    applyTemplate: (spreadsheetId: string, templateName: string): Promise<any> =>
+      request(`/export/sheets/${spreadsheetId}/template`, {
+        method: 'POST',
+        body: JSON.stringify({
+          template_name: templateName
+        }),
+        requiresAuth: true
+      })
   }
 } 

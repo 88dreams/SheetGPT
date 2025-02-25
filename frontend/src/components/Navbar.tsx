@@ -33,7 +33,7 @@ export default function Navbar() {
                   to="/data"
                   className={`px-3 py-2 rounded-md text-sm font-medium ${isActive('/data')} hover:text-gray-900`}
                 >
-                  Data Management
+                  Data
                 </Link>
                 <button
                   onClick={logout}

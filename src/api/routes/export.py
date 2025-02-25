@@ -92,7 +92,7 @@ async def check_auth_status() -> Dict[str, bool]:
         is_authorized = await sheets_service.initialize_from_token(
             token_path=sheets_config.TOKEN_PATH
         )
-        return {"is_authorized": is_authorized}
+        return {"authenticated": is_authorized}
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -181,8 +181,8 @@ async def create_spreadsheet(
         )
 
         return {
-            "spreadsheetId": result.get("spreadsheetId"),
-            "spreadsheetUrl": result.get("spreadsheetUrl")
+            "spreadsheetId": result.get("spreadsheet_id"),
+            "spreadsheetUrl": result.get("spreadsheetUrl", "")
         }
     except Exception as e:
         raise HTTPException(

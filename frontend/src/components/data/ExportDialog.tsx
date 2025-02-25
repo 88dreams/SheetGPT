@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react'
 import { useQuery, useMutation, UseQueryOptions } from '@tanstack/react-query'
 import { useNotification } from '../../contexts/NotificationContext'
 import LoadingSpinner from '../common/LoadingSpinner'
+import { api } from '../../utils/api'
 
 interface ExportDialogProps {
   isOpen: boolean
@@ -33,22 +34,20 @@ const ExportDialog: React.FC<ExportDialogProps> = ({ isOpen, onClose, dataId }) 
   // Fetch available templates
   const { data: templates, isLoading: isLoadingTemplates } = useQuery<string[]>({
     queryKey: ['export-templates'],
-    queryFn: async () => {
-      const response = await fetch('/api/v1/export/templates')
-      if (!response.ok) throw new Error('Failed to fetch templates')
-      return response.json()
+    queryFn: () => api.export.getTemplates(),
+    onError: () => {
+      showNotification('error', 'Failed to fetch templates')
     }
-  })
+  } as UseQueryOptions<string[]>)
 
   // Check Google Sheets auth status
   const { data: authData } = useQuery<AuthStatus>({
     queryKey: ['sheets-auth-status'],
-    queryFn: async () => {
-      const response = await fetch('/api/v1/export/auth/status')
-      if (!response.ok) throw new Error('Failed to check auth status')
-      return response.json()
+    queryFn: () => api.export.getAuthStatus(),
+    onError: () => {
+      setAuthStatus('unauthenticated')
     }
-  })
+  } as UseQueryOptions<AuthStatus>)
 
   // Update auth status when authData changes
   useEffect(() => {
@@ -60,20 +59,17 @@ const ExportDialog: React.FC<ExportDialogProps> = ({ isOpen, onClose, dataId }) 
   // Get export preview
   const { data: preview, isLoading: isLoadingPreview } = useQuery<ExportPreview>({
     queryKey: ['export-preview', dataId, selectedTemplate],
-    queryFn: async () => {
-      const response = await fetch(`/api/v1/export/preview/${dataId}?template=${selectedTemplate}`)
-      if (!response.ok) throw new Error('Failed to get export preview')
-      return response.json()
-    },
-    enabled: !!dataId && !!selectedTemplate
-  })
+    queryFn: () => api.export.getExportPreview(dataId, selectedTemplate),
+    enabled: !!dataId && !!selectedTemplate && authStatus === 'authenticated',
+    onError: () => {
+      showNotification('error', 'Failed to get export preview')
+    }
+  } as UseQueryOptions<ExportPreview>)
 
   // Handle Google Sheets authentication
   const handleAuth = async () => {
     try {
-      const response = await fetch('/api/v1/export/auth/google')
-      if (!response.ok) throw new Error('Failed to initiate authentication')
-      const { url } = await response.json()
+      const { url } = await api.export.getAuthUrl()
       window.location.href = url
     } catch (error) {
       showNotification('error', 'Failed to initiate Google Sheets authentication')
@@ -82,25 +78,12 @@ const ExportDialog: React.FC<ExportDialogProps> = ({ isOpen, onClose, dataId }) 
 
   // Export mutation
   const exportMutation = useMutation({
-    mutationFn: async () => {
-      const response = await fetch(`/api/v1/export/sheets`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          data_id: dataId,
-          template_name: selectedTemplate
-        })
-      })
-      if (!response.ok) throw new Error('Failed to export data')
-      return response.json()
-    },
-    onSuccess: (data) => {
+    mutationFn: () => api.export.exportToSheets(dataId, selectedTemplate),
+    onSuccess: () => {
       showNotification('success', 'Data exported successfully')
       onClose()
     },
-    onError: (error) => {
+    onError: () => {
       showNotification('error', 'Failed to export data')
     }
   })

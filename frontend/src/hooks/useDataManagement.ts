@@ -1,60 +1,59 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useNotification } from '../contexts/NotificationContext'
-import type { StructuredData, Column, DataChange, CellUpdate } from '../types/data'
+import { api } from '../utils/api'
+import type { StructuredData, Column, RowData } from '../utils/api'
 
 export function useDataManagement(dataId?: string) {
   const queryClient = useQueryClient()
   const { showNotification } = useNotification()
 
   // Fetch structured data
-  const { data: selectedData, isLoading: isLoadingData } = useQuery<StructuredData>({
+  const { data: selectedData, isLoading: isLoadingData } = useQuery<StructuredData | null>({
     queryKey: ['structured-data', dataId],
     queryFn: async () => {
-      const response = await fetch(`/api/v1/data/${dataId}`)
-      if (!response.ok) {
-        const errorData = await response.json()
-        throw new Error(errorData.detail || 'Failed to fetch data')
+      if (!dataId) return null
+      try {
+        return await api.data.getStructuredDataById(dataId)
+      } catch (error) {
+        if ((error as any)?.status === 404) {
+          return null
+        }
+        throw error
       }
-      return response.json()
     },
-    enabled: !!dataId
+    enabled: !!dataId,
+    retry: false // Don't retry on 404s
   })
 
   // Fetch columns
   const { data: columns, isLoading: isLoadingColumns } = useQuery<Column[]>({
     queryKey: ['columns', dataId],
     queryFn: async () => {
-      const response = await fetch(`/api/v1/data/${dataId}/columns`)
-      if (!response.ok) {
-        const errorData = await response.json()
-        throw new Error(errorData.detail || 'Failed to fetch columns')
+      if (!dataId) return []
+      try {
+        return await api.data.getColumns(dataId)
+      } catch (error) {
+        if ((error as any)?.status === 404) {
+          return []
+        }
+        throw error
       }
-      return response.json()
     },
-    enabled: !!dataId
+    enabled: !!dataId,
+    retry: false // Don't retry on 404s
   })
 
   // Update column mutation
   const updateColumnMutation = useMutation({
-    mutationFn: async ({
+    mutationFn: ({
       columnName,
       updates
     }: {
       columnName: string
       updates: Partial<Column>
     }) => {
-      const response = await fetch(`/api/v1/data/${dataId}/columns/${columnName}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(updates)
-      })
-      if (!response.ok) {
-        const errorData = await response.json()
-        throw new Error(errorData.detail || 'Failed to update column')
-      }
-      return response.json()
+      if (!dataId) throw new Error('No data ID provided')
+      return api.data.updateColumn(dataId, columnName, updates)
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['columns', dataId] })
@@ -67,19 +66,9 @@ export function useDataManagement(dataId?: string) {
 
   // Update cell mutation
   const updateCellMutation = useMutation({
-    mutationFn: async (update: CellUpdate) => {
-      const response = await fetch(`/api/v1/data/${dataId}/cells`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(update)
-      })
-      if (!response.ok) {
-        const errorData = await response.json()
-        throw new Error(errorData.detail || 'Failed to update cell')
-      }
-      return response.json()
+    mutationFn: (update: { column_name: string; row_index: number; value: any }) => {
+      if (!dataId) throw new Error('No data ID provided')
+      return api.data.updateCell(dataId, update)
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['structured-data', dataId] })
@@ -92,18 +81,43 @@ export function useDataManagement(dataId?: string) {
 
   // Delete data mutation
   const deleteMutation = useMutation({
-    mutationFn: async () => {
-      const response = await fetch(`/api/v1/data/${dataId}`, {
-        method: 'DELETE'
-      })
-      if (!response.ok) {
-        const errorData = await response.json()
-        throw new Error(errorData.detail || 'Failed to delete data')
-      }
+    mutationFn: () => {
+      if (!dataId) throw new Error('No data ID provided')
+      return api.data.deleteStructuredData(dataId)
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['structured-data'] })
       showNotification('success', 'Data deleted successfully')
+    },
+    onError: (error: Error) => {
+      showNotification('error', error.message)
+    }
+  })
+
+  // Add row mutation
+  const addRowMutation = useMutation({
+    mutationFn: (rowData: Record<string, any>) => {
+      if (!dataId) throw new Error('No data ID provided')
+      return api.data.addRow(dataId, rowData)
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['structured-data', dataId] })
+      showNotification('success', 'Row added successfully')
+    },
+    onError: (error: Error) => {
+      showNotification('error', error.message)
+    }
+  })
+
+  // Delete row mutation
+  const deleteRowMutation = useMutation({
+    mutationFn: (rowIndex: number) => {
+      if (!dataId) throw new Error('No data ID provided')
+      return api.data.deleteRow(dataId, rowIndex)
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['structured-data', dataId] })
+      showNotification('success', 'Row deleted successfully')
     },
     onError: (error: Error) => {
       showNotification('error', error.message)
@@ -118,8 +132,12 @@ export function useDataManagement(dataId?: string) {
     isUpdatingColumn: updateColumnMutation.isPending,
     isUpdatingCell: updateCellMutation.isPending,
     isDeleting: deleteMutation.isPending,
+    isAddingRow: addRowMutation.isPending,
+    isDeletingRow: deleteRowMutation.isPending,
     updateColumn: updateColumnMutation.mutate,
     updateCell: updateCellMutation.mutate,
-    deleteData: deleteMutation.mutate
+    deleteData: deleteMutation.mutate,
+    addRow: addRowMutation.mutate,
+    deleteRow: deleteRowMutation.mutate
   }
 } 

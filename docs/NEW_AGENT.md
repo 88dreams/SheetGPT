@@ -4,8 +4,8 @@
 ```json
 {
   "project_name": "SheetGPT",
-  "version": "0.3.1",
-  "last_updated": "2024-05-20",
+  "version": "0.3.2",
+  "last_updated": "2024-05-27",
   "environment": {
     "development": "Docker-based",
     "services": ["frontend", "backend", "db"],
@@ -22,7 +22,9 @@
       "react": "^18.3.1",
       "react-query": "^5.8.4",
       "react-icons": "^4.12.0",
-      "react-beautiful-dnd": "^13.1.1"
+      "react-beautiful-dnd": "^13.1.1",
+      "react-markdown": "latest",
+      "date-fns": "latest"
     },
     "backend": {
       "fastapi": "latest",
@@ -55,7 +57,9 @@
     "Export to Sheets UI implementation",
     "Sports database models and API endpoints",
     "Backend services for sports entities management",
-    "Authentication utility functions"
+    "Authentication utility functions",
+    "Sport Data Mapper button integration",
+    "Optimized UI button styling for better visibility"
   ],
   "in_progress": [
     "Google Sheets API backend integration",
@@ -77,7 +81,10 @@
     "Fixed UUID handling in database models by using SQLUUID type",
     "Resolved import issues with sheets_service by updating import paths",
     "Created auth.py utility to provide get_current_user functionality",
-    "Fixed backend startup issues related to missing modules"
+    "Fixed backend startup issues related to missing modules",
+    "Improved MessageItem component to use MessageThread for consistent rendering",
+    "Enhanced UI button styling for better visibility and differentiation",
+    "Fixed missing dependencies (react-markdown, date-fns) in frontend container"
   ],
   "known_issues": [
     "Linter errors for react-icons/fa (can be ignored in Docker environment)",
@@ -282,7 +289,9 @@
     "user_experience": {
       "button_state": "Changes during processing to provide visual feedback",
       "processing_state": "Tracked to prevent multiple simultaneous operations",
-      "navigation_timing": "Delayed to ensure backend processing completes"
+      "navigation_timing": "Delayed to ensure backend processing completes",
+      "button_styling": "Optimized for better visibility with smaller size and distinct colors",
+      "visual_differentiation": "Send to Data (blue) and Map Sports Data (green) buttons have distinct colors"
     },
     "data_extraction": {
       "helper_function": "extractStructuredData standardizes data format",
@@ -295,6 +304,30 @@
       "export_dialog": "Created component for template selection and preview",
       "integration": "Added to DataTable component",
       "state_management": "Implemented for dialog visibility"
+    }
+  },
+  "message_components": {
+    "rendering_consistency": {
+      "issue": "Inconsistent rendering between MessageThread and MessageItem components",
+      "fix": "Updated MessageThread to use MessageItem for consistent rendering",
+      "affected_files": [
+        "frontend/src/components/chat/MessageThread.tsx",
+        "frontend/src/components/chat/MessageItem.tsx"
+      ],
+      "benefits": "Consistent button styling, improved visibility, and unified data extraction"
+    },
+    "button_styling": {
+      "size_optimization": "Reduced button size for better UI integration (px-2 py-1, text-xs)",
+      "icon_spacing": "Adjusted icon spacing (mr-1) to match smaller button size",
+      "color_differentiation": "Map Sports Data button uses green styling to distinguish from blue Send to Data button",
+      "affected_files": [
+        "frontend/src/components/chat/MessageItem.tsx"
+      ]
+    },
+    "dependencies": {
+      "issue": "Missing dependencies for MessageItem component",
+      "fix": "Added react-markdown and date-fns packages to frontend container",
+      "command": "docker-compose exec frontend npm install react-markdown date-fns"
     }
   },
   "backend_fixes": {
@@ -338,7 +371,15 @@
             "handleViewData - Processes data and sends to backend with retry logic",
             "extractStructuredData - Helper function to standardize data format"
           ],
-          "recent_changes": "Enhanced error handling, retry logic, and async/await implementation"
+          "recent_changes": "Enhanced error handling, retry logic, and async/await implementation. Now uses MessageItem component for consistent rendering."
+        },
+        "MessageItem.tsx": {
+          "purpose": "Renders individual chat messages with action buttons",
+          "key_functions": [
+            "extractAndOpenSportDataMapper - Extracts data from message content and opens the SportDataMapper",
+            "handleDataExtraction - Processes data for the data preview modal"
+          ],
+          "recent_changes": "Optimized button styling with smaller size and distinct colors. Send to Data button is blue, Map Sports Data button is green."
         }
       },
       "data": {
@@ -353,6 +394,15 @@
             "handleRawDataResize - Controls raw data height resizing"
           ],
           "recent_changes": "Improved column resizing, grid expansion, event listener cleanup, and added comprehensive logging"
+        },
+        "SportDataMapper.tsx": {
+          "purpose": "Maps extracted sports data to database fields",
+          "key_functions": [
+            "extractSourceFields - Extracts fields from structured data",
+            "handleFieldMapping - Maps source fields to target fields",
+            "handleSaveToDatabase - Saves mapped data to database"
+          ],
+          "recent_changes": "Improved integration with MessageItem component for real data extraction"
         },
         "ExportDialog.tsx": {
           "purpose": "UI for exporting data to Google Sheets",

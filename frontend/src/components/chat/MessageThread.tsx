@@ -6,6 +6,7 @@ import type { StructuredData } from '../../utils/api'
 import { DataExtractionService } from '../../services/DataExtractionService'
 import { useNotification } from '../../contexts/NotificationContext'
 import { transformToStandardFormat } from '../../utils/dataTransformer'
+import MessageItem from './MessageItem'
 
 interface Message {
   id: string
@@ -377,43 +378,12 @@ const MessageThread: React.FC<MessageThreadProps> = ({ messages }) => {
 
   return (
     <div className="space-y-4">
-      {messages.map((message) => (
-        <div
-          key={message.id}
-          className={`flex ${
-            message.role === 'user' ? 'justify-end' : 'justify-start'
-          }`}
-        >
-          <div
-            className={`max-w-[80%] rounded-lg p-3 ${
-              message.role === 'user'
-                ? 'bg-blue-600 text-white'
-                : 'bg-gray-100 text-gray-900'
-            }`}
-          >
-            <div className="whitespace-pre-wrap text-sm break-words overflow-auto max-h-[500px] scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-transparent">
-              {message.content}
-            </div>
-            <div className="flex items-center justify-between mt-2">
-              <div
-                className={`text-[10px] ${
-                  message.role === 'user' ? 'text-blue-200' : 'text-gray-500'
-                }`}
-              >
-                {new Date(message.created_at).toLocaleTimeString()}
-              </div>
-              {message.role === 'assistant' && message.content.includes('---DATA---') && (
-                <button
-                  onClick={() => handleViewData(message.id, message)}
-                  className="text-xs px-2 py-1 rounded bg-blue-500 text-white hover:bg-blue-600"
-                  data-message-id={message.id}
-                >
-                  Send to Data
-                </button>
-              )}
-            </div>
-          </div>
-        </div>
+      {messages.map((message, index) => (
+        <MessageItem 
+          key={message.id} 
+          message={message} 
+          isLastMessage={index === messages.length - 1}
+        />
       ))}
     </div>
   )

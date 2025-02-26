@@ -42,6 +42,112 @@ The sports database API provides endpoints for managing sports entities:
 - **Brand Endpoints**: `/api/v1/sports/brands`
 - **Export Endpoint**: `/api/v1/sports/export`
 
+### Sports Database Implementation
+
+The sports database implementation includes comprehensive models and services for managing sports entities:
+
+#### Entity Models
+
+The database models use SQLAlchemy ORM with PostgreSQL as the database:
+
+```python
+# Example of League model
+class League(Base):
+    __tablename__ = "leagues"
+    
+    id: Mapped[UUID] = mapped_column(SQLUUID, primary_key=True, default=uuid4)
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    sport: Mapped[str] = mapped_column(String(100), nullable=False)
+    country: Mapped[str] = mapped_column(String(100), nullable=True)
+    founded_year: Mapped[int] = mapped_column(Integer, nullable=True)
+    description: Mapped[str] = mapped_column(Text, nullable=True)
+    
+    # Relationships
+    teams: Mapped[List["Team"]] = relationship("Team", back_populates="league")
+```
+
+#### Entity Services
+
+The services implement the business logic for managing sports entities:
+
+```python
+# Example of League service methods
+class SportsService:
+    def __init__(self, db: Session):
+        self.db = db
+    
+    async def get_leagues(self, skip: int = 0, limit: int = 100):
+        return self.db.query(League).offset(skip).limit(limit).all()
+    
+    async def create_league(self, league_data: LeagueCreate):
+        league = League(**league_data.dict())
+        self.db.add(league)
+        self.db.commit()
+        self.db.refresh(league)
+        return league
+    
+    async def get_league(self, league_id: UUID):
+        return self.db.query(League).filter(League.id == league_id).first()
+```
+
+#### Validation and Field Mapping
+
+The sports database implementation includes comprehensive validation and field mapping:
+
+```python
+# Example of validation method
+async def validate_sports_entity(self, entity_type: str, entity_data: dict):
+    validation_errors = {}
+    
+    if entity_type == "league":
+        if not entity_data.get("name"):
+            validation_errors["name"] = "Name is required"
+        if not entity_data.get("sport"):
+            validation_errors["sport"] = "Sport is required"
+    
+    # Similar validation for other entity types
+    
+    return validation_errors
+```
+
+#### Batch Import Process
+
+The batch import process handles importing multiple records:
+
+```python
+# Example of batch import method
+async def batch_import_entities(self, entity_type: str, entities_data: List[dict]):
+    results = {
+        "success": 0,
+        "failed": 0,
+        "errors": []
+    }
+    
+    for entity_data in entities_data:
+        try:
+            # Validate entity data
+            validation_errors = await self.validate_sports_entity(entity_type, entity_data)
+            if validation_errors:
+                results["failed"] += 1
+                results["errors"].append({
+                    "entity": entity_data,
+                    "errors": validation_errors
+                })
+                continue
+            
+            # Create entity
+            await self.create_entity(entity_type, entity_data)
+            results["success"] += 1
+        except Exception as e:
+            results["failed"] += 1
+            results["errors"].append({
+                "entity": entity_data,
+                "errors": str(e)
+            })
+    
+    return results
+```
+
 ## Export Service
 
 The export service handles exporting data to Google Sheets:
@@ -202,6 +308,26 @@ This function is used as a dependency in protected routes to ensure the user is 
 
 Similar endpoints exist for teams, players, games, stadiums, broadcast companies, production companies, and brands.
 
+### Batch Import Endpoints
+
+- `POST /api/v1/sports/batch/import`: Import multiple entities of the same type
+  - Request body includes entity type and array of entity data
+  - Response includes success count, failure count, and error details
+  - Continues processing even if individual records fail
+  - Returns detailed validation errors for failed records
+
+### Field Mapping Endpoints
+
+- `GET /api/v1/sports/fields/{entity_type}`: Get available fields for an entity type
+  - Returns field names, types, and validation requirements
+  - Used by the frontend to generate field mapping UI
+  - Includes information about required fields and relationships
+
+- `POST /api/v1/sports/validate/{entity_type}`: Validate entity data without saving
+  - Performs validation checks on entity data
+  - Returns validation errors without creating the entity
+  - Used for pre-validation during the mapping process
+
 ### Export
 
 - `POST /api/v1/export/sheets`: Export data to Google Sheets
@@ -224,6 +350,16 @@ Similar endpoints exist for teams, players, games, stadiums, broadcast companies
    - Create comprehensive test suite for all endpoints
    - Update API documentation with examples
    - Add performance benchmarks
+
+4. **Enhanced Batch Processing**:
+   - Implement asynchronous batch processing for large imports
+   - Add progress tracking for long-running operations
+   - Implement webhook notifications for completed operations
+
+5. **Advanced Field Mapping**:
+   - Add support for custom field transformations
+   - Implement field mapping templates for common data sources
+   - Add validation rules for complex field relationships
 
 ## Data Handling Architecture
 
@@ -248,11 +384,21 @@ Similar endpoints exist for teams, players, games, stadiums, broadcast companies
    - The `DataPreviewModal` component provides a preview of extracted data before it's stored.
    - It supports multiple data formats and provides a visual representation of how the data will be displayed.
 
+5. **Sports Data Mapping**:
+   - The `SportDataMapper` component maps extracted data to sports entity fields.
+   - It provides a drag-and-drop interface for field mapping.
+   - The component handles field name prefixing to ensure uniqueness across entity types.
+   - It implements record navigation controls to preview individual records before import.
+   - The component supports record exclusion functionality with visual indicators.
+   - It features batch import with real-time progress tracking.
+
 ### Recent Improvements
 
 1. **Enhanced Data Transformation**:
    - Improved handling of nested data structures to correctly transpose rows and columns.
    - Added support for various data formats to ensure consistent display across the application.
+   - Implemented field name prefixing to ensure uniqueness across entity types.
+   - Added field mapping between UI field names and database field names.
 
 2. **Data Persistence**:
    - Enhanced React Query configuration for better data persistence during navigation.
@@ -262,7 +408,23 @@ Similar endpoints exist for teams, players, games, stadiums, broadcast companies
 3. **Error Handling**:
    - Improved error handling in data extraction and transformation processes.
    - Added fallback mechanisms to ensure graceful degradation when data cannot be processed.
+   - Implemented error handling that continues processing even when individual records fail.
+   - Added detailed validation error reporting for failed records.
+
+4. **Batch Import Process**:
+   - Implemented real-time progress tracking during import.
+   - Added import completion status with record count.
+   - Implemented record navigation controls to preview individual records before import.
+   - Added record exclusion functionality with visual indicators.
+   - Enhanced validation to provide detailed error messages for failed records.
 
 ## API Design Principles
 
-// ... existing code ... 
+1. **RESTful Design**: The API follows RESTful principles for resource naming and HTTP method usage.
+2. **Consistent Response Format**: All endpoints return responses in a consistent format.
+3. **Comprehensive Error Handling**: Detailed error messages and appropriate HTTP status codes.
+4. **Authentication and Authorization**: JWT-based authentication and role-based authorization.
+5. **Pagination and Filtering**: Support for pagination and filtering on list endpoints.
+6. **Validation**: Request validation using Pydantic schemas.
+7. **Documentation**: Comprehensive API documentation using OpenAPI/Swagger.
+8. **Testing**: Extensive test coverage for all endpoints. 

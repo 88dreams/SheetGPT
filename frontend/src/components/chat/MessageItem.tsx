@@ -5,7 +5,7 @@ import ReactMarkdown from 'react-markdown'
 // @ts-ignore
 import { formatDistanceToNow } from 'date-fns'
 // @ts-ignore
-import { FaTable, FaPlus, FaFileExport, FaDatabase, FaFlask } from 'react-icons/fa'
+import { FaTable, FaMapMarkedAlt } from 'react-icons/fa'
 import { useNavigate } from 'react-router-dom'
 import { useDataManagement } from '../../hooks/useDataManagement'
 import { DataExtractionService } from '../../services/DataExtractionService'
@@ -13,13 +13,6 @@ import { api } from '../../utils/api'
 import DataPreviewModal from './DataPreviewModal'
 import SportDataMapper from '../data/SportDataMapper'
 import '../../styles/dataPreviewModal.css'
-
-// SUPER VISIBLE DEBUG MESSAGE
-console.log('%c MessageItem.tsx LOADED - TEST CHANGE at ' + new Date().toISOString(), 'background: #ff0000; color: #ffffff; font-size: 16px; padding: 10px;');
-console.log('If you can see this message, the MessageItem component is being loaded correctly');
-
-// TEST CHANGE: This comment should be reflected in the container if volume mounting is working
-console.log('MessageItem.tsx loaded - TEST CHANGE at', new Date().toISOString());
 
 interface DataExtractionModalProps {
   message: Message
@@ -144,9 +137,15 @@ export const MessageItem: React.FC<MessageItemProps> = ({ message, isLastMessage
   const navigate = useNavigate()
   const dataManagement = useDataManagement()
   const [showDataPreview, setShowDataPreview] = useState(false)
-  const [showSportDataMapper, setShowSportDataMapper] = useState(false)
   const [extractedData, setExtractedData] = useState<any>(null)
-  const [sportsMappingData, setSportsMappingData] = useState<any>(null)
+  // Add state for SportDataMapper
+  const [showSportDataMapper, setShowSportDataMapper] = useState(false)
+  const [sportMapperData, setSportMapperData] = useState<any>(null)
+  // Add a key to force re-render of SportDataMapper when data changes
+  const [mapperKey, setMapperKey] = useState(0)
+  // Add state for loading data
+  const [isExtracting, setIsExtracting] = useState(false)
+  const [extractionError, setExtractionError] = useState<string | null>(null)
   
   // Handle data extraction for the data preview modal
   const handleDataExtraction = async (extractedData: any) => {
@@ -176,59 +175,61 @@ export const MessageItem: React.FC<MessageItemProps> = ({ message, isLastMessage
     }
   };
 
-  // Handle sports data mapping
-  const handleSportsDataMapping = () => {
+  // Function to extract data from message content and open SportDataMapper
+  const extractAndOpenSportDataMapper = () => {
+    setIsExtracting(true);
+    setExtractionError(null);
+    
     try {
-      // Extract data from the message
-      const data = DataExtractionService.extractStructuredData(message.content);
+      // Use the DataExtractionService to extract structured data from the message content
+      const extractedData = DataExtractionService.extractStructuredData(message.content);
       
-      if (!data) {
-        console.error('MessageItem: No structured data found for sports mapping');
+      if (!extractedData) {
+        setExtractionError('No structured data found in this message');
+        setIsExtracting(false);
+        alert('No structured data found in this message. Please make sure the message contains tables or structured data.');
         return;
       }
       
-      // Set the data for the sports mapper
-      setSportsMappingData(data);
+      console.log('MessageItem: Extracted real data from message', extractedData);
       
-      // Open the sports data mapper modal
+      // Add metadata to indicate this is real extracted data
+      const dataWithMetadata = {
+        ...extractedData,
+        meta_data: {
+          ...(extractedData.meta_data || {}),
+          source: 'message-extracted-data',
+          message_id: message.id,
+          conversation_id: message.conversation_id,
+          extracted_at: new Date().toISOString(),
+          is_test_data: false,
+          note: 'This is real data extracted from the message content'
+        }
+      };
+      
+      // Set the data and show the SportDataMapper
+      setSportMapperData(dataWithMetadata);
       setShowSportDataMapper(true);
+      
+      // Increment key to force re-render
+      setMapperKey(prevKey => prevKey + 1);
+      
+      console.log('MessageItem: Opening SportDataMapper with extracted data', dataWithMetadata);
     } catch (error) {
-      console.error('MessageItem: Error preparing sports data mapping', error);
+      console.error('MessageItem: Error extracting data', error);
+      setExtractionError(`Error extracting data: ${(error as Error).message}`);
+      alert(`Error extracting data: ${(error as Error).message}`);
+    } finally {
+      setIsExtracting(false);
     }
   };
-  
-  // Check if the message contains structured data that might be sports-related
-  const detectSportsData = () => {
-    try {
-      console.log('MessageItem: Checking if message contains sports data', message.id);
-      const data = DataExtractionService.extractStructuredData(message.content);
-      console.log('MessageItem: Extracted structured data:', data);
-      
-      if (!data) {
-        console.log('MessageItem: No structured data found');
-        return false;
-      }
-      
-      const detection = DataExtractionService.detectSportsDataType(data);
-      console.log('MessageItem: Sports data detection result:', detection);
-      
-      return detection.isSportsData;
-    } catch (error) {
-      console.error('MessageItem: Error detecting sports data', error);
-      return false;
+
+  // Add debug logging for rendering
+  useEffect(() => {
+    if (message.role === 'assistant') {
+      console.log('MessageItem: Assistant message detected, should show buttons', message.id);
     }
-  };
-  
-  // Determine if the message might contain sports data
-  const mightContainSportsData = message.role === 'assistant' && detectSportsData();
-  
-  // Debug logging
-  console.log('MessageItem: Rendering message', {
-    id: message.id,
-    role: message.role,
-    mightContainSportsData,
-    showTestButton: true // Always show test button for debugging
-  });
+  }, [message.id, message.role]);
 
   return (
     <div className={`p-4 ${message.role === 'user' ? 'bg-blue-50' : 'bg-white'}`}>
@@ -251,88 +252,25 @@ export const MessageItem: React.FC<MessageItemProps> = ({ message, isLastMessage
           </div>
           
           {message.role === 'assistant' && (
-            <div className="mt-2 flex space-x-2">
+            <div className="mt-2 flex flex-wrap gap-2">
               <button
                 onClick={() => setShowDataPreview(true)}
-                className="inline-flex items-center px-2.5 py-1.5 border border-gray-300 text-xs font-medium rounded text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                className="inline-flex items-center px-2 py-1 border border-blue-500 text-xs font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 shadow-sm"
               >
                 <FaTable className="mr-1" />
                 Send to Data
               </button>
               
-              {mightContainSportsData && (
-                <button
-                  onClick={handleSportsDataMapping}
-                  className="inline-flex items-center px-2.5 py-1.5 border border-gray-300 text-xs font-medium rounded text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
-                >
-                  <FaDatabase className="mr-1" />
-                  Map to Sports Database
-                </button>
-              )}
+              <button
+                onClick={extractAndOpenSportDataMapper}
+                disabled={isExtracting}
+                className="inline-flex items-center px-2 py-1 border border-green-500 text-xs font-medium rounded-md text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 shadow-sm"
+              >
+                <FaMapMarkedAlt className="mr-1" />
+                {isExtracting ? 'Extracting...' : 'Map Sports Data'}
+              </button>
             </div>
           )}
-          
-          {/* STANDALONE TEST BUTTON - ALWAYS VISIBLE */}
-          <div className="mt-2 flex space-x-2" style={{ border: '2px solid red', padding: '5px', backgroundColor: '#ffeeee' }}>
-            <button
-              onClick={() => {
-                // Add a very visible console message
-                console.log('%c TEST BUTTON CLICKED - OPENING SPORT DATA MAPPER ', 'background: #ff0000; color: #ffffff; font-size: 20px;');
-                console.log('Test: Opening SportDataMapper with sample data - TEST BUTTON CLICKED');
-                // Create sample sports data for testing
-                const sampleData = {
-                  headers: ['Team', 'City', 'State', 'Stadium', 'Founded'],
-                  rows: [
-                    ['Dallas Cowboys', 'Dallas', 'TX', 'AT&T Stadium', '1960'],
-                    ['New York Giants', 'East Rutherford', 'NJ', 'MetLife Stadium', '1925'],
-                    ['Philadelphia Eagles', 'Philadelphia', 'PA', 'Lincoln Financial Field', '1933'],
-                    ['Washington Commanders', 'Landover', 'MD', 'FedExField', '1932'],
-                    ['TEST TEAM', 'Test City', 'TS', 'Test Stadium', '2025'] // Added test team for visibility
-                  ],
-                  meta_data: {
-                    source: 'test-data',
-                    data_type: 'sports-data',
-                    extracted_at: new Date().toISOString(),
-                    test_flag: true // Added flag to identify test data
-                  }
-                };
-                console.log('Test: Sample data created', sampleData);
-                setSportsMappingData(sampleData);
-                console.log('Test: Setting showSportDataMapper to true');
-                setShowSportDataMapper(true);
-                console.log('Test: SportDataMapper should now be visible');
-                
-                // Add an alert to make it very obvious
-                alert('Test button clicked! Check console for logs and watch for the SportDataMapper modal.');
-              }}
-              className="inline-flex items-center px-2.5 py-1.5 border border-red-500 text-xs font-medium rounded text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
-              style={{ fontSize: '14px', padding: '10px', marginTop: '10px' }}
-            >
-              <FaFlask className="mr-1" size={18} />
-              TEST MAPPER BUTTON
-            </button>
-          </div>
-          
-          {/* Always show buttons regardless of message role */}
-          <div className="mt-2 flex space-x-2">
-            <button
-              onClick={() => setShowDataPreview(true)}
-              className="inline-flex items-center px-2.5 py-1.5 border border-gray-300 text-xs font-medium rounded text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-            >
-              <FaTable className="mr-1" />
-              Send to Data
-            </button>
-            
-            {mightContainSportsData && (
-              <button
-                onClick={handleSportsDataMapping}
-                className="inline-flex items-center px-2.5 py-1.5 border border-gray-300 text-xs font-medium rounded text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
-              >
-                <FaDatabase className="mr-1" />
-                Map to Sports Database
-              </button>
-            )}
-          </div>
         </div>
       </div>
       
@@ -344,11 +282,12 @@ export const MessageItem: React.FC<MessageItemProps> = ({ message, isLastMessage
         onConfirm={handleDataExtraction}
       />
       
-      {/* Sports Data Mapper Modal */}
+      {/* Sport Data Mapper Modal */}
       <SportDataMapper
+        key={mapperKey}
         isOpen={showSportDataMapper}
         onClose={() => setShowSportDataMapper(false)}
-        structuredData={sportsMappingData}
+        structuredData={sportMapperData}
       />
     </div>
   )

@@ -74,6 +74,32 @@ The sports database schema is designed to model the relationships between variou
 
 The models use UUID primary keys and define relationships using SQLAlchemy's relationship mechanism.
 
+#### SportDataMapper Real Data Integration
+
+The SportDataMapper component is designed to map structured data from conversations to the sports database schema. Key technical aspects include:
+
+1. **Data Extraction Flow**:
+   - Uses `DataExtractionService.extractStructuredData()` to parse message content and extract structured data
+   - Extracts data from markdown tables and JSON structures in messages
+   - Prepares extracted data with metadata (message ID, conversation ID, extraction timestamp, source)
+   - Passes the extracted data to the SportDataMapper component via the `structuredData` prop
+
+2. **User Interface Components**:
+   - Added a "Map Sports Data" button to the MessageItem component that is visible for all messages
+   - Implemented `extractAndOpenSportDataMapper()` function to handle data extraction and display
+   - Added loading indicators during extraction process
+   - Enhanced error handling with user-friendly messages
+
+3. **Error Handling**:
+   - Implemented try/catch blocks for extraction errors
+   - Added checks for empty data structures
+   - Provides user feedback through alerts and console messages
+
+4. **Testing Approach**:
+   - Maintained test buttons with clearly labeled test data
+   - Added visual indicators to distinguish between test and real data
+   - Implemented comprehensive logging for debugging
+
 ### API Routes
 
 The API routes are defined using FastAPI's router system. Each module has its own router that defines the endpoints for that module.
@@ -299,6 +325,15 @@ frontend/
   - Supports template selection for formatting exported data
   - Handles Google authentication flow
   - Provides real-time export status and results
+- **SportDataMapper**: Advanced component for mapping and importing sports data
+  - Implements drag-and-drop field mapping between source data and target entity fields
+  - Provides record navigation controls to preview individual records before import
+  - Supports record exclusion functionality with visual indicators
+  - Features batch import with real-time progress tracking
+  - Displays import completion status with record count
+  - Handles field name prefixing to ensure uniqueness across entity types
+  - Implements field mapping between UI field names and database field names
+  - Provides error handling that continues processing even when individual records fail
 
 ### Services
 
@@ -309,16 +344,22 @@ The data extraction service handles data extraction and transformation:
 - `extractStructuredData`: Extracts data from message content
 - `transformToRowFormat`: Standardizes data format
 - `appendRows`: Adds rows to existing data
+- `detectSportsDataType`: Analyzes data to determine if it's sports-related and identifies the entity type
+- `generateFieldMappingRecommendations`: Suggests field mappings based on data content and entity type
+- `findBestMatchingField`: Identifies the best match for a field name in available fields
 
 #### Sports Database Service
 
 The sports database service handles sports entity management:
 
-- `getLeagues`: Get all leagues
-- `createLeague`: Create a new league
-- `getLeague`: Get league details
-- `updateLeague`: Update a league
-- `deleteLeague`: Delete a league
+- `getPromptTemplate`: Gets entity-specific prompt templates for guided data entry
+- `validateSportsEntity`: Validates entity data against schema requirements
+- `saveSportsEntity`: Saves entity data to the appropriate database endpoint
+- `getEntities`: Retrieves entities of a specific type with optional filtering
+- `getEntityById`: Gets a specific entity by ID
+- `getEntitiesWithRelationships`: Retrieves entities with their related entities
+- `prepareForExport`: Formats entity data for export to external systems
+- `createEntity`: Creates a new entity of the specified type
 
 Similar methods exist for teams, players, games, stadiums, broadcast companies, production companies, and brands.
 
@@ -365,6 +406,22 @@ The DataFlow context tracks data as it moves between components:
 8. System waits for backend processing to complete
 9. User is navigated to the data management page
 10. Data is displayed in the DataTable component
+
+#### Chat to Sports Database Flow
+
+1. User sends a message to the AI in the chat interface
+2. AI responds with structured sports data
+3. System detects sports-related content using `detectSportsDataType`
+4. User clicks the "Map to Sports Database" button
+5. SportDataMapper component opens with the extracted data
+6. System suggests field mappings based on detected entity type
+7. User can adjust mappings using drag-and-drop interface
+8. User navigates through records using left/right arrows
+9. User can exclude specific records from import
+10. User initiates batch import with "Save to Database" button
+11. System shows real-time progress during import
+12. Import completion status is displayed with record count
+13. Success notification shows number of successfully imported records
 
 #### Data Transformation
 
@@ -457,6 +514,168 @@ This universal approach ensures consistent handling of all data formats across t
 8. Backend applies formatting to the sheet
 9. Backend returns spreadsheet ID and URL
 10. User is provided with a link to the spreadsheet
+
+## Sports Database Implementation
+
+### Entity Types and Relationships
+
+The sports database implements a comprehensive schema for sports entities:
+
+#### Core Entities
+
+1. **League**: Represents a sports league (e.g., NFL, NBA)
+   - Properties: name, sport, country, founded_year, description
+   - Relationships: teams (one-to-many)
+
+2. **Team**: Represents a sports team belonging to a league
+   - Properties: name, city, state, country, founded_year, league_id, stadium_id
+   - Relationships: league (many-to-one), players (one-to-many), stadium (many-to-one)
+
+3. **Player**: Represents a player belonging to a team
+   - Properties: first_name, last_name, position, jersey_number, birth_date, nationality, team_id
+   - Relationships: team (many-to-one)
+
+4. **Game**: Represents a game between two teams
+   - Properties: name, date, time, home_team_id, away_team_id, stadium_id, season, status
+   - Relationships: home_team (many-to-one), away_team (many-to-one), stadium (many-to-one)
+
+5. **Stadium**: Represents a venue where games are played
+   - Properties: name, city, state, country, capacity, opened_year, description
+   - Relationships: teams (one-to-many), games (one-to-many)
+
+#### Business Entities
+
+6. **BroadcastCompany**: Represents a company that broadcasts games
+   - Properties: name, headquarters, founded_year, description
+   - Relationships: broadcast_rights (one-to-many)
+
+7. **BroadcastRights**: Represents the rights of a broadcast company to broadcast games
+   - Properties: name, company_id, entity_type, entity_id, start_date, end_date, territory, value, description
+   - Relationships: company (many-to-one)
+
+8. **ProductionCompany**: Represents a company that produces broadcasts
+   - Properties: name, headquarters, founded_year, description
+   - Relationships: production_services (one-to-many)
+
+9. **ProductionService**: Represents the services provided by a production company
+   - Properties: name, company_id, entity_type, entity_id, service_type, start_date, end_date, description
+   - Relationships: company (many-to-one)
+
+10. **Brand**: Represents a brand that sponsors teams or leagues
+    - Properties: name, industry, headquarters, founded_year, description
+    - Relationships: brand_relationships (one-to-many)
+
+11. **BrandRelationship**: Represents the relationship between a brand and a sports entity
+    - Properties: name, brand_id, entity_type, entity_id, relationship_type, start_date, end_date, value, description
+    - Relationships: brand (many-to-one)
+
+### Field Mapping and Validation
+
+The sports database implementation includes comprehensive field mapping and validation:
+
+#### Field Mapping
+
+The `SportDataMapper` component handles field mapping between source data and target entity fields:
+
+1. **Field Name Prefixing**: Ensures uniqueness across entity types by prefixing fields with entity type
+   - Example: `name` becomes `league_name`, `team_name`, etc.
+
+2. **UI to Database Field Mapping**: Converts UI field names to database field names
+   - Implemented in `mapToDatabaseFieldNames` function in `SportDataMapper.tsx`
+   - Handles entity-specific field name transformations
+
+3. **Automatic Field Mapping Suggestions**: Analyzes source data to suggest appropriate field mappings
+   - Uses `generateFieldMappingRecommendations` in `DataExtractionService`
+   - Considers field name synonyms and common patterns
+
+#### Validation
+
+The `SportsDatabaseService` implements comprehensive validation for all entity types:
+
+1. **Required Field Validation**: Ensures all required fields are present
+   - Entity-specific validation rules in `validateSportsEntity` method
+   - Returns detailed validation errors by field
+
+2. **Type Validation**: Verifies field values match expected types
+   - Numeric fields (e.g., capacity, founded_year)
+   - Date fields (e.g., start_date, end_date)
+   - Enumerated values (e.g., status, relationship_type)
+
+3. **Relationship Validation**: Ensures referenced entities exist
+   - Foreign key validation (e.g., league_id, team_id)
+   - Entity type validation for polymorphic relationships
+
+### Batch Import Process
+
+The batch import process in the `SportDataMapper` component handles importing multiple records:
+
+1. **Preparation Phase**:
+   - Field mapping is established through drag-and-drop interface
+   - Records are previewed and can be excluded if needed
+   - Import button is enabled when mapping is valid
+
+2. **Execution Phase**:
+   - Import progress is tracked in real-time with "Importing... (X/Y)" indicator
+   - Each record is processed sequentially for accurate progress tracking
+   - Records are transformed using the field mapping
+   - Validation is performed before saving each record
+   - Failed records are logged but don't halt the process
+
+3. **Completion Phase**:
+   - Import button changes to "Import Complete (X records)" and is disabled
+   - Success notification shows number of successfully imported records
+   - Completed state is maintained until modal is closed or new import starts
+
+### Testing and Debugging
+
+The sports database implementation includes comprehensive testing and debugging features:
+
+1. **Test Buttons**: Added in both MessageItem and App components
+   - Generate sample sports data for testing
+   - Open SportDataMapper with predefined test data
+   - Include visual indicators for test mode
+
+2. **Enhanced Logging**: Comprehensive console logging throughout the process
+   - Field mapping operations
+   - Validation results
+   - Import progress
+   - Error details
+
+3. **Visual Indicators**: Clear visual feedback during the import process
+   - Progress indicators
+   - Completion status
+   - Error notifications
+   - Record navigation controls
+
+## Future Enhancements
+
+### Planned Technical Improvements
+
+1. **Google Sheets Integration**:
+   - Bidirectional data flow between database and Google Sheets
+   - Template-based export with formatting
+   - Scheduled synchronization
+
+2. **Performance Optimization**:
+   - Implement code splitting for faster initial load
+   - Add caching for API responses
+   - Optimize component rendering with useMemo and useCallback
+   - Implement virtualized lists for large datasets
+
+3. **Advanced Data Visualization**:
+   - Interactive relationship diagrams for sports entities
+   - Statistical dashboards for sports data
+   - Timeline visualizations for temporal data
+
+4. **Mobile Responsiveness**:
+   - Enhance UI components for mobile devices
+   - Implement responsive design patterns
+   - Optimize touch interactions for data manipulation
+
+5. **User Permissions**:
+   - Role-based access control
+   - Team collaboration features
+   - Sharing and permission management
 
 ## Recent Improvements
 
@@ -664,3 +883,7 @@ The data handling system in SheetGPT is designed to provide a universal approach
 - Unit tests for the data transformation pipeline
 - Performance optimizations for large datasets
 - Support for additional data formats and sources
+
+### API Routes
+
+// ... existing code ...

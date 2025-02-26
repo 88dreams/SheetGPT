@@ -127,28 +127,119 @@ const FieldItem: React.FC<FieldItemProps> = ({ field, value, isSource = false, o
 
 // Main component
 const SportDataMapper: React.FC<SportDataMapperProps> = ({ isOpen, onClose, structuredData }) => {
+  // State for the selected entity type
   const [selectedEntityType, setSelectedEntityType] = useState<EntityType | null>(null);
+  
+  // State for the fields of the selected entity
   const [entityFields, setEntityFields] = useState<string[]>([]);
+  
+  // State for the source fields from the structured data
   const [sourceFields, setSourceFields] = useState<string[]>([]);
-  const [mappingsByEntityType, setMappingsByEntityType] = useState<Record<EntityType, Record<string, string>>>({
-    league: {},
-    team: {},
-    player: {},
-    game: {},
-    stadium: {},
-    broadcast: {},
-    production: {},
-    brand: {}
-  });
+  
+  // State for the field mappings by entity type
+  const [mappingsByEntityType, setMappingsByEntityType] = useState<Record<string, Record<string, string>>>({});
+  
+  // State for the mapped data for the current entity
   const [mappedData, setMappedData] = useState<Record<string, any>>({});
+  
+  // State for saving status
   const [isSaving, setIsSaving] = useState(false);
-  const [dataToImport, setDataToImport] = useState<any[]>([]);
+  
+  // State for tracking the current record index when dealing with arrays
   const [currentRecordIndex, setCurrentRecordIndex] = useState(0);
-  const [totalRecords, setTotalRecords] = useState(0);
+  
+  // State for tracking excluded records
   const [excludedRecords, setExcludedRecords] = useState<Set<number>>(new Set());
-  const [importProgress, setImportProgress] = useState<{current: number, total: number} | null>(null);
+  
+  // State for tracking import progress
+  const [importProgress, setImportProgress] = useState<{ current: number; total: number } | null>(null);
+  
+  // State for tracking if import is completed
   const [importCompleted, setImportCompleted] = useState(false);
+  
+  // State for data to import and total records - moved from constants to state
+  const [dataToImport, setDataToImport] = useState<any[]>([]);
+  const [totalRecords, setTotalRecords] = useState<number>(0);
+  
+  // Get the notification context
   const { showNotification } = useNotification();
+  
+  // Debug logging for component rendering
+  console.log('%c SportDataMapper RENDERING ', 'background: #00ff00; color: #000000; font-size: 16px;');
+  console.log('SportDataMapper rendering with structured data:', structuredData);
+  
+  // Function to extract source fields from structured data
+  const extractSourceFields = (data: any) => {
+    if (!data) return;
+    
+    console.log('SportDataMapper: Processing structured data', {
+      type: typeof data,
+      isArray: Array.isArray(data),
+      hasHeaders: data.headers && Array.isArray(data.headers),
+      hasRows: data.rows && Array.isArray(data.rows)
+    });
+    
+    let fields: string[] = [];
+    
+    // Handle array of objects
+    if (Array.isArray(data) && data.length > 0) {
+      fields = Object.keys(data[0]);
+    } 
+    // Handle single object
+    else if (typeof data === 'object' && data !== null && !data.headers) {
+      fields = Object.keys(data);
+    }
+    // Handle data with headers and rows - this is the format we're seeing in the screenshots
+    else if (data.headers && Array.isArray(data.headers)) {
+      // Use the actual header values as source fields instead of the "headers" property itself
+      fields = data.headers;
+      console.log('SportDataMapper: Using header values as source fields:', fields);
+    }
+    
+    console.log('SportDataMapper: Extracted source fields', fields);
+    setSourceFields(fields);
+  };
+  
+  // Reset component state when structuredData changes
+  useEffect(() => {
+    console.log('%c STRUCTURED DATA CHANGED ', 'background: #ff00ff; color: #ffffff; font-size: 16px;');
+    console.log('SportDataMapper: structuredData changed:', structuredData);
+    
+    // Reset states when structuredData changes
+    setSelectedEntityType(null);
+    setEntityFields([]);
+    setMappedData({});
+    setCurrentRecordIndex(0);
+    setExcludedRecords(new Set());
+    setImportProgress(null);
+    setImportCompleted(false);
+    
+    if (structuredData) {
+      // Extract source fields from structured data
+      extractSourceFields(structuredData);
+      
+      // Update dataToImport and totalRecords based on structuredData
+      const newDataToImport = Array.isArray(structuredData) ? structuredData : [structuredData];
+      setDataToImport(newDataToImport);
+      setTotalRecords(newDataToImport.length);
+    }
+  }, [structuredData]);
+  
+  // Reset component state when dialog is opened or closed
+  useEffect(() => {
+    if (isOpen) {
+      console.log('%c DIALOG OPENED ', 'background: #0000ff; color: #ffffff; font-size: 16px;');
+      console.log('Dialog opened, initializing component state');
+      
+      // Extract source fields from structured data
+      extractSourceFields(structuredData);
+      
+      // Update dataToImport and totalRecords based on structuredData
+      const newDataToImport = Array.isArray(structuredData) ? structuredData : [structuredData];
+      setDataToImport(newDataToImport);
+      setTotalRecords(newDataToImport.length);
+    }
+  }, [isOpen]);
 
   // Get current field mapping based on selected entity type
   const fieldMapping = selectedEntityType ? mappingsByEntityType[selectedEntityType] : {};
@@ -180,38 +271,6 @@ const SportDataMapper: React.FC<SportDataMapperProps> = ({ isOpen, onClose, stru
       console.log('SportDataMapper: DndProvider and Dialog are rendering with isOpen =', isOpen);
     }
   }, [isOpen]);
-
-  // Extract source fields from structured data
-  useEffect(() => {
-    if (structuredData) {
-      console.log('SportDataMapper: Processing structured data', {
-        type: typeof structuredData,
-        isArray: Array.isArray(structuredData),
-        hasHeaders: structuredData.headers && Array.isArray(structuredData.headers),
-        hasRows: structuredData.rows && Array.isArray(structuredData.rows)
-      });
-      
-      let fields: string[] = [];
-      
-      // Handle array of objects
-      if (Array.isArray(structuredData) && structuredData.length > 0) {
-        fields = Object.keys(structuredData[0]);
-      } 
-      // Handle single object
-      else if (typeof structuredData === 'object' && structuredData !== null && !structuredData.headers) {
-        fields = Object.keys(structuredData);
-      }
-      // Handle data with headers and rows - this is the format we're seeing in the screenshots
-      else if (structuredData.headers && Array.isArray(structuredData.headers)) {
-        // Use the actual header values as source fields instead of the "headers" property itself
-        fields = structuredData.headers;
-        console.log('SportDataMapper: Using header values as source fields:', fields);
-      }
-      
-      console.log('SportDataMapper: Extracted source fields', fields);
-      setSourceFields(fields);
-    }
-  }, [structuredData]);
 
   // Get entity fields when entity type is selected
   useEffect(() => {
@@ -288,8 +347,6 @@ const SportDataMapper: React.FC<SportDataMapperProps> = ({ isOpen, onClose, stru
         });
       }
       
-      setDataToImport(importData);
-      setTotalRecords(importData.length);
       console.log('SportDataMapper: Prepared data for import', { count: importData.length });
     }
   }, [structuredData]);

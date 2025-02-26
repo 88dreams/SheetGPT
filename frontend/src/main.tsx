@@ -5,15 +5,21 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import App from './App'
 import './index.css'
 
+// Create a client
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      staleTime: 1000 * 60 * 5, // Data stays fresh for 5 minutes
-      gcTime: 1000 * 60 * 30, // Cache persists for 30 minutes
+      staleTime: 1000 * 60 * 15, // Data stays fresh for 15 minutes (increased from 5)
+      gcTime: 1000 * 60 * 60, // Cache persists for 60 minutes (increased from 30)
       refetchOnMount: true,
-      refetchOnWindowFocus: true,
+      refetchOnWindowFocus: false, // Disable refetch on window focus to prevent data loss
       refetchOnReconnect: true,
-      retry: 1
+      retry: 2, // Increase retry attempts
+      retryDelay: attempt => Math.min(1000 * 2 ** attempt, 30000), // Exponential backoff
+    },
+    mutations: {
+      retry: 2,
+      retryDelay: 1000,
     }
   }
 })

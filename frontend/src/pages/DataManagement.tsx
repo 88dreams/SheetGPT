@@ -2,12 +2,14 @@ import React, { useState, useEffect } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useSearchParams } from 'react-router-dom'
 import { useNotification } from '../contexts/NotificationContext'
+import { useDataFlow } from '../contexts/DataFlowContext'
 import { api } from '../utils/api'
 import type { StructuredData } from '../utils/api'
 import LoadingSpinner from '../components/common/LoadingSpinner'
 import DataTable from '../components/data/DataTable'
+import PageContainer from '../components/common/PageContainer'
 // @ts-ignore
-import { FaTrash } from 'react-icons/fa'
+import { FaTrash, FaFileExport } from 'react-icons/fa'
 
 const DataManagement: React.FC = () => {
   const [searchParams] = useSearchParams()
@@ -16,6 +18,7 @@ const DataManagement: React.FC = () => {
   const [isVerifyingData, setIsVerifyingData] = useState(false)
   const [verificationAttempts, setVerificationAttempts] = useState(0)
   const { showNotification } = useNotification()
+  const { setDestination } = useDataFlow()
   const queryClient = useQueryClient()
 
   // Query for all structured data
@@ -27,8 +30,17 @@ const DataManagement: React.FC = () => {
   } = useQuery({
     queryKey: ['structured-data'],
     queryFn: () => api.data.getStructuredData(),
-    staleTime: 0 // Consider data immediately stale to ensure fresh data
+    staleTime: 1000 * 60 * 15, // 15 minutes
+    gcTime: 1000 * 60 * 60, // 60 minutes
+    refetchOnWindowFocus: false,
+    retry: 2,
+    retryDelay: attemptIndex => Math.min(1000 * 2 ** attemptIndex, 30000)
   })
+
+  // Update data flow when component mounts
+  useEffect(() => {
+    setDestination('data')
+  }, [setDestination])
 
   // Query for specific message data when messageId is present
   const {
@@ -40,8 +52,11 @@ const DataManagement: React.FC = () => {
     queryKey: ['structured-data', 'message', messageId],
     queryFn: () => messageId ? api.data.getStructuredDataByMessageId(messageId) : Promise.resolve(null),
     enabled: !!messageId,
-    retry: 3, // Retry up to 3 times if the query fails
-    retryDelay: 1000 // Wait 1 second between retries
+    retry: 3,
+    retryDelay: attemptIndex => Math.min(1000 * 2 ** attemptIndex, 30000),
+    staleTime: 1000 * 60 * 15, // 15 minutes
+    gcTime: 1000 * 60 * 60, // 60 minutes
+    refetchOnWindowFocus: false
   })
 
   // Refetch all data when the component mounts or when messageId changes
@@ -219,131 +234,40 @@ const DataManagement: React.FC = () => {
     setSelectedDataId(dataId);
   }
 
-  if (isLoading) {
-    return (
-      <div className="h-full flex items-center justify-center">
-        <LoadingSpinner size="large" />
-      </div>
-    )
-  }
-
-  if (allDataError) {
-    console.error('DataManagement: Error loading all data:', allDataError);
-    return (
-      <div className="h-full flex items-center justify-center text-red-600">
-        <div className="text-center">
-          <div>Failed to load data</div>
-          <div className="text-sm mt-2">Please try again later</div>
-        </div>
-      </div>
-    )
-  }
-
-  // Ensure we have a valid array of data
-  const dataList = structuredData || []
-  
-  console.log('DataManagement: Rendering with data list:', {
-    count: dataList.length,
-    selectedId: selectedDataId,
-    hasSelectedData: !!selectedData
-  });
+  // Create page actions
+  const pageActions = (
+    <div className="flex gap-2">
+      <button 
+        className="px-3 py-1 text-sm border border-gray-300 rounded hover:bg-gray-100 flex items-center"
+        onClick={() => window.location.href = '/export'}
+        disabled={!selectedDataId}
+      >
+        <FaFileExport className="mr-2" /> Export
+      </button>
+    </div>
+  )
 
   return (
-    <div className="space-y-4">
-      <div className="flex justify-between items-center">
-        <h1 className="text-2xl font-bold">Data</h1>
-        {isVerifyingData && (
-          <div className="flex items-center text-sm text-blue-600">
-            <LoadingSpinner size="small" />
-            <span className="ml-2">Verifying data processing... Attempt {verificationAttempts + 1}/5</span>
-          </div>
-        )}
-      </div>
-
-      <div className="grid grid-cols-4 gap-4">
-        {/* Sidebar with data list */}
-        <div className="col-span-1 bg-white rounded-lg shadow p-4">
-          <h2 className="text-lg font-semibold mb-4">Conversation Data</h2>
-          <div className="space-y-2">
-            {dataList && dataList.length > 0 ? (
-              dataList.map((data) => {
-                // Get display name from metadata if available, otherwise use data_type
-                const displayName = data.meta_data?.conversation_title || 
-                                    data.meta_data?.name || 
-                                    (data.data_type === 'chat_extraction' ? 'Chat Data from ' + (data.meta_data?.source || 'conversation') : data.data_type);
-                
-                console.log('DataManagement: Data item:', {
-                  id: data.id,
-                  data_type: data.data_type,
-                  meta_data: data.meta_data,
-                  displayName,
-                  hasMetadata: !!data.meta_data,
-                  metadataKeys: data.meta_data ? Object.keys(data.meta_data) : [],
-                  isSelected: selectedDataId === data.id
-                });
-                
-                return (
-                  <div
-                    key={data.id}
-                    className={`p-3 rounded cursor-pointer transition-colors ${
-                      selectedDataId === data.id
-                        ? 'bg-blue-100 hover:bg-blue-200'
-                        : 'hover:bg-gray-100'
-                    }`}
-                    onClick={() => handleSelectData(data.id)}
-                  >
-                    <div className="flex justify-between items-center">
-                      <div className="font-medium">
-                        {displayName}
-                      </div>
-                      <button
-                        className="text-gray-400 hover:text-red-500"
-                        onClick={(e) => handleDeleteData(data.id, e)}
-                        title="Delete data"
-                      >
-                        <FaTrash size={14} />
-                      </button>
-                    </div>
-                    <div className="text-sm text-gray-500">
-                      {new Date(data.created_at).toLocaleDateString()}
-                      {data.meta_data?.source && ` • Source: ${data.meta_data.source}`}
-                    </div>
-                  </div>
-                );
-              })
-            ) : (
-              <div className="text-center text-gray-500 py-4">
-                No structured data available
-              </div>
-            )}
-          </div>
+    <PageContainer
+      title="Data Management"
+      description="View, manage, and export your structured data"
+      actions={pageActions}
+    >
+      {isLoadingAll ? (
+        <LoadingSpinner />
+      ) : allDataError ? (
+        <div className="text-red-500">Error loading data</div>
+      ) : structuredData && structuredData.length > 0 && selectedDataId ? (
+        <DataTable dataId={selectedDataId} />
+      ) : (
+        <div className="text-center py-8">
+          <p className="text-gray-500">No structured data available</p>
+          <p className="text-sm text-gray-400 mt-2">
+            Start a chat conversation and extract data to see it here
+          </p>
         </div>
-
-        {/* Main content area */}
-        <div className="col-span-3 bg-white rounded-lg shadow p-4">
-          {selectedData ? (
-            <div className="space-y-4">
-              <div>
-                <h3 className="text-lg font-medium mb-2">
-                  {selectedData.meta_data?.conversation_title || 
-                   selectedData.meta_data?.name || 
-                   (selectedData.data_type === 'chat_extraction' ? 'Chat Data from ' + (selectedData.meta_data?.source || 'conversation') : selectedData.data_type)}
-                </h3>
-                <div className="text-sm text-gray-500 mb-2">
-                  Created: {new Date(selectedData.created_at).toLocaleString()}
-                  {selectedData.meta_data?.source && ` • Source: ${selectedData.meta_data.source}`}
-                </div>
-              </div>
-              <DataTable dataId={selectedData.id} />
-            </div>
-          ) : (
-            <div className="h-64 flex items-center justify-center text-gray-500">
-              Select a data set to view and manage
-            </div>
-          )}
-        </div>
-      </div>
-    </div>
+      )}
+    </PageContainer>
   )
 }
 

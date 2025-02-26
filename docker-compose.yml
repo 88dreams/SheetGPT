@@ -22,6 +22,7 @@ services:
     volumes:
       - .:/app
       - ./credentials:/app/credentials
+      - network-data:/app/data
     environment:
       - DEBUG=True
       - DATABASE_URL=postgresql+asyncpg://postgres:postgres@db:5432/sheetgpt
@@ -39,7 +40,7 @@ services:
       - POSTGRES_PASSWORD=postgres
       - POSTGRES_DB=sheetgpt
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - network-data:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres"]
       interval: 5s
@@ -47,6 +48,5 @@ services:
       retries: 5
 
 volumes:
-  postgres_data:
-    name: sheetgpt_postgres_data
-    external: false 
+  network-data:
+    external: true 

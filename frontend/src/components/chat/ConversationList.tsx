@@ -37,6 +37,8 @@ const ConversationList: React.FC<ConversationListProps> = ({
     onError: (error: Error) => {
       showNotification('error', error.message)
     },
+    retry: 2,
+    retryDelay: attemptIndex => Math.min(1000 * 2 ** attemptIndex, 30000)
   })
 
   const handleCreateConversation = async (title: string, description?: string) => {

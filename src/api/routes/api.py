@@ -1,7 +1,7 @@
 from fastapi import APIRouter
 from typing import Dict
 
-from src.api.routes import auth, chat, export, data_management
+from src.api.routes import auth, chat, export, data_management, sports
 
 router = APIRouter()
 
@@ -31,6 +31,13 @@ router.include_router(
     data_management.router,
     prefix="/data",
     tags=["Data Management"]
+)
+
+# Include sports routes
+router.include_router(
+    sports.router,
+    prefix="/sports",
+    tags=["Sports"]
 )
 
 @router.get("/status")

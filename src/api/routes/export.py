@@ -114,8 +114,19 @@ async def get_export_preview(
         columns = await data_service.get_columns(data_id, user_id)
 
         print(f"DEBUG: Export preview for data_id {data_id}")
-        print(f"DEBUG: Data structure: {data.data}")
-        print(f"DEBUG: Columns: {columns}")
+        print(f"DEBUG: Data structure keys: {data.data.keys() if data.data else 'No data'}")
+        print(f"DEBUG: Data type: {data.data_type if data else 'No data type'}")
+        print(f"DEBUG: Columns count: {len(columns) if columns else 0}")
+        
+        # Check if we have headers in the data structure
+        headers_from_data = data.data.get("headers", [])
+        print(f"DEBUG: Headers from data: {headers_from_data}")
+        
+        if 'rows' in data.data:
+            print(f"DEBUG: Rows count: {len(data.data['rows'])}")
+            print(f"DEBUG: First row sample: {data.data['rows'][0] if data.data['rows'] else 'Empty row'}")
+        else:
+            print(f"DEBUG: No 'rows' key in data.data. Available keys: {data.data.keys()}")
 
         # Get active columns in correct order
         active_columns = sorted(
@@ -123,10 +134,17 @@ async def get_export_preview(
             key=lambda x: x.order
         )
 
-        print(f"DEBUG: Active columns: {active_columns}")
+        print(f"DEBUG: Active columns count: {len(active_columns)}")
+        print(f"DEBUG: Active column names: {[col.name for col in active_columns]}")
 
-        # Get column names
-        column_names = [col.name for col in active_columns]
+        # Get column names - if no active columns but we have headers, use those
+        if active_columns:
+            column_names = [col.name for col in active_columns]
+        elif headers_from_data:
+            column_names = headers_from_data
+            print(f"DEBUG: Using headers from data as column names: {column_names}")
+        else:
+            column_names = []
 
         print(f"DEBUG: Column names: {column_names}")
 
@@ -140,24 +158,38 @@ async def get_export_preview(
 
         # Handle different data structures
         if raw_data and isinstance(raw_data, list):
+            print(f"DEBUG: Raw data is a list")
             # If raw_data is a list of dictionaries (objects)
             if raw_data and isinstance(raw_data[0], dict):
+                print(f"DEBUG: Raw data contains dictionaries")
                 for row in raw_data[:5]:
                     sample_row = []
-                    for col in active_columns:
-                        sample_row.append(row.get(col.name, ""))
+                    for col_name in column_names:
+                        value = row.get(col_name, "")
+                        sample_row.append(value)
                     sample_data.append(sample_row)
             # If raw_data is a list of lists (2D array)
             elif raw_data and isinstance(raw_data[0], list):
-                for row in raw_data[:5]:
-                    sample_row = []
-                    for i, col in enumerate(active_columns):
-                        if i < len(row):
-                            sample_row.append(row[i])
-                        else:
-                            sample_row.append("")
-                    sample_data.append(sample_row)
+                print(f"DEBUG: Raw data contains lists")
+                # If we have no active columns but have headers, just use the raw data directly
+                if not active_columns and headers_from_data:
+                    sample_data = raw_data[:5]
+                    print(f"DEBUG: Using raw data directly as sample data")
+                else:
+                    for row in raw_data[:5]:
+                        sample_row = []
+                        for i, col_name in enumerate(column_names):
+                            if i < len(row):
+                                sample_row.append(row[i])
+                            else:
+                                sample_row.append("")
+                        sample_data.append(sample_row)
+            else:
+                print(f"DEBUG: Raw data first element type: {type(raw_data[0]) if raw_data else 'No elements'}")
+        else:
+            print(f"DEBUG: Raw data is not a list or is empty")
 
+        print(f"DEBUG: Sample data length: {len(sample_data)}")
         print(f"DEBUG: Sample data: {sample_data}")
 
         return {
@@ -166,6 +198,8 @@ async def get_export_preview(
         }
     except Exception as e:
         print(f"DEBUG: Error in export preview: {str(e)}")
+        import traceback
+        print(f"DEBUG: Traceback: {traceback.format_exc()}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=str(e)
@@ -187,8 +221,19 @@ async def create_spreadsheet(
             structured_data = await data_service.get_data_by_id(data.data_id, user_id)
             columns = await data_service.get_columns(data.data_id, user_id)
 
-            print(f"DEBUG: Structured data: {structured_data.data}")
-            print(f"DEBUG: Columns: {columns}")
+            print(f"DEBUG: Structured data keys: {structured_data.data.keys() if structured_data.data else 'No data'}")
+            print(f"DEBUG: Data type: {structured_data.data_type if structured_data else 'No data type'}")
+            print(f"DEBUG: Columns count: {len(columns) if columns else 0}")
+            
+            # Check if we have headers in the data structure
+            headers_from_data = structured_data.data.get("headers", [])
+            print(f"DEBUG: Headers from data: {headers_from_data}")
+            
+            if 'rows' in structured_data.data:
+                print(f"DEBUG: Rows count: {len(structured_data.data['rows'])}")
+                print(f"DEBUG: First row sample: {structured_data.data['rows'][0] if structured_data.data['rows'] else 'Empty row'}")
+            else:
+                print(f"DEBUG: No 'rows' key in structured_data.data. Available keys: {structured_data.data.keys()}")
 
             # Get active columns in correct order
             active_columns = sorted(
@@ -196,10 +241,18 @@ async def create_spreadsheet(
                 key=lambda x: x.order
             )
 
-            print(f"DEBUG: Active columns: {active_columns}")
+            print(f"DEBUG: Active columns count: {len(active_columns)}")
+            print(f"DEBUG: Active column names: {[col.name for col in active_columns]}")
 
-            # Prepare data for export
-            column_names = [col.name for col in active_columns]
+            # Prepare data for export - if no active columns but we have headers, use those
+            if active_columns:
+                column_names = [col.name for col in active_columns]
+            elif headers_from_data:
+                column_names = headers_from_data
+                print(f"DEBUG: Using headers from data as column names: {column_names}")
+            else:
+                column_names = []
+                
             rows = structured_data.data.get("rows", [])
             
             print(f"DEBUG: Column names: {column_names}")
@@ -211,25 +264,39 @@ async def create_spreadsheet(
             
             # Handle different data structures
             if rows and isinstance(rows, list):
+                print(f"DEBUG: Rows is a list")
                 # If rows is a list of dictionaries (objects)
                 if rows and isinstance(rows[0], dict):
+                    print(f"DEBUG: Rows contains dictionaries")
                     for row in rows:
                         export_row = []
-                        for col in active_columns:
-                            export_row.append(row.get(col.name, ""))
+                        for col_name in column_names:
+                            value = row.get(col_name, "")
+                            export_row.append(value)
                         export_data.append(export_row)
                 # If rows is a list of lists (2D array)
                 elif rows and isinstance(rows[0], list):
-                    for row in rows:
-                        export_row = []
-                        for i, col in enumerate(active_columns):
-                            if i < len(row):
-                                export_row.append(row[i])
-                            else:
-                                export_row.append("")
-                        export_data.append(export_row)
+                    print(f"DEBUG: Rows contains lists")
+                    # If we have no active columns but have headers, just use the raw data directly
+                    if not active_columns and headers_from_data:
+                        export_data = [headers_from_data] + rows
+                        print(f"DEBUG: Using raw data directly as export data")
+                    else:
+                        for row in rows:
+                            export_row = []
+                            for i, col_name in enumerate(column_names):
+                                if i < len(row):
+                                    export_row.append(row[i])
+                                else:
+                                    export_row.append("")
+                            export_data.append(export_row)
+                else:
+                    print(f"DEBUG: Rows first element type: {type(rows[0]) if rows else 'No elements'}")
+            else:
+                print(f"DEBUG: Rows is not a list or is empty")
             
-            print(f"DEBUG: Export data: {export_data}")
+            print(f"DEBUG: Export data length: {len(export_data)}")
+            print(f"DEBUG: Export data sample: {export_data[:2] if export_data else 'empty'}")
         else:
             export_data = data.data
             print(f"DEBUG: Using provided data: {export_data}")

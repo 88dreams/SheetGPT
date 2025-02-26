@@ -1,0 +1,34 @@
+.page-container {
+  background-color: white;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+  padding: 1.5rem;
+  margin-bottom: 2rem;
+}
+
+.page-content {
+  padding-top: 0.5rem;
+}
+
+/* Card-style containers for sub-sections */
+.content-card {
+  background-color: #f8f9fa;
+  border-radius: 6px;
+  padding: 1rem;
+  margin-bottom: 1rem;
+  border: 1px solid #e9ecef;
+}
+
+.content-card-title {
+  font-size: 1.1rem;
+  font-weight: 500;
+  margin-bottom: 0.75rem;
+  color: #343a40;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .page-container {
+    padding: 1rem;
+  }
+} 

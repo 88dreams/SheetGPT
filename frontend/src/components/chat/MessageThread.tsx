@@ -5,6 +5,7 @@ import { api } from '../../utils/api'
 import type { StructuredData } from '../../utils/api'
 import { DataExtractionService } from '../../services/DataExtractionService'
 import { useNotification } from '../../contexts/NotificationContext'
+import { transformToStandardFormat } from '../../utils/dataTransformer'
 
 interface Message {
   id: string
@@ -363,125 +364,15 @@ const MessageThread: React.FC<MessageThreadProps> = ({ messages }) => {
 
   // Helper function to extract structured data in a consistent format
   const extractStructuredData = (data: any): { headers: string[], rows: any[][] } | null => {
-    try {
-      console.log('MessageThread: extractStructuredData input:', JSON.stringify(data, null, 2));
-      
-      // Special case: Handle the nested structure we're seeing in the NFL teams data
-      // This is the structure that's causing the display issues
-      if (data && data.rows && Array.isArray(data.rows) && 
-          data.rows.length > 0 && typeof data.rows[0] === 'object' &&
-          data.rows[0].headers && data.rows[0].rows) {
-        
-        console.log('MessageThread: Detected nested structure with rows containing headers/rows');
-        
-        // Extract all unique headers from the nested structure
-        const headers: string[] = [];
-        data.rows.forEach((item: any) => {
-          if (item.headers && !headers.includes(item.headers)) {
-            headers.push(item.headers);
-          }
-        });
-        
-        console.log('MessageThread: Extracted headers from nested structure:', headers);
-        
-        // Find the maximum length of any rows array
-        let maxRowLength = 0;
-        data.rows.forEach((item: any) => {
-          if (Array.isArray(item.rows)) {
-            maxRowLength = Math.max(maxRowLength, item.rows.length);
-          }
-        });
-        
-        // Create a 2D array of rows
-        const rows: any[][] = [];
-        for (let i = 0; i < maxRowLength; i++) {
-          const row: any[] = [];
-          headers.forEach(header => {
-            // Find the item with this header
-            const item = data.rows.find((r: any) => r.headers === header);
-            // Get the value at this index, or empty string if not available
-            const value = item && Array.isArray(item.rows) && i < item.rows.length 
-              ? item.rows[i] 
-              : '';
-            row.push(value);
-          });
-          rows.push(row);
-        }
-        
-        console.log('MessageThread: Created rows from nested structure:', rows);
-        return { headers, rows };
-      }
-      
-      // Default empty structure
-      const result = {
-        headers: [] as string[],
-        rows: [] as any[][]
-      };
-
-      // Case 1: Data already has headers and rows arrays at the top level
-      if (data && data.headers && Array.isArray(data.headers) && 
-          data.rows && Array.isArray(data.rows)) {
-        
-        console.log('MessageThread: Found standard headers and rows format');
-        result.headers = [...data.headers];
-        
-        // Convert all rows to arrays of values
-        if (data.rows.length > 0) {
-          if (Array.isArray(data.rows[0])) {
-            // Rows are already arrays
-            result.rows = [...data.rows];
-          } else {
-            // Convert object rows to arrays
-            result.rows = data.rows.map((row: any) => {
-              return result.headers.map((header: string) => {
-                return row[header] !== undefined ? row[header] : '';
-              });
-            });
-          }
-        }
-        
-        return result;
-      }
-      
-      // Case 2: Data is an array of objects
-      if (Array.isArray(data) && data.length > 0 && typeof data[0] === 'object') {
-        console.log('MessageThread: Data is an array of objects');
-        // Extract headers from the first object
-        result.headers = Object.keys(data[0]).filter(key => !key.startsWith('_'));
-        
-        // Convert objects to arrays of values
-        result.rows = data.map(item => {
-          return result.headers.map(header => {
-            return item[header] !== undefined ? item[header] : '';
-          });
-        });
-        
-        return result;
-      }
-      
-      // Case 3: Data is a single object
-      if (data && typeof data === 'object' && !Array.isArray(data)) {
-        console.log('MessageThread: Data is a single object');
-        const keys = Object.keys(data).filter(key => 
-          !key.startsWith('_') && key !== 'headers' && key !== 'rows'
-        );
-        
-        if (keys.length > 0) {
-          result.headers = keys;
-          // Create a single row with values
-          const row = keys.map(key => data[key] !== undefined ? data[key] : '');
-          result.rows = [row];
-          
-          return result;
-        }
-      }
-      
-      console.error('MessageThread: Could not extract structured data from input');
-      return null;
-    } catch (error) {
-      console.error('MessageThread: Error extracting structured data:', error);
+    console.log('MessageThread: extractStructuredData input:', data);
+    
+    if (!data) {
+      console.error('MessageThread: No data to extract');
       return null;
     }
+    
+    // Use the centralized data transformer utility
+    return transformToStandardFormat(data);
   };
 
   return (

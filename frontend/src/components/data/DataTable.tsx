@@ -1,233 +1,327 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react'
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { api } from '../../utils/api'
 import LoadingSpinner from '../common/LoadingSpinner'
+import { transformDataForDisplay } from '../../utils/dataTransformer'
 // @ts-ignore
-import { FaEye, FaEyeSlash, FaFileExport } from 'react-icons/fa'
+import { FaEye, FaEyeSlash, FaFileExport, FaArrowsAlt, FaExpand, FaCompress } from 'react-icons/fa'
 import ExportDialog from './ExportDialog'
 
 interface DataTableProps {
   dataId: string
 }
 
+/**
+ * DataTable component for displaying structured data in a grid format
+ * Uses a centralized data transformer to handle all data formats consistently
+ */
 const DataTable: React.FC<DataTableProps> = ({ dataId }) => {
+  // UI state
   const [showHeaders, setShowHeaders] = useState(true)
   const [showRowNumbers, setShowRowNumbers] = useState(true)
   const [showExportDialog, setShowExportDialog] = useState(false)
+  const [gridHeight, setGridHeight] = useState(400)
+  const [rawDataHeight, setRawDataHeight] = useState(300)
+  const [isGridExpanded, setIsGridExpanded] = useState(false)
+  const [isRawDataExpanded, setIsRawDataExpanded] = useState(false)
   
-  // Get the data for the given data ID
+  // Column and row management
+  const [columnWidths, setColumnWidths] = useState<Record<string, number>>({})
+  const [resizingColumn, setResizingColumn] = useState<string | null>(null)
+  const [startX, setStartX] = useState(0)
+  const [startWidth, setStartWidth] = useState(0)
+  const [reorderedHeaders, setReorderedHeaders] = useState<string[]>([])
+  const [reorderedRows, setReorderedRows] = useState<number[]>([])
+  const [draggedHeader, setDraggedHeader] = useState<string | null>(null)
+  const [draggedRow, setDraggedRow] = useState<number | null>(null)
+  const [dragOverHeader, setDragOverHeader] = useState<string | null>(null)
+  const [dragOverRow, setDragOverRow] = useState<number | null>(null)
+  
+  // References
+  const tableRef = useRef<HTMLDivElement>(null)
+  
+  // Fetch data
   const { data, isLoading, error } = useQuery({
     queryKey: ['structured-data', dataId],
     queryFn: () => api.data.getStructuredDataById(dataId),
   })
 
-  // Transform the data for display
+  // Transform the data for display using the centralized transformer
   const transformData = useCallback(() => {
-    if (!data?.data) {
-      console.error('DataTable: No data or data.data available', { data });
-      return { headers: [], rows: [] }
-    }
-    
-    console.log('DataTable: Raw data structure:', JSON.stringify(data.data, null, 2));
-    console.log('DataTable: Full data object:', {
-      id: data.id,
-      data_type: data.data_type,
-      meta_data: data.meta_data,
-      created_at: data.created_at,
-      updated_at: data.updated_at
-    });
-    
-    // Check if data.data is empty
-    if (Object.keys(data.data).length === 0) {
-      console.error('DataTable: data.data is empty');
+    if (!data) {
+      console.error('DataTable: No data available');
       return { headers: [], rows: [] };
     }
-
-    // SIMPLIFIED APPROACH: Focus on the most common format first
-    // This is the format we're standardizing on in MessageThread.tsx
-    if (data.data.headers && Array.isArray(data.data.headers) && 
-        data.data.rows && Array.isArray(data.data.rows)) {
-      
-      const headers = data.data.headers;
-      console.log('DataTable: Found headers and rows format', { 
-        headers, 
-        rowsCount: data.data.rows.length,
-        rowsType: data.data.rows.length > 0 ? typeof data.data.rows[0] : 'empty',
-        isArray: data.data.rows.length > 0 ? Array.isArray(data.data.rows[0]) : false
-      });
-      
-      // If rows is a 2D array (array of arrays), transform it to array of objects
-      if (data.data.rows.length > 0 && Array.isArray(data.data.rows[0])) {
-        const transformedRows = data.data.rows.map(row => {
-          const rowObj: Record<string, any> = {};
-          headers.forEach((header: string, index: number) => {
-            rowObj[header] = row[index] !== undefined ? row[index] : '';
-          });
-          return rowObj;
-        });
-        
-        console.log('DataTable: Transformed 2D array data', {
-          sample: transformedRows.length > 0 ? transformedRows[0] : 'empty'
-        });
-        return { headers, rows: transformedRows };
-      }
-      
-      // If rows are already objects but we need to ensure they have all headers
-      if (data.data.rows.length > 0 && typeof data.data.rows[0] === 'object') {
-        const transformedRows = data.data.rows.map(row => {
-          const rowObj: Record<string, any> = {};
-          headers.forEach((header: string) => {
-            rowObj[header] = row[header] !== undefined ? row[header] : '';
-          });
-          return rowObj;
-        });
-        
-        console.log('DataTable: Normalized row objects', {
-          sample: transformedRows.length > 0 ? transformedRows[0] : 'empty'
-        });
-        return { headers, rows: transformedRows };
-      }
-      
-      // If we have headers but empty rows, return empty rows
-      console.log('DataTable: Headers found but no valid rows');
-      return { headers, rows: [] };
+    
+    console.log('DataTable: Processing data for display', {
+      id: data.id,
+      dataType: data.data_type,
+      metaData: data.meta_data
+    });
+    
+    // Handle empty data
+    if (!data.data || Object.keys(data.data).length === 0) {
+      console.error('DataTable: Data is empty');
+      return { headers: [], rows: [] };
     }
     
-    // Special case: Handle the nested structure we're seeing in the NFL teams data
-    // This is where data.data.rows is an array of objects, each with its own headers and rows properties
-    if (data.data.rows && Array.isArray(data.data.rows) && 
-        data.data.rows.length > 0 && typeof data.data.rows[0] === 'object' &&
-        data.data.rows[0].headers && data.data.rows[0].rows) {
-      
-      console.log('DataTable: Detected nested structure with rows containing headers/rows');
-      
-      // Extract all unique headers from the nested structure
-      const headers: string[] = [];
-      data.data.rows.forEach((item: any) => {
-        if (item.headers && !headers.includes(item.headers)) {
-          headers.push(item.headers);
-        }
-      });
-      
-      console.log('DataTable: Extracted headers from nested structure:', headers);
-      
-      // Find the maximum length of any rows array
-      let maxRowLength = 0;
-      data.data.rows.forEach((item: any) => {
-        if (Array.isArray(item.rows)) {
-          maxRowLength = Math.max(maxRowLength, item.rows.length);
-        }
-      });
-      
-      // Create rows as objects with header keys
-      const transformedRows: Record<string, any>[] = [];
-      for (let i = 0; i < maxRowLength; i++) {
-        const rowObj: Record<string, any> = {};
-        headers.forEach(header => {
-          // Find the item with this header
-          const item = data.data.rows.find((r: any) => r.headers === header);
-          // Get the value at this index, or empty string if not available
-          rowObj[header] = item && Array.isArray(item.rows) && i < item.rows.length 
-            ? item.rows[i] 
-            : '';
-        });
-        transformedRows.push(rowObj);
-      }
-      
-      console.log('DataTable: Created rows from nested structure:', {
-        headers,
-        rowCount: transformedRows.length,
-        sample: transformedRows.length > 0 ? transformedRows[0] : 'empty'
-      });
-      
-      return { headers, rows: transformedRows };
+    // Check if this is sports data based on metadata or headers
+    const isSportsData = 
+      (data.meta_data?.data_type === 'sports-data') || 
+      (data.data.headers && Array.isArray(data.data.headers) && 
+       data.data.headers.some((header: string) => 
+         ['Team', 'Player', 'League', 'City', 'State', 'Stadium', 'Home Stadium'].includes(header)
+       ));
+    
+    if (isSportsData) {
+      console.log('DataTable: Detected sports data format - ensuring proper display');
     }
     
-    // FALLBACK: Try to extract any meaningful structure
-    console.warn('DataTable: Using fallback data extraction - data format not recognized');
+    // Use the centralized data transformer for all formats
+    // The transformer will handle all data formats including transposition if needed
+    const transformedData = transformDataForDisplay(data.data);
     
-    // Case 1: If data.data itself is an array of objects (each object is a row)
-    if (Array.isArray(data.data)) {
-      if (data.data.length > 0 && typeof data.data[0] === 'object') {
-        // Extract headers from the first object's keys
-        const headers = Object.keys(data.data[0]).filter(key => !key.startsWith('_'));
-        console.log('DataTable: Extracted headers from array data', headers);
-        return { headers, rows: data.data };
-      }
-    }
+    console.log('DataTable: Data transformation complete', {
+      headers: transformedData.headers,
+      rowCount: transformedData.rows.length
+    });
     
-    // Case 2: If data.data has properties that could be columns
-    if (typeof data.data === 'object' && !Array.isArray(data.data)) {
-      const keys = Object.keys(data.data).filter(key => 
-        !key.startsWith('_') && key !== 'rows' && key !== 'headers'
-      );
-      
-      if (keys.length > 0) {
-        console.log('DataTable: Found object with properties, treating as columns', keys);
-        
-        // Check if any properties are arrays (potential columns)
-        const columnsData: Record<string, any[]> = {};
-        let maxLength = 0;
-        
-        keys.forEach(key => {
-          if (Array.isArray(data.data[key])) {
-            columnsData[key] = data.data[key];
-            maxLength = Math.max(maxLength, data.data[key].length);
-          } else {
-            // If it's not an array, treat it as a single value
-            columnsData[key] = [data.data[key]];
-            maxLength = Math.max(maxLength, 1);
-          }
-        });
-        
-        if (Object.keys(columnsData).length > 0 && maxLength > 0) {
-          // Create rows from columns
-          const headers = Object.keys(columnsData);
-          const rows: Record<string, any>[] = [];
-          
-          for (let i = 0; i < maxLength; i++) {
-            const row: Record<string, any> = {};
-            headers.forEach(header => {
-              row[header] = i < columnsData[header].length ? columnsData[header][i] : '';
-            });
-            rows.push(row);
-          }
-          
-          console.log('DataTable: Created rows from column data', { 
-            headers, 
-            rowCount: rows.length,
-            sample: rows.length > 0 ? rows[0] : 'empty'
-          });
-          return { headers, rows };
-        }
-      }
-    }
-    
-    console.warn('DataTable: Could not transform data, returning empty structure');
-    return { headers: [], rows: [] };
+    return transformedData;
   }, [data]);
 
   // Get transformed data
-  const { headers = [], rows = [] } = useMemo(() => transformData(), [transformData]);
+  const { headers: originalHeaders = [], rows: originalRows = [] } = useMemo(() => transformData(), [transformData]);
 
+  // Use reordered headers and rows if available, otherwise use original
+  const headers = useMemo(() => {
+    return reorderedHeaders.length > 0 ? reorderedHeaders : originalHeaders;
+  }, [reorderedHeaders, originalHeaders]);
+
+  const rows = useMemo(() => {
+    if (reorderedRows.length === 0) return originalRows;
+    return reorderedRows.map(index => originalRows[index]);
+  }, [reorderedRows, originalRows]);
+
+  // Initialize reordered headers and rows when original data changes
   useEffect(() => {
-    if (data?.data) {
-      console.log('DataTable: Data structure details:', {
-        hasData: !!data,
-        dataId: dataId,
-        dataType: data?.data_type,
-        dataFormat: typeof data.data,
-        dataKeys: Object.keys(data.data),
-        hasHeaders: !!data.data.headers,
-        hasRows: !!data.data.rows,
-        transformedHeaders: headers,
-        transformedRowsCount: rows.length
+    if (originalHeaders.length > 0 && reorderedHeaders.length === 0) {
+      setReorderedHeaders([...originalHeaders]);
+    }
+    
+    if (originalRows.length > 0 && reorderedRows.length === 0) {
+      setReorderedRows(Array.from({ length: originalRows.length }, (_, i) => i));
+    }
+  }, [originalHeaders, originalRows, reorderedHeaders.length, reorderedRows.length]);
+
+  // Initialize column widths
+  useEffect(() => {
+    if (headers.length > 0 && Object.keys(columnWidths).length === 0) {
+      const initialWidths: Record<string, number> = {};
+      headers.forEach(header => {
+        initialWidths[header] = 150; // Default width
       });
-    } else {
-      console.error('DataTable: No data available for ID:', dataId);
+      setColumnWidths(initialWidths);
+    }
+  }, [headers, columnWidths]);
+
+  // Log data details for debugging
+  useEffect(() => {
+    if (data) {
+      console.log('DataTable: Data details', {
+        dataId,
+        dataType: data.data_type,
+        headers,
+        rowCount: rows.length
+      });
     }
   }, [data, headers, rows, dataId]);
 
+  // Handle column resize start
+  const handleResizeStart = (e: React.MouseEvent, header: string) => {
+    e.preventDefault();
+    e.stopPropagation(); // Prevent drag and drop from triggering
+    
+    // Store initial values
+    const initialX = e.clientX;
+    const initialWidth = columnWidths[header] || 150;
+    
+    // Get the table element and header element
+    const tableElement = tableRef.current;
+    if (!tableElement) return;
+    
+    const headerElement = tableElement.querySelector(`th[data-header="${header}"]`);
+    if (!headerElement) return;
+    
+    // Define the mousemove handler
+    function handleMouseMove(moveEvent: MouseEvent) {
+      moveEvent.preventDefault();
+      
+      // Calculate the new width
+      const diff = moveEvent.clientX - initialX;
+      const newWidth = Math.max(80, initialWidth + diff); // Minimum width of 80px
+      
+      // Update the column width in real-time
+      setColumnWidths(prev => ({
+        ...prev,
+        [header]: newWidth
+      }));
+    }
+    
+    // Define the mouseup handler
+    function handleMouseUp(upEvent: MouseEvent) {
+      // Remove event listeners
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+    }
+    
+    // Add event listeners
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+  };
+
+  // Handle header drag start
+  const handleHeaderDragStart = (e: React.DragEvent, header: string) => {
+    e.dataTransfer.setData('text/plain', header);
+    e.dataTransfer.effectAllowed = 'move';
+    setDraggedHeader(header);
+  };
+
+  // Handle header drag over
+  const handleHeaderDragOver = (e: React.DragEvent, header: string) => {
+    e.preventDefault();
+    if (draggedHeader && draggedHeader !== header) {
+      setDragOverHeader(header);
+    }
+  };
+
+  // Handle header drop
+  const handleHeaderDrop = (e: React.DragEvent, targetHeader: string) => {
+    e.preventDefault();
+    if (!draggedHeader || draggedHeader === targetHeader) return;
+    
+    const sourceIndex = reorderedHeaders.indexOf(draggedHeader);
+    const targetIndex = reorderedHeaders.indexOf(targetHeader);
+    
+    if (sourceIndex !== -1 && targetIndex !== -1) {
+      const newHeaders = [...reorderedHeaders];
+      newHeaders.splice(sourceIndex, 1);
+      newHeaders.splice(targetIndex, 0, draggedHeader);
+      
+      setReorderedHeaders(newHeaders);
+    }
+    
+    setDraggedHeader(null);
+    setDragOverHeader(null);
+  };
+
+  // Handle row drag start
+  const handleRowDragStart = (e: React.DragEvent, rowIndex: number) => {
+    e.dataTransfer.setData('text/plain', rowIndex.toString());
+    e.dataTransfer.effectAllowed = 'move';
+    setDraggedRow(rowIndex);
+  };
+
+  // Handle row drag over
+  const handleRowDragOver = (e: React.DragEvent, rowIndex: number) => {
+    e.preventDefault();
+    if (draggedRow !== null && draggedRow !== rowIndex) {
+      setDragOverRow(rowIndex);
+    }
+  };
+
+  // Handle row drop
+  const handleRowDrop = (e: React.DragEvent, targetRowIndex: number) => {
+    e.preventDefault();
+    if (draggedRow === null || draggedRow === targetRowIndex) return;
+    
+    const sourceIndex = reorderedRows.indexOf(draggedRow);
+    const targetIndex = reorderedRows.indexOf(targetRowIndex);
+    
+    if (sourceIndex !== -1 && targetIndex !== -1) {
+      const newRows = [...reorderedRows];
+      newRows.splice(sourceIndex, 1);
+      newRows.splice(targetIndex, 0, draggedRow);
+      
+      setReorderedRows(newRows);
+    }
+    
+    setDraggedRow(null);
+    setDragOverRow(null);
+  };
+
+  // Toggle grid expansion
+  const toggleGridExpansion = () => {
+    const newExpandedState = !isGridExpanded;
+    setIsGridExpanded(newExpandedState);
+    
+    if (newExpandedState) {
+      const newHeight = window.innerHeight * 0.7;
+      setGridHeight(newHeight);
+    } else {
+      setGridHeight(400);
+    }
+  };
+
+  // Toggle raw data expansion
+  const toggleRawDataExpansion = () => {
+    setIsRawDataExpanded(!isRawDataExpanded);
+    if (!isRawDataExpanded) {
+      setRawDataHeight(window.innerHeight * 0.5);
+    } else {
+      setRawDataHeight(300);
+    }
+  };
+
+  // Handle grid resize
+  const handleGridResize = (e: React.MouseEvent) => {
+    e.preventDefault();
+    const startY = e.clientY;
+    const startHeight = gridHeight;
+    
+    const handleMouseMove = (moveEvent: MouseEvent) => {
+      const diff = moveEvent.clientY - startY;
+      setGridHeight(Math.max(200, startHeight + diff)); // Minimum height of 200px
+    };
+    
+    const handleMouseUp = () => {
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+    };
+    
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+  };
+
+  // Handle raw data resize
+  const handleRawDataResize = (e: React.MouseEvent) => {
+    e.preventDefault();
+    const startY = e.clientY;
+    const startHeight = rawDataHeight;
+    
+    const handleMouseMove = (moveEvent: MouseEvent) => {
+      const diff = moveEvent.clientY - startY;
+      setRawDataHeight(Math.max(100, startHeight + diff)); // Minimum height of 100px
+    };
+    
+    const handleMouseUp = () => {
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+    };
+    
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+  };
+
+  // Add a cleanup effect to ensure no lingering event listeners
+  useEffect(() => {
+    return () => {
+      // This is a safety cleanup in case the component unmounts during a resize operation
+      document.removeEventListener('mousemove', () => {});
+      document.removeEventListener('mouseup', () => {});
+    };
+  }, []);
+
+  // Loading state
   if (isLoading) {
     return (
       <div className="flex justify-center py-8">
@@ -236,6 +330,7 @@ const DataTable: React.FC<DataTableProps> = ({ dataId }) => {
     )
   }
 
+  // Error state
   if (error) {
     console.error('DataTable: Error loading data:', error);
     return (
@@ -245,8 +340,8 @@ const DataTable: React.FC<DataTableProps> = ({ dataId }) => {
     )
   }
 
+  // No data state
   if (!data) {
-    console.error('DataTable: No data returned from API for ID:', dataId);
     return (
       <div className="text-red-600 py-4">
         No data found for the selected item.
@@ -254,8 +349,8 @@ const DataTable: React.FC<DataTableProps> = ({ dataId }) => {
     )
   }
   
+  // Empty data state
   if (!headers.length || !rows.length) {
-    console.warn('DataTable: No headers or rows after transformation for ID:', dataId);
     return (
       <div className="text-gray-500 py-4 text-center">
         No data available
@@ -263,6 +358,7 @@ const DataTable: React.FC<DataTableProps> = ({ dataId }) => {
     )
   }
 
+  // Render the data table
   return (
     <div className="space-y-4">
       <div className="bg-white overflow-hidden rounded-lg border border-gray-200">
@@ -288,6 +384,13 @@ const DataTable: React.FC<DataTableProps> = ({ dataId }) => {
               <span>{showRowNumbers ? 'Hide Rows' : 'Show Rows'}</span>
             </button>
             <button
+              onClick={toggleGridExpansion}
+              className="px-2 py-1 text-xs rounded flex items-center space-x-1 bg-gray-100 text-gray-700 hover:bg-gray-200"
+            >
+              {isGridExpanded ? <FaCompress size={12} /> : <FaExpand size={12} />}
+              <span>{isGridExpanded ? 'Collapse' : 'Expand'}</span>
+            </button>
+            <button
               onClick={() => setShowExportDialog(true)}
               className="px-2 py-1 text-xs rounded flex items-center space-x-1 bg-green-100 text-green-700 hover:bg-green-200"
             >
@@ -297,13 +400,22 @@ const DataTable: React.FC<DataTableProps> = ({ dataId }) => {
           </div>
         </div>
         
-        <div className="overflow-auto">
-          <table className="min-w-full divide-y divide-gray-200">
+        <div 
+          ref={tableRef}
+          className="overflow-auto" 
+          style={{ 
+            height: `${gridHeight}px`,
+            maxHeight: `${gridHeight}px`,
+            overflowX: 'auto',
+            overflowY: 'auto'
+          }}
+        >
+          <table className="min-w-full divide-y divide-gray-200 table-fixed">
             {showHeaders && (
               <thead className="bg-gray-50">
                 <tr>
                   {showRowNumbers && (
-                    <th scope="col" className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-12">
+                    <th scope="col" className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-12 sticky left-0 bg-gray-50 z-10">
                       #
                     </th>
                   )}
@@ -311,9 +423,30 @@ const DataTable: React.FC<DataTableProps> = ({ dataId }) => {
                     <th 
                       key={header} 
                       scope="col" 
-                      className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider min-w-[120px]"
+                      className={`px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider relative cursor-move ${
+                        dragOverHeader === header ? 'bg-blue-100' : 'bg-gray-50'
+                      }`}
+                      style={{
+                        width: `${columnWidths[header] || 150}px`,
+                      }}
+                      data-header={header}
+                      draggable
+                      onDragStart={(e) => handleHeaderDragStart(e, header)}
+                      onDragOver={(e) => handleHeaderDragOver(e, header)}
+                      onDrop={(e) => handleHeaderDrop(e, header)}
+                      onDragEnd={() => {
+                        setDraggedHeader(null);
+                        setDragOverHeader(null);
+                      }}
                     >
                       {header}
+                      <div 
+                        className="absolute top-0 right-0 h-full w-4 cursor-col-resize z-20"
+                        onMouseDown={(e) => handleResizeStart(e, header)}
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <div className="h-full w-1 bg-gray-300 mx-auto hover:bg-blue-500 hover:w-2 transition-all"></div>
+                      </div>
                     </th>
                   ))}
                 </tr>
@@ -321,16 +454,32 @@ const DataTable: React.FC<DataTableProps> = ({ dataId }) => {
             )}
             <tbody className="bg-white divide-y divide-gray-200">
               {rows.map((row, rowIndex) => (
-                <tr key={rowIndex} className="hover:bg-gray-50">
+                <tr 
+                  key={rowIndex}
+                  className={`hover:bg-gray-50 ${
+                    dragOverRow === rowIndex ? 'bg-blue-50' : ''
+                  }`}
+                  draggable
+                  onDragStart={(e) => handleRowDragStart(e, rowIndex)}
+                  onDragOver={(e) => handleRowDragOver(e, rowIndex)}
+                  onDrop={(e) => handleRowDrop(e, rowIndex)}
+                  onDragEnd={() => {
+                    setDraggedRow(null);
+                    setDragOverRow(null);
+                  }}
+                >
                   {showRowNumbers && (
-                    <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-500 w-12">
+                    <td 
+                      className="px-3 py-2 whitespace-nowrap text-sm text-gray-500 w-12 sticky left-0 bg-white z-10 cursor-move"
+                    >
                       {rowIndex + 1}
                     </td>
                   )}
                   {headers.map((header) => (
                     <td 
                       key={`${rowIndex}-${header}`} 
-                      className="px-3 py-2 whitespace-pre-wrap break-words text-sm text-gray-900 min-w-[120px]"
+                      className="px-3 py-2 whitespace-pre-wrap break-words text-sm text-gray-900"
+                      style={{ width: `${columnWidths[header] || 150}px` }}
                     >
                       {row[header] !== undefined ? String(row[header]) : ''}
                     </td>
@@ -340,17 +489,49 @@ const DataTable: React.FC<DataTableProps> = ({ dataId }) => {
             </tbody>
           </table>
         </div>
+        
+        {/* Resizer handle */}
+        <div 
+          className="h-2 bg-gray-100 cursor-ns-resize flex justify-center items-center hover:bg-gray-200"
+          onMouseDown={handleGridResize}
+        >
+          <div className="w-10 h-1 bg-gray-300 rounded"></div>
+        </div>
       </div>
       
       <div className="bg-white overflow-hidden rounded-lg border border-gray-200">
-        <div className="p-3 border-b border-gray-200 bg-gray-50">
-          <h3 className="text-lg font-medium">Raw Data</h3>
-          <p className="text-sm text-gray-500">JSON format</p>
+        <div className="p-3 border-b border-gray-200 bg-gray-50 flex justify-between items-center">
+          <div>
+            <h3 className="text-lg font-medium">Raw Data</h3>
+            <p className="text-sm text-gray-500">JSON format</p>
+          </div>
+          <button
+            onClick={toggleRawDataExpansion}
+            className="px-2 py-1 text-xs rounded flex items-center space-x-1 bg-gray-100 text-gray-700 hover:bg-gray-200"
+          >
+            {isRawDataExpanded ? <FaCompress size={12} /> : <FaExpand size={12} />}
+            <span>{isRawDataExpanded ? 'Collapse' : 'Expand'}</span>
+          </button>
         </div>
-        <div className="p-4 overflow-auto max-h-[300px]">
+        <div 
+          className="p-4 overflow-auto" 
+          style={{ 
+            maxHeight: `${rawDataHeight}px`,
+            overflowX: 'auto',
+            overflowY: 'auto'
+          }}
+        >
           <pre className="text-sm text-gray-700 whitespace-pre-wrap break-words">
             {JSON.stringify(data?.data, null, 2)}
           </pre>
+        </div>
+        
+        {/* Resizer handle */}
+        <div 
+          className="h-2 bg-gray-100 cursor-ns-resize flex justify-center items-center hover:bg-gray-200"
+          onMouseDown={handleRawDataResize}
+        >
+          <div className="w-10 h-1 bg-gray-300 rounded"></div>
         </div>
       </div>
       

@@ -2,452 +2,267 @@
 
 ## Overview
 
-The SheetGPT API is built using FastAPI, providing a modern, fast, and type-safe backend for the application. The architecture follows RESTful principles and implements a clean, modular design.
+SheetGPT's API is built using FastAPI, a modern, high-performance web framework for building APIs with Python. The API follows a modular architecture with clear separation of concerns:
 
-## Core Components
+1. **Routes**: Define API endpoints and handle HTTP requests/responses
+2. **Services**: Implement business logic and database operations
+3. **Models**: Define database schema using SQLAlchemy ORM
+4. **Schemas**: Validate request/response data using Pydantic
 
-### 1. API Layer
-- **FastAPI Application**
-  - Route registration
-  - Middleware configuration
-  - OpenAPI documentation
-  - CORS and security settings
+## API Structure
 
-- **Endpoint Structure**
-  ```
-  /api/v1/
-  ├── auth/
-  │   ├── register
-  │   ├── login
-  │   └── me
-  ├── chat/
-  │   ├── conversations
-  │   └── messages
-  ├── data/
-  │   ├── by-message/{message_id}
-  │   ├── columns
-  │   ├── rows
-  │   │   ├── get
-  │   │   ├── add
-  │   │   ├── update
-  │   │   └── delete
-  │   ├── cells
-  │   └── history
-  └── export/
-      ├── sheets
-      └── templates
-  ```
+The API is structured into several modules:
 
-### 2. Service Layer
-- **Authentication Service**
-  - User management
-  - Token handling
-  - Password hashing
-
-- **Chat Service**
-  - Conversation management
-  - Message processing
-  - GPT integration
-  - Data extraction
-
-- **Data Management Service**
-  - Structured data operations
-  - Column configuration
-  - Row management
-  - Change tracking
-  - Data validation
-  - Data transformation
-  - Cell updates
-
-- **Export Service**
-  - Google Sheets integration
-  - Template management
-  - Export processing
-  - Status tracking
-
-### 3. Database Layer
-- **Models**
-  - User
-  - Conversation
-  - Message
-  - StructuredData
-  - DataColumn
-  - DataChangeHistory
-
-- **Database Operations**
-  - Async SQLAlchemy
-  - Transaction management
-  - Connection pooling
-  - Migration handling
-
-## Data Management
-
-### 1. Data Structure
-```typescript
-interface StructuredData {
-  id: string
-  conversation_id: string
-  data_type: string
-  schema_version: string
-  data: {
-    rows: Array<Record<string, any>>
-    column_order: string[]
-  }
-  meta_data: Record<string, any>
-  columns: Column[]
-}
-
-interface Column {
-  id: string
-  name: string
-  data_type: string
-  format?: string
-  formula?: string
-  order: number
-  is_active: boolean
-  meta_data: Record<string, any>
-}
-```
-
-### 2. Row Operations
-- **Get Rows**
-  ```
-  GET /api/v1/data/{data_id}/rows
-  Query Parameters:
-    - skip: number
-    - limit: number
-  Response:
-    - total: number
-    - rows: Array<Record<string, any>>
-    - column_order: string[]
-  ```
-
-- **Add Row**
-  ```
-  POST /api/v1/data/{data_id}/rows
-  Body:
-    - Record<string, any>
-  Response:
-    - Added row data
-  ```
-
-- **Update Row**
-  ```
-  PUT /api/v1/data/{data_id}/rows/{row_index}
-  Body:
-    - Record<string, any>
-  Response:
-    - Updated row data
-  ```
-
-- **Delete Row**
-  ```
-  DELETE /api/v1/data/{data_id}/rows/{row_index}
-  Response:
-    - 204 No Content
-  ```
-
-### 3. Cell Operations
-- **Update Cell**
-  ```
-  PUT /api/v1/data/{data_id}/cells
-  Body:
-    - column_name: string
-    - row_index: number
-    - value: any
-  Response:
-    - Updated row data
-  ```
-
-### 4. Change Tracking
-```typescript
-interface DataChangeHistory {
-  id: string
-  structured_data_id: string
-  user_id: string
-  change_type: string
-  column_name?: string
-  row_index?: number
-  old_value?: string
-  new_value?: string
-  meta_data: Record<string, any>
-  created_at: string
-}
-```
-
-## Design Principles
-
-### 1. Modularity
-- Separation of concerns
-- Independent services
-- Reusable components
-- Clear dependencies
-
-### 2. Type Safety
-- Pydantic models
-- Type hints
-- Schema validation
-- Error handling
-
-### 3. Security
-- JWT authentication
-- Role-based access
-- Input validation
-- Rate limiting
-
-### 4. Performance
-- Async operations
-- Connection pooling
-- Query optimization
-- Caching strategy
-
-### 5. Resilience
-- Retry mechanisms for critical operations
-- Verification steps for data creation
-- Automatic recovery from partial failures
-- Duplicate detection and cleanup
-- Race condition prevention
-- Comprehensive error handling
-- State restoration after failures
-
-## Data Flow
-
-### 1. Request Flow
-```
-Client Request
-  → Authentication Middleware
-  → Route Handler
-  → Service Layer
-  → Database Layer
-  → Response Processing
-  → Client Response
-```
-
-### 2. Data Transformation Flow
-```
-Raw Data
-  → Data Extraction
-  → Structure Validation
-  → Row Format Conversion
-  → Column Mapping
-  → Change Recording
-  → Final Response
-```
-
-### 3. "Send to Data" Flow
-```
-Client                                  API                                 Database
-  |                                      |                                     |
-  |--- Check for existing data --------->|--- Query by message_id ------------>|
-  |<-- Return existing or null ----------|<-- Return results ------------------|
-  |                                      |                                     |
-  |--- Create structured data (if new) ->|--- Insert new record -------------->|
-  |<-- Success or error ----------------|<-- Confirm or error ----------------|
-  |                                      |                                     |
-  |--- Verify data exists (if error) --->|--- Query by message_id ------------>|
-  |<-- Return data if exists ------------|<-- Return results ------------------|
-  |                                      |                                     |
-  |--- Clean up duplicates (if any) ---->|--- Delete duplicate records ------->|
-  |<-- Success --------------------------|<-- Confirm deletion ----------------|
-```
-
-## Integration Points
-
-### 1. External Services
-- OpenAI GPT API
-- Google Sheets API
-- Authentication providers
-- Monitoring services
-
-### 2. Internal Services
-- Frontend application
-- Background tasks
-- Caching layer
-- Logging system
-
-## Error Handling
-
-### 1. HTTP Errors
-- Standard HTTP status codes
-- Detailed error messages
-- Error tracking
-- Client-friendly responses
-
-### 2. Validation Errors
-- Request validation
-- Data validation
-- Business rule validation
-- Response validation
-
-### 3. Recovery Strategies
-- Automatic retries with exponential backoff
-- Verification steps after failures
-- Duplicate detection and resolution
-- Comprehensive logging for debugging
-- Graceful degradation
-- User-friendly error messages
-- State preservation during recovery
-
-## Security Measures
-
-### 1. Authentication
-- JWT tokens
-- Token refresh
-- Session management
-- Access control
-
-### 2. Data Protection
-- Input sanitization
-- SQL injection prevention
-- XSS protection
-- CORS configuration
-
-## Monitoring and Logging
-
-### 1. Application Metrics
-- Request tracking
-- Performance metrics
-- Error rates
-- Resource usage
-
-### 2. Logging
-- Structured logging
-- Error tracking
-- Audit trails
-- Performance monitoring
-
-## Future Enhancements
-
-### 1. Planned Features
-- Real-time updates
-- Advanced caching
-- Rate limiting
-- API versioning
-- Bulk operations
-- Advanced filtering
-
-### 2. Scalability
-- Horizontal scaling
-- Load balancing
-- Database sharding
-- Cache distribution
+- **Authentication**: User registration, login, and token management
+- **Chat**: Conversation and message management
+- **Data Management**: Structured data operations
+- **Sports Database**: Sports entity management
+- **Export**: Data export to Google Sheets
 
 ## Authentication System
 
-### Overview
-The authentication system uses a token-based approach with JWT (JSON Web Tokens). The system is designed to be secure, performant, and provide a smooth user experience.
+The authentication system uses JWT (JSON Web Tokens) for secure API access:
 
-### Components
+1. **Token Generation**: `/api/v1/auth/login` endpoint generates JWT tokens
+2. **Token Validation**: `get_current_user_id` function validates tokens
+3. **User Retrieval**: `get_current_user` function retrieves user information
 
-1. Authentication Hook (`useAuth`)
-   - Central management of authentication state
-   - Handles login, logout, and registration
-   - Manages token storage and validation
-   - Implements throttling and caching for performance
-   - Provides mount-aware state updates
+## Sports Database API
 
-2. Token Management
-   - Storage: LocalStorage for persistence
-   - Validation: Regular checks with throttling
-   - Cleanup: Automatic removal on 401 errors
-   - State: Tracked via React state and refs
+The sports database API provides endpoints for managing sports entities:
 
-3. API Client Integration
-   - Automatic token injection in requests
-   - Error handling for auth failures
-   - Retry logic for failed requests
-   - Comprehensive request logging
+- **Generic Entity Endpoints**: `/api/v1/sports/entities/{entity_type}`
+- **League Endpoints**: `/api/v1/sports/leagues`
+- **Team Endpoints**: `/api/v1/sports/teams`
+- **Player Endpoints**: `/api/v1/sports/players`
+- **Game Endpoints**: `/api/v1/sports/games`
+- **Stadium Endpoints**: `/api/v1/sports/stadiums`
+- **Broadcast Endpoints**: `/api/v1/sports/broadcast`
+- **Production Endpoints**: `/api/v1/sports/production`
+- **Brand Endpoints**: `/api/v1/sports/brands`
+- **Export Endpoint**: `/api/v1/sports/export`
 
-### State Management
-```typescript
-interface AuthState {
-  user: User | null
-  isAuthenticated: boolean
-  isLoading: boolean
-  isReady: boolean
-}
+## Export Service
+
+The export service handles exporting data to Google Sheets:
+
+1. **Entity Selection**: Frontend selects entities to export
+2. **Export Request**: API receives export request with entity IDs
+3. **Data Retrieval**: Service retrieves entities and related data
+4. **Spreadsheet Creation**: Google Sheets API creates a new spreadsheet
+5. **Data Writing**: Service writes data to the spreadsheet
+6. **Formatting**: Service applies formatting to the spreadsheet
+7. **Response**: API returns spreadsheet ID and URL
+
+### Google Sheets Integration
+
+The Google Sheets integration is implemented through the following components:
+
+1. **GoogleSheetsService**: Core service for interacting with the Google Sheets API
+   - OAuth2 authentication flow
+   - Spreadsheet creation and management
+   - Data writing and formatting
+   - Template application
+
+2. **ExportService**: High-level service that coordinates the export process
+   - Entity retrieval and transformation
+   - Relationship handling
+   - Formatting data for spreadsheet export
+
+3. **Export API Routes**: Endpoints for initiating and managing exports
+   - `/api/v1/export/sheets`: Export data to Google Sheets
+   - `/api/v1/export/auth/url`: Get Google OAuth URL
+   - `/api/v1/export/auth/callback`: Handle Google OAuth callback
+
+### Current Implementation Status
+
+The Google Sheets integration is partially implemented:
+
+- [x] OAuth2 authentication flow
+- [x] Spreadsheet creation and basic operations
+- [x] Data writing functionality
+- [x] Template application
+- [x] Frontend UI for export
+- [ ] Complete end-to-end testing
+- [ ] Error handling and recovery
+- [ ] User feedback during export process
+
+## Recent Fixes
+
+### 1. UUID Handling in Database Models
+
+Fixed issues with UUID handling in database models by using the `SQLUUID` type:
+
+```python
+from sqlalchemy import Column, ForeignKey
+from sqlalchemy.orm import Mapped
+from sqlalchemy.dialects.postgresql import UUID as SQLUUID
+from uuid import UUID
+
+# Example of correct UUID field definition
+league_id: Mapped[UUID] = mapped_column(
+    SQLUUID,
+    ForeignKey("leagues.id"),
+    nullable=False
+)
 ```
 
-### Performance Optimizations
-1. Auth Check Throttling
-   - Minimum 5-second interval between checks
-   - Caching of successful checks
-   - Prevention of simultaneous checks
+This ensures that UUIDs are properly handled by SQLAlchemy and PostgreSQL.
 
-2. Component Lifecycle Management
-   - Mount status tracking
-   - Cleanup on unmount
-   - Prevention of state updates after unmount
+### 2. Import Path Resolution
 
-3. Error Handling
-   - Specific handling for 401 errors
-   - Automatic token cleanup
-   - User-friendly error messages
-   - Detailed logging for debugging
+Fixed import issues by updating import paths to reflect the correct directory structure:
 
-### Security Considerations
-1. Token Storage
-   - Secure storage in localStorage
-   - Automatic cleanup on expiry/error
-   - No sensitive data in token payload
+```python
+# Before
+from src.services.sheets_service import SheetsService
 
-2. Request Security
-   - HTTPS only
-   - Token-based authentication
-   - Protected routes
-   - CORS configuration
+# After
+from src.services.export.sheets_service import GoogleSheetsService as SheetsService
+```
 
-### Future Enhancements
-1. Token refresh mechanism
-2. Remember me functionality
-3. Session timeout handling
-4. Enhanced security measures
+This ensures that modules are correctly imported from their actual locations.
 
-## Authentication Endpoints
+### 3. Authentication Utility
 
-### POST /api/v1/auth/register
-Register a new user
-- Request:
-  ```json
-  {
-    "email": "user@example.com",
-    "password": "securepassword"
-  }
-  ```
-- Response:
-  ```json
-  {
-    "email": "user@example.com",
-    "is_active": true,
-    "is_superuser": false
-  }
-  ```
+Created a new `auth.py` utility to provide the `get_current_user` function:
 
-### POST /api/v1/auth/login
-Authenticate user and get token
-- Request:
-  ```json
-  {
-    "email": "user@example.com",
-    "password": "securepassword"
-  }
-  ```
-- Response:
-  ```json
-  {
-    "access_token": "eyJ0eXAiOiJKV1QiLCJhbGc...",
-    "token_type": "bearer",
-    "expires_in": 1800
-  }
-  ```
+```python
+# src/utils/auth.py
+from fastapi import Depends, HTTPException, status
+from sqlalchemy.orm import Session
+from typing import Dict, Any
 
-### GET /api/v1/auth/me
-Get current user information (requires authentication)
-- Response:
-  ```json
-  {
-    "email": "user@example.com",
-    "is_active": true,
-    "is_superuser": false
-  }
-  ``` 
+from src.utils.database import get_db
+from src.utils.security import get_current_user_id
+from src.services.user import UserService
+
+async def get_current_user(
+    current_user_id = Depends(get_current_user_id),
+    db: Session = Depends(get_db)
+) -> Dict[str, Any]:
+    """
+    Get current authenticated user information.
+    """
+    user_service = UserService(db)
+    user = await user_service.get_user_by_id(current_user_id)
+    
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found"
+        )
+    
+    # Convert user model to dictionary
+    user_dict = {
+        "id": str(user.id),
+        "email": user.email,
+        "is_active": user.is_active,
+        "is_superuser": user.is_superuser,
+        "created_at": user.created_at.isoformat() if user.created_at else None,
+        "updated_at": user.updated_at.isoformat() if user.updated_at else None
+    }
+    
+    return user_dict
+```
+
+This function is used as a dependency in protected routes to ensure the user is authenticated and to provide user information.
+
+## API Endpoints
+
+### Authentication
+
+- `POST /api/v1/auth/register`: Register a new user
+- `POST /api/v1/auth/login`: Login and get access token
+- `GET /api/v1/auth/me`: Get current user information
+
+### Chat
+
+- `GET /api/v1/chat/conversations`: Get user conversations
+- `POST /api/v1/chat/conversations`: Create a new conversation
+- `GET /api/v1/chat/conversations/{conversation_id}`: Get conversation details
+- `POST /api/v1/chat/conversations/{conversation_id}/messages`: Send a message
+- `GET /api/v1/chat/conversations/{conversation_id}/messages`: Get conversation messages
+
+### Data Management
+
+- `GET /api/v1/data/structured`: Get structured data
+- `POST /api/v1/data/structured`: Create structured data
+- `GET /api/v1/data/structured/{data_id}`: Get structured data details
+- `PUT /api/v1/data/structured/{data_id}`: Update structured data
+- `DELETE /api/v1/data/structured/{data_id}`: Delete structured data
+
+### Sports Database
+
+- `GET /api/v1/sports/leagues`: Get all leagues
+- `POST /api/v1/sports/leagues`: Create a new league
+- `GET /api/v1/sports/leagues/{league_id}`: Get league details
+- `PUT /api/v1/sports/leagues/{league_id}`: Update a league
+- `DELETE /api/v1/sports/leagues/{league_id}`: Delete a league
+
+Similar endpoints exist for teams, players, games, stadiums, broadcast companies, production companies, and brands.
+
+### Export
+
+- `POST /api/v1/export/sheets`: Export data to Google Sheets
+- `GET /api/v1/export/auth/url`: Get Google OAuth URL
+- `GET /api/v1/export/auth/callback`: Handle Google OAuth callback
+
+## Next Steps for API Development
+
+1. **Complete Google Sheets Integration**:
+   - Finalize end-to-end testing of the export process
+   - Implement comprehensive error handling
+   - Add user feedback during export
+
+2. **Performance Optimization**:
+   - Implement pagination for large datasets
+   - Add filtering and sorting capabilities
+   - Optimize database queries
+
+3. **Testing and Documentation**:
+   - Create comprehensive test suite for all endpoints
+   - Update API documentation with examples
+   - Add performance benchmarks
+
+## Data Handling Architecture
+
+### Data Flow
+
+1. **Data Extraction**:
+   - The `DataExtractionService` extracts structured data from AI assistant responses.
+   - It handles various data formats, including nested structures, arrays of objects, and column-based formats.
+   - The service transforms the extracted data into a consistent format for storage and display.
+
+2. **Data Storage**:
+   - Structured data is stored in the database with metadata linking it to the source conversation and message.
+   - The data model supports flexible schemas to accommodate different data structures.
+   - Each structured data entry includes headers, rows, and metadata for context.
+
+3. **Data Display**:
+   - The `DataTable` component renders structured data in a customizable grid.
+   - It handles various data formats and provides features like column resizing, row reordering, and data export.
+   - Special handling is implemented for nested data structures to ensure correct display.
+
+4. **Data Preview**:
+   - The `DataPreviewModal` component provides a preview of extracted data before it's stored.
+   - It supports multiple data formats and provides a visual representation of how the data will be displayed.
+
+### Recent Improvements
+
+1. **Enhanced Data Transformation**:
+   - Improved handling of nested data structures to correctly transpose rows and columns.
+   - Added support for various data formats to ensure consistent display across the application.
+
+2. **Data Persistence**:
+   - Enhanced React Query configuration for better data persistence during navigation.
+   - Implemented retry logic with exponential backoff for failed queries.
+   - Increased cache times to reduce unnecessary refetching.
+
+3. **Error Handling**:
+   - Improved error handling in data extraction and transformation processes.
+   - Added fallback mechanisms to ensure graceful degradation when data cannot be processed.
+
+## API Design Principles
+
+// ... existing code ... 

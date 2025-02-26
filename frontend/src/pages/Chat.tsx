@@ -4,10 +4,12 @@ import { useNavigate, useSearchParams } from 'react-router-dom'
 import ConversationList from '../components/chat/ConversationList'
 import MessageThread from '../components/chat/MessageThread'
 import ChatInput from '../components/chat/ChatInput'
+import SportDataEntryMode from '../components/chat/SportDataEntryMode'
 import LoadingSpinner from '../components/common/LoadingSpinner'
 import { useNotification } from '../contexts/NotificationContext'
 import { useAuth } from '../hooks/useAuth'
 import { api, type Conversation, type Message } from '../utils/api'
+import SportsDatabaseService, { EntityType } from '../services/SportsDatabaseService'
 
 type QueryError = {
   message: string;
@@ -22,6 +24,7 @@ const Chat: React.FC = () => {
   const queryClient = useQueryClient()
   const { showNotification } = useNotification()
   const [isInitialLoad, setIsInitialLoad] = useState(true)
+  const [isSportDataModalOpen, setIsSportDataModalOpen] = useState(false)
 
   // Update URL when selected conversation changes
   useEffect(() => {
@@ -127,11 +130,11 @@ const Chat: React.FC = () => {
     },
     retry: 2, // Increase retry attempts
     retryDelay: attempt => Math.min(1000 * 2 ** attempt, 30000), // Exponential backoff with max 30s
-    staleTime: 60000, // Reduce stale time to 1 minute to refresh more often
-    gcTime: 1000 * 60 * 30, // Cache for 30 minutes
+    staleTime: 1000 * 60 * 15, // Increase stale time to 15 minutes
+    gcTime: 1000 * 60 * 60, // Cache for 60 minutes
     enabled: isAuthenticated && isReady,
     refetchOnMount: 'always', // Always refetch on mount
-    refetchOnWindowFocus: true, // Refetch when window regains focus
+    refetchOnWindowFocus: false, // Disable refetch on window focus to prevent data loss
     refetchOnReconnect: true, // Refetch when reconnecting
     // Ensure we always return an array even if the query fails
     placeholderData: []
@@ -174,11 +177,11 @@ const Chat: React.FC = () => {
       return conversation.messages
     },
     enabled: !!selectedConversation && isAuthenticated && isReady,
-    retry: 1,
-    staleTime: Infinity,
-    gcTime: 1000 * 60 * 30, // Cache for 30 minutes
+    retry: 2,
+    staleTime: 1000 * 60 * 15, // Increase stale time to 15 minutes
+    gcTime: 1000 * 60 * 60, // Cache for 60 minutes
     refetchOnMount: true,
-    refetchOnWindowFocus: true,
+    refetchOnWindowFocus: false, // Disable refetch on window focus to prevent data loss
     refetchOnReconnect: true
   })
 
@@ -297,6 +300,14 @@ const Chat: React.FC = () => {
     await sendMessageMutation.mutateAsync({ content, structuredFormat })
   }
 
+  const handleSelectEntityType = (entityType: string) => {
+    // Get the prompt template for the selected entity type
+    const promptTemplate = SportsDatabaseService.getPromptTemplate(entityType as EntityType)
+    
+    // Send the prompt template as a message to start the guided data entry
+    handleSendMessage(promptTemplate)
+  }
+
   // Combined loading state - only show loading on initial load
   const isLoading = !isReady || (isInitialLoad && isLoadingConversations)
 
@@ -364,6 +375,19 @@ const Chat: React.FC = () => {
           onSelect={setSelectedConversation}
           isLoading={isLoadingConversations}
         />
+        {selectedConversation && (
+          <div className="mt-4">
+            <button
+              onClick={() => setIsSportDataModalOpen(true)}
+              className="w-full py-2 px-4 bg-green-600 hover:bg-green-700 text-white rounded-md flex items-center justify-center"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-11a1 1 0 10-2 0v2H7a1 1 0 100 2h2v2a1 1 0 102 0v-2h2a1 1 0 100-2h-2V7z" clipRule="evenodd" />
+              </svg>
+              Add Sports Data
+            </button>
+          </div>
+        )}
       </div>
       <div className="flex-1 flex flex-col">
         {selectedConversation ? (
@@ -394,6 +418,13 @@ const Chat: React.FC = () => {
           </div>
         )}
       </div>
+
+      {/* Sport Data Entry Modal */}
+      <SportDataEntryMode
+        isOpen={isSportDataModalOpen}
+        onClose={() => setIsSportDataModalOpen(false)}
+        onSelectEntityType={handleSelectEntityType}
+      />
     </div>
   )
 }

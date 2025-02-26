@@ -1,4 +1,4 @@
-from typing import Optional, Dict, Any, List
+from typing import Optional, Dict, Any, List, Tuple
 from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import Flow
 from google.auth.transport.requests import Request
@@ -100,8 +100,8 @@ class GoogleSheetsService:
                 detail=f"Failed to initialize from token: {str(e)}"
             )
 
-    async def create_spreadsheet(self, title: str) -> str:
-        """Create a new spreadsheet and return its ID."""
+    async def create_spreadsheet(self, title: str, user_id: Optional[Any] = None) -> Tuple[str, str]:
+        """Create a new spreadsheet and return its ID and URL."""
         if not self.service:
             print(f"DEBUG: Service not initialized in create_spreadsheet")
             raise HTTPException(
@@ -121,7 +121,9 @@ class GoogleSheetsService:
             print(f"DEBUG: Executing API request")
             response = request.execute()
             print(f"DEBUG: API response: {response}")
-            return response['spreadsheetId']
+            spreadsheet_id = response['spreadsheetId']
+            spreadsheet_url = f"https://docs.google.com/spreadsheets/d/{spreadsheet_id}"
+            return spreadsheet_id, spreadsheet_url
         except Exception as e:
             print(f"DEBUG: Error in create_spreadsheet: {str(e)}")
             print(f"DEBUG: Error type: {type(e)}")
@@ -200,7 +202,8 @@ class GoogleSheetsService:
         self,
         title: str,
         template_name: str = "default",
-        data: Optional[List[List[Any]]] = None
+        data: Optional[List[List[Any]]] = None,
+        user_id: Optional[Any] = None
     ) -> Dict[str, Any]:
         """Create a new spreadsheet using a template and optionally populate it with data."""
         if not self.service:
@@ -213,11 +216,10 @@ class GoogleSheetsService:
         try:
             # Create the spreadsheet
             print(f"DEBUG: Creating spreadsheet with title: {title}")
-            spreadsheet_id = await self.create_spreadsheet(title)
+            spreadsheet_id, spreadsheet_url = await self.create_spreadsheet(title, user_id)
             print(f"DEBUG: Created spreadsheet with ID: {spreadsheet_id}")
             
             # Get the spreadsheet URL
-            spreadsheet_url = f"https://docs.google.com/spreadsheets/d/{spreadsheet_id}"
             print(f"DEBUG: Spreadsheet URL: {spreadsheet_url}")
             
             # Apply template formatting
@@ -337,4 +339,66 @@ class GoogleSheetsService:
             raise HTTPException(
                 status_code=500,
                 detail=f"Failed to apply template: {str(e)}"
-            ) 
+            )
+
+    async def write_to_sheet(
+        self,
+        spreadsheet_id: str,
+        sheet_name: str,
+        headers: List[str],
+        rows: List[List[Any]],
+        value_input_option: str = 'USER_ENTERED'
+    ) -> Dict[str, Any]:
+        """Write headers and rows to a sheet."""
+        try:
+            # Combine headers and rows
+            values = [headers] + rows
+            
+            # Calculate range
+            range_name = f"{sheet_name}!A1:{chr(65 + len(headers) - 1)}{len(rows) + 1}"
+            
+            # Update values
+            return await self.update_values(
+                spreadsheet_id,
+                range_name,
+                values,
+                value_input_option
+            )
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Failed to write to sheet: {str(e)}")
+    
+    async def apply_formatting(
+        self,
+        spreadsheet_id: str,
+        sheet_name: str,
+        column_count: int,
+        row_count: int,
+        template_name: str = "default"
+    ) -> Dict[str, Any]:
+        """Apply formatting to a sheet."""
+        try:
+            # Calculate ranges
+            header_range = f"{sheet_name}!A1:{chr(65 + column_count - 1)}1"
+            data_range = f"{sheet_name}!A2:{chr(65 + column_count - 1)}{row_count}"
+            
+            # Apply header formatting
+            header_format = await self.template_service.get_formatting(template_name, "header")
+            if header_format:
+                await self.format_range(spreadsheet_id, header_range, header_format)
+            
+            # Apply body formatting
+            body_format = await self.template_service.get_formatting(template_name, "body")
+            if body_format:
+                await self.format_range(spreadsheet_id, data_range, body_format)
+            
+            # Apply alternate row formatting if available
+            alternate_format = await self.template_service.get_formatting(template_name, "alternateRow")
+            if alternate_format and row_count > 2:
+                # Apply to even rows (starting from row 3, which is index 2)
+                for i in range(3, row_count + 1, 2):
+                    alt_range = f"{sheet_name}!A{i}:{chr(65 + column_count - 1)}{i}"
+                    await self.format_range(spreadsheet_id, alt_range, alternate_format)
+            
+            return {"status": "success"}
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Failed to apply formatting: {str(e)}") 

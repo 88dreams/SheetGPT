@@ -16,6 +16,11 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 # Import the SQLAlchemy declarative Base and models
 from src.utils.database import Base
 from src.models.models import User, Conversation, Message, StructuredData, DataColumn, DataChangeHistory
+from src.models.sports_models import (
+    League, Stadium, Team, Player, Game, BroadcastCompany, BroadcastRights,
+    ProductionCompany, ProductionService, Brand, BrandRelationship,
+    TeamRecord, TeamOwnership, LeagueExecutive, GameBroadcast
+)
 from src.utils.config import get_settings
 
 # this is the Alembic Config object, which provides
@@ -24,6 +29,13 @@ config = context.config
 
 # Get settings from our application config
 settings = get_settings()
+
+# Override database URL for local development if needed
+# When running locally, use localhost instead of the Docker container name
+database_url = settings.DATABASE_URL
+if 'db:5432' in database_url:
+    database_url = database_url.replace('db:5432', 'localhost:5432')
+    print(f"Using local database URL: {database_url}")
 
 # Interpret the config file for Python logging.
 # This line sets up loggers basically.
@@ -35,7 +47,7 @@ target_metadata = Base.metadata
 
 def run_migrations_offline() -> None:
     """Run migrations in 'offline' mode."""
-    url = settings.DATABASE_URL
+    url = database_url
     context.configure(
         url=url,
         target_metadata=target_metadata,
@@ -50,7 +62,7 @@ async def run_migrations_online() -> None:
     """Run migrations in 'online' mode."""
     # Create the engine using settings from our application config
     connectable = create_async_engine(
-        settings.DATABASE_URL,
+        database_url,
         poolclass=pool.NullPool,
     )
 

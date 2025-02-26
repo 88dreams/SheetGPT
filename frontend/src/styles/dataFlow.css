@@ -1,0 +1,42 @@
+.data-flow-indicator {
+  background-color: #f8f9fa;
+  border-radius: 8px;
+  padding: 12px;
+  margin-bottom: 20px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+}
+
+.flow-steps {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.flow-step {
+  padding: 8px 16px;
+  border-radius: 4px;
+  background-color: #e9ecef;
+  font-weight: 500;
+  color: #495057;
+}
+
+.flow-step.active {
+  background-color: #007bff;
+  color: white;
+}
+
+.flow-step.visited {
+  background-color: #28a745;
+  color: white;
+}
+
+.flow-arrow {
+  color: #6c757d;
+  font-size: 18px;
+}
+
+.source-info {
+  margin-top: 8px;
+  font-size: 14px;
+  color: #6c757d;
+} 

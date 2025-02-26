@@ -1,1123 +1,666 @@
 # Technical Description
 
-## Frontend Architecture
-
-### 1. Authentication System
-- **Location**: `frontend/src/hooks/useAuth.ts`
-- **Purpose**: Manages user authentication state and operations
-- **Key Features**:
-  - JWT token management
-  - Authentication state tracking
-  - Throttled auth checks
-  - Automatic cleanup
-- **Implementation Details**:
-  - Uses React hooks for state management
-  - Implements mount-aware state updates
-  - Handles token storage in localStorage
-  - Provides login, logout, and registration functions
-
-### 2. Chat Interface
-- **Location**: `frontend/src/pages/Chat.tsx`
-- **Purpose**: Main chat interface with conversation management
-- **Components**:
-  - ConversationList: Displays and manages conversations
-  - MessageThread: Renders message history with "Send to Data" button
-    - Enhanced data extraction with robust error handling
-    - Processing state tracking to prevent duplicate operations
-    - Automatic cleanup of duplicate data entries
-    - Verification steps to ensure data creation success
-    - Visual feedback during data processing
-  - ChatInput: Handles message input with format selection
-- **Features**:
-  - Real-time message updates
-  - Structured data extraction
-  - Loading states and error handling
-  - Conversation management
-
-### 3. Data Interface
-- **Location**: `frontend/src/pages/DataManagement.tsx`
-- **Purpose**: Structured data viewing and manipulation
-- **Components**:
-  - DataTable: Displays structured data in grid format
-    - Row-based data structure
-    - Toggle controls for headers and row numbers
-    - Vertical layout with Data Grid above Chat Data
-    - Enhanced data transformation for various formats
-  - DataToolbar: Provides data management tools
-    - Export options
-    - Simplified interface with focused functionality
-  - Conversation Data List: Displays available data sets
-    - Per-row delete functionality with trash icons
-    - Clear visual indication of selected data
-- **Layout**:
-  - Sidebar: Lists available data sets with delete options
-  - Main content: Shows Data Tools, Data Grid, and Chat Data
-  - Data Grid: Displays structured data in tabular format
-  - Chat Data: Shows raw JSON data for reference
-- **Features**:
-  - Improved data transformation handling
-  - Enhanced UI with clearer section separation
-  - Better visual hierarchy with important content on top
-  - Streamlined tools and controls
-
-### 4. Data Extraction Service
-- **Location**: `frontend/src/services/DataExtractionService.ts`
-- **Purpose**: Handles extraction and transformation of structured data from chat messages
-- **Key Functions**:
-  - `extractStructuredData`: Extracts JSON structures from message content
-  - `appendRows`: Adds new rows to existing structured data with metadata
-  - `transformToRowFormat`: Converts various data formats to standardized row objects
-- **Supported Data Formats**:
-  - Row-oriented with headers and rows arrays
-  - Column-oriented (Google Sheets format)
-  - Flat objects array
-  - Special Table Data format
-- **Implementation Details**:
-  - Uses regex to find JSON structures in message content
-  - Handles multiple data transformation scenarios
-  - Preserves metadata across transformations
-  - Ensures consistent row structure for display
-  - Manages conversation title and other metadata
-
-### 5. API Client
-- **Location**: `frontend/src/utils/api.ts`
-- **Purpose**: Centralized API communication
-- **Features**:
-  - Type-safe API calls
-  - Authentication header management
-  - Error handling
-  - Request/response logging
-- **Endpoints**:
-  - Authentication
-  - Chat operations
-  - Data management
-    - Row operations
-    - Column operations
-    - Cell updates
-  - Export functionality
+This document provides a technical description of the major code sections in the SheetGPT project.
 
 ## Backend Architecture
 
-### 1. API Routes
-- **Location**: `src/api/routes/`
-- **Purpose**: API endpoint definitions
-- **Key Routes**:
-  - `auth.py`: Authentication endpoints
-  - `chat.py`: Chat and conversation management
-  - `data_management.py`: Structured data operations
-    - Row management endpoints
-    - Column configuration
-    - Cell updates
-    - Change tracking
-- **Features**:
-  - Route registration
-  - Request validation
-  - Response handling
-  - Error management
+### FastAPI Application Structure
 
-### 2. Services
-- **Location**: `src/services/`
-- **Purpose**: Business logic implementation
-- **Key Services**:
-  - `chat.py`: Chat and GPT integration
-  - `data_management.py`: Data operations
-    - Row-based data structure
-    - Data transformation
-    - Change tracking
-    - Validation
-  - `auth.py`: Authentication logic
-- **Features**:
-  - Database operations
-  - External API integration
-  - Data processing
-  - Error handling
+The backend is built using FastAPI, a modern Python web framework for building APIs. The application structure follows a modular design:
 
-### 3. Database Models
-- **Location**: `src/models/`
-- **Purpose**: Database schema definitions
-- **Key Models**:
-  - User
-  - Conversation
-  - Message
-  - StructuredData
-    - Row-based data structure
-    - Column configuration
-  - DataColumn
-  - DataChangeHistory
-- **Features**:
-  - SQLAlchemy models
-  - Relationship definitions
-  - Type definitions
-  - Validation rules
-
-### 4. Schemas
-- **Location**: `src/schemas/`
-- **Purpose**: Data validation and serialization
-- **Key Schemas**:
-  - Authentication schemas
-  - Chat schemas
-  - Data management schemas
-    - Row operations
-    - Column updates
-    - Cell modifications
-- **Features**:
-  - Pydantic models
-  - Request/response validation
-  - Type safety
-  - Documentation
-
-## Data Flow
-
-### 1. Authentication Flow
 ```
-1. User submits credentials
-2. Backend validates and generates JWT
-3. Frontend stores token
-4. Token used for subsequent requests
-5. Regular token validation checks
+src/
+├── api/
+│   ├── routes/
+│   │   ├── api.py            # Main API router
+│   │   ├── auth.py           # Authentication endpoints
+│   │   ├── chat.py           # Chat endpoints
+│   │   ├── data_management.py # Data management endpoints
+│   │   ├── sports.py         # Sports database endpoints
+│   │   └── export.py         # Export endpoints
+├── config/
+│   └── settings.py           # Application settings
+├── models/
+│   ├── base.py               # Base model classes
+│   ├── user.py               # User models
+│   ├── chat.py               # Chat models
+│   ├── data.py               # Data models
+│   └── sports_models.py      # Sports database models
+├── schemas/
+│   ├── auth.py               # Authentication schemas
+│   ├── chat.py               # Chat schemas
+│   ├── data.py               # Data schemas
+│   └── sports.py             # Sports database schemas
+├── services/
+│   ├── user.py               # User service
+│   ├── chat.py               # Chat service
+│   ├── data_management.py    # Data management service
+│   ├── sports_service.py     # Sports database service
+│   ├── export_service.py     # Export service
+│   └── export/
+│       ├── sheets_service.py # Google Sheets service
+│       └── template_service.py # Template service
+├── utils/
+│   ├── auth.py               # Authentication utilities
+│   ├── database.py           # Database utilities
+│   └── security.py           # Security utilities
+└── main.py                   # Application entry point
 ```
-
-### 2. Chat Flow
-```
-1. User sends message
-2. Message stored in database
-3. GPT processes message
-4. Structured data extracted
-5. Response streamed to client
-```
-
-### 3. "Send to Data" Flow
-```
-1. User clicks "Send to Data" button
-   - Button disabled and shows "Processing..." state
-   - Message ID tracked in processing state
-
-2. Check for existing data
-   - Query all structured data to find matches by message ID
-   - If multiple entries found, keep most recent and delete others
-   - If found, navigate to existing data
-
-3. Extract and parse data
-   - Split message content at "---DATA---" marker
-   - Parse JSON data
-   - Transform to standardized format with headers and rows
-
-4. Final verification before creation
-   - One last check for existing data to prevent race conditions
-   - If found, navigate to existing data
-
-5. Create structured data
-   - Send data to backend with proper metadata
-   - If API call fails, verify if data was actually created
-   - If created despite error, use the created data
-
-6. Navigate to data view
-   - Wait for backend processing to complete
-   - Invalidate queries to refresh data
-   - Navigate to data management page
-   - Button restored to original state
-```
-
-### 4. Data Management Flow
-```
-1. User requests data
-2. Backend retrieves and transforms to row format
-3. Frontend displays in grid layout
-4. User can:
-   - Drag and drop to reorder
-   - Edit cells inline
-   - Add/delete rows
-   - Configure columns
-5. Changes tracked in history
-```
-
-### 5. Data Verification Flow
-```
-1. User navigates to data page with message ID
-2. Initial check for data by message ID
-3. If not found immediately:
-   - Start verification process with visual feedback
-   - Check all structured data for matching message ID
-   - Try direct API call as fallback
-   - Implement retry with increasing backoff (up to 5 attempts)
-   - Show verification status to user
-4. Once data is found or max attempts reached:
-   - Display data if found
-   - Show error if verification fails
-```
-
-### 6. Row Operations Flow
-```
-1. Add Row:
-   - User clicks "Add Row"
-   - Empty row created with column defaults
-   - Row added to database
-   - UI updates with new row
-
-2. Delete Row:
-   - User clicks delete button
-   - Row removed from database
-   - UI updates to reflect change
-   - Change recorded in history
-
-3. Update Row:
-   - User edits cell value
-   - Update sent to backend
-   - Database updated
-   - UI refreshes with new value
-   - Change tracked in history
-```
-
-## Technical Considerations
-
-### 1. Performance
-- Async operations for database access
-- Connection pooling
-- Query optimization
-- Frontend state management
-- Caching strategies
-- Efficient data transformation
-
-### 2. Security
-- JWT authentication
-- Input validation
-- SQL injection prevention
-- XSS protection
-- CORS configuration
-- Data validation
-
-### 3. Error Handling
-- Global error boundaries
-- API error handling
-- User feedback
-- Logging and monitoring
-- Recovery strategies
-- Data validation errors
-- Verification steps for critical operations
-- Automatic retry mechanisms with backoff
-- State restoration after errors
-
-### 4. State Management
-- React Query for server state
-- Local state with hooks
-- Mount-aware updates
-- Cleanup on unmount
-- Error recovery
-- Processing state tracking
-- Operation locking to prevent duplicates
-- Comprehensive button state management
-
-## Development Workflow
-
-### 1. Local Development
-- Docker Compose setup
-- Hot reloading
-- TypeScript compilation
-- ESLint configuration
-- Development tools
-- Component testing
-
-### 2. Testing
-- Unit tests
-- Integration tests
-- End-to-end tests
-- Test coverage
-- CI/CD pipeline
-- Component testing
-
-### 3. Deployment
-- Production build process
-- Environment configuration
-- Database migrations
-- Monitoring setup
-- Backup strategies
-- Performance monitoring
-
-## Future Considerations
-
-### 1. Scalability
-- Horizontal scaling
-- Load balancing
-- Database sharding
-- Caching distribution
-- Performance optimization
-- Bulk operations
-
-### 2. Features
-- Real-time updates
-- Advanced data visualization
-- Bulk operations
-- Export functionality
-- Template system
-- Advanced filtering
-
-### 3. Maintenance
-- Code documentation
-- Performance monitoring
-- Security updates
-- Database maintenance
-- Backup procedures
-- Feature testing
-
-## Backend Architecture
-
-### Core Components
-
-1. **FastAPI Application**
-   - Main application entry point
-   - Route registration and middleware configuration
-   - Dependency injection setup
-   - CORS and security settings
-
-2. **Database Layer**
-   - PostgreSQL database
-   - SQLAlchemy ORM for database operations
-   - Alembic for database migrations
-   - Connection pooling and transaction management
-
-3. **Authentication System**
-   - JWT-based authentication
-   - Password hashing with bcrypt
-   - Token refresh mechanism
-   - Session management
-
-4. **WebSocket Handler**
-   - Real-time chat functionality
-   - Connection management
-   - Message broadcasting
-   - Client state tracking
-
-5. **Data Management System**
-   - Structured data extraction
-   - Column configuration
-   - Change history tracking
-   - Export functionality
-   - Data validation and transformation
-
-### Service Layer
-
-1. **AuthService**
-   - User authentication and authorization
-   - Token generation and validation
-   - Password management
-   - Session handling
-
-2. **UserService**
-   - User profile management
-   - User preferences
-   - Account settings
-
-3. **ChatService**
-   - Conversation management
-   - Message handling
-   - Real-time updates
-   - Chat history
-
-4. **DataManagementService**
-   - Structured data operations
-   - Column management
-   - Change tracking
-   - Data validation
-   - Export handling
 
 ### Database Models
 
-1. **User Model**
-```python
-class User(Base):
-    id: UUID
-    email: str
-    hashed_password: str
-    full_name: str
-    is_active: bool
-    created_at: datetime
-    updated_at: datetime
-```
+The database models are defined using SQLAlchemy ORM with PostgreSQL as the database. The models are organized into several categories:
 
-2. **Conversation Model**
-```python
-class Conversation(Base):
-    id: UUID
-    title: str
-    user_id: UUID
-    created_at: datetime
-    updated_at: datetime
-    is_archived: bool
-```
+1. **User Models**: Authentication and user management
+2. **Chat Models**: Conversations and messages
+3. **Data Models**: Structured data and columns
+4. **Sports Models**: Comprehensive sports database schema
 
-3. **Message Model**
-```python
-class Message(Base):
-    id: UUID
-    conversation_id: UUID
-    content: str
-    role: str
-    created_at: datetime
-```
+#### Sports Database Schema
 
-4. **StructuredData Model**
-```python
-class StructuredData(Base):
-    id: UUID
-    conversation_id: UUID
-    user_id: UUID
-    data_type: str
-    schema_version: str
-    data: Dict
-    meta_data: Dict
-    created_at: datetime
-    updated_at: datetime
-    is_deleted: bool
-```
+The sports database schema is designed to model the relationships between various sports entities:
 
-5. **Column Model**
-```python
-class Column(Base):
-    id: UUID
-    structured_data_id: UUID
-    name: str
-    data_type: str
-    format: str
-    formula: str
-    order: int
-    is_active: bool
-    meta_data: Dict
-    created_at: datetime
-    updated_at: datetime
-```
+- **League**: Represents a sports league (e.g., NFL, NBA)
+- **Team**: Represents a sports team belonging to a league
+- **Player**: Represents a player belonging to a team
+- **Game**: Represents a game between two teams
+- **Stadium**: Represents a venue where games are played
+- **BroadcastCompany**: Represents a company that broadcasts games
+- **BroadcastRights**: Represents the rights of a broadcast company to broadcast games
+- **ProductionCompany**: Represents a company that produces broadcasts
+- **ProductionService**: Represents the services provided by a production company
+- **Brand**: Represents a brand that sponsors teams or leagues
+- **BrandRelationship**: Represents the relationship between a brand and a sports entity
 
-6. **DataChangeHistory Model**
-```python
-class DataChangeHistory(Base):
-    id: UUID
-    structured_data_id: UUID
-    user_id: UUID
-    change_type: str
-    change_data: Dict
-    created_at: datetime
-```
+The models use UUID primary keys and define relationships using SQLAlchemy's relationship mechanism.
+
+### API Routes
+
+The API routes are defined using FastAPI's router system. Each module has its own router that defines the endpoints for that module.
+
+#### Authentication Routes
+
+The authentication routes handle user registration, login, and token management:
+
+- `POST /api/v1/auth/register`: Register a new user
+- `POST /api/v1/auth/login`: Login and get access token
+- `GET /api/v1/auth/me`: Get current user information
+
+#### Chat Routes
+
+The chat routes handle conversation and message management:
+
+- `GET /api/v1/chat/conversations`: Get user conversations
+- `POST /api/v1/chat/conversations`: Create a new conversation
+- `GET /api/v1/chat/conversations/{conversation_id}`: Get conversation details
+- `POST /api/v1/chat/conversations/{conversation_id}/messages`: Send a message
+- `GET /api/v1/chat/conversations/{conversation_id}/messages`: Get conversation messages
+
+#### Data Management Routes
+
+The data management routes handle structured data operations:
+
+- `GET /api/v1/data`: Get all structured data for the user
+- `POST /api/v1/data`: Create new structured data
+- `GET /api/v1/data/{data_id}`: Get specific structured data
+- `PUT /api/v1/data/{data_id}`: Update structured data
+- `DELETE /api/v1/data/{data_id}`: Delete structured data
+- `GET /api/v1/data/{data_id}/columns`: Get columns for structured data
+- `PUT /api/v1/data/{data_id}/columns/{column_name}`: Update a specific column
+- `PUT /api/v1/data/{data_id}/cell`: Update a specific cell value
+- `POST /api/v1/data/{data_id}/rows`: Add a new row to structured data
+- `DELETE /api/v1/data/{data_id}/rows/{row_index}`: Delete a specific row
+- `PUT /api/v1/data/{data_id}/rows/{row_index}`: Update a specific row
+
+#### Sports Database Routes
+
+The sports database routes handle sports entity management:
+
+- `GET /api/v1/sports/leagues`: Get all leagues
+- `POST /api/v1/sports/leagues`: Create a new league
+- `GET /api/v1/sports/leagues/{league_id}`: Get a specific league
+- `PUT /api/v1/sports/leagues/{league_id}`: Update a league
+- `DELETE /api/v1/sports/leagues/{league_id}`: Delete a league
+
+- `GET /api/v1/sports/teams`: Get all teams
+- `POST /api/v1/sports/teams`: Create a new team
+- `GET /api/v1/sports/teams/{team_id}`: Get a specific team
+- `PUT /api/v1/sports/teams/{team_id}`: Update a team
+- `DELETE /api/v1/sports/teams/{team_id}`: Delete a team
+
+Similar endpoints exist for players, games, stadiums, broadcast companies, production companies, brands, and their relationships.
+
+#### Export Routes
+
+The export routes handle data export operations:
+
+- `GET /api/v1/export/templates`: Get available export templates
+- `POST /api/v1/export/sheets`: Export data to Google Sheets
+- `GET /api/v1/export/auth/google`: Initiate Google OAuth flow
+- `GET /api/v1/export/auth/google/callback`: Handle Google OAuth callback
+
+### Services
+
+The services implement the business logic for the application. Each service is responsible for a specific domain:
+
+#### User Service
+
+The user service handles user management operations:
+
+- `get_user_by_id`: Get a user by ID
+- `get_user_by_email`: Get a user by email
+- `create_user`: Create a new user
+- `update_user`: Update a user
+- `delete_user`: Delete a user
+
+#### Chat Service
+
+The chat service handles conversation and message management:
+
+- `get_conversations`: Get user conversations
+- `create_conversation`: Create a new conversation
+- `get_conversation`: Get conversation details
+- `create_message`: Create a new message
+- `get_messages`: Get conversation messages
+
+#### Data Management Service
+
+The data management service handles structured data operations:
+
+- `get_structured_data`: Get structured data
+- `create_structured_data`: Create structured data
+- `get_structured_data_by_id`: Get structured data details
+- `update_structured_data`: Update structured data
+- `delete_structured_data`: Delete structured data
+
+#### Sports Service
+
+The sports service handles sports entity management:
+
+- `get_leagues`: Get all leagues
+- `create_league`: Create a new league
+- `get_league`: Get league details
+- `update_league`: Update a league
+- `delete_league`: Delete a league
+
+Similar methods exist for teams, players, games, stadiums, broadcast companies, production companies, and brands.
+
+#### Export Service
+
+The export service handles data export to Google Sheets:
+
+- `export_sports_entities`: Export sports entities to Google Sheets
+- `_entity_to_dict`: Convert an entity to a dictionary
+- `_include_relationships`: Include relationships in the export
+- `_format_for_sheet`: Format data for Google Sheets
+
+#### Google Sheets Service
+
+The Google Sheets service handles interaction with the Google Sheets API:
+
+- `create_authorization_url`: Create authorization URL for OAuth2 flow
+- `process_oauth_callback`: Process OAuth callback and save credentials
+- `initialize_from_token`: Initialize service from saved token
+- `create_spreadsheet`: Create a new spreadsheet
+- `update_values`: Update values in a spreadsheet
+- `get_values`: Get values from a spreadsheet
+- `format_range`: Format a range in a spreadsheet
+- `create_spreadsheet_with_template`: Create a spreadsheet with a template
+- `apply_template_to_existing`: Apply a template to an existing spreadsheet
+- `write_to_sheet`: Write data to a sheet
+- `apply_formatting`: Apply formatting to a sheet
 
 ## Frontend Architecture
 
-### 1. API Client
-- **Centralized Request Handling**
-  - Unified request function with type safety
-  - Automatic token management
-  - Consistent error handling
-  - Environment-aware configuration
+### React Application Structure
 
-- **Authentication Flow**
-  - JWT-based authentication
-  - Token storage in localStorage
-  - Automatic token inclusion in requests
-  - Protected route handling
+The frontend is built using React with TypeScript. The application structure follows a modular design:
 
-- **Type Safety**
-  - Strong TypeScript integration
-  - API response type definitions
-  - Environment variable typing
-  - Runtime type checking
-
-### 2. Component Structure
-- **Layout Components**
-  - Main layout with navigation
-  - Protected route wrapper
-  - Responsive design patterns
-
-- **Feature Components**
-  - Chat interface with real-time updates
-  - Data management interface
-  - Modal components for actions
-  - Loading and error states
-
-- **State Management**
-  - React Query for server state
-  - Context for global state
-  - Local state for UI components
-
-### 3. Error Handling
-- **Client-Side Validation**
-  - Form input validation
-  - Data type checking
-  - Environment variable validation
-
-- **API Error Handling**
-  - Consistent error format
-  - User-friendly error messages
-  - Error boundary implementation
-  - Retry mechanisms (planned)
-
-## Security Implementation
-
-1. **Authentication**
-   - JWT token validation
-   - Password hashing
-   - Session management
-
-2. **Authorization**
-   - Role-based access
-   - Resource ownership
-   - Permission checks
-
-3. **Data Protection**
-   - Input validation
-   - SQL injection prevention
-   - XSS protection
-
-## Error Handling
-
-1. **Frontend Error Handling**
-   - API error handling
-   - Form validation
-   - Error boundaries
-   - User notifications
-
-2. **Backend Error Handling**
-   - Exception middleware
-   - Validation errors
-   - Database errors
-   - Custom error types
-
-## Testing Strategy
-
-1. **Unit Tests**
-   - Service layer tests
-   - Model tests
-   - Utility function tests
-
-2. **Integration Tests**
-   - API endpoint tests
-   - Database integration tests
-   - Authentication flow tests
-
-3. **Frontend Tests**
-   - Component tests
-   - State management tests
-   - API integration tests
-
-## Deployment Configuration
-
-1. **Environment Setup**
-   - Development
-   - Staging
-   - Production
-
-2. **Database Configuration**
-   - Connection settings
-   - Migration scripts
-   - Backup strategy
-
-3. **Security Settings**
-   - CORS configuration
-   - Rate limiting
-   - SSL/TLS setup
-
-## Code Organization
-
-### 1. Frontend Layer
 ```
-src/
-└── frontend/
-    ├── components/     # React components
-    │   ├── common/     # Shared components
-    │   │   ├── LoadingSpinner.tsx  # Loading indicator
-    │   │   └── Notification.tsx    # Toast notifications
-    │   ├── Layout/    # Layout components
-    │   │   └── Layout.tsx         # Main layout wrapper
-    │   └── chat/      # Chat interface components
-    │       ├── ConversationList.tsx  # Conversation management
-    │       ├── MessageThread.tsx     # Message display
-    │       ├── ChatInput.tsx         # Message input
-    │       └── NewConversationModal.tsx # New chat modal
-    ├── contexts/      # React contexts
-    │   └── NotificationContext.tsx  # Global notification management
-    ├── hooks/         # Custom React hooks
-    │   └── useAuth.ts # Authentication state
-    ├── pages/         # Page components
-    │   ├── Chat.tsx   # Main chat interface
-    │   ├── Login.tsx  # Authentication
-    │   └── Register.tsx
-    └── styles/        # CSS and styling
+frontend/
+├── src/
+│   ├── api/
+│   │   ├── auth.ts           # Authentication API client
+│   │   ├── chat.ts           # Chat API client
+│   │   ├── data.ts           # Data API client
+│   │   └── sports.ts         # Sports API client
+│   ├── components/
+│   │   ├── common/
+│   │   │   ├── Button.tsx    # Button component
+│   │   │   └── ...           # Other common components
+│   │   ├── chat/
+│   │   │   ├── MessageThread.tsx # Message thread component
+│   │   │   ├── MessageItem.tsx # Message item component
+│   │   │   ├── ChatInput.tsx # Chat input component
+│   │   │   └── ...           # Other chat components
+│   │   ├── data/
+│   │   │   ├── DataTable.tsx # Data table component
+│   │   │   ├── ColumnManager.tsx # Column manager component
+│   │   │   ├── ExportDialog.tsx # Export dialog component
+│   │   │   └── ...           # Other data components
+│   │   ├── Layout.tsx        # Layout component
+│   │   └── Navbar.tsx        # Navbar component
+│   ├── contexts/
+│   │   ├── AuthContext.tsx   # Authentication context
+│   │   └── ...               # Other contexts
+│   ├── hooks/
+│   │   ├── useAuth.ts        # Authentication hook
+│   │   └── ...               # Other hooks
+│   ├── pages/
+│   │   ├── Login.tsx         # Login page
+│   │   ├── Register.tsx      # Register page
+│   │   ├── Chat.tsx          # Chat page
+│   │   ├── DataManagement.tsx # Data management page
+│   │   └── SportsDatabase.tsx # Sports database page
+│   ├── services/
+│   │   ├── DataExtractionService.ts # Data extraction service
+│   │   └── SportsDatabaseService.ts # Sports database service
+│   ├── types/
+│   │   ├── auth.ts           # Authentication types
+│   │   ├── chat.ts           # Chat types
+│   │   ├── data.ts           # Data types
+│   │   └── sports.ts         # Sports types
+│   ├── utils/
+│   │   ├── api.ts            # API utilities
+│   │   └── ...               # Other utilities
+│   ├── App.tsx               # Application component
+│   └── main.tsx              # Application entry point
 ```
 
-### 2. Component Architecture
+### Key Components
 
-#### Common Components
-- **LoadingSpinner**: A reusable loading spinner component that supports different sizes (small, medium, large) and custom styling through className props. Used across the application to indicate loading states.
+#### Layout and Navigation Components
 
-#### Context Providers
-- **NotificationContext**: Global notification management
-  - Provides showNotification method
-  - Handles notification lifecycle
-  - Ensures consistent notification display
+- **Layout**: Main layout component that wraps all pages
+- **Navbar**: Navigation bar component
+- **DataFlowIndicator**: Visualizes the data flow journey between different sections of the application
+- **SmartBreadcrumbs**: Displays breadcrumb navigation based on the data journey
+- **PageHeader**: Standardized header component with title, description, and actions
+- **PageContainer**: Consistent container for all pages that includes the PageHeader
 
-#### Authentication Components
-- **Login**: Form validation
-  - Loading states during submission
-  - Error handling with notifications
-  - Disabled controls during processing
+#### Chat Components
 
-- **Register**: Extended form validation
-  - Password confirmation
-  - Loading states and error handling
-  - User feedback during registration
+- **MessageThread**: Displays chat messages and implements "Send to Data" functionality
+- **MessageItem**: Displays a single message
+- **ChatInput**: Allows users to send messages
+- **ConversationList**: Displays a list of conversations
+- **NewConversationModal**: Allows users to create a new conversation
+- **StructuredFormatModal**: Allows users to select a structured format for data
+- **SportDataEntryMode**: Allows users to enter sports data through chat
+- **DataPreviewModal**: Allows users to preview extracted data before sending it to Data Management
 
-#### Chat Interface
-- **ConversationList**: Displays all user conversations
-  - Handles conversation selection
-  - Loading states for data fetching
-  - New conversation creation
+#### Data Components
 
-- **MessageThread**: Displays conversation messages
-  - Handles different message types
-  - Loading states for message fetching
-  - Auto-scrolling to latest messages
+- **DataTable**: Displays structured data in a tabular format with editing capabilities
+- **ColumnEditor**: Allows users to edit column properties like name, type, and format
+- **DataManagement**: Main page component for managing structured data
+- **Export**: Page component for exporting structured data to various formats (Google Sheets, Excel, CSV)
+  - Integrates with Google Sheets API for direct export
+  - Supports template selection for formatting exported data
+  - Handles Google authentication flow
+  - Provides real-time export status and results
 
-- **ChatInput**: Message composition
-  - Send message handling
-  - Loading states during sending
-  - Error handling with notifications
+### Services
 
-### 3. State Management
-- React Query for server state
-- Context for global state
-- Local state for component-specific data
-- Loading states for async operations
+#### Data Extraction Service
 
-### 4. Error Handling
-- Global notification system
-- Consistent error messages
-- Error recovery flows
-- User-friendly error display
+The data extraction service handles data extraction and transformation:
 
-### 5. Loading States
-- Global loading indicators
-- Component-specific loading states
-- Disabled controls during loading
-- Loading spinners for async operations
+- `extractStructuredData`: Extracts data from message content
+- `transformToRowFormat`: Standardizes data format
+- `appendRows`: Adds rows to existing data
 
-### 6. Styling
-- Tailwind CSS for utility-first styling
-- Consistent color scheme
-- Responsive design
-- Accessible components
+#### Sports Database Service
 
-### 7. Authentication Flow
-- Protected routes
-- Token-based authentication
-- Loading states during auth checks
-- Error handling for auth failures
+The sports database service handles sports entity management:
 
-### 8. Data Flow
-1. User Action
-   - Trigger loading state
-   - Disable relevant controls
-   - Show loading indicator
+- `getLeagues`: Get all leagues
+- `createLeague`: Create a new league
+- `getLeague`: Get league details
+- `updateLeague`: Update a league
+- `deleteLeague`: Delete a league
 
-2. API Request
-   - Send request with proper headers
-   - Handle response or error
-   - Update loading state
+Similar methods exist for teams, players, games, stadiums, broadcast companies, production companies, and brands.
 
-3. State Update
-   - Update local/global state
-   - Show success/error notification
-   - Re-enable controls
+### Contexts
 
-4. UI Update
-   - Reflect new state in UI
-   - Clear loading indicators
-   - Update related components
+#### Authentication Context
 
-### 2. Backend API Layer
-```
-src/
-└── api/
-    ├── routes/        # API endpoints
-    │   ├── api.py    # Main router configuration
-    │   ├── auth.py   # Authentication endpoints
-    │   └── chat.py   # ChatGPT conversation endpoints
-    ├── middleware/    # Request processing
-    ├── validators/    # Input validation
-    └── responses/     # Response formatting
-```
+The authentication context manages user authentication state:
 
-- **FastAPI Routes**: RESTful endpoints for chat, data management, and exports
-- **Authentication Routes**:
-  - POST /api/v1/auth/register - User registration
-  - POST /api/v1/auth/login - User authentication
-  - GET /api/v1/auth/me - Current user info
-- **Chat Routes**:
-  - POST /api/v1/chat/conversations - Create conversation
-  - GET /api/v1/chat/conversations - List conversations
-  - GET /api/v1/chat/conversations/{id} - Get conversation
-  - PATCH /api/v1/chat/conversations/{id} - Update conversation
-  - POST /api/v1/chat/conversations/{id}/messages - Send/receive messages
-- **WebSocket Support**: Real-time chat communication (planned)
-- **Rate Limiting**: Request throttling for API stability (planned)
+- `isAuthenticated`: Whether the user is authenticated
+- `login`: Log in a user
+- `logout`: Log out a user
+- `register`: Register a new user
 
-### 3. Services Layer
-```
-src/
-└── services/
-    ├── user.py       # User authentication & management
-    ├── chat.py       # ChatGPT integration
-    ├── data/         # Data processing (planned)
-    └── export/       # Export functionality
-        └── sheets_service.py  # Google Sheets integration
-```
+#### Notification Context
 
-- **User Service**: 
-  - User registration and authentication
-  - Password hashing with bcrypt
-  - JWT token generation and validation
-- **Chat Service**:
-  - OpenAI API integration
-  - Conversation management
-  - Message history tracking
-  - Structured data extraction
-  - Context window management
-- **Data Service**: Structures and processes chat responses (planned)
-- **Export Service**: 
-  - Google Sheets integration
-  - OAuth2 authentication flow
-  - Spreadsheet CRUD operations
-  - Data conversion utilities
-  - Token management
+The notification context manages notifications:
 
-### 4. Data Models
-```
-src/
-└── models/
-    ├── base.py       # Base model with timestamps
-    └── models.py     # Database models
-```
+- `showNotification`: Show a notification
+- `hideNotification`: Hide a notification
 
-- **Base Model**: 
-  - Common fields: created_at, updated_at, deleted_at
-  - Soft deletion support
-- **Database Models**:
-  - User: Authentication and profile data
-  - Conversation: Chat session management
-    - Title and description
-    - User relationship
-    - Messages collection
-    - Structured data collection
-  - Message: Individual chat messages
-    - Role (user/assistant/system)
-    - Content storage
-    - Metadata support
-  - StructuredData: Processed chat responses
-    - Data type classification
-    - Schema versioning
-    - JSON data storage
-    - Format metadata
+#### DataFlow Context
 
-### 5. Utilities
-```
-src/
-└── utils/
-    ├── config.py     # Environment configuration
-    ├── database.py   # Database connection
-    ├── security.py   # Authentication utilities
-    └── helpers.py    # Common functions
-```
+The DataFlow context tracks data as it moves between components:
 
-- **Configuration**: Environment-based settings with pydantic
-- **Database**: Async SQLAlchemy setup with connection pooling
-- **Security**: JWT handling and password hashing
-- **Helpers**: Shared utility functions
+- `dataFlow`: Current data flow state
+- `setSource`: Set the data source
+- `setData`: Set the current data
+- `setDestination`: Set the data destination
+- `resetFlow`: Reset the data flow
+- `addToJourney`: Add a source to the data journey
 
-## Key Technical Decisions
+### Data Flow
 
-1. **Database Implementation**:
-   - PostgreSQL with async support
-   - SQLAlchemy async ORM
-   - Alembic migrations
-   - JSON fields for flexible data
+#### Chat to Data Flow
 
-2. **Authentication Implementation**:
-   - JWT-based authentication
-   - Bcrypt password hashing
-   - Async database operations
-   - Protected route decorators
+1. User sends a message to the AI in the chat interface
+2. AI responds with structured data (JSON format)
+3. User clicks the "Send to Data" button
+4. System checks for existing data by message ID
+5. DataExtractionService extracts and transforms data
+6. System verifies data creation success
+7. Data is stored in the database with metadata
+8. System waits for backend processing to complete
+9. User is navigated to the data management page
+10. Data is displayed in the DataTable component
 
-3. **ChatGPT Integration**:
-   - OpenAI API async client
-   - GPT-4 Turbo model
-   - Context management (10 messages)
-   - Structured data extraction
-   - Custom response formatting
+#### Data Transformation
 
-4. **Data Processing**:
-   - Async processing for large datasets
-   - Stream processing for real-time updates
-   - Batch processing for exports
-   - Schema versioning for flexibility
+The application supports various JSON formats for structured data through a universal transformation approach:
 
-5. **Google Sheets Integration**:
-   - Web application OAuth2 flow
-   - Token-based authentication
-   - Async operations
-   - Error handling and recovery
-   - Template-based formatting (planned)
+##### Universal Data Transformation
 
-6. **Testing Strategy**:
-   - Unit tests with pytest
-   - Integration tests with TestClient
-   - E2E tests with Playwright
-   - Mock OpenAI responses
+The application uses a centralized data transformation utility (`dataTransformer.ts`) that handles all data formats consistently. This utility provides three main functions:
 
-## Performance Considerations
+1. **transformToStandardFormat**: Transforms any data structure into a standardized format with headers and rows arrays.
+   - Handles row-oriented data (headers + rows arrays)
+   - Processes column-oriented data (columns array with header + values)
+   - Transforms arrays of objects (flat objects)
+   - Converts single objects to row/column format
 
-1. **Database Optimization**:
-   - Connection pooling implemented
-   - Async operations for better concurrency
-   - Indexed fields for common queries
-   - Soft deletion for data retention
+2. **transformToRowObjects**: Converts the standardized format into row objects for display in a data grid.
+   - Takes headers and rows arrays as input
+   - Creates an array of objects where each object represents a row
+   - Adds row numbering for better navigation
+   - Handles missing values gracefully
 
-2. **API Performance**:
-   - Async request handling
-   - Response pagination
-   - Rate limiting (planned)
-   - Caching strategy (planned)
+3. **transformNestedToRowObjects**: Directly transforms any data format into row objects for display.
+   - Combines the functionality of the above two functions
+   - Provides a single entry point for all data transformation needs
+   - Ensures consistent output format regardless of input structure
 
-3. **ChatGPT Integration**:
-   - Efficient context window
-   - Response streaming support
-   - Error handling and retries
-   - Rate limit management
+##### Supported Data Formats
 
-4. **Security Measures**:
-   - Secure password hashing
-   - JWT token expiration
-   - Environment-based secrets
-   - CORS configuration
+The application handles these common data formats:
 
-## Monitoring and Observability
+1. **Row-oriented Format**: Data with `headers` array and `rows` array of arrays
+   ```json
+   {
+     "headers": ["Name", "Age", "City"],
+     "rows": [
+       ["John", 30, "New York"],
+       ["Jane", 25, "Los Angeles"]
+     ]
+   }
+   ```
 
-1. **Logging**:
-   - Structured JSON logging
-   - Debug level configuration
-   - Operation tracking
-   - Error handling
+2. **Column-oriented Format**: Data with column objects containing headers and values
+   ```json
+   {
+     "columns": [
+       {"header": "Name", "values": ["John", "Jane"]},
+       {"header": "Age", "values": [30, 25]},
+       {"header": "City", "values": ["New York", "Los Angeles"]}
+     ]
+   }
+   ```
 
-2. **Error Handling**:
-   - Global exception handlers
-   - Detailed error responses
-   - Database transaction management
-   - OpenAI error handling
+3. **Flat Objects**: Array of objects with consistent keys
+   ```json
+   [
+     {"Name": "John", "Age": 30, "City": "New York"},
+     {"Name": "Jane", "Age": 25, "City": "Los Angeles"}
+   ]
+   ```
 
-3. **Development Tools**:
-   - Black for code formatting
-   - Flake8 for linting
-   - MyPy for type checking
-   - Alembic for migrations
+4. **Special Table Data Format**: Used for NFL teams and similar data
+   ```json
+   {
+     "headers": ["NFL Team", "City", "State", "Home Stadium"],
+     "rows": [
+       ["Dallas Cowboys", "Arlington", "Texas", "AT&T Stadium"],
+       ["Green Bay Packers", "Green Bay", "Wisconsin", "Lambeau Field"]
+     ]
+   }
+   ```
 
-## Authentication System
+##### Data Flow
 
-### Database Schema
-The user authentication system is built on a PostgreSQL database with the following key models:
+1. **Extraction**: `DataExtractionService.extractStructuredData()` extracts JSON structures from message content.
+2. **Standardization**: `transformToStandardFormat()` converts the extracted data to a standard format.
+3. **Transformation**: `transformToRowObjects()` or `transformNestedToRowObjects()` converts the standardized data to row objects.
+4. **Display**: Components like `DataTable` and `DataPreviewModal` render the transformed data.
 
-```sql
--- User Model
-CREATE TABLE users (
-    id UUID PRIMARY KEY,
-    email VARCHAR(255) UNIQUE NOT NULL,
-    hashed_password VARCHAR(255) NOT NULL,
-    is_active BOOLEAN DEFAULT TRUE,
-    is_superuser BOOLEAN DEFAULT FALSE,
-    created_at TIMESTAMP WITH TIME ZONE NOT NULL,
-    updated_at TIMESTAMP WITH TIME ZONE NOT NULL,
-    deleted_at TIMESTAMP WITH TIME ZONE
-);
-```
+This universal approach ensures consistent handling of all data formats across the application, preventing issues like inverted rows and columns in the display.
 
-### Authentication Flow
-1. **Registration**
-   - User submits email and password
-   - Password is hashed using bcrypt
-   - User record is created in database
-   - JWT token is generated and returned
+#### Export Flow
 
-2. **Login**
-   - User provides email and password
-   - Password is verified against hashed value
-   - JWT token is generated with user ID
-   - Token is returned to client
+1. User selects entities to export in the SportsDatabase page
+2. User clicks the "Export" button
+3. ExportDialog component is displayed
+4. User selects export options
+5. System sends export request to the backend
+6. Backend retrieves entities and related data
+7. Backend creates a Google Sheet and writes data
+8. Backend applies formatting to the sheet
+9. Backend returns spreadsheet ID and URL
+10. User is provided with a link to the spreadsheet
 
-3. **Token Management**
-   - Tokens include user ID and expiration
-   - Frontend stores token in memory
-   - Token is included in Authorization header
-   - Protected routes verify token validity
+## Recent Improvements
 
-### Security Measures
-- Passwords are hashed using bcrypt
-- JWT tokens are signed with a secret key
-- Email addresses must be unique
-- Automatic token expiration
-- Protected routes require valid token
+### DataTable Component
 
-## Frontend Components
+- **Column Resizing**: Implemented width updates during mouse movement for smoother experience
+- **Grid Expansion**: Implemented dynamic height adjustment based on content
+- **Raw Data Display**: Enhanced with better JSON formatting
 
-### Common Components
-- `LoadingSpinner`: A reusable loading spinner component that supports different sizes (small, medium, large) and custom styling through className props. Used across the application to indicate loading states.
+### Data Transformation
 
-### Chat Components
-- `NewConversationModal`: A modal component for creating new conversations. Features include:
-  - Title and optional description input fields
-  - Loading state handling during conversation creation
-  - Form validation
-  - Error handling through notification system
-  - Disabled controls during submission
-  - Visual feedback during loading
+- **Logging**: Added comprehensive logging throughout the transformation process
+- **Error Handling**: Improved for unusual data formats
+- **Validation**: Enhanced for incoming data structures
 
-### API Integration
-The frontend communicates with the backend through a centralized API client (`api.ts`) that:
-- Manages authentication tokens
-- Handles API requests with proper headers
-- Provides type-safe interfaces for API responses
-- Implements chat-related endpoints (createConversation, getConversations, sendMessage) 
+### Send to Data Feature
 
-### TypeScript Configuration
+- **Error Handling**: Implemented retry logic for API calls
+- **Verification Steps**: Added to check if data was created despite errors
+- **User Experience**: Improved button state and navigation timing
 
-1. **Environment Variables**
-   - Type definitions for Vite environment variables
-   - Consistent type declarations across the application
-   - Runtime type safety for configuration values
-   - Development and production environment handling
+### Export Functionality
 
-2. **Type Safety**
-   - Strict type checking enabled
-   - Comprehensive interface definitions
-   - Proper type exports and imports
-   - Environment-aware type declarations
+- **UI Implementation**: Created ExportDialog component for template selection and preview
+- **Backend Integration**: Implemented export service for Google Sheets integration
 
-3. **Module System**
-   - ES Modules for all TypeScript files
-   - Proper module augmentation
-   - Type declaration files (.d.ts)
-   - Module resolution configuration 
+### Backend Fixes
 
-## Authentication Implementation
+- **UUID Handling**: Fixed UUID serialization issues by using SQLUUID type
+- **Import Path Resolution**: Updated import paths to reflect correct directory structure
+- **Authentication Utility**: Created auth.py utility for user authentication
 
-### useAuth Hook Implementation
-The authentication system is built around a custom React hook that manages all aspects of user authentication. Here's a detailed breakdown of its implementation:
+## Next Steps
 
-```typescript
-// Core state management
-const [authState, setAuthState] = useState<AuthState>({
-  user: null,
-  isAuthenticated: false,
-  isLoading: true,
-  isReady: false
-})
+### DataTable Enhancements
 
-// Performance optimization refs
-const authCheckInProgress = React.useRef(false)
-const initialAuthCheckDone = React.useRef(false)
-const isMounted = React.useRef(true)
-const lastAuthCheck = React.useRef<number>(0)
-const AUTH_CHECK_THROTTLE = 5000
-```
+- **Pagination**: Implement pagination for large datasets
+- **Filtering**: Add advanced filtering capabilities
+- **Column Typing**: Improve detection and formatting based on data types
 
-### Key Functions
+### Export System
 
-1. Login Process
-```typescript
-const login = async (email: string, password: string) => {
-  // Set loading state
-  setAuthState(prev => ({ ...prev, isLoading: true }))
-  
-  try {
-    // Get token from login endpoint
-    const response = await api.auth.login({ email, password })
-    localStorage.setItem('auth_token', response.access_token)
-    
-    // Fetch user data immediately
-    const user = await api.auth.me()
-    
-    // Update auth state directly
-    setAuthState({
-      user,
-      isAuthenticated: true,
-      isLoading: false,
-      isReady: true
-    })
-    lastAuthCheck.current = Date.now()
-    
-    return true
-  } catch (error) {
-    // Handle errors and cleanup
-    localStorage.removeItem('auth_token')
-    setAuthState({
-      user: null,
-      isAuthenticated: false,
-      isLoading: false,
-      isReady: true
-    })
-    return false
-  }
+- **Backend Integration**: Complete Google Sheets API integration
+- **Template System**: Finalize template selection and application
+- **Status Tracking**: Add notifications and progress indicators
+
+### Data Transformation
+
+- **Standardization**: Create consistent process across all components
+- **Nested Structures**: Improve handling of complex nested data
+- **Validation**: Enhance checks for data integrity
+
+### Performance
+
+- **Large Datasets**: Optimize rendering and processing
+- **Caching**: Implement strategies for frequently accessed data
+- **Query Optimization**: Improve database queries for better response times
+
+### Data Management
+
+The application uses React Query for data fetching and state management. Key configurations include:
+
+- **Optimized Caching**: 
+  - `staleTime`: 15 minutes - Data is considered fresh for 15 minutes before refetching
+  - `gcTime`: 60 minutes - Unused data is garbage collected after 60 minutes
+  - `refetchOnWindowFocus`: Disabled to prevent data loss during navigation
+
+- **Error Handling**:
+  - Retry logic with exponential backoff
+  - Maximum retry delay of 30 seconds
+  - Consistent error notifications through NotificationContext
+
+- **Data Persistence Strategy**:
+  - Conversations and messages are cached for the duration of the session
+  - Structured data queries maintain state during navigation
+  - Mutations update the cache optimistically for immediate UI updates
+  - Background refetching minimizes loading states
+
+This configuration ensures that data remains available during navigation, reducing unnecessary API calls and providing a smoother user experience.
+
+## Data Formats and Transformation
+
+### Supported Data Formats
+
+The application supports various JSON formats for structured data:
+
+#### 1. Row-oriented Format
+```json
+{
+  "headers": ["Team", "City", "State", "Stadium"],
+  "rows": [
+    ["Cowboys", "Dallas", "Texas", "AT&T Stadium"],
+    ["Eagles", "Philadelphia", "Pennsylvania", "Lincoln Financial Field"]
+  ]
 }
 ```
 
-2. Auth Check Process
-```typescript
-const checkAuthStatus = async (force: boolean = false) => {
-  // Prevent duplicate checks
-  if (authCheckInProgress.current) return
-  
-  // Apply throttling
-  const now = Date.now()
-  if (!force && now - lastAuthCheck.current < AUTH_CHECK_THROTTLE) return
-  
-  // Perform check and update state
-  authCheckInProgress.current = true
-  try {
-    const user = await api.auth.me()
-    setAuthState({
-      user,
-      isAuthenticated: true,
-      isLoading: false,
-      isReady: true
-    })
-    lastAuthCheck.current = now
-  } catch (error) {
-    // Handle 401 errors
-    if (error.message.includes('401')) {
-      localStorage.removeItem('auth_token')
-    }
-    setAuthState({
-      user: null,
-      isAuthenticated: false,
-      isLoading: false,
-      isReady: true
-    })
-  } finally {
-    authCheckInProgress.current = false
-  }
+#### 2. Column-oriented Format
+```json
+{
+  "columns": [
+    { "header": "Team", "values": ["Cowboys", "Eagles"] },
+    { "header": "City", "values": ["Dallas", "Philadelphia"] },
+    { "header": "State", "values": ["Texas", "Pennsylvania"] },
+    { "header": "Stadium", "values": ["AT&T Stadium", "Lincoln Financial Field"] }
+  ]
 }
 ```
 
-### Recent Improvements
+#### 3. Flat Objects Format
+```json
+[
+  { "Team": "Cowboys", "City": "Dallas", "State": "Texas", "Stadium": "AT&T Stadium" },
+  { "Team": "Eagles", "City": "Philadelphia", "State": "Pennsylvania", "Stadium": "Lincoln Financial Field" }
+]
+```
 
-1. Race Condition Fix
-   - Removed dependency on async state updates
-   - Direct user data fetch after login
-   - Immediate state updates
+#### 4. NFL Teams Data Format
+The application has special handling for NFL teams data, which may come in a markdown table format:
+```
+| NFL Team | City | State | Stadium |
+| -------- | ---- | ----- | ------- |
+| Cowboys | Dallas | Texas | AT&T Stadium |
+| Eagles | Philadelphia | Pennsylvania | Lincoln Financial Field |
+```
 
-2. Performance Optimization
-   - Added throttling for auth checks
-   - Implemented check caching
-   - Prevented duplicate checks
+### Data Transformation Process
 
-3. Component Lifecycle
-   - Added mount tracking
-   - Proper cleanup on unmount
-   - Prevention of state updates after unmount
+The application uses a three-step process for data transformation:
 
-4. Error Handling
-   - Specific handling for 401 errors
-   - Automatic token cleanup
-   - Comprehensive error logging 
+1. **Extraction**: The `DataExtractionService` extracts structured data from message content, detecting JSON structures or special formats like NFL teams tables.
+
+2. **Standardization**: The `transformToStandardFormat` function converts any data structure into a standardized format with headers and rows arrays.
+
+3. **Row Object Transformation**: The `transformToRowObjects` function converts the standardized format into row objects for display in the data grid.
+
+### Special Case: NFL Teams Data
+
+NFL teams data requires special handling due to its format:
+
+1. **Detection**: The application detects NFL teams data by looking for specific headers like "NFL Team" or "Team" in the message content.
+
+2. **Extraction**: For markdown tables, a regex pattern is used to extract the table structure and parse it into headers and rows.
+
+3. **Transformation**: The extracted data is transformed into the standard format with headers and rows arrays.
+
+4. **Display**: The `DataPreviewModal` and `DataTable` components have special handling to ensure proper display of NFL teams data.
+
+## Data Handling Architecture
+
+### Overview
+The data handling system in SheetGPT is designed to provide a universal approach to transforming and displaying structured data from various sources. The architecture follows a centralized transformation pattern, where all data processing is handled by a single utility that serves as the source of truth for data format conversion.
+
+### Key Components
+
+#### 1. Data Transformer Utility (`dataTransformer.ts`)
+- **Purpose**: Serves as the central hub for all data transformations
+- **Key Functions**:
+  - `transformToStandardFormat`: Converts any data format into a standardized internal format
+  - `transformToRowObjects`: Transforms standardized data into row objects for display
+  - `transformDataForDisplay`: One-step transformation from any format to display-ready row objects
+- **Data Interfaces**:
+  - `StandardDataFormat`: Defines the structure for standardized data with headers and rows
+  - `RowObjectsFormat`: Defines the structure for row objects used in display components
+
+#### 2. Data Extraction Service (`DataExtractionService.ts`)
+- **Purpose**: Extracts structured data from various sources (markdown tables, JSON, etc.)
+- **Key Methods**:
+  - `extractStructuredData`: Main method for extracting data from message content
+  - `extractTableFromMarkdown`: Extracts data from markdown table formats
+  - `extractJsonStructures`: Extracts data from JSON-like structures
+  - `appendRows`: Appends new rows to existing structured data
+  - `transformToRowFormat`: Transforms extracted data into row format using the data transformer
+
+#### 3. Display Components
+- **DataTable Component** (`DataTable.tsx`):
+  - Displays structured data in a grid format
+  - Uses the centralized data transformer for consistent display
+  - Supports features like column resizing, row reordering, and toggling headers
+  
+- **DataPreviewModal Component** (`DataPreviewModal.tsx`):
+  - Previews extracted data before sending it to the Data Management section
+  - Uses the same centralized data transformer for consistent display
+  - Provides options to confirm or cancel the data transfer
+
+### Data Flow
+1. **Extraction**: The `DataExtractionService` extracts structured data from message content
+2. **Transformation**: The extracted data is transformed into a standardized format using the data transformer
+3. **Display**: The standardized data is transformed into row objects for display in UI components
+4. **Interaction**: Users can interact with the displayed data through the UI components
+
+### Benefits of the Architecture
+- **Consistency**: All data is handled uniformly regardless of source or format
+- **Maintainability**: Centralized logic makes the codebase easier to maintain
+- **Reliability**: Standardized approach reduces edge cases and potential bugs
+- **Performance**: Eliminated redundant transformations improves efficiency
+- **Extensibility**: New data formats can be easily supported by updating the central transformer
+
+### Error Handling
+- Comprehensive logging throughout the transformation process
+- Graceful handling of edge cases and invalid data formats
+- Clear error messages for debugging purposes
+
+### Future Enhancements
+- Unit tests for the data transformation pipeline
+- Performance optimizations for large datasets
+- Support for additional data formats and sources

@@ -21,9 +21,25 @@ As of May 2024, the project has implemented:
 - Google Sheets export functionality with template support
 - Enhanced data transformation with support for various formats
 - Special handling for NFL teams data and other structured formats
+- Admin functionality with database management capabilities
+  - Role-based access control with admin privileges
+  - Settings page with admin-only sections
+  - Database cleaning functionality for administrators
+  - Utility script for setting users as admins
 
 ## Recent Improvements
 
+- Enhanced database transaction management
+  - Implemented dual transaction strategies for different use cases
+  - Created isolated session pattern for complex operations
+  - Added robust error handling and detailed reporting
+  - Improved database cleaning functionality with transaction isolation
+  - Fixed transaction errors in administrative operations
+- Enhanced SportDataMapper component with improved navigation controls
+  - Navigation controls now always visible regardless of record count
+  - Improved styling with blue color scheme for better visibility
+  - Enhanced button styling with hover effects and shadows
+  - Fixed record loading to properly handle all records in structured data
 - Fixed NFL teams data display issues in the Data Grid
 - Enhanced data extraction from message content
 - Improved error handling and logging throughout the application
@@ -170,6 +186,10 @@ The credentials file contains sensitive information. Make sure to:
 - **Data Visualization**: Display structured data in a customizable data grid.
 - **Data Export**: Export structured data to Google Sheets and other formats.
 - **Sports Database**: Access and manage sports-related data entities.
+- **Admin Dashboard**: Administrative interface for database management and system configuration.
+  - **Role-Based Access**: Restricted access to administrative functions based on user roles.
+  - **Database Management**: Tools for cleaning and maintaining the database.
+  - **User Management**: Functionality for managing user accounts and permissions.
 
 ## Getting Started
 
@@ -238,6 +258,12 @@ docker-compose exec backend python src/scripts/alembic_wrapper.py upgrade
 
 ```bash
 docker-compose exec db psql -U postgres -d sheetgpt
+```
+
+### Setting a User as Admin
+
+```bash
+docker-compose exec backend python src/scripts/set_admin.py <email>
 ```
 
 ### Restarting Services

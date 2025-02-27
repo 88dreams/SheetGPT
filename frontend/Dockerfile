@@ -10,6 +10,10 @@ COPY package*.json ./
 # Install dependencies
 RUN npm install
 RUN npm install tailwind-scrollbar@3.0.5 --save-dev
+RUN npm install react-markdown@10.0.0 --save
+RUN npm install date-fns@4.1.0 --save
+RUN npm install @heroicons/react@2.1.1 --save
+RUN npm install @headlessui/react@1.7.17 --save
 
 # Copy project files
 COPY . .

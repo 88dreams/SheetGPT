@@ -1,6 +1,7 @@
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.orm import DeclarativeBase, sessionmaker
 from typing import AsyncGenerator
+from contextlib import asynccontextmanager
 
 from src.utils.config import get_settings
 
@@ -38,5 +39,26 @@ async def get_db() -> AsyncGenerator[AsyncSession, None]:
         finally:
             await session.close()
 
+@asynccontextmanager
+async def get_db_session():
+    """
+    Context manager for getting a database session.
+    
+    This is different from get_db() which is a dependency for FastAPI.
+    This function returns a context manager that can be used with 'async with'.
+    
+    Example:
+        async with get_db_session() as session:
+            result = await session.execute(query)
+    """
+    session = AsyncSessionLocal()
+    try:
+        yield session
+    except Exception:
+        await session.rollback()
+        raise
+    finally:
+        await session.close()
+
 # Export all models
-__all__ = ["Base", "engine", "get_db"] 
+__all__ = ["Base", "engine", "get_db", "get_db_session"] 

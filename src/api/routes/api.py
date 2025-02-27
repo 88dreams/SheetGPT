@@ -1,7 +1,7 @@
 from fastapi import APIRouter
 from typing import Dict
 
-from src.api.routes import auth, chat, export, data_management, sports
+from src.api.routes import auth, chat, export, data_management, sports, admin
 
 router = APIRouter()
 
@@ -38,6 +38,13 @@ router.include_router(
     sports.router,
     prefix="/sports",
     tags=["Sports"]
+)
+
+# Include admin routes
+router.include_router(
+    admin.router,
+    prefix="/admin",
+    tags=["Admin"]
 )
 
 @router.get("/status")

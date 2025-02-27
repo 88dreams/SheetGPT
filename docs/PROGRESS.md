@@ -22,8 +22,14 @@ SheetGPT is a full-stack application that combines AI-powered chat capabilities 
 - ✅ Data table with column management and cell editing
 - ✅ Sports database with comprehensive entity models
 - ✅ Frontend-backend integration for all core features
+- ✅ Admin functionality with database management capabilities
 
 #### Recent Improvements
+- ✅ Fixed database cleaning functionality in admin panel
+  - Implemented isolated database sessions for each operation
+  - Added robust error handling and reporting
+  - Created new `get_db_session()` context manager for transaction isolation
+  - Resolved transaction conflicts that were causing cleaning operations to fail
 - ✅ Enhanced SportDataMapper component with improved navigation controls
   - Navigation controls now always visible regardless of record count
   - Improved styling with blue color scheme for better visibility
@@ -39,10 +45,14 @@ SheetGPT is a full-stack application that combines AI-powered chat capabilities 
 - ✅ Optimized UI button styling in MessageItem component
 - ✅ Improved visibility of "Map Sports Data" button
 - ✅ Differentiated button styling for "Send to Data" and "Map Sports Data" buttons
-- ✅ Fixed missing dependencies (react-markdown, date-fns)
 - ✅ Removed test buttons and debug elements from production UI
 - ✅ Added conversation management features (delete and rename)
 - ✅ Improved UI responsiveness and user experience
+- ✅ Added admin functionality with database management capabilities
+  - Added is_admin field to User model
+  - Created Settings page with admin-only sections
+  - Implemented database cleaning functionality for admins
+  - Added proper authorization checks for admin actions
 
 #### Sports Database
 - ✅ Database models for all sports entities
@@ -89,6 +99,8 @@ SheetGPT is a full-stack application that combines AI-powered chat capabilities 
 - Comprehensive sports database schema with entity relationships
 - Google Sheets API integration for data export
 - JWT-based authentication system
+- Role-based access control with admin privileges
+- Robust database transaction management with isolated sessions
 
 ### Frontend
 - React with TypeScript and React Query
@@ -96,6 +108,7 @@ SheetGPT is a full-stack application that combines AI-powered chat capabilities 
 - Comprehensive API client for backend integration
 - Sports database interface with relationship visualization
 - Optimized UI components with consistent button styling
+- Admin interface with database management capabilities
 
 ## Current Challenges
 
@@ -107,7 +120,15 @@ SheetGPT is a full-stack application that combines AI-powered chat capabilities 
 
 ## Recent Fixes
 
-1. **SportDataMapper Improvements**: 
+1. **Database Cleaning Functionality**:
+   - Fixed transaction errors in the admin database cleaning functionality
+   - Implemented isolated database sessions for each operation
+   - Added robust error handling and detailed reporting
+   - Created a new `get_db_session()` context manager for transaction isolation
+   - Resolved issues with PostgreSQL's transaction management
+   - Improved architecture to prevent cascading failures
+
+2. **SportDataMapper Improvements**: 
    - Fixed navigation controls to always be visible regardless of record count
    - Enhanced styling with blue color scheme for better visibility
    - Fixed record loading to properly handle all records in structured data
@@ -121,13 +142,19 @@ SheetGPT is a full-stack application that combines AI-powered chat capabilities 
      - Creating a validStructuredData check using React.useMemo() to validate data early
      - Ensuring consistent data structure with headers and rows before rendering
      - Adding detailed logging to track component rendering and data flow
-2. **UUID Handling**: Fixed issues with UUID handling in database models by using SQLUUID type
-3. **Import Path Resolution**: Updated import paths to reflect correct directory structure
-4. **Authentication Utility**: Created auth.py utility to provide get_current_user function
-5. **Column Resizing**: Enhanced with direct width updates during mouse movement
-6. **Grid Expansion**: Improved with dynamic height adjustment based on content
-7. **Data Transformation**: Added comprehensive logging and improved error handling
-8. **UI Button Styling**: Improved visibility and consistency of action buttons in MessageItem component
+
+3. **UUID Handling**: Fixed issues with UUID handling in database models by using SQLUUID type
+4. **Import Path Resolution**: Updated import paths to reflect correct directory structure
+5. **Authentication Utility**: Created auth.py utility to provide get_current_user function
+6. **Column Resizing**: Enhanced with direct width updates during mouse movement
+7. **Grid Expansion**: Improved with dynamic height adjustment based on content
+8. **Data Transformation**: Added comprehensive logging and improved error handling
+9. **UI Button Styling**: Improved visibility and consistency of action buttons in MessageItem component
+10. **Admin Functionality**: Added admin role and database management capabilities
+   - Added is_admin field to User model
+   - Created Settings page with admin-only sections
+   - Implemented database cleaning functionality for admins
+   - Added proper authorization checks for admin actions
 
 ## Development Workflow
 
@@ -142,5 +169,6 @@ Common commands:
 - Run migrations: `docker-compose exec backend python src/scripts/alembic_wrapper.py upgrade`
 - Database access: `docker-compose exec db psql -U postgres -d sheetgpt`
 - Restart frontend: `docker-compose restart frontend`
-- Clean database: `docker-compose exec db psql -U postgres -d sheetgpt -f /app/clear_data.sql`
-- Rebuild containers with dependencies: `docker-compose down && docker-compose build --no-cache && docker-compose up -d` 
+- Clean database: Use the admin interface in Settings page
+- Rebuild containers with dependencies: `docker-compose down && docker-compose build --no-cache && docker-compose up -d`
+- Set user as admin: `docker-compose exec backend python src/scripts/set_admin.py <email>` 

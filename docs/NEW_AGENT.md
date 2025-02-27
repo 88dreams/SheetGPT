@@ -4,8 +4,8 @@
 ```json
 {
   "project_name": "SheetGPT",
-  "version": "0.3.2",
-  "last_updated": "2024-02-26",
+  "version": "0.3.3",
+  "last_updated": "2024-05-15",
   "environment": {
     "development": "Docker-based",
     "services": ["frontend", "backend", "db"],
@@ -59,7 +59,9 @@
     "Backend services for sports entities management",
     "Authentication utility functions",
     "Sport Data Mapper button integration",
-    "Optimized UI button styling for better visibility"
+    "Optimized UI button styling for better visibility",
+    "Enhanced SportDataMapper component with improved navigation controls",
+    "Fixed record loading in SportDataMapper to properly handle all records"
   ],
   "in_progress": [
     "Google Sheets API backend integration",
@@ -84,7 +86,10 @@
     "Fixed backend startup issues related to missing modules",
     "Improved MessageItem component to use MessageThread for consistent rendering",
     "Enhanced UI button styling for better visibility and differentiation",
-    "Fixed missing dependencies (react-markdown, date-fns) in frontend container"
+    "Fixed missing dependencies (react-markdown, date-fns) in frontend container",
+    "Fixed SportDataMapper navigation controls to always be visible regardless of record count",
+    "Enhanced SportDataMapper styling with blue color scheme for better visibility",
+    "Fixed record loading in SportDataMapper to properly handle all records in structured data"
   ],
   "known_issues": [
     "Linter errors for react-icons/fa (can be ignored in Docker environment)",
@@ -125,6 +130,17 @@
       ],
       "transformation_logic": "extractStructuredData helper function in MessageThread.tsx handles data extraction and standardization before sending to backend",
       "debugging": "Comprehensive logging added throughout transformation process to track data flow and identify issues"
+    },
+    "sport_data_mapping": {
+      "1": "User clicks 'Map Sports Data' button on a message with structured data",
+      "2": "SportDataMapper component extracts source fields from structured data",
+      "3": "User selects entity type (team, player, league, etc.)",
+      "4": "System loads entity fields for the selected type",
+      "5": "User maps source fields to entity fields using drag-and-drop",
+      "6": "User navigates through records using navigation controls",
+      "7": "User can exclude specific records from import",
+      "8": "User saves mapped data to database",
+      "9": "System processes batch import and provides feedback"
     }
   },
   "key_components": {
@@ -135,7 +151,8 @@
     "ExportDialog": "UI component for Google Sheets export functionality",
     "SportsService": "Backend service for managing sports entities with comprehensive CRUD operations",
     "ExportService": "Backend service for exporting data to Google Sheets",
-    "GoogleSheetsService": "Service for interacting with Google Sheets API"
+    "GoogleSheetsService": "Service for interacting with Google Sheets API",
+    "SportDataMapper": "Component for mapping structured data to sports database entities with enhanced navigation controls and record handling"
   },
   "backend_architecture": {
     "routes": "API endpoints defined in src/api/routes/ directory",
@@ -260,6 +277,10 @@
 - Authentication is implemented using JWT tokens with secure password hashing
 - The sports database includes comprehensive models for leagues, teams, players, games, etc.
 - The export service integrates with Google Sheets API for data export
+- The SportDataMapper component has been enhanced with improved navigation controls
+- Navigation controls in SportDataMapper are now always visible regardless of record count
+- SportDataMapper styling has been improved with a blue color scheme for better visibility
+- Record loading in SportDataMapper has been fixed to properly handle all records in structured data
 ```
 
 ## RECENT_IMPROVEMENTS
@@ -373,6 +394,36 @@
       ],
       "functionality": "Retrieves authenticated user information using get_current_user_id dependency"
     }
+  },
+  "sport_data_mapper": {
+    "navigation_controls": {
+      "issue": "Navigation controls not visible when totalRecords <= 1",
+      "fix": "Removed conditional rendering based on totalRecords",
+      "affected_files": [
+        "frontend/src/components/data/SportDataMapper.tsx"
+      ],
+      "benefits": "Navigation controls always visible regardless of record count"
+    },
+    "styling_enhancements": {
+      "color_scheme": "Updated to blue color scheme for better visibility",
+      "button_styling": "Enhanced with hover effects and shadows",
+      "icon_size": "Increased size of navigation icons for better usability",
+      "spacing": "Improved spacing between elements for better readability",
+      "typography": "Updated font sizes and weights for better readability"
+    },
+    "record_handling": {
+      "issue": "Only 1 out of multiple records loading correctly",
+      "fix": "Updated extractSourceFields and getFieldValue functions to handle different data formats correctly",
+      "affected_files": [
+        "frontend/src/components/data/SportDataMapper.tsx"
+      ],
+      "benefits": "Properly handles all records in structured data"
+    },
+    "logging": {
+      "data_processing": "Added logging to track which record is being accessed",
+      "field_extraction": "Enhanced logging for source field extraction",
+      "data_format_detection": "Improved logging to identify data format"
+    }
   }
 }
 ```
@@ -418,9 +469,12 @@
           "key_functions": [
             "extractSourceFields - Extracts fields from structured data",
             "handleFieldMapping - Maps source fields to target fields",
-            "handleSaveToDatabase - Saves mapped data to database"
+            "handleSaveToDatabase - Saves mapped data to database",
+            "goToNextRecord - Navigates to the next record",
+            "goToPreviousRecord - Navigates to the previous record",
+            "getFieldValue - Retrieves field value from structured data"
           ],
-          "recent_changes": "Improved integration with MessageItem component for real data extraction"
+          "recent_changes": "Enhanced navigation controls to always be visible, improved styling with blue color scheme, fixed record loading to properly handle all records in structured data"
         },
         "ExportDialog.tsx": {
           "purpose": "UI for exporting data to Google Sheets",
@@ -470,6 +524,10 @@
 - Memory leaks have been addressed with improved event listener cleanup in useEffect hooks
 - Z-index issues have been resolved for better interaction with overlapping elements
 - Raw data display now has better formatting and toggle controls
+- SportDataMapper component has enhanced logging for data processing and field extraction
+- Check browser console for logs prefixed with "SportDataMapper:" for debugging
+- Record navigation issues in SportDataMapper can be diagnosed by checking currentRecordIndex and totalRecords values
+- Field mapping issues may relate to source field extraction or data format detection
 ```
 
 ## CURRENT_FOCUS
@@ -494,6 +552,12 @@
     "large_datasets": "Optimize rendering and processing",
     "caching": "Implement strategies for frequently accessed data",
     "query_optimization": "Improve database queries for better response times"
+  },
+  "sport_data_mapper": {
+    "field_mapping": "Enhance drag-and-drop interface for better usability",
+    "validation": "Improve field validation before saving to database",
+    "error_handling": "Add comprehensive error handling for edge cases",
+    "batch_import": "Optimize batch import process for better performance"
   }
 }
 ```
@@ -572,6 +636,55 @@
         "Ensure get_current_user function is available"
       ]
     }
+  },
+  "sport_data_mapper_issues": {
+    "navigation_controls_not_visible": {
+      "description": "Navigation controls not visible when totalRecords <= 1",
+      "possible_causes": [
+        "Conditional rendering based on totalRecords",
+        "CSS visibility issues",
+        "Component state not properly updated"
+      ],
+      "solutions": [
+        "Remove conditional rendering based on totalRecords",
+        "Check CSS visibility properties",
+        "Verify component state is properly updated"
+      ]
+    },
+    "record_loading_issues": {
+      "description": "Only 1 out of multiple records loading correctly",
+      "possible_causes": [
+        "Incorrect data format detection",
+        "Issues with extractSourceFields function",
+        "Problems with getFieldValue function"
+      ],
+      "solutions": [
+        "Update extractSourceFields to handle different data formats",
+        "Enhance getFieldValue to correctly retrieve values",
+        "Add logging to track record access and data processing"
+      ]
+    }
+  }
+}
+```
+
+## DOCUMENTATION_RESOURCES
+```json
+{
+  "project_documentation": {
+    "README.md": "Project overview, setup instructions, and general information",
+    "API_ARCHITECTURE.md": "Detailed description of the API architecture and endpoints",
+    "TECHNICAL_DESCRIPTION.md": "Technical description of major code sections",
+    "PROGRESS.md": "Up-to-date progress summaries across all major sections of code"
+  },
+  "key_documentation_updates": {
+    "recent_updates": [
+      "Added SportDataMapper component details to TECHNICAL_DESCRIPTION.md",
+      "Updated PROGRESS.md with recent improvements to SportDataMapper",
+      "Enhanced API_ARCHITECTURE.md with information about frontend integration",
+      "Updated README.md with recent improvements section"
+    ],
+    "documentation_focus": "Ensure all documentation is concise, current, and free of outdated information"
   }
 }
 ```

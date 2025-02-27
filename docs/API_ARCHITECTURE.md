@@ -90,63 +90,25 @@ class SportsService:
         return self.db.query(League).filter(League.id == league_id).first()
 ```
 
-#### Validation and Field Mapping
+#### Frontend Integration
 
-The sports database implementation includes comprehensive validation and field mapping:
+The frontend integrates with the sports database API through the SportDataMapper component, which provides:
 
-```python
-# Example of validation method
-async def validate_sports_entity(self, entity_type: str, entity_data: dict):
-    validation_errors = {}
-    
-    if entity_type == "league":
-        if not entity_data.get("name"):
-            validation_errors["name"] = "Name is required"
-        if not entity_data.get("sport"):
-            validation_errors["sport"] = "Sport is required"
-    
-    # Similar validation for other entity types
-    
-    return validation_errors
-```
+1. **Entity Selection**: Users can select the entity type to map data to
+2. **Field Mapping**: Drag-and-drop interface for mapping source fields to database fields
+3. **Record Navigation**: Controls for navigating through multiple records
+4. **Batch Import**: Support for importing multiple records at once
+5. **Data Validation**: Validation of mapped data before saving to the database
 
-#### Batch Import Process
+The SportDataMapper component handles different formats of structured data:
+- Array of objects
+- Single object
+- Headers and rows format
 
-The batch import process handles importing multiple records:
-
-```python
-# Example of batch import method
-async def batch_import_entities(self, entity_type: str, entities_data: List[dict]):
-    results = {
-        "success": 0,
-        "failed": 0,
-        "errors": []
-    }
-    
-    for entity_data in entities_data:
-        try:
-            # Validate entity data
-            validation_errors = await self.validate_sports_entity(entity_type, entity_data)
-            if validation_errors:
-                results["failed"] += 1
-                results["errors"].append({
-                    "entity": entity_data,
-                    "errors": validation_errors
-                })
-                continue
-            
-            # Create entity
-            await self.create_entity(entity_type, entity_data)
-            results["success"] += 1
-        except Exception as e:
-            results["failed"] += 1
-            results["errors"].append({
-                "entity": entity_data,
-                "errors": str(e)
-            })
-    
-    return results
-```
+Recent improvements to the SportDataMapper component include:
+- Enhanced navigation controls with improved visibility
+- Fixed record loading to properly handle all records
+- Improved UI with better styling and user experience
 
 ## Export Service
 
@@ -193,7 +155,56 @@ The Google Sheets integration is partially implemented:
 - [ ] Error handling and recovery
 - [ ] User feedback during export process
 
-## Recent Fixes
+## Admin API
+
+The Admin API provides endpoints for administrative functions that are restricted to users with admin privileges:
+
+1. **User Management**: Endpoints for managing user accounts and permissions
+2. **Database Management**: Endpoints for database maintenance operations
+3. **System Configuration**: Endpoints for configuring system settings
+
+### Admin Authentication
+
+Admin authentication extends the standard authentication system with role-based access control:
+
+1. **Admin Flag**: The User model includes an `is_admin` boolean field
+2. **Admin Verification**: The `get_current_admin_user` dependency function verifies admin status
+3. **Admin-Only Routes**: Routes are protected with the admin dependency
+
+```python
+# Example of admin authentication dependency
+async def get_current_admin_user(
+    current_user = Depends(get_current_user),
+) -> Dict[str, Any]:
+    """Get the current admin user"""
+    if not current_user.get("is_admin"):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Not authorized to access this resource",
+        )
+    return current_user
+```
+
+### Database Management Endpoints
+
+The database management endpoints provide functionality for maintaining the database:
+
+- `POST /api/v1/admin/clean-database`: Clean the database while preserving user accounts
+  - Implements robust transaction management with isolated sessions
+  - Provides detailed reporting on cleaning operations
+  - Handles partial failures gracefully
+  - Uses separate database sessions for each table operation
+  - Returns comprehensive results including success/failure status for each table
+
+### Admin Frontend Integration
+
+The frontend integrates with the Admin API through:
+
+1. **Settings Page**: Admin-only page for accessing administrative functions
+2. **Admin API Service**: Frontend service for making admin API requests
+3. **Admin-Only UI Elements**: UI elements that are only displayed to admin users
+
+## Recent Fixes and Improvements
 
 ### 1. UUID Handling in Database Models
 
@@ -213,23 +224,7 @@ league_id: Mapped[UUID] = mapped_column(
 )
 ```
 
-This ensures that UUIDs are properly handled by SQLAlchemy and PostgreSQL.
-
-### 2. Import Path Resolution
-
-Fixed import issues by updating import paths to reflect the correct directory structure:
-
-```python
-# Before
-from src.services.sheets_service import SheetsService
-
-# After
-from src.services.export.sheets_service import GoogleSheetsService as SheetsService
-```
-
-This ensures that modules are correctly imported from their actual locations.
-
-### 3. Authentication Utility
+### 2. Authentication Utility
 
 Created a new `auth.py` utility to provide the `get_current_user` function:
 
@@ -247,32 +242,30 @@ async def get_current_user(
     current_user_id = Depends(get_current_user_id),
     db: Session = Depends(get_db)
 ) -> Dict[str, Any]:
-    """
-    Get current authenticated user information.
-    """
+    """Get the current user from the database"""
     user_service = UserService(db)
     user = await user_service.get_user_by_id(current_user_id)
     
     if not user:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="User not found"
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Could not validate credentials",
+            headers={"WWW-Authenticate": "Bearer"},
         )
     
-    # Convert user model to dictionary
-    user_dict = {
-        "id": str(user.id),
-        "email": user.email,
-        "is_active": user.is_active,
-        "is_superuser": user.is_superuser,
-        "created_at": user.created_at.isoformat() if user.created_at else None,
-        "updated_at": user.updated_at.isoformat() if user.updated_at else None
-    }
-    
-    return user_dict
+    return user
 ```
 
-This function is used as a dependency in protected routes to ensure the user is authenticated and to provide user information.
+### 3. SportDataMapper Improvements
+
+Enhanced the frontend SportDataMapper component with:
+
+- Navigation controls that are always visible regardless of record count
+- Improved styling with blue color scheme for better visibility
+- Fixed record loading to properly handle all records in structured data
+- Enhanced UI with better spacing, shadows, and typography
+
+These improvements ensure a better user experience when mapping data to sports entities.
 
 ## API Endpoints
 
@@ -333,6 +326,46 @@ Similar endpoints exist for teams, players, games, stadiums, broadcast companies
 - `POST /api/v1/export/sheets`: Export data to Google Sheets
 - `GET /api/v1/export/auth/url`: Get Google OAuth URL
 - `GET /api/v1/export/auth/callback`: Handle Google OAuth callback
+
+### Admin
+
+- `POST /api/v1/admin/clean-database`: Clean the database while preserving user accounts
+  - Implements robust transaction management with isolated sessions
+  - Provides detailed reporting on cleaning operations
+  - Handles partial failures gracefully
+  - Uses separate database sessions for each table operation
+  - Returns comprehensive results including success/failure status for each table
+
+## Database Transaction Management
+
+The API implements a sophisticated approach to database transaction management, particularly for complex administrative operations:
+
+1. **Dual Transaction Strategies**:
+   - **FastAPI Dependency Injection**: Used for standard endpoints with simple transaction needs
+   - **Context Manager Sessions**: Used for operations requiring fine-grained transaction control
+
+2. **Isolated Sessions Pattern**:
+   - Each critical operation uses its own database session
+   - Prevents transaction errors from cascading across operations
+   - Enables detailed reporting on operation outcomes
+   - Maintains database integrity even during partial failures
+
+3. **Implementation Example**: The database cleaning endpoint demonstrates this pattern:
+   ```python
+   # Process each table with a fresh database session
+   for table in tables:
+       try:
+           async with get_db_session() as session:
+               # Delete all records from the table
+               result = await session.execute(sqlalchemy.text(f"DELETE FROM {table};"))
+               await session.commit()
+               results[table] = "Success"
+       except Exception as e:
+           success = False
+           results[table] = f"Error: {str(e)}"
+   ```
+
+This approach significantly enhances the reliability of administrative operations and provides better error reporting for complex database tasks.
 
 ## Next Steps for API Development
 

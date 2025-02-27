@@ -100,6 +100,97 @@ The SportDataMapper component is designed to map structured data from conversati
    - Added visual indicators to distinguish between test and real data
    - Implemented comprehensive logging for debugging
 
+### Database Transaction Management
+
+The application implements a robust approach to database transaction management, designed to handle complex operations while maintaining data integrity. The system provides two complementary methods for database access:
+
+#### 1. FastAPI Dependency Injection (`get_db`)
+
+The `get_db` function is designed as a FastAPI dependency that yields a database session:
+
+```python
+async def get_db() -> AsyncGenerator[AsyncSession, None]:
+    """Dependency for getting async database sessions."""
+    async with AsyncSessionLocal() as session:
+        try:
+            yield session
+            await session.commit()
+        except Exception:
+            await session.rollback()
+            raise
+        finally:
+            await session.close()
+```
+
+This approach is used in most API endpoints where a single transaction is sufficient. The session is automatically committed when the endpoint function completes successfully, or rolled back if an exception occurs.
+
+#### 2. Context Manager for Isolated Sessions (`get_db_session`)
+
+For operations that require more granular transaction control, the application provides a context manager:
+
+```python
+@asynccontextmanager
+async def get_db_session():
+    """
+    Context manager for getting a database session.
+    
+    This is different from get_db() which is a dependency for FastAPI.
+    This function returns a context manager that can be used with 'async with'.
+    
+    Example:
+        async with get_db_session() as session:
+            result = await session.execute(query)
+    """
+    session = AsyncSessionLocal()
+    try:
+        yield session
+    except Exception:
+        await session.rollback()
+        raise
+    finally:
+        await session.close()
+```
+
+This approach is particularly useful for:
+- Operations that need to span multiple independent transactions
+- Scenarios where transaction isolation is critical
+- Complex operations where partial failures should not affect other parts
+- Administrative functions that need to maintain database integrity even when some operations fail
+
+#### Implementation Example: Database Cleaning
+
+The admin database cleaning functionality demonstrates the use of isolated sessions:
+
+```python
+# Process each table with a fresh database session
+for table in tables:
+    try:
+        async with get_db_session() as session:
+            # Delete all records from the table
+            result = await session.execute(sqlalchemy.text(f"DELETE FROM {table};"))
+            await session.commit()
+            results[table] = "Success"
+    except Exception as e:
+        success = False
+        results[table] = f"Error: {str(e)}"
+```
+
+This pattern ensures that:
+1. Each table deletion occurs in its own isolated transaction
+2. Failures in one table deletion don't affect others
+3. The system can report detailed results about which operations succeeded and which failed
+4. Database integrity is maintained even during complex administrative operations
+
+#### Benefits of the Dual Approach
+
+1. **Simplicity for Common Cases**: The dependency injection approach keeps most endpoint code clean and simple
+2. **Flexibility for Complex Cases**: The context manager provides fine-grained control when needed
+3. **Error Isolation**: Prevents cascading failures in multi-step operations
+4. **Detailed Reporting**: Enables granular success/failure reporting for complex operations
+5. **Transaction Integrity**: Ensures proper transaction boundaries even in complex scenarios
+
+This dual approach to transaction management is a key architectural feature that enhances the reliability and maintainability of the application's database operations.
+
 ### API Routes
 
 The API routes are defined using FastAPI's router system. Each module has its own router that defines the endpoints for that module.
@@ -165,6 +256,38 @@ The export routes handle data export operations:
 - `GET /api/v1/export/auth/google`: Initiate Google OAuth flow
 - `GET /api/v1/export/auth/google/callback`: Handle Google OAuth callback
 
+#### Admin Routes
+
+The admin routes handle administrative operations that are restricted to users with admin privileges:
+
+- `POST /api/admin/clean-database`: Clean the database while preserving user accounts
+
+The admin routes are protected by a custom dependency that verifies the user has admin privileges:
+
+```python
+# Example of admin authentication in admin.py
+@router.post("/clean-database")
+async def clean_database(current_user: dict = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    """
+    Clean the database by executing the clear_data.sql script.
+    This will delete all data except user accounts.
+    """
+    # Check if user has admin privileges
+    if not current_user.get("is_admin", False):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You don't have permission to perform this action"
+        )
+    
+    # Implementation details...
+```
+
+The admin functionality is integrated with the frontend through:
+
+1. **Settings Page**: A dedicated page for administrative functions
+2. **Admin API Service**: Frontend service for making admin API requests
+3. **Admin-Only UI Elements**: UI components that are only displayed to admin users
+
 ### Services
 
 The services implement the business logic for the application. Each service is responsible for a specific domain:
@@ -178,6 +301,80 @@ The user service handles user management operations:
 - `create_user`: Create a new user
 - `update_user`: Update a user
 - `delete_user`: Delete a user
+
+The User model includes an `is_admin` field that determines whether a user has administrative privileges:
+
+```python
+class User(TimestampedBase):
+    """User model for authentication and tracking."""
+    
+    __tablename__ = "users"
+
+    id: Mapped[UUID] = mapped_column(
+        primary_key=True,
+        default=uuid4
+    )
+    email: Mapped[str] = mapped_column(
+        String(255),
+        unique=True,
+        index=True,
+        nullable=False
+    )
+    hashed_password: Mapped[str] = mapped_column(
+        String(255),
+        nullable=False
+    )
+    is_active: Mapped[bool] = mapped_column(
+        Boolean,
+        default=True,
+        nullable=False
+    )
+    is_superuser: Mapped[bool] = mapped_column(
+        Boolean,
+        default=False,
+        nullable=False
+    )
+    is_admin: Mapped[bool] = mapped_column(
+        Boolean,
+        default=False,
+        nullable=False
+    )
+```
+
+The `get_current_user` utility function in `src/utils/auth.py` includes the `is_admin` field in the user dictionary:
+
+```python
+# Convert user model to dictionary
+user_dict = {
+    "id": str(user.id),
+    "email": user.email,
+    "is_active": user.is_active,
+    "is_superuser": user.is_superuser,
+    "is_admin": user.is_admin,
+    "created_at": user.created_at.isoformat() if user.created_at else None,
+    "updated_at": user.updated_at.isoformat() if user.updated_at else None
+}
+```
+
+A utility script (`set_admin.py`) is provided to set a user as an admin:
+
+```python
+async def set_admin(email: str) -> None:
+    """Set a user as an admin."""
+    async with get_db_session() as session:
+        session: AsyncSession
+        
+        # Update the user
+        query = update(User).where(User.email == email).values(is_admin=True)
+        result = await session.execute(query)
+        
+        if result.rowcount == 0:
+            print(f"User with email {email} not found.")
+            return
+        
+        await session.commit()
+        print(f"User {email} has been set as an admin.")
+```
 
 #### Chat Service
 
@@ -303,6 +500,15 @@ frontend/
 - **SmartBreadcrumbs**: Displays breadcrumb navigation based on the data journey
 - **PageHeader**: Standardized header component with title, description, and actions
 - **PageContainer**: Consistent container for all pages that includes the PageHeader
+
+#### Admin Components
+
+- **Settings**: Admin page that provides access to administrative functions
+  - Displays different content based on user's admin status
+  - Includes database management functionality for admin users
+  - Implements confirmation dialogs for destructive operations
+  - Uses the admin API endpoints for database operations
+  - Provides clear visual indicators for admin-only sections
 
 #### Chat Components
 
@@ -697,6 +903,17 @@ The sports database implementation includes comprehensive testing and debugging 
 - **Verification Steps**: Added to check if data was created despite errors
 - **User Experience**: Improved button state and navigation timing
 
+### UI Improvements
+
+- **Navigation Bar**: Updated with Export link for better organization and removed the data flow section
+- **Chat Input Positioning**: Fixed to stay at the bottom of the visible page with absolute positioning
+- **Conversation Management**: Added delete and rename functionality to the ConversationList component
+  - Implemented trashcan icon for deleting conversations
+  - Added inline editing for renaming conversations
+  - Enhanced with confirmation dialogs for destructive actions
+- **API Client**: Extended with deleteConversation and updateConversation methods
+- **Responsive Design**: Improved layout for better user experience across different screen sizes
+
 ### Export Functionality
 
 - **UI Implementation**: Created ExportDialog component for template selection and preview
@@ -887,3 +1104,122 @@ The data handling system in SheetGPT is designed to provide a universal approach
 ### API Routes
 
 // ... existing code ...
+
+## Frontend Components
+
+### SportDataMapper Component
+
+The SportDataMapper component is a complex React component that allows users to map structured data to sports database entities. It provides a drag-and-drop interface for mapping source fields to target database fields.
+
+#### Component Structure
+
+```tsx
+interface SportDataMapperProps {
+  isOpen: boolean;
+  onClose: () => void;
+  structuredData: any;
+}
+
+const SportDataMapper: React.FC<SportDataMapperProps> = ({ isOpen, onClose, structuredData }) => {
+  // State management
+  const [selectedEntityType, setSelectedEntityType] = useState<EntityType | null>('team');
+  const [sourceFields, setSourceFields] = useState<string[]>([]);
+  const [entityFields, setEntityFields] = useState<string[]>([]);
+  const [mappingsByEntityType, setMappingsByEntityType] = useState<Record<string, Record<string, string>>>({});
+  const [currentRecordIndex, setCurrentRecordIndex] = useState(0);
+  const [totalRecords, setTotalRecords] = useState<number>(0);
+  const [dataToImport, setDataToImport] = useState<any[]>([]);
+  // Additional state variables...
+
+  // Component logic and rendering...
+}
+```
+
+#### Key Features
+
+1. **Entity Type Selection**: Users can select from multiple entity types (league, team, player, etc.)
+2. **Source Field Extraction**: Automatically extracts fields from structured data
+3. **Drag-and-Drop Mapping**: Allows users to map source fields to target database fields
+4. **Record Navigation**: Provides controls to navigate through multiple records
+5. **Record Exclusion**: Allows users to exclude specific records from import
+6. **Batch Import**: Supports importing multiple records at once
+7. **Field Validation**: Validates mapped fields before saving to database
+
+#### Data Processing
+
+The component handles different formats of structured data:
+
+1. **Array of Objects**: Each object represents a record with field-value pairs
+2. **Single Object**: A single record with field-value pairs
+3. **Headers and Rows**: Data with separate headers array and rows array
+
+```tsx
+// Extract source fields from structured data
+const extractSourceFields = (data: any) => {
+  if (!data) return;
+  
+  let fields: string[] = [];
+  
+  // Handle array of objects
+  if (Array.isArray(data) && data.length > 0) {
+    fields = Object.keys(data[0]);
+  } 
+  // Handle single object
+  else if (typeof data === 'object' && data !== null && !data.headers) {
+    fields = Object.keys(data);
+  }
+  // Handle data with headers and rows
+  else if (data.headers && Array.isArray(data.headers)) {
+    fields = data.headers;
+  }
+  
+  setSourceFields(fields);
+};
+```
+
+#### Record Navigation
+
+The component provides controls for navigating through multiple records:
+
+```tsx
+// Function to navigate to the next record
+const goToNextRecord = () => {
+  if (currentRecordIndex < totalRecords - 1) {
+    setCurrentRecordIndex(currentRecordIndex + 1);
+  } else {
+    // Wrap around to the first record
+    setCurrentRecordIndex(0);
+  }
+};
+
+// Function to navigate to the previous record
+const goToPreviousRecord = () => {
+  if (currentRecordIndex > 0) {
+    setCurrentRecordIndex(currentRecordIndex - 1);
+  } else {
+    // Wrap around to the last record
+    setCurrentRecordIndex(totalRecords - 1);
+  }
+};
+```
+
+#### Recent Improvements
+
+1. **Enhanced Navigation Controls**:
+   - Navigation controls are now always visible regardless of record count
+   - Improved styling with blue color scheme for better visibility
+   - Enhanced button styling with hover effects and shadows
+   - Increased size of navigation icons for better usability
+
+2. **Improved Record Handling**:
+   - Fixed record loading to properly handle all records in structured data
+   - Enhanced `getFieldValue` function to correctly retrieve values from different data formats
+   - Added logging to track record access and data processing
+
+3. **UI Enhancements**:
+   - Increased spacing between elements for better readability
+   - Added shadow effects to buttons for better visibility
+   - Updated color scheme to use blue tones for better visual hierarchy
+   - Improved font sizes and weights for better readability
+
+// ... rest of the document ...

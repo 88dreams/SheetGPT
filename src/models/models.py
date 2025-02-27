@@ -35,6 +35,11 @@ class User(TimestampedBase):
         default=False,
         nullable=False
     )
+    is_admin: Mapped[bool] = mapped_column(
+        Boolean,
+        default=False,
+        nullable=False
+    )
 
     # Relationships
     conversations: Mapped[List["Conversation"]] = relationship(

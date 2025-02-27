@@ -8,4 +8,14 @@ body {
   @apply min-h-screen;
 }
 
+/* Resizing cursor styles */
+body.resizing {
+  cursor: col-resize !important;
+  user-select: none;
+}
+
+body.resizing * {
+  cursor: col-resize !important;
+}
+
 /* Custom utility classes can be added here */ 

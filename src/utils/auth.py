@@ -34,6 +34,7 @@ async def get_current_user(
         "email": user.email,
         "is_active": user.is_active,
         "is_superuser": user.is_superuser,
+        "is_admin": user.is_admin,
         "created_at": user.created_at.isoformat() if user.created_at else None,
         "updated_at": user.updated_at.isoformat() if user.updated_at else None
     }

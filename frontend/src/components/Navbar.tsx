@@ -41,6 +41,18 @@ export default function Navbar() {
                 >
                   Sports DB
                 </Link>
+                <Link
+                  to="/export"
+                  className={`px-3 py-2 rounded-md text-sm font-medium ${isActive('/export')} hover:text-gray-900`}
+                >
+                  Export
+                </Link>
+                <Link
+                  to="/settings"
+                  className={`px-3 py-2 rounded-md text-sm font-medium ${isActive('/settings')} hover:text-gray-900`}
+                >
+                  Settings
+                </Link>
                 <button
                   onClick={logout}
                   className="ml-4 px-3 py-2 rounded-md text-sm font-medium text-gray-700 hover:text-gray-900"

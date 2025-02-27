@@ -21,6 +21,7 @@ export interface User {
   email: string
   is_active: boolean
   is_superuser: boolean
+  is_admin: boolean
 }
 
 export interface Conversation {
@@ -243,6 +244,19 @@ export const api = {
 
     getConversation: (id: string): Promise<Conversation> =>
       request(`/chat/conversations/${id}`, { requiresAuth: true }),
+
+    deleteConversation: (id: string): Promise<void> =>
+      request(`/chat/conversations/${id}`, {
+        method: 'DELETE',
+        requiresAuth: true
+      }),
+
+    updateConversation: (id: string, data: { title: string; description?: string }): Promise<Conversation> =>
+      request(`/chat/conversations/${id}/update`, {
+        method: 'POST',
+        body: JSON.stringify(data),
+        requiresAuth: true
+      }),
 
     sendMessage: async (
       conversationId: string,
@@ -787,5 +801,13 @@ export const api = {
         body: JSON.stringify(data),
         requiresAuth: true
       })
-  }
+  },
+
+  admin: {
+    cleanDatabase: (): Promise<{ message: string; details: string }> =>
+      request('/admin/clean-database', {
+        method: 'POST',
+        requiresAuth: true
+      }),
+  },
 } 

@@ -31,7 +31,7 @@ These will give you deeper technical context on:
 - Key technical decisions and their rationale
 - Component relationships and data flow
 
-## Current Focus Areas
+## Current Focus Areas (Updated May 2024)
 
 The project is currently focused on the following key areas:
 
@@ -40,23 +40,53 @@ The project is currently focused on the following key areas:
    - Responsive design for various screen sizes
    - Consistent component styling
    - Optimized performance for large datasets
+   - Enhanced navigation controls in SportDataMapper component
 
 2. **Database Functionality**
    - Enhanced viewing, querying, and data extraction capabilities
    - Advanced search and filtering for sports database entities
    - Intuitive data visualization for sports statistics
    - More efficient data retrieval mechanisms for large datasets
+   - Improved record handling in SportDataMapper
 
 3. **Data Transformation**
    - Standardizing the process across components
    - Improving handling of complex nested data structures
    - Enhancing validation for data integrity
    - Better error handling and recovery
+   - Enhanced logging throughout the transformation process
 
 4. **Export System**
    - Completing Google Sheets API backend integration
    - Finalizing template selection and application
    - Adding notifications and progress indicators
+
+## Recent Improvements (May 2024)
+
+1. **SportDataMapper Component**
+   - Fixed navigation controls to always be visible regardless of record count
+   - Enhanced styling with blue color scheme for better visibility
+   - Fixed record loading to properly handle all records in structured data
+   - Added comprehensive logging for data processing and field extraction
+   - Improved field mapping interface and record navigation
+
+2. **DataTable Component**
+   - Enhanced column resizing with direct width updates
+   - Improved grid expansion with dynamic height adjustment
+   - Added comprehensive logging throughout the data transformation process
+   - Enhanced raw data display with better formatting
+
+3. **Send to Data Feature**
+   - Improved error handling with retry logic
+   - Enhanced user experience with better visual feedback
+   - Optimized button styling with smaller size and distinct colors
+   - Fixed race conditions in asynchronous operations
+
+4. **Backend Improvements**
+   - Fixed UUID handling in database models
+   - Resolved import path issues
+   - Created authentication utility functions
+   - Enhanced sports database API endpoints
 
 ## Critical Components to Understand
 
@@ -65,14 +95,18 @@ To contribute effectively, familiarize yourself with these key components:
 1. **Chat Interface**
    - `MessageItem.tsx` and `MessageThread.tsx` for message rendering and interaction
    - Data extraction flow from chat messages to structured data
+   - Button styling and differentiation between Send to Data (blue) and Map Sports Data (green)
 
 2. **Data Management**
    - `DataTable.tsx` for data display and manipulation
    - Column resizing and grid expansion features
    - Raw data display and transformation logic
+   - Comprehensive logging for debugging data transformation
 
 3. **Sports Data Handling**
    - `SportDataMapper.tsx` for mapping extracted data to database fields
+   - Key functions: extractSourceFields, handleFieldMapping, getFieldValue
+   - Navigation controls for record browsing
    - Sports database models and entity relationships
    - Data visualization components
 
@@ -80,6 +114,7 @@ To contribute effectively, familiarize yourself with these key components:
    - API routes and service layer organization
    - Database models and relationships
    - Authentication and security implementation
+   - Sports entity management endpoints
 
 ## Development Environment
 
@@ -109,16 +144,33 @@ If you encounter issues:
    - Try a hard refresh (Ctrl+Shift+R)
    - Restart the frontend container
    - Look for detailed logs in data transformation functions
+   - Check for logs prefixed with "DataTable:" or "SportDataMapper:" for component-specific debugging
 
 2. **Backend Issues**
    - Check container logs: `docker-compose logs -f backend`
    - Verify database connection
    - Check API responses in browser network tab
+   - Look for common errors like ModuleNotFoundError or UUID serialization issues
 
 3. **Data Issues**
    - Examine browser console for transformation logs
    - Verify data structure in raw data view
    - Check for race conditions in async operations
+   - Verify proper state management in data store
+
+4. **SportDataMapper Issues**
+   - Check navigation controls visibility
+   - Verify record loading and field extraction
+   - Examine currentRecordIndex and totalRecords values
+   - Look for logs related to data format detection
+
+## Current Version and Status
+
+As of May 2024, SheetGPT is at version 0.3.3 with the following status:
+- Recently completed SportDataMapper improvements for better navigation and record handling
+- Enhanced DataTable component with improved column resizing and grid expansion
+- Optimized Send to Data feature with better error handling and user experience
+- Backend improvements for sports entity management and authentication
 
 ## Getting Help
 
@@ -127,5 +179,6 @@ If you need assistance:
 1. Review the **TROUBLESHOOTING_GUIDE** section in `NEW_AGENT.md`
 2. Check the **DEBUGGING_NOTES** for common issues and solutions
 3. Consult the git history for recent changes and their context
+4. Look for component-specific logging in the browser console
 
 Feel free to ask questions about the architecture, current challenges, or implementation details as you get started! 

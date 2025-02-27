@@ -1,6 +1,6 @@
-import React, { useState, useEffect, Suspense } from 'react'
+import React, { useState, useEffect, Suspense, useRef, useLayoutEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { useNavigate, useSearchParams } from 'react-router-dom'
+import { useNavigate, useSearchParams, useLocation } from 'react-router-dom'
 import ConversationList from '../components/chat/ConversationList'
 import MessageThread from '../components/chat/MessageThread'
 import ChatInput from '../components/chat/ChatInput'
@@ -8,6 +8,7 @@ import LoadingSpinner from '../components/common/LoadingSpinner'
 import { useNotification } from '../contexts/NotificationContext'
 import { useAuth } from '../hooks/useAuth'
 import { api, type Conversation, type Message } from '../utils/api'
+import DataPreviewModal from '../components/chat/DataPreviewModal'
 
 type QueryError = {
   message: string;
@@ -16,12 +17,191 @@ type QueryError = {
 const Chat: React.FC = () => {
   const { isAuthenticated, isReady, user } = useAuth()
   const [searchParams, setSearchParams] = useSearchParams()
+  const location = useLocation()
   const [selectedConversation, setSelectedConversation] = useState<string | null>(
     searchParams.get('conversation')
   )
   const queryClient = useQueryClient()
   const { showNotification } = useNotification()
   const [isInitialLoad, setIsInitialLoad] = useState(true)
+  const [isDataPreviewModalOpen, setIsDataPreviewModalOpen] = useState(false)
+  const [previewMessageContent, setPreviewMessageContent] = useState('')
+  
+  // Add state for sidebar width
+  const [sidebarWidth, setSidebarWidth] = useState(25) // Default 25% width
+  const isDraggingRef = useRef(false)
+  const containerRef = useRef<HTMLDivElement>(null)
+  const sidebarRef = useRef<HTMLDivElement>(null)
+  const chatInputRef = useRef<HTMLDivElement>(null)
+
+  // Function to update chat input position based on sidebar's actual width
+  const updateChatInputPosition = () => {
+    if (sidebarRef.current && chatInputRef.current && containerRef.current) {
+      // Get the sidebar and divider elements
+      const sidebarElement = sidebarRef.current;
+      const dividerElement = sidebarElement.nextElementSibling as HTMLElement;
+      
+      if (dividerElement) {
+        // Get the right edge of the divider
+        const dividerRect = dividerElement.getBoundingClientRect();
+        
+        // Set the chat input position to align with the right edge of the divider
+        chatInputRef.current.style.left = `${dividerRect.right}px`;
+        chatInputRef.current.style.width = `calc(100% - ${dividerRect.right}px)`;
+      }
+    }
+  };
+
+  // Update chat input position whenever sidebar width changes
+  useEffect(() => {
+    updateChatInputPosition();
+  }, [sidebarWidth]);
+
+  // Use layout effect to ensure positioning happens after DOM measurements are available
+  useLayoutEffect(() => {
+    // Initial position update
+    updateChatInputPosition();
+    
+    // Add a small delay to ensure all DOM elements are properly sized
+    const timeoutId = setTimeout(() => {
+      updateChatInputPosition();
+    }, 100);
+    
+    // Set up a MutationObserver to detect DOM changes
+    if (containerRef.current) {
+      const observer = new MutationObserver(() => {
+        updateChatInputPosition();
+      });
+      
+      observer.observe(containerRef.current, { 
+        childList: true, 
+        subtree: true,
+        attributes: true,
+        attributeFilter: ['style', 'class']
+      });
+      
+      return () => {
+        clearTimeout(timeoutId);
+        observer.disconnect();
+      };
+    }
+    
+    return () => clearTimeout(timeoutId);
+  }, []);
+
+  // Also update on window resize
+  useEffect(() => {
+    window.addEventListener('resize', updateChatInputPosition);
+    
+    // Run once after first render to ensure correct positioning
+    const timeoutId = setTimeout(updateChatInputPosition, 50);
+    
+    return () => {
+      window.removeEventListener('resize', updateChatInputPosition);
+      clearTimeout(timeoutId);
+    };
+  }, []);
+
+  // Add an effect to update position when the component is fully mounted
+  useEffect(() => {
+    // Run immediately
+    updateChatInputPosition();
+    
+    // And again after a short delay to catch any late layout adjustments
+    const timeoutId1 = setTimeout(updateChatInputPosition, 50);
+    const timeoutId2 = setTimeout(updateChatInputPosition, 200);
+    const timeoutId3 = setTimeout(updateChatInputPosition, 500);
+    
+    return () => {
+      clearTimeout(timeoutId1);
+      clearTimeout(timeoutId2);
+      clearTimeout(timeoutId3);
+    };
+  }, []);
+
+  // Listen for route changes and component re-mounting
+  useEffect(() => {
+    console.log('Route changed or component re-mounted, updating chat input position');
+    
+    // Update immediately
+    updateChatInputPosition();
+    
+    // And with progressive delays to catch any layout changes
+    const timeouts = [
+      setTimeout(updateChatInputPosition, 50),
+      setTimeout(updateChatInputPosition, 150),
+      setTimeout(updateChatInputPosition, 300),
+      setTimeout(updateChatInputPosition, 600),
+      setTimeout(updateChatInputPosition, 1200)
+    ];
+    
+    // Also set up a periodic check for the first few seconds
+    // This helps with cases where the layout takes longer to stabilize
+    let count = 0;
+    const intervalId = setInterval(() => {
+      updateChatInputPosition();
+      count++;
+      if (count >= 5) clearInterval(intervalId);
+    }, 500);
+    
+    return () => {
+      timeouts.forEach(clearTimeout);
+      clearInterval(intervalId);
+    };
+  }, [location.pathname]);
+
+  // Handle selecting a conversation
+  const handleSelectConversation = (id: string) => {
+    setSelectedConversation(id);
+  };
+
+  // Handle confirming data preview
+  const handleConfirmPreview = (data: any) => {
+    setIsDataPreviewModalOpen(false);
+    // Implementation would go here
+    showNotification('success', 'Data sent to Data Management');
+  };
+
+  // Add handlers for resizing
+  const handleDragStart = (e: React.MouseEvent) => {
+    e.preventDefault()
+    isDraggingRef.current = true
+    document.addEventListener('mousemove', handleDrag)
+    document.addEventListener('mouseup', handleDragEnd)
+    // Add a class to the body to change cursor during resize
+    document.body.classList.add('resizing')
+  }
+
+  const handleDrag = (e: MouseEvent) => {
+    if (!isDraggingRef.current || !containerRef.current) return
+    
+    const containerRect = containerRef.current.getBoundingClientRect()
+    const newWidth = ((e.clientX - containerRect.left) / containerRect.width) * 100
+    
+    // Limit the sidebar width between 15% and 50%
+    if (newWidth >= 15 && newWidth <= 50) {
+      setSidebarWidth(newWidth)
+      // Update chat input position during drag
+      requestAnimationFrame(updateChatInputPosition);
+    }
+  }
+
+  const handleDragEnd = () => {
+    isDraggingRef.current = false
+    document.removeEventListener('mousemove', handleDrag)
+    document.removeEventListener('mouseup', handleDragEnd)
+    // Remove the resizing class
+    document.body.classList.remove('resizing')
+  }
+
+  // Clean up event listeners on unmount
+  useEffect(() => {
+    return () => {
+      document.removeEventListener('mousemove', handleDrag)
+      document.removeEventListener('mouseup', handleDragEnd)
+      document.body.classList.remove('resizing')
+    }
+  }, [])
 
   // Update URL when selected conversation changes
   useEffect(() => {
@@ -200,7 +380,46 @@ const Chat: React.FC = () => {
       urlParam: searchParams.get('conversation'),
       timestamp: new Date().toISOString()
     })
+    
+    // When a conversation is selected, update the chat input position
+    // with multiple attempts to ensure proper rendering
+    if (selectedConversation) {
+      // Immediate update
+      updateChatInputPosition();
+      
+      // Series of delayed updates to catch any layout changes
+      const timeouts = [
+        setTimeout(updateChatInputPosition, 50),
+        setTimeout(updateChatInputPosition, 100),
+        setTimeout(updateChatInputPosition, 300),
+        setTimeout(updateChatInputPosition, 500),
+        setTimeout(updateChatInputPosition, 1000)
+      ];
+      
+      return () => {
+        timeouts.forEach(clearTimeout);
+      };
+    }
   }, [selectedConversation, searchParams])
+
+  // Add visibility change listener to handle tab switching
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        console.log('Page became visible, updating chat input position');
+        // Update immediately and with delays when page becomes visible again
+        updateChatInputPosition();
+        setTimeout(updateChatInputPosition, 100);
+        setTimeout(updateChatInputPosition, 300);
+      }
+    };
+    
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, []);
 
   // Send message mutation
   const sendMessageMutation = useMutation({
@@ -356,44 +575,68 @@ const Chat: React.FC = () => {
 
   console.log('Rendering main chat interface')
   return (
-    <div className="flex h-[calc(100vh-4rem)]">
-      <div className="w-1/4 border-r border-gray-200 p-4">
+    <div className="flex h-screen overflow-hidden" ref={containerRef}>
+      {/* Sidebar with dynamic width */}
+      <div 
+        className="bg-gray-50 border-r border-gray-200 p-4 overflow-y-auto"
+        style={{ width: `${sidebarWidth}%` }}
+        ref={sidebarRef}
+      >
         <ConversationList
-          conversations={Array.isArray(conversations) ? conversations : []}
+          conversations={conversations || []}
           selectedId={selectedConversation}
-          onSelect={setSelectedConversation}
+          onSelect={handleSelectConversation}
           isLoading={isLoadingConversations}
         />
       </div>
-      <div className="flex-1 flex flex-col">
+
+      {/* Resizer handle */}
+      <div 
+        className="w-1 hover:w-1.5 bg-gray-200 hover:bg-blue-500 cursor-col-resize active:bg-blue-600 transition-all flex items-center justify-center"
+        onMouseDown={handleDragStart}
+      >
+        <div className="h-12 w-0.5 bg-gray-400 rounded-full opacity-50 hover:opacity-80"></div>
+      </div>
+
+      {/* Main chat area with dynamic width */}
+      <div className="flex-1 flex flex-col relative">
         {selectedConversation ? (
           <>
-            <div className="flex-1 overflow-y-auto p-4">
-              {isLoadingMessages ? (
-                <div className="h-full flex items-center justify-center">
-                  <LoadingSpinner size="medium" />
-                </div>
-              ) : isMessagesError ? (
-                <div className="h-full flex items-center justify-center text-red-600">
-                  Failed to load messages. Please try again.
-                </div>
-              ) : (
-                <MessageThread messages={messages ?? []} />
-              )}
+            {/* Message thread with adjusted padding to make room for fixed input */}
+            <div className="flex-1 overflow-y-auto p-4 pb-32">
+              <MessageThread
+                messages={messages || []}
+              />
             </div>
-            <div className="border-t border-gray-200 p-4">
-              <ChatInput 
+            
+            {/* Fixed position chat input that aligns with the sidebar */}
+            <div 
+              className="fixed bottom-0 bg-white border-t border-gray-200 p-4"
+              ref={chatInputRef}
+            >
+              <ChatInput
                 onSend={handleSendMessage}
                 disabled={sendMessageMutation.isPending}
               />
             </div>
           </>
         ) : (
-          <div className="flex items-center justify-center h-full text-gray-500">
-            Select a conversation or start a new one
+          <div className="flex-1 flex items-center justify-center">
+            <div className="text-center">
+              <h2 className="text-xl font-semibold text-gray-700">Select a conversation or create a new one</h2>
+              <p className="text-gray-500 mt-2">Choose from the sidebar or click "New" to start a conversation</p>
+            </div>
           </div>
         )}
       </div>
+
+      {/* Data preview modal */}
+      <DataPreviewModal
+        isOpen={isDataPreviewModalOpen}
+        onClose={() => setIsDataPreviewModalOpen(false)}
+        messageContent={previewMessageContent}
+        onConfirm={handleConfirmPreview}
+      />
     </div>
   )
 }

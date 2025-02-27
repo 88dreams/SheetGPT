@@ -207,14 +207,45 @@ export const MessageItem: React.FC<MessageItemProps> = ({ message, isLastMessage
         }
       };
       
+      // Ensure we have a valid data structure before opening the mapper
+      // This is the key fix - ensure we have a properly formatted structure
+      let validData = dataWithMetadata;
+      
+      // If we have rows but no headers, try to create headers from the first row's keys
+      if (validData.rows && Array.isArray(validData.rows) && validData.rows.length > 0 && !validData.headers) {
+        if (typeof validData.rows[0] === 'object' && validData.rows[0] !== null) {
+          validData.headers = Object.keys(validData.rows[0]);
+        }
+      }
+      
+      // Create a default empty structure if we don't have valid data
+      if (!validData.rows && !validData.headers) {
+        console.warn('MessageItem: Creating default structure for SportDataMapper');
+        validData = {
+          headers: ['Sample'],
+          rows: [['No data found']],
+          meta_data: {
+            source: 'message-extracted-data',
+            message_id: message.id,
+            conversation_id: message.conversation_id,
+            extracted_at: new Date().toISOString(),
+            is_test_data: false,
+            note: 'This is empty data with default structure'
+          }
+        };
+      }
+      
       // Set the data and show the SportDataMapper
-      setSportMapperData(dataWithMetadata);
-      setShowSportDataMapper(true);
+      setSportMapperData(validData);
       
       // Increment key to force re-render
       setMapperKey(prevKey => prevKey + 1);
       
-      console.log('MessageItem: Opening SportDataMapper with extracted data', dataWithMetadata);
+      // Only open the modal after data is properly set
+      setTimeout(() => {
+        setShowSportDataMapper(true);
+        console.log('MessageItem: Opening SportDataMapper with extracted data', validData);
+      }, 100);
     } catch (error) {
       console.error('MessageItem: Error extracting data', error);
       setExtractionError(`Error extracting data: ${(error as Error).message}`);

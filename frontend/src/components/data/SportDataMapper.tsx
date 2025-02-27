@@ -127,8 +127,23 @@ const FieldItem: React.FC<FieldItemProps> = ({ field, value, isSource = false, o
 
 // Main component
 const SportDataMapper: React.FC<SportDataMapperProps> = ({ isOpen, onClose, structuredData }) => {
+  // Early check for invalid structuredData
+  const validStructuredData = React.useMemo(() => {
+    if (!structuredData) {
+      console.error('SportDataMapper: structuredData is null or undefined');
+      return { headers: ['Sample'], rows: [['No data']] };
+    }
+    
+    if (typeof structuredData !== 'object') {
+      console.error('SportDataMapper: structuredData is not an object:', structuredData);
+      return { headers: ['Sample'], rows: [['Invalid data']] };
+    }
+    
+    return structuredData;
+  }, [structuredData]);
+  
   // State for the selected entity type
-  const [selectedEntityType, setSelectedEntityType] = useState<EntityType | null>(null);
+  const [selectedEntityType, setSelectedEntityType] = useState<EntityType | null>('team');
   
   // State for the fields of the selected entity
   const [entityFields, setEntityFields] = useState<string[]>([]);
@@ -161,52 +176,64 @@ const SportDataMapper: React.FC<SportDataMapperProps> = ({ isOpen, onClose, stru
   const [dataToImport, setDataToImport] = useState<any[]>([]);
   const [totalRecords, setTotalRecords] = useState<number>(0);
   
+  // State for view mode (entity or global)
+  const [viewMode, setViewMode] = useState<'entity' | 'global'>('entity');
+  
   // Get the notification context
   const { showNotification } = useNotification();
   
   // Debug logging for component rendering
   console.log('%c SportDataMapper RENDERING ', 'background: #00ff00; color: #000000; font-size: 16px;');
-  console.log('SportDataMapper rendering with structured data:', structuredData);
+  console.log('SportDataMapper rendering with structured data:', validStructuredData);
   
   // Function to extract source fields from structured data
   const extractSourceFields = (data: any) => {
-    if (!data) return;
-    
-    console.log('SportDataMapper: Processing structured data', {
-      type: typeof data,
-      isArray: Array.isArray(data),
-      hasHeaders: data.headers && Array.isArray(data.headers),
-      hasRows: data.rows && Array.isArray(data.rows)
-    });
-    
-    let fields: string[] = [];
-    
-    // Handle array of objects
-    if (Array.isArray(data) && data.length > 0) {
-      fields = Object.keys(data[0]);
-    } 
-    // Handle single object
-    else if (typeof data === 'object' && data !== null && !data.headers) {
-      fields = Object.keys(data);
-    }
-    // Handle data with headers and rows - this is the format we're seeing in the screenshots
-    else if (data.headers && Array.isArray(data.headers)) {
-      // Use the actual header values as source fields instead of the "headers" property itself
-      fields = data.headers;
-      console.log('SportDataMapper: Using header values as source fields:', fields);
+    if (!data) {
+      console.warn('SportDataMapper: No data provided to extractSourceFields');
+      setSourceFields([]);
+      return;
     }
     
-    console.log('SportDataMapper: Extracted source fields', fields);
-    setSourceFields(fields);
+    try {
+      let fields: string[] = [];
+      
+      // Handle array of objects
+      if (Array.isArray(data)) {
+        if (data.length > 0 && typeof data[0] === 'object' && data[0] !== null) {
+          fields = Object.keys(data[0]);
+          console.log('SportDataMapper: Extracted fields from array of objects:', fields);
+        } else {
+          console.warn('SportDataMapper: Empty array or non-object items in array');
+        }
+      } 
+      // Handle data with headers and rows
+      else if (data.headers && Array.isArray(data.headers)) {
+        fields = data.headers;
+        console.log('SportDataMapper: Using header values as source fields:', fields);
+      }
+      // Handle single object
+      else if (typeof data === 'object' && data !== null) {
+        fields = Object.keys(data).filter(key => !key.startsWith('_') && key !== 'meta_data');
+        console.log('SportDataMapper: Extracted fields from single object:', fields);
+      } else {
+        console.warn('SportDataMapper: Unrecognized data format', data);
+      }
+      
+      console.log('SportDataMapper: Extracted source fields', fields);
+      setSourceFields(fields);
+    } catch (error) {
+      console.error('SportDataMapper: Error extracting source fields', error);
+      setSourceFields([]);
+    }
   };
   
   // Reset component state when structuredData changes
   useEffect(() => {
     console.log('%c STRUCTURED DATA CHANGED ', 'background: #ff00ff; color: #ffffff; font-size: 16px;');
-    console.log('SportDataMapper: structuredData changed:', structuredData);
+    console.log('SportDataMapper: structuredData changed:', validStructuredData);
     
     // Reset states when structuredData changes
-    setSelectedEntityType(null);
+    setSelectedEntityType('team');
     setEntityFields([]);
     setMappedData({});
     setCurrentRecordIndex(0);
@@ -214,16 +241,54 @@ const SportDataMapper: React.FC<SportDataMapperProps> = ({ isOpen, onClose, stru
     setImportProgress(null);
     setImportCompleted(false);
     
-    if (structuredData) {
-      // Extract source fields from structured data
-      extractSourceFields(structuredData);
-      
-      // Update dataToImport and totalRecords based on structuredData
-      const newDataToImport = Array.isArray(structuredData) ? structuredData : [structuredData];
-      setDataToImport(newDataToImport);
-      setTotalRecords(newDataToImport.length);
+    if (validStructuredData) {
+      try {
+        // Validate structuredData before processing
+        if (typeof validStructuredData !== 'object') {
+          console.error('SportDataMapper: Invalid structuredData format - not an object', validStructuredData);
+          return;
+        }
+        
+        // Extract source fields from structured data
+        extractSourceFields(validStructuredData);
+        
+        // Update dataToImport and totalRecords based on structuredData format
+        if (Array.isArray(validStructuredData)) {
+          // Handle array of objects
+          if (validStructuredData.length > 0) {
+            setDataToImport(validStructuredData);
+            setTotalRecords(validStructuredData.length);
+            console.log(`Setting totalRecords to ${validStructuredData.length} from array data`);
+          } else {
+            console.warn('SportDataMapper: Empty array in structuredData');
+            setDataToImport([]);
+            setTotalRecords(0);
+          }
+        } else if (validStructuredData.headers && validStructuredData.rows && Array.isArray(validStructuredData.rows)) {
+          // Handle data with headers and rows format
+          // Convert rows to array of objects
+          const importData = validStructuredData.rows.map(row => {
+            const obj: Record<string, any> = {};
+            validStructuredData.headers.forEach((header: string, index: number) => {
+              obj[header] = row[index];
+            });
+            return obj;
+          });
+          
+          setDataToImport(importData);
+          setTotalRecords(validStructuredData.rows.length);
+          console.log(`Setting totalRecords to ${validStructuredData.rows.length} from headers/rows data`);
+        } else {
+          // Handle single object
+          setDataToImport([validStructuredData]);
+          setTotalRecords(1);
+          console.log('Setting totalRecords to 1 from single object data');
+        }
+      } catch (error) {
+        console.error('SportDataMapper: Error processing structuredData', error);
+      }
     }
-  }, [structuredData]);
+  }, [validStructuredData]);
   
   // Reset component state when dialog is opened or closed
   useEffect(() => {
@@ -231,29 +296,56 @@ const SportDataMapper: React.FC<SportDataMapperProps> = ({ isOpen, onClose, stru
       console.log('%c DIALOG OPENED ', 'background: #0000ff; color: #ffffff; font-size: 16px;');
       console.log('Dialog opened, initializing component state');
       
-      // Extract source fields from structured data
-      extractSourceFields(structuredData);
+      // Set Team as the default selected entity type
+      setSelectedEntityType('team');
       
-      // Update dataToImport and totalRecords based on structuredData
-      const newDataToImport = Array.isArray(structuredData) ? structuredData : [structuredData];
-      setDataToImport(newDataToImport);
-      setTotalRecords(newDataToImport.length);
+      // Extract source fields from structured data
+      extractSourceFields(validStructuredData);
+      
+      // Update dataToImport and totalRecords based on structuredData format
+      if (validStructuredData) {
+        if (Array.isArray(validStructuredData)) {
+          // Handle array of objects
+          setDataToImport(validStructuredData);
+          setTotalRecords(validStructuredData.length);
+          console.log(`Dialog open: Setting totalRecords to ${validStructuredData.length} from array data`);
+        } else if (validStructuredData.headers && validStructuredData.rows && Array.isArray(validStructuredData.rows)) {
+          // Handle data with headers and rows format
+          // Convert rows to array of objects
+          const importData = validStructuredData.rows.map(row => {
+            const obj: Record<string, any> = {};
+            validStructuredData.headers.forEach((header: string, index: number) => {
+              obj[header] = row[index];
+            });
+            return obj;
+          });
+          
+          setDataToImport(importData);
+          setTotalRecords(validStructuredData.rows.length);
+          console.log(`Dialog open: Setting totalRecords to ${validStructuredData.rows.length} from headers/rows data with ${importData.length} records`);
+        } else {
+          // Handle single object
+          setDataToImport([validStructuredData]);
+          setTotalRecords(1);
+          console.log('Dialog open: Setting totalRecords to 1 from single object data');
+        }
+      }
     }
   }, [isOpen]);
 
   // Get current field mapping based on selected entity type
-  const fieldMapping = selectedEntityType ? mappingsByEntityType[selectedEntityType] : {};
+  const fieldMapping = selectedEntityType ? (mappingsByEntityType[selectedEntityType] || {}) : {};
 
   // Debug logging for component rendering
   useEffect(() => {
     console.log('%c SPORT DATA MAPPER COMPONENT RENDERING ', 'background: #00ff00; color: #000000; font-size: 16px;');
     console.log('SportDataMapper: Component rendering', { 
       isOpen, 
-      hasStructuredData: !!structuredData,
-      structuredDataType: structuredData ? typeof structuredData : 'none',
-      structuredDataPreview: structuredData ? JSON.stringify(structuredData).substring(0, 100) + '...' : 'none'
+      hasStructuredData: !!validStructuredData,
+      structuredDataType: validStructuredData ? typeof validStructuredData : 'none',
+      structuredDataPreview: validStructuredData ? JSON.stringify(validStructuredData).substring(0, 100) + '...' : 'none'
     });
-  }, [isOpen, structuredData]);
+  }, [isOpen, validStructuredData]);
 
   // Debug logging for entity type changes
   useEffect(() => {
@@ -299,7 +391,7 @@ const SportDataMapper: React.FC<SportDataMapperProps> = ({ isOpen, onClose, stru
   const updateMappedDataForEntityType = (entityType: EntityType) => {
     const currentMapping = mappingsByEntityType[entityType] || {};
     
-    if (Object.keys(currentMapping).length > 0 && structuredData) {
+    if (Object.keys(currentMapping).length > 0 && validStructuredData) {
       const newMappedData: Record<string, any> = {};
       
       // For each target field that has a mapping
@@ -324,23 +416,23 @@ const SportDataMapper: React.FC<SportDataMapperProps> = ({ isOpen, onClose, stru
     if (selectedEntityType) {
       updateMappedDataForEntityType(selectedEntityType);
     }
-  }, [mappingsByEntityType, structuredData, selectedEntityType]);
+  }, [mappingsByEntityType, validStructuredData, selectedEntityType]);
 
   // Extract data for batch import
   useEffect(() => {
-    if (structuredData) {
+    if (validStructuredData) {
       let importData: any[] = [];
       
       // Handle array of objects
-      if (Array.isArray(structuredData)) {
-        importData = structuredData;
+      if (Array.isArray(validStructuredData)) {
+        importData = validStructuredData;
       } 
       // Handle data with headers and rows
-      else if (structuredData.headers && structuredData.rows && Array.isArray(structuredData.rows)) {
+      else if (validStructuredData.headers && validStructuredData.rows && Array.isArray(validStructuredData.rows)) {
         // Convert rows to array of objects using headers as keys
-        importData = structuredData.rows.map(row => {
+        importData = validStructuredData.rows.map(row => {
           const obj: Record<string, any> = {};
-          structuredData.headers.forEach((header, index) => {
+          validStructuredData.headers.forEach((header, index) => {
             obj[header] = row[index];
           });
           return obj;
@@ -349,7 +441,7 @@ const SportDataMapper: React.FC<SportDataMapperProps> = ({ isOpen, onClose, stru
       
       console.log('SportDataMapper: Prepared data for import', { count: importData.length });
     }
-  }, [structuredData]);
+  }, [validStructuredData]);
 
   // Function to navigate to the next record
   const goToNextRecord = () => {
@@ -645,26 +737,42 @@ const SportDataMapper: React.FC<SportDataMapperProps> = ({ isOpen, onClose, stru
 
   // Update the FieldItem component to display the correct values for headers and rows format
   const getFieldValue = (field: string) => {
-    if (!structuredData) return undefined;
+    if (!validStructuredData || !field) return undefined;
     
-    // Handle array of objects
-    if (Array.isArray(structuredData) && structuredData.length > 0) {
-      // Use the current record index instead of always using the first record
-      const recordIndex = Math.min(currentRecordIndex, structuredData.length - 1);
-      return structuredData[recordIndex][field];
-    } 
-    // Handle single object
-    else if (typeof structuredData === 'object' && structuredData !== null && !structuredData.headers) {
-      return structuredData[field];
-    }
-    // Handle data with headers and rows
-    else if (structuredData.headers && structuredData.rows && Array.isArray(structuredData.rows) && structuredData.rows.length > 0) {
-      const headerIndex = structuredData.headers.indexOf(field);
-      // Use the current record index instead of always using the first record
-      const recordIndex = Math.min(currentRecordIndex, structuredData.rows.length - 1);
-      if (headerIndex !== -1 && structuredData.rows[recordIndex][headerIndex] !== undefined) {
-        return structuredData.rows[recordIndex][headerIndex];
+    try {
+      // Handle array of objects
+      if (Array.isArray(validStructuredData) && validStructuredData.length > 0) {
+        // Use the current record index instead of always using the first record
+        const recordIndex = Math.min(currentRecordIndex, validStructuredData.length - 1);
+        if (recordIndex >= 0 && typeof validStructuredData[recordIndex] === 'object' && validStructuredData[recordIndex] !== null) {
+          return validStructuredData[recordIndex][field];
+        }
+      } 
+      // Handle single object
+      else if (typeof validStructuredData === 'object' && validStructuredData !== null && !validStructuredData.headers) {
+        return validStructuredData[field];
       }
+      // Handle data with headers and rows
+      else if (validStructuredData.headers && Array.isArray(validStructuredData.headers) && 
+               validStructuredData.rows && Array.isArray(validStructuredData.rows) && validStructuredData.rows.length > 0) {
+        const headerIndex = validStructuredData.headers.indexOf(field);
+        // Use the current record index instead of always using the first record
+        const recordIndex = Math.min(currentRecordIndex, validStructuredData.rows.length - 1);
+        
+        console.log(`Getting field value for ${field} at record ${recordIndex}`, {
+          headerIndex,
+          recordIndex,
+          totalRecords: validStructuredData.rows.length,
+          hasValue: headerIndex !== -1 && recordIndex < validStructuredData.rows.length,
+          value: headerIndex !== -1 && recordIndex < validStructuredData.rows.length ? validStructuredData.rows[recordIndex][headerIndex] : 'undefined'
+        });
+        
+        if (headerIndex !== -1 && recordIndex >= 0 && recordIndex < validStructuredData.rows.length) {
+          return validStructuredData.rows[recordIndex][headerIndex];
+        }
+      }
+    } catch (error) {
+      console.error(`SportDataMapper: Error getting field value for ${field}`, error);
     }
     
     return undefined;
@@ -712,97 +820,127 @@ const SportDataMapper: React.FC<SportDataMapperProps> = ({ isOpen, onClose, stru
                   <div>
                     <div className="mt-3 text-center sm:mt-5">
                       <Dialog.Title as="h3" className="text-lg font-semibold leading-6 text-gray-900">
-                        Map Data to Sports Database
+                        Map to Sports Data
                       </Dialog.Title>
                       <div className="mt-2">
                         <p className="text-sm text-gray-500">
-                          Select an entity type and map the fields from your data to the database fields.
-                          Drag fields from the left to the right to create mappings.
+                          Select an Entity, then drag and drop from left to right.
                         </p>
+                      </div>
+                      
+                      {/* View Mode Toggle */}
+                      <div className="mt-3 flex justify-center">
+                        <div className="inline-flex rounded-md shadow-sm" role="group">
+                          <button
+                            type="button"
+                            className={`px-3 py-1 text-xs font-medium rounded-l-md ${
+                              viewMode === 'entity'
+                                ? 'bg-indigo-600 text-white'
+                                : 'bg-white text-gray-700 hover:bg-gray-50 border border-gray-300'
+                            }`}
+                            onClick={() => setViewMode('entity')}
+                          >
+                            Entity View
+                          </button>
+                          <button
+                            type="button"
+                            className={`px-3 py-1 text-xs font-medium rounded-r-md ${
+                              viewMode === 'global'
+                                ? 'bg-indigo-600 text-white'
+                                : 'bg-white text-gray-700 hover:bg-gray-50 border border-gray-300'
+                            }`}
+                            onClick={() => setViewMode('global')}
+                          >
+                            Global View
+                          </button>
+                        </div>
                       </div>
                     </div>
                   </div>
 
                   <div className="mt-5">
-                    <div className="mb-4">
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Select Entity Type:
-                      </label>
-                      <div className="grid grid-cols-4 gap-2">
-                        {ENTITY_TYPES.map((entityType) => (
-                          <div
-                            key={entityType.id}
-                            className={`cursor-pointer rounded-lg border p-3 transition-colors ${
-                              selectedEntityType === entityType.id
-                                ? 'border-indigo-500 bg-indigo-50'
-                                : 'border-gray-300 hover:border-indigo-300 hover:bg-indigo-50/50'
-                            }`}
-                            onClick={() => setSelectedEntityType(entityType.id)}
-                          >
-                            <h4 className="font-medium text-gray-900">{entityType.name}</h4>
-                            <p className="mt-1 text-xs text-gray-500">{entityType.description}</p>
-                          </div>
-                        ))}
+                    {viewMode === 'entity' && (
+                      <div className="mb-4">
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Select Entity Type:
+                        </label>
+                        <div className="grid grid-cols-4 gap-2">
+                          {ENTITY_TYPES.map((entityType) => (
+                            <div
+                              key={entityType.id}
+                              className={`cursor-pointer rounded-lg border p-2 transition-colors ${
+                                selectedEntityType === entityType.id
+                                  ? 'border-indigo-500 bg-indigo-50'
+                                  : 'border-gray-300 hover:border-indigo-300 hover:bg-indigo-50/50'
+                              }`}
+                              onClick={() => setSelectedEntityType(entityType.id)}
+                            >
+                              <h4 className="font-medium text-gray-900">{entityType.name}</h4>
+                              <p className="mt-1 text-xs text-gray-500">{entityType.description}</p>
+                            </div>
+                          ))}
+                        </div>
                       </div>
-                    </div>
+                    )}
 
-                    {selectedEntityType && (
+                    {viewMode === 'entity' && selectedEntityType && (
                       <div className="grid grid-cols-3 gap-4">
                         {/* Source Fields */}
                         <div className="border rounded-lg p-4">
                           <div className="flex justify-between items-center mb-3">
                             <h4 className="font-medium text-gray-900">Source Fields</h4>
-                            {totalRecords > 1 && (
-                              <div className="flex items-center space-x-2">
+                            
+                            {/* Navigation Controls - Elegant and subtle styling */}
+                            <div className="flex items-center space-x-2">
+                              {/* Record Navigation */}
+                              <div className="flex items-center text-gray-600">
                                 <button
                                   type="button"
                                   onClick={goToPreviousRecord}
-                                  className="p-1 rounded-full bg-gray-100 hover:bg-gray-200 text-gray-700"
+                                  className="p-1 text-gray-500 hover:text-gray-700"
                                   title="Previous Record"
                                 >
-                                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
                                     <path fillRule="evenodd" d="M12.707 5.293a1 1 0 010 1.414L9.414 10l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z" clipRule="evenodd" />
                                   </svg>
                                 </button>
-                                <span className="text-sm text-gray-600">
-                                  Record {currentRecordIndex + 1} of {totalRecords}
-                                  {excludedRecords.has(currentRecordIndex) && (
-                                    <span className="ml-1 text-red-500">(Excluded)</span>
-                                  )}
+                                <span className="text-xs font-medium mx-1">
+                                  {currentRecordIndex + 1}/{Math.max(totalRecords, 1)}
                                 </span>
                                 <button
                                   type="button"
                                   onClick={goToNextRecord}
-                                  className="p-1 rounded-full bg-gray-100 hover:bg-gray-200 text-gray-700"
+                                  className="p-1 text-gray-500 hover:text-gray-700"
                                   title="Next Record"
                                 >
-                                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
                                     <path fillRule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clipRule="evenodd" />
                                   </svg>
                                 </button>
-                                <button
-                                  type="button"
-                                  onClick={toggleExcludeRecord}
-                                  className={`p-1 rounded-full ${
-                                    excludedRecords.has(currentRecordIndex)
-                                      ? 'bg-red-100 hover:bg-red-200 text-red-700'
-                                      : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
-                                  }`}
-                                  title={excludedRecords.has(currentRecordIndex) ? "Include Record" : "Exclude Record"}
-                                >
-                                  {excludedRecords.has(currentRecordIndex) ? (
-                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                                      <path fillRule="evenodd" d="M14.707 12.707a1 1 0 01-1.414 0L10 9.414l-3.293 3.293a1 1 0 01-1.414-1.414l3.293-3.293-3.293-3.293a1 1 0 011.414-1.414L10 6.586l3.293-3.293a1 1 0 011.414 1.414L11.414 8l3.293 3.293a1 1 0 010 1.414z" clipRule="evenodd" />
-                                    </svg>
-                                  ) : (
-                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                                      <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
-                                    </svg>
-                                  )}
-                                </button>
                               </div>
-                            )}
+                              
+                              {/* Simple X button for exclude/include */}
+                              <button
+                                type="button"
+                                onClick={toggleExcludeRecord}
+                                className={`p-1 rounded-full ${
+                                  excludedRecords.has(currentRecordIndex)
+                                    ? 'text-red-500 hover:text-red-700'
+                                    : 'text-gray-400 hover:text-gray-600'
+                                }`}
+                                title={excludedRecords.has(currentRecordIndex) ? "Include Record" : "Exclude Record"}
+                              >
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                                  <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+                                </svg>
+                              </button>
+                              {excludedRecords.has(currentRecordIndex) && (
+                                <span className="text-xs text-red-500">(Excluded)</span>
+                              )}
+                            </div>
                           </div>
+
+                          {/* Source Fields List */}
                           <div className="max-h-96 overflow-y-auto">
                             {sourceFields.map((field) => (
                               <FieldItem
@@ -879,8 +1017,71 @@ const SportDataMapper: React.FC<SportDataMapperProps> = ({ isOpen, onClose, stru
                       </div>
                     )}
 
+                    {/* Global Field Mapping View */}
+                    {viewMode === 'global' && (
+                      <div className="border rounded-lg p-4">
+                        <h4 className="font-medium text-gray-900 mb-3">Global Field Mappings Across All Entities</h4>
+                        <div className="overflow-y-auto max-h-[500px]">
+                          <table className="min-w-full divide-y divide-gray-200">
+                            <thead className="bg-gray-50 sticky top-0">
+                              <tr>
+                                <th scope="col" className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Entity</th>
+                                <th scope="col" className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Source Field</th>
+                                <th scope="col" className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Database Field</th>
+                                <th scope="col" className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                              </tr>
+                            </thead>
+                            <tbody className="bg-white divide-y divide-gray-200">
+                              {Object.entries(mappingsByEntityType).flatMap(([entityType, mappings]) => 
+                                Object.entries(mappings).map(([sourceField, targetField]) => (
+                                  <tr key={`${entityType}-${sourceField}`} className="hover:bg-gray-50">
+                                    <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-900">
+                                      {ENTITY_TYPES.find(et => et.id === entityType)?.name || entityType}
+                                    </td>
+                                    <td className="px-3 py-2 whitespace-nowrap text-sm text-blue-600">
+                                      {sourceField}
+                                    </td>
+                                    <td className="px-3 py-2 whitespace-nowrap text-sm text-green-600">
+                                      {targetField}
+                                    </td>
+                                    <td className="px-3 py-2 whitespace-nowrap text-sm">
+                                      <button
+                                        className="text-red-500 hover:text-red-700"
+                                        onClick={() => {
+                                          // Create a new mapping object for this entity type
+                                          const updatedEntityMapping = { ...mappingsByEntityType[entityType] };
+                                          // Remove the mapping to delete
+                                          delete updatedEntityMapping[sourceField];
+                                          
+                                          // Update the mappings state
+                                          setMappingsByEntityType(prev => ({
+                                            ...prev,
+                                            [entityType]: updatedEntityMapping
+                                          }));
+                                        }}
+                                      >
+                                        Delete
+                                      </button>
+                                    </td>
+                                  </tr>
+                                ))
+                              )}
+                              {Object.keys(mappingsByEntityType).length === 0 || 
+                               Object.values(mappingsByEntityType).every(mapping => Object.keys(mapping).length === 0) ? (
+                                <tr>
+                                  <td colSpan={4} className="px-3 py-4 text-center text-sm text-gray-500">
+                                    No field mappings created yet. Switch to Entity View to create mappings.
+                                  </td>
+                                </tr>
+                              ) : null}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    )}
+
                     {/* Preview of Mapped Data */}
-                    {selectedEntityType && Object.keys(mappedData).length > 0 && (
+                    {viewMode === 'entity' && selectedEntityType && Object.keys(mappedData).length > 0 && (
                       <div className="mt-4 border rounded-lg p-4">
                         <h4 className="font-medium text-gray-900 mb-3">Preview</h4>
                         <pre className="bg-gray-50 p-3 rounded text-sm overflow-auto max-h-40">
@@ -889,11 +1090,11 @@ const SportDataMapper: React.FC<SportDataMapperProps> = ({ isOpen, onClose, stru
                       </div>
                     )}
 
-                    <div className="mt-5 sm:mt-6 sm:grid sm:grid-flow-row-dense sm:grid-cols-2 sm:gap-3">
+                    <div className="mt-4 sm:mt-5 flex flex-col sm:flex-row justify-center gap-2">
                       {dataToImport.length > 1 && (
                         <button
                           type="button"
-                          className={`inline-flex w-full justify-center rounded-md px-3 py-2 text-sm font-semibold text-white shadow-sm ${
+                          className={`inline-flex justify-center rounded-md px-2 py-1 text-xs font-medium text-white shadow-sm ${
                             selectedEntityType && Object.keys(fieldMapping).length > 0 && !isSaving && !importCompleted
                               ? 'bg-green-600 hover:bg-green-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-green-600'
                               : importCompleted 
@@ -913,12 +1114,13 @@ const SportDataMapper: React.FC<SportDataMapperProps> = ({ isOpen, onClose, stru
                           }
                         </button>
                       )}
+                      
                       <button
                         type="button"
-                        className={`inline-flex w-full justify-center rounded-md px-3 py-2 text-sm font-semibold text-white shadow-sm ${
-                          selectedEntityType && Object.keys(mappedData).length > 0 && !isSaving
-                            ? 'bg-indigo-600 hover:bg-indigo-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600'
-                            : 'bg-indigo-400 cursor-not-allowed'
+                        className={`w-36 inline-flex items-center justify-center px-2 py-1 border border-blue-500 text-xs font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 shadow-sm ${
+                          !selectedEntityType || Object.keys(mappedData).length === 0 || isSaving
+                            ? 'opacity-50 cursor-not-allowed'
+                            : ''
                         }`}
                         onClick={handleSaveToDatabase}
                         disabled={!selectedEntityType || Object.keys(mappedData).length === 0 || isSaving}
@@ -927,7 +1129,7 @@ const SportDataMapper: React.FC<SportDataMapperProps> = ({ isOpen, onClose, stru
                       </button>
                       <button
                         type="button"
-                        className="mt-3 inline-flex w-full justify-center rounded-md bg-white px-3 py-2 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50 sm:col-start-1 sm:mt-0"
+                        className="w-36 inline-flex justify-center rounded-md bg-white px-2 py-1 text-xs font-medium text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50"
                         onClick={onClose}
                       >
                         Cancel

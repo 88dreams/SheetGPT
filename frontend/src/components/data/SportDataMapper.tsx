@@ -177,10 +177,7 @@ const SportDataMapper: React.FC<SportDataMapperProps> = ({ isOpen, onClose, stru
   const [totalRecords, setTotalRecords] = useState<number>(0);
   
   // State for view mode (entity or global)
-  const [viewMode, setViewMode] = useState<'entity' | 'global'>('entity');
-  
-  // Add state for showing preview
-  const [showPreview, setShowPreview] = useState<boolean>(false);
+  const [viewMode, setViewMode] = useState<'entity' | 'global' | 'preview'>('entity');
   
   // Get the notification context
   const { showNotification } = useNotification();
@@ -859,13 +856,13 @@ const SportDataMapper: React.FC<SportDataMapperProps> = ({ isOpen, onClose, stru
                           <button
                             type="button"
                             className={`px-3 py-1 text-xs font-medium rounded-r-md ${
-                              showPreview
+                              viewMode === 'preview'
                                 ? 'bg-indigo-600 text-white'
                                 : 'bg-white text-gray-700 hover:bg-gray-50 border border-gray-300'
                             }`}
-                            onClick={() => setShowPreview(!showPreview)}
+                            onClick={() => setViewMode('preview')}
                           >
-                            {showPreview ? 'Hide Preview' : 'Show Preview'}
+                            Data Preview
                           </button>
                         </div>
                       </div>
@@ -1094,13 +1091,123 @@ const SportDataMapper: React.FC<SportDataMapperProps> = ({ isOpen, onClose, stru
                       </div>
                     )}
 
-                    {/* Preview of Mapped Data */}
-                    {viewMode === 'entity' && selectedEntityType && Object.keys(mappedData).length > 0 && showPreview && (
-                      <div className="mt-4 border rounded-lg p-4">
-                        <h4 className="font-medium text-gray-900 mb-3">Preview</h4>
-                        <pre className="bg-gray-50 p-3 rounded text-sm overflow-auto max-h-40">
-                          {JSON.stringify(mappedData, null, 2)}
-                        </pre>
+                    {/* Data Preview View */}
+                    {viewMode === 'preview' && selectedEntityType && (
+                      <div className="border rounded-lg p-4">
+                        <div className="flex justify-between items-center mb-3">
+                          <h4 className="font-medium text-gray-900">
+                            Data Preview for {ENTITY_TYPES.find(et => et.id === selectedEntityType)?.name} (Record {currentRecordIndex + 1}/{Math.max(totalRecords, 1)})
+                          </h4>
+                          
+                          {/* Navigation Controls */}
+                          <div className="flex items-center space-x-2">
+                            <div className="flex items-center text-gray-600">
+                              <button
+                                type="button"
+                                onClick={goToPreviousRecord}
+                                className="p-1 text-gray-500 hover:text-gray-700"
+                                title="Previous Record"
+                              >
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                                  <path fillRule="evenodd" d="M12.707 5.293a1 1 0 010 1.414L9.414 10l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z" clipRule="evenodd" />
+                                </svg>
+                              </button>
+                              <span className="text-xs font-medium mx-1">
+                                {currentRecordIndex + 1}/{Math.max(totalRecords, 1)}
+                              </span>
+                              <button
+                                type="button"
+                                onClick={goToNextRecord}
+                                className="p-1 text-gray-500 hover:text-gray-700"
+                                title="Next Record"
+                              >
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                                  <path fillRule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clipRule="evenodd" />
+                                </svg>
+                              </button>
+                            </div>
+                            
+                            <button
+                              type="button"
+                              onClick={toggleExcludeRecord}
+                              className={`p-1 rounded-full ${
+                                excludedRecords.has(currentRecordIndex)
+                                  ? 'text-red-500 hover:text-red-700'
+                                  : 'text-gray-400 hover:text-gray-600'
+                              }`}
+                              title={excludedRecords.has(currentRecordIndex) ? "Include Record" : "Exclude Record"}
+                            >
+                              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                                <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+                              </svg>
+                            </button>
+                            {excludedRecords.has(currentRecordIndex) && (
+                              <span className="text-xs text-red-500">(Excluded)</span>
+                            )}
+                          </div>
+                        </div>
+                        
+                        <div className="overflow-y-auto max-h-[500px]">
+                          <table className="min-w-full divide-y divide-gray-200">
+                            <thead className="bg-gray-50 sticky top-0">
+                              <tr>
+                                <th scope="col" className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Source Field</th>
+                                <th scope="col" className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Source Value</th>
+                                <th scope="col" className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Mapped To</th>
+                                <th scope="col" className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Database Field</th>
+                              </tr>
+                            </thead>
+                            <tbody className="bg-white divide-y divide-gray-200">
+                              {sourceFields.map((sourceField) => {
+                                const sourceValue = getFieldValue(sourceField);
+                                const mappedToField = selectedEntityType && mappingsByEntityType[selectedEntityType] ? 
+                                  mappingsByEntityType[selectedEntityType][sourceField] : undefined;
+                                
+                                return (
+                                  <tr key={sourceField} className={`hover:bg-gray-50 ${mappedToField ? 'bg-blue-50' : ''}`}>
+                                    <td className="px-3 py-2 whitespace-nowrap text-sm font-medium text-blue-600">
+                                      {sourceField}
+                                    </td>
+                                    <td className="px-3 py-2 text-sm text-gray-900">
+                                      {sourceValue !== undefined ? 
+                                        (typeof sourceValue === 'object' ? 
+                                          JSON.stringify(sourceValue).substring(0, 50) + (JSON.stringify(sourceValue).length > 50 ? '...' : '') : 
+                                          String(sourceValue)) : 
+                                        <span className="text-gray-400">undefined</span>}
+                                    </td>
+                                    <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-500">
+                                      {mappedToField ? 
+                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-green-500 inline" viewBox="0 0 20 20" fill="currentColor">
+                                          <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                                        </svg> : 
+                                        <span className="text-gray-400">—</span>}
+                                    </td>
+                                    <td className="px-3 py-2 whitespace-nowrap text-sm font-medium text-green-600">
+                                      {mappedToField || <span className="text-gray-400">Not mapped</span>}
+                                    </td>
+                                  </tr>
+                                );
+                              })}
+                              {sourceFields.length === 0 && (
+                                <tr>
+                                  <td colSpan={4} className="px-3 py-4 text-center text-sm text-gray-500">
+                                    No source fields available. Please check your data structure.
+                                  </td>
+                                </tr>
+                              )}
+                            </tbody>
+                          </table>
+                        </div>
+                        
+                        {/* Summary of mapped data */}
+                        {Object.keys(mappedData).length > 0 && (
+                          <div className="mt-4">
+                            <h5 className="text-sm font-medium text-gray-700 mb-2">Mapped Data Summary:</h5>
+                            <div className="bg-gray-50 p-3 rounded text-sm overflow-auto max-h-40 border border-gray-200">
+                              <pre>{JSON.stringify(mappedData, null, 2)}</pre>
+                            </div>
+                          </div>
+                        )}
                       </div>
                     )}
 

@@ -179,6 +179,9 @@ const SportDataMapper: React.FC<SportDataMapperProps> = ({ isOpen, onClose, stru
   // State for view mode (entity or global)
   const [viewMode, setViewMode] = useState<'entity' | 'global'>('entity');
   
+  // Add state for showing preview
+  const [showPreview, setShowPreview] = useState<boolean>(false);
+  
   // Get the notification context
   const { showNotification } = useNotification();
   
@@ -844,7 +847,7 @@ const SportDataMapper: React.FC<SportDataMapperProps> = ({ isOpen, onClose, stru
                           </button>
                           <button
                             type="button"
-                            className={`px-3 py-1 text-xs font-medium rounded-r-md ${
+                            className={`px-3 py-1 text-xs font-medium ${
                               viewMode === 'global'
                                 ? 'bg-indigo-600 text-white'
                                 : 'bg-white text-gray-700 hover:bg-gray-50 border border-gray-300'
@@ -852,6 +855,17 @@ const SportDataMapper: React.FC<SportDataMapperProps> = ({ isOpen, onClose, stru
                             onClick={() => setViewMode('global')}
                           >
                             Global View
+                          </button>
+                          <button
+                            type="button"
+                            className={`px-3 py-1 text-xs font-medium rounded-r-md ${
+                              showPreview
+                                ? 'bg-indigo-600 text-white'
+                                : 'bg-white text-gray-700 hover:bg-gray-50 border border-gray-300'
+                            }`}
+                            onClick={() => setShowPreview(!showPreview)}
+                          >
+                            {showPreview ? 'Hide Preview' : 'Show Preview'}
                           </button>
                         </div>
                       </div>
@@ -1081,7 +1095,7 @@ const SportDataMapper: React.FC<SportDataMapperProps> = ({ isOpen, onClose, stru
                     )}
 
                     {/* Preview of Mapped Data */}
-                    {viewMode === 'entity' && selectedEntityType && Object.keys(mappedData).length > 0 && (
+                    {viewMode === 'entity' && selectedEntityType && Object.keys(mappedData).length > 0 && showPreview && (
                       <div className="mt-4 border rounded-lg p-4">
                         <h4 className="font-medium text-gray-900 mb-3">Preview</h4>
                         <pre className="bg-gray-50 p-3 rounded text-sm overflow-auto max-h-40">

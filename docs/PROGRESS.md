@@ -25,6 +25,11 @@ SheetGPT is a full-stack application that combines AI-powered chat capabilities 
 - ✅ Admin functionality with database management capabilities
 
 #### Recent Improvements
+- ✅ Fixed Sports Database entity type handling
+  - Added support for both singular and plural entity types in the backend
+  - Resolved mismatch between frontend and backend entity type naming
+  - Fixed "Failed to load sports database" errors for Games, Stadiums, and other entities
+  - Added additional mappings for frontend entity types like 'broadcast' and 'production'
 - ✅ Fixed database cleaning functionality in admin panel
   - Implemented isolated database sessions for each operation
   - Added robust error handling and reporting
@@ -60,6 +65,7 @@ SheetGPT is a full-stack application that combines AI-powered chat capabilities 
 - ✅ Frontend components for sports data entry
 - ✅ Entity relationship handling
 - ✅ Export functionality UI implementation
+- ✅ Fixed entity type handling for all sports database sections
 
 ### In Progress
 
@@ -120,7 +126,60 @@ SheetGPT is a full-stack application that combines AI-powered chat capabilities 
 
 ## Recent Fixes
 
-1. **Database Cleaning Functionality**:
+1. **Field Name Mismatches Between Frontend and Backend**:
+   - Fixed field name mismatches between frontend interfaces and backend models that were causing errors when saving data to the database
+   - Updated entity interfaces in `SportsDatabaseService.ts` to align with backend models
+   - Added missing entity types: `GameBroadcast` and `LeagueExecutive`
+   - Updated field names to match database schema (e.g., `broadcast_company_id` instead of `company_id`)
+   - Added missing API endpoints in `api.ts` for new entities
+   - Restructured the `mapToDatabaseFieldNames` function in `SportDataMapper.tsx` to use entity-specific mappings
+   - Added special handling for `brand_relationship` entity type
+   - Updated `EntityType` definition and `ENTITY_TYPES` array to include new entity types
+   - Resolved error message "Error saving to database: [object Object], [object Object], [object Object]"
+
+2. **Stadium Data Import Validation Fix**:
+   - Fixed issues with stadium data not appearing in the database despite successful import messages
+   - Identified and resolved validation errors (422 Unprocessable Entity) during stadium creation
+   - Enhanced error handling to capture and display detailed validation error messages
+   - Added validation for required fields (name, city, country) with default values if missing
+   - Ensured proper data type formatting for numeric fields like capacity
+   - Implemented a clean stadium object creation process that only includes necessary fields
+   - Added comprehensive logging throughout the import process for better debugging
+   - Fixed the `enhancedMapToDatabaseFieldNames` function to properly handle stadium data
+   - Resolved issues with unexpected fields causing validation failures
+
+3. **Sports Database Entity Type Handling**:
+   - Fixed mismatch between frontend and backend entity type naming conventions
+   - Updated the `ENTITY_TYPES` dictionary in `sports_service.py` to include both singular and plural forms
+   - Added support for frontend entity types like 'broadcast' and 'production'
+   - Resolved "Failed to load sports database" errors for Games, Stadiums, and other entities
+   - Improved error handling in the entity retrieval process
+   - Fixed issues with the `/sports/entities/{entity_type}` endpoint
+
+4. **Enhanced Batch Import Process for Sports Data**:
+   - Implemented custom import logic to automatically handle entity relationships
+   - Added `lookupEntityIdByName` function to find or create stadiums and leagues during import
+   - Enhanced `enhancedMapToDatabaseFieldNames` function to handle name-to-UUID conversion for related entities
+   - Added automatic creation of stadiums with city and country information from the import data
+   - Fixed type errors in the SportDataMapper component
+   - Added explicit installation of uuid package and its type definitions in the Dockerfile
+   - Improved error handling during the batch import process
+   - Added validation for UUID formats and proper entity relationship mapping
+   - Resolved issues with missing stadium and league records during team imports
+
+5. **Improved SportDataMapper User Experience**:
+   - Added intelligent entity type recommendation based on source data fields
+   - Implemented visual indicators for valid and invalid entity types
+   - Added a guided walkthrough to help users through the data mapping process
+   - Greyed out entity types that are invalid for the current data set
+   - Added tooltips with contextual help for specific fields
+   - Enhanced drag and drop functionality with improved type safety
+   - Fixed issues with the field mapping interface
+   - Improved validation feedback for required fields
+   - Added step-by-step guidance for first-time users
+   - Enhanced visual feedback during the mapping process
+
+6. **Database Cleaning Functionality**:
    - Fixed transaction errors in the admin database cleaning functionality
    - Implemented isolated database sessions for each operation
    - Added robust error handling and detailed reporting
@@ -128,7 +187,7 @@ SheetGPT is a full-stack application that combines AI-powered chat capabilities 
    - Resolved issues with PostgreSQL's transaction management
    - Improved architecture to prevent cascading failures
 
-2. **SportDataMapper Improvements**: 
+7. **SportDataMapper Navigation Improvements**: 
    - Fixed navigation controls to always be visible regardless of record count
    - Enhanced styling with blue color scheme for better visibility
    - Fixed record loading to properly handle all records in structured data
@@ -143,14 +202,24 @@ SheetGPT is a full-stack application that combines AI-powered chat capabilities 
      - Ensuring consistent data structure with headers and rows before rendering
      - Adding detailed logging to track component rendering and data flow
 
-3. **UUID Handling**: Fixed issues with UUID handling in database models by using SQLUUID type
-4. **Import Path Resolution**: Updated import paths to reflect correct directory structure
-5. **Authentication Utility**: Created auth.py utility to provide get_current_user function
-6. **Column Resizing**: Enhanced with direct width updates during mouse movement
-7. **Grid Expansion**: Improved with dynamic height adjustment based on content
-8. **Data Transformation**: Added comprehensive logging and improved error handling
-9. **UI Button Styling**: Improved visibility and consistency of action buttons in MessageItem component
-10. **Admin Functionality**: Added admin role and database management capabilities
+8. **Model-Schema Alignment Fixes**:
+   - Fixed mismatches between database models and their corresponding schemas:
+     - Added missing `start_time` and `end_time` fields to the `GameBroadcast` model
+     - Added missing `production_company_id` field to the `GameBroadcastBase` and `GameBroadcastUpdate` schemas
+     - Renamed `title` field to `position` in the `LeagueExecutive` model to match schema
+     - Added missing `end_date` field to the `LeagueExecutive` model
+     - Updated service methods to handle these new fields correctly
+     - Improved validation in update methods using consistent `dict(exclude_unset=True)` approach
+     - Enhanced error handling for foreign key validations
+
+9. **UUID Handling**: Fixed issues with UUID handling in database models by using SQLUUID type
+10. **Import Path Resolution**: Updated import paths to reflect correct directory structure
+11. **Authentication Utility**: Created auth.py utility to provide get_current_user function
+12. **Column Resizing**: Enhanced with direct width updates during mouse movement
+13. **Grid Expansion**: Improved with dynamic height adjustment based on content
+14. **Data Transformation**: Added comprehensive logging and improved error handling
+15. **UI Button Styling**: Improved visibility and consistency of action buttons in MessageItem component
+16. **Admin Functionality**: Added admin role and database management capabilities
    - Added is_admin field to User model
    - Created Settings page with admin-only sections
    - Implemented database cleaning functionality for admins

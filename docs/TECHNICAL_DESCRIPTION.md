@@ -100,6 +100,173 @@ The SportDataMapper component is designed to map structured data from conversati
    - Added visual indicators to distinguish between test and real data
    - Implemented comprehensive logging for debugging
 
+5. **Record Exclusion**: Allows users to exclude specific records from import
+6. **Batch Import**: Supports importing multiple records at once
+7. **Field Validation**: Validates mapped fields before saving to database
+
+#### Enhanced Batch Import Process
+
+The batch import process has been enhanced to handle entity relationships automatically, particularly for sports data that contains references to leagues, stadiums, teams, and other entities. Key technical aspects include:
+
+1. **Entity Lookup and Creation**:
+   - Implemented `lookupEntityIdByName` function to find entities by name or create them if they don't exist
+   - Supports automatic creation of stadiums and leagues during the import process
+   - Extracts city and country information from the current record for stadium creation
+   - Returns valid UUIDs for use in related entity references
+
+```tsx
+const lookupEntityIdByName = async (entityType: string, name: string | null): Promise<string | null> => {
+  if (!name) return null;
+  
+  try {
+    // First, try to find the entity by name
+    const entities: any[] = await api.sports.getEntities(entityType);
+    const entity = entities.find(e => e.name && e.name.toLowerCase() === name.toLowerCase());
+    
+    if (entity) {
+      console.log(`Found existing ${entityType} "${name}" with ID: ${entity.id}`);
+      return entity.id;
+    }
+    
+    // If not found, create a new entity (for supported types)
+    if (entityType === 'stadium' && name) {
+      // Extract city and country from current record
+      const recordIndex = currentRecordIndex || 0;
+      const item = dataToImport[recordIndex];
+      
+      const currentEntityType = selectedEntityType || '';
+      const cityField = Object.entries(mappingsByEntityType[currentEntityType] || {})
+        .find(([_, target]) => target === 'city')?.[0];
+      const countryField = Object.entries(mappingsByEntityType[currentEntityType] || {})
+        .find(([_, target]) => target === 'country')?.[0];
+      
+      const city = cityField && item && item[cityField] ? item[cityField] : 'Unknown';
+      const country = countryField && item && item[countryField] ? item[countryField] : 'Unknown';
+      
+      // Create new stadium with extracted information
+      const newStadium = await api.sports.createStadium({
+        name,
+        city,
+        country
+      });
+      
+      return newStadium.id;
+    }
+    
+    // Similar logic for leagues and other entity types
+    // ...
+    
+  } catch (error) {
+    console.error(`Error looking up ${entityType} "${name}":`, error);
+    return null;
+  }
+  
+  return null;
+};
+```
+
+2. **Enhanced Field Mapping**:
+   - Extended `enhancedMapToDatabaseFieldNames` function to handle name-to-UUID conversion
+   - Processes entity references based on the selected entity type
+   - Supports team, player, and game entities with their specific relationships
+   - Validates UUID format and provides fallback mechanisms
+
+```tsx
+const enhancedMapToDatabaseFieldNames = async (
+  record: Record<string, any>,
+  entityType: string,
+  mappings: Record<string, string>
+): Promise<Record<string, any>> => {
+  // Basic mapping using the original function
+  const basicMapped = mapToDatabaseFieldNames(record, mappings);
+  
+  // For team entity, handle league and stadium lookups
+  if (entityType === 'team') {
+    // If league_id is not a UUID but looks like a name, look it up
+    if (basicMapped.league_id && !isValidUUID(basicMapped.league_id)) {
+      const leagueId = await lookupEntityIdByName('league', basicMapped.league_id);
+      if (leagueId) {
+        basicMapped.league_id = leagueId;
+      }
+    }
+    
+    // If stadium_id is not a UUID but looks like a name, look it up
+    if (basicMapped.stadium_id && !isValidUUID(basicMapped.stadium_id)) {
+      const stadiumId = await lookupEntityIdByName('stadium', basicMapped.stadium_id);
+      if (stadiumId) {
+        basicMapped.stadium_id = stadiumId;
+      }
+    }
+  }
+  
+  // Similar handling for player and game entities
+  // ...
+  
+  return basicMapped;
+};
+```
+
+3. **UUID Validation**:
+   - Added `isValidUUID` function to check if a string is a valid UUID
+   - Used to determine whether to perform entity lookup or use the provided value directly
+   - Follows RFC 4122 format validation
+
+```tsx
+const isValidUUID = (str: string): boolean => {
+  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+  return uuidRegex.test(str);
+};
+```
+
+4. **Batch Import Workflow**:
+   - Modified `handleBatchImport` function to use the enhanced mapping
+   - Added progress tracking and detailed error reporting
+   - Maintains a list of successful and failed imports
+   - Provides user feedback throughout the import process
+
+5. **Infrastructure Improvements**:
+   - Added explicit installation of the `uuid` package and its type definitions in the Dockerfile
+   - Ensured proper TypeScript typing for all functions and variables
+   - Implemented comprehensive error handling and logging
+
+This enhanced batch import process significantly improves the user experience by:
+- Eliminating the need to manually create stadiums and leagues before importing teams
+- Automatically handling entity relationships based on names instead of requiring UUIDs
+- Providing detailed feedback about the import process
+- Maintaining data integrity through proper validation and error handling
+
+#### Data Processing
+
+The component handles different formats of structured data:
+
+1. **Array of Objects**: Each object represents a record with field-value pairs
+2. **Single Object**: A single record with field-value pairs
+3. **Headers and Rows**: Data with separate headers array and rows array
+
+```tsx
+// Extract source fields from structured data
+const extractSourceFields = (data: any) => {
+  if (!data) return;
+  
+  let fields: string[] = [];
+  
+  // Handle array of objects
+  if (Array.isArray(data) && data.length > 0) {
+    fields = Object.keys(data[0]);
+  } 
+  // Handle single object
+  else if (typeof data === 'object' && data !== null && !data.headers) {
+    fields = Object.keys(data);
+  }
+  // Handle data with headers and rows
+  else if (data.headers && Array.isArray(data.headers)) {
+    fields = data.headers;
+  }
+  
+  setSourceFields(fields);
+};
+```
+
 ### Database Transaction Management
 
 The application implements a robust approach to database transaction management, designed to handle complex operations while maintaining data integrity. The system provides two complementary methods for database access:
@@ -246,6 +413,30 @@ The sports database routes handle sports entity management:
 - `DELETE /api/v1/sports/teams/{team_id}`: Delete a team
 
 Similar endpoints exist for players, games, stadiums, broadcast companies, production companies, brands, and their relationships.
+
+#### Sports Database Model-Schema Alignment
+
+The Sports Database follows a consistent pattern for model-schema alignment:
+
+1. **Models**: Defined in `src/models/sports_models.py`, these SQLAlchemy models represent the database tables.
+   - Each model includes appropriate relationships to other models
+   - Fields use SQLAlchemy's `mapped_column` with appropriate types and constraints
+   - The `SQLUUID` type is used for UUID fields to ensure proper handling
+
+2. **Schemas**: Defined in `src/schemas/sports.py`, these Pydantic models handle API request/response validation.
+   - Each entity has four schema classes:
+     - `EntityBase`: Base fields common to create and response schemas
+     - `EntityCreate`: Used for creating new entities (extends Base)
+     - `EntityUpdate`: Used for updating entities (all fields optional)
+     - `EntityResponse`: Used for API responses (extends Base, adds id and timestamps)
+   - All datetime fields include validators to convert to ISO format strings
+
+3. **Service Methods**: Defined in `src/services/sports_service.py`, these methods handle CRUD operations.
+   - Each entity has methods for create, read, update, and delete operations
+   - Foreign key relationships are validated before operations
+   - Consistent error handling with SQLAlchemy transaction management
+
+The alignment between models and schemas is critical for proper functioning of the API. Any mismatches can cause validation errors or data inconsistencies.
 
 #### Export Routes
 
@@ -569,6 +760,135 @@ The sports database service handles sports entity management:
 
 Similar methods exist for teams, players, games, stadiums, broadcast companies, production companies, and brands.
 
+#### Sports Data Mapping Architecture
+
+##### Overview
+The sports data mapping system allows users to import data from various sources (CSV, Excel, JSON) and map it to the appropriate database fields before saving. This system bridges the gap between user-provided data and the structured database schema.
+
+##### Key Components
+
+###### 1. Entity Interfaces (SportsDatabaseService.ts)
+- Defines TypeScript interfaces for all entity types (League, Team, Player, etc.)
+- Each interface mirrors the corresponding backend model structure
+- Ensures type safety when working with entity data in the frontend
+
+###### 2. API Endpoints (api.ts)
+- Provides RESTful endpoints for CRUD operations on all entity types
+- Each entity type has dedicated endpoints for listing, creating, retrieving, updating, and deleting
+- Handles authentication and error formatting
+
+###### 3. Data Mapping (SportDataMapper.tsx)
+- Allows users to map source data fields to target database fields
+- Supports drag-and-drop field mapping
+- Handles batch import of multiple records
+- Transforms UI field names to database field names before saving
+
+###### 4. Field Name Mapping
+The system uses a two-step mapping process:
+1. **UI to Frontend Model**: Maps user-friendly field names (e.g., `league_name`) to frontend model field names (e.g., `name`)
+2. **Frontend to Backend**: Ensures frontend model field names match backend model field names
+
+##### Data Flow
+1. User uploads data (CSV, Excel, JSON)
+2. Data is parsed and displayed in the UI
+3. User maps source fields to target fields
+4. When saving, the `mapToDatabaseFieldNames` function transforms field names
+5. Data is sent to the appropriate API endpoint
+6. Backend validates and saves the data to the database
+
+##### Entity Types
+The system supports the following entity types:
+- League
+- Team
+- Player
+- Game
+- Stadium
+- Broadcast Rights
+- Production Service
+- Brand
+- Brand Relationship
+- Game Broadcast
+- League Executive
+
+Each entity type has its own set of fields and relationships, all of which are properly mapped between frontend and backend.
+
+#### Data Processing
+
+The component handles different formats of structured data:
+
+1. **Array of Objects**: Each object represents a record with field-value pairs
+2. **Single Object**: A single record with field-value pairs
+3. **Headers and Rows**: Data with separate headers array and rows array
+
+```tsx
+// Extract source fields from structured data
+const extractSourceFields = (data: any) => {
+  if (!data) return;
+  
+  let fields: string[] = [];
+  
+  // Handle array of objects
+  if (Array.isArray(data) && data.length > 0) {
+    fields = Object.keys(data[0]);
+  } 
+  // Handle single object
+  else if (typeof data === 'object' && data !== null && !data.headers) {
+    fields = Object.keys(data);
+  }
+  // Handle data with headers and rows
+  else if (data.headers && Array.isArray(data.headers)) {
+    fields = data.headers;
+  }
+  
+  setSourceFields(fields);
+};
+```
+
+#### Record Navigation
+
+The component provides controls for navigating through multiple records:
+
+```tsx
+// Function to navigate to the next record
+const goToNextRecord = () => {
+  if (currentRecordIndex < totalRecords - 1) {
+    setCurrentRecordIndex(currentRecordIndex + 1);
+  } else {
+    // Wrap around to the first record
+    setCurrentRecordIndex(0);
+  }
+};
+
+// Function to navigate to the previous record
+const goToPreviousRecord = () => {
+  if (currentRecordIndex > 0) {
+    setCurrentRecordIndex(currentRecordIndex - 1);
+  } else {
+    // Wrap around to the last record
+    setCurrentRecordIndex(totalRecords - 1);
+  }
+};
+```
+
+#### Recent Improvements
+
+1. **Enhanced Navigation Controls**:
+   - Navigation controls are now always visible regardless of record count
+   - Improved styling with blue color scheme for better visibility
+   - Enhanced button styling with hover effects and shadows
+   - Increased size of navigation icons for better usability
+
+2. **Improved Record Handling**:
+   - Fixed record loading to properly handle all records in structured data
+   - Enhanced `getFieldValue` function to correctly retrieve values from different data formats
+   - Added logging to track record access and data processing
+
+3. **UI Enhancements**:
+   - Increased spacing between elements for better readability
+   - Added shadow effects to buttons for better visibility
+   - Updated color scheme to use blue tones for better visual hierarchy
+   - Improved font sizes and weights for better readability
+
 ### Contexts
 
 #### Authentication Context
@@ -774,6 +1094,45 @@ The sports database implements a comprehensive schema for sports entities:
 11. **BrandRelationship**: Represents the relationship between a brand and a sports entity
     - Properties: name, brand_id, entity_type, entity_id, relationship_type, start_date, end_date, value, description
     - Relationships: brand (many-to-one)
+
+12. **GameBroadcast**: Represents the broadcast of a specific game
+    - Properties: game_id, broadcast_company_id, name, broadcast_date, broadcast_time, description
+    - Relationships: game (many-to-one), broadcast_company (many-to-one)
+
+13. **LeagueExecutive**: Represents an executive of a league
+    - Properties: league_id, first_name, last_name, position, start_date, end_date, description
+    - Relationships: league (many-to-one)
+
+### Entity Type Handling
+
+The sports database implements a centralized entity type management system:
+
+1. **ENTITY_TYPES Dictionary**: A mapping in the `sports_service.py` file that defines all valid entity types:
+   ```python
+   ENTITY_TYPES = {
+       "leagues": League,
+       "teams": Team,
+       "players": Player,
+       "games": Game,
+       "stadiums": Stadium,
+       "broadcast_companies": BroadcastCompany,
+       "broadcast_rights": BroadcastRights,
+       "production_companies": ProductionCompany,
+       "production_services": ProductionService,
+       "brands": Brand,
+       "brand_relationships": BrandRelationship,
+       "game_broadcasts": GameBroadcast,
+       "league_executives": LeagueExecutive
+   }
+   ```
+
+2. **Entity Type Validation**: The backend validates entity types against this dictionary to ensure only supported types are processed.
+
+3. **Frontend-Backend Synchronization**: The frontend's `SportsDatabaseService.ts` makes API calls to retrieve entities of specific types, which must match the backend's supported types.
+
+4. **Error Handling**: When an invalid entity type is requested, the backend returns a clear error message (`ValueError: Invalid entity type: {entity_type}`), which is then handled by the frontend.
+
+5. **Asynchronous Database Operations**: All entity operations use `AsyncSession` to ensure non-blocking database interactions, improving performance and responsiveness.
 
 ### Field Mapping and Validation
 
@@ -1109,117 +1468,72 @@ The data handling system in SheetGPT is designed to provide a universal approach
 
 ### SportDataMapper Component
 
-The SportDataMapper component is a complex React component that allows users to map structured data to sports database entities. It provides a drag-and-drop interface for mapping source fields to target database fields.
+The SportDataMapper component is a complex UI element that allows users to map structured data to sports database entities. It takes data that contains references to leagues, stadiums, teams, and other entities. Key technical aspects include:
 
-#### Component Structure
+- Drag-and-drop interface for mapping source fields to target database fields
+- Validation of required fields for each entity type
+- Supports automatic creation of stadiums and leagues during the import process
+- Extracts city and country information from the current record for stadium creation
+- Batch import functionality for processing multiple records at once
 
-```tsx
-interface SportDataMapperProps {
-  isOpen: boolean;
-  onClose: () => void;
-  structuredData: any;
+#### Stadium Data Validation and Import
+
+The stadium data import process includes several validation and data formatting steps to ensure that the data meets the backend API requirements:
+
+1. **Required Field Validation**: Checks for required fields (name, city, country) and provides default values if they are missing:
+   ```typescript
+   if (!databaseItem.name) {
+     databaseItem.name = `Stadium ${i+1}`;
+   }
+   
+   if (!databaseItem.city) {
+     databaseItem.city = 'Unknown City';
+   }
+   
+   if (!databaseItem.country) {
+     databaseItem.country = 'Unknown Country';
+   }
+   ```
+
+2. **Data Type Formatting**: Ensures that numeric fields like `capacity` are properly formatted:
+   ```typescript
+   if (databaseItem.capacity !== undefined && databaseItem.capacity !== null) {
+     databaseItem.capacity = Number(databaseItem.capacity) || null;
+   }
+   ```
+
+3. **Clean Data Object Creation**: Creates a clean stadium object with only the necessary fields in the correct format:
+   ```typescript
+   const cleanStadium = {
+     name: databaseItem.name || `Stadium ${i+1}`,
+     city: databaseItem.city || 'Unknown City',
+     country: databaseItem.country || 'Unknown Country',
+     ...(databaseItem.state && { state: databaseItem.state }),
+     ...(databaseItem.capacity && { capacity: Number(databaseItem.capacity) || null }),
+     ...(databaseItem.owner && { owner: databaseItem.owner }),
+     ...(databaseItem.naming_rights_holder && { naming_rights_holder: databaseItem.naming_rights_holder }),
+     ...(databaseItem.host_broadcaster_id && { host_broadcaster_id: databaseItem.host_broadcaster_id })
+   };
+   ```
+
+4. **Enhanced Error Handling**: Captures and displays detailed validation error messages:
+   ```typescript
+   if (response.status === 422) {
+     const validationErrors = await response.json();
+     console.error('Validation errors:', validationErrors);
+   }
+   ```
+
+This validation process ensures that the stadium data meets all the requirements of the backend API, allowing the stadium records to be successfully created and stored in the database.
+
+#### Entity Lookup and Creation
+
+The component includes a `lookupEntityIdByName` function that can find or create entities by name:
+
+```typescript
+const lookupEntityIdByName = async (entityType: string, name: string): Promise<string | null> => {
+  // ... existing code ...
 }
-
-const SportDataMapper: React.FC<SportDataMapperProps> = ({ isOpen, onClose, structuredData }) => {
-  // State management
-  const [selectedEntityType, setSelectedEntityType] = useState<EntityType | null>('team');
-  const [sourceFields, setSourceFields] = useState<string[]>([]);
-  const [entityFields, setEntityFields] = useState<string[]>([]);
-  const [mappingsByEntityType, setMappingsByEntityType] = useState<Record<string, Record<string, string>>>({});
-  const [currentRecordIndex, setCurrentRecordIndex] = useState(0);
-  const [totalRecords, setTotalRecords] = useState<number>(0);
-  const [dataToImport, setDataToImport] = useState<any[]>([]);
-  // Additional state variables...
-
-  // Component logic and rendering...
-}
 ```
-
-#### Key Features
-
-1. **Entity Type Selection**: Users can select from multiple entity types (league, team, player, etc.)
-2. **Source Field Extraction**: Automatically extracts fields from structured data
-3. **Drag-and-Drop Mapping**: Allows users to map source fields to target database fields
-4. **Record Navigation**: Provides controls to navigate through multiple records
-5. **Record Exclusion**: Allows users to exclude specific records from import
-6. **Batch Import**: Supports importing multiple records at once
-7. **Field Validation**: Validates mapped fields before saving to database
-
-#### Data Processing
-
-The component handles different formats of structured data:
-
-1. **Array of Objects**: Each object represents a record with field-value pairs
-2. **Single Object**: A single record with field-value pairs
-3. **Headers and Rows**: Data with separate headers array and rows array
-
-```tsx
-// Extract source fields from structured data
-const extractSourceFields = (data: any) => {
-  if (!data) return;
-  
-  let fields: string[] = [];
-  
-  // Handle array of objects
-  if (Array.isArray(data) && data.length > 0) {
-    fields = Object.keys(data[0]);
-  } 
-  // Handle single object
-  else if (typeof data === 'object' && data !== null && !data.headers) {
-    fields = Object.keys(data);
-  }
-  // Handle data with headers and rows
-  else if (data.headers && Array.isArray(data.headers)) {
-    fields = data.headers;
-  }
-  
-  setSourceFields(fields);
-};
-```
-
-#### Record Navigation
-
-The component provides controls for navigating through multiple records:
-
-```tsx
-// Function to navigate to the next record
-const goToNextRecord = () => {
-  if (currentRecordIndex < totalRecords - 1) {
-    setCurrentRecordIndex(currentRecordIndex + 1);
-  } else {
-    // Wrap around to the first record
-    setCurrentRecordIndex(0);
-  }
-};
-
-// Function to navigate to the previous record
-const goToPreviousRecord = () => {
-  if (currentRecordIndex > 0) {
-    setCurrentRecordIndex(currentRecordIndex - 1);
-  } else {
-    // Wrap around to the last record
-    setCurrentRecordIndex(totalRecords - 1);
-  }
-};
-```
-
-#### Recent Improvements
-
-1. **Enhanced Navigation Controls**:
-   - Navigation controls are now always visible regardless of record count
-   - Improved styling with blue color scheme for better visibility
-   - Enhanced button styling with hover effects and shadows
-   - Increased size of navigation icons for better usability
-
-2. **Improved Record Handling**:
-   - Fixed record loading to properly handle all records in structured data
-   - Enhanced `getFieldValue` function to correctly retrieve values from different data formats
-   - Added logging to track record access and data processing
-
-3. **UI Enhancements**:
-   - Increased spacing between elements for better readability
-   - Added shadow effects to buttons for better visibility
-   - Updated color scheme to use blue tones for better visual hierarchy
-   - Improved font sizes and weights for better readability
 
 // ... rest of the document ...

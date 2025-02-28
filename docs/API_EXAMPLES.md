@@ -18,7 +18,7 @@ Response (201 Created):
 {
     "email": "user@example.com",
     "is_active": true,
-    "is_superuser": false
+    "is_admin": false
 }
 ```
 
@@ -53,7 +53,7 @@ Response (200 OK):
 {
     "email": "user@example.com",
     "is_active": true,
-    "is_superuser": false
+    "is_admin": false
 }
 ```
 
@@ -202,52 +202,314 @@ Response (200 OK):
 }
 ```
 
-## Error Responses
+## Sports Database Endpoints
 
-### 1. Authentication Error
+### 1. Get Leagues
+```http
+GET /api/v1/sports/leagues
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+```
+
+Response (200 OK):
 ```json
+[
+    {
+        "id": "123e4567-e89b-12d3-a456-426614174000",
+        "name": "National Football League",
+        "sport": "Football",
+        "country": "United States",
+        "founded_year": 1920,
+        "description": "Professional American football league"
+    },
+    {
+        "id": "223e4567-e89b-12d3-a456-426614174001",
+        "name": "National Basketball Association",
+        "sport": "Basketball",
+        "country": "United States",
+        "founded_year": 1946,
+        "description": "Professional basketball league"
+    }
+]
+```
+
+### 2. Create League
+```http
+POST /api/v1/sports/leagues
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+Content-Type: application/json
+
 {
-    "detail": "Could not validate credentials"
+    "name": "Major League Soccer",
+    "sport": "Soccer",
+    "country": "United States",
+    "founded_year": 1993,
+    "description": "Professional soccer league in the US and Canada"
 }
 ```
 
-### 2. Not Found Error
+Response (201 Created):
 ```json
 {
-    "detail": "Conversation not found"
+    "id": "323e4567-e89b-12d3-a456-426614174002",
+    "name": "Major League Soccer",
+    "sport": "Soccer",
+    "country": "United States",
+    "founded_year": 1993,
+    "description": "Professional soccer league in the US and Canada"
 }
 ```
 
-### 3. Permission Error
-```json
-{
-    "detail": "Not authorized to access this conversation"
-}
+### 3. Get Teams by League
+```http
+GET /api/v1/sports/teams?league_id=123e4567-e89b-12d3-a456-426614174000
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
 ```
 
-### 4. Validation Error
+Response (200 OK):
 ```json
+[
+    {
+        "id": "423e4567-e89b-12d3-a456-426614174003",
+        "name": "Kansas City Chiefs",
+        "league_id": "123e4567-e89b-12d3-a456-426614174000",
+        "city": "Kansas City",
+        "state": "Missouri",
+        "country": "United States",
+        "stadium_id": "523e4567-e89b-12d3-a456-426614174004",
+        "founded_year": 1960,
+        "logo_url": "https://example.com/chiefs_logo.png",
+        "primary_color": "#E31837",
+        "secondary_color": "#FFB81C"
+    },
+    {
+        "id": "623e4567-e89b-12d3-a456-426614174005",
+        "name": "San Francisco 49ers",
+        "league_id": "123e4567-e89b-12d3-a456-426614174000",
+        "city": "San Francisco",
+        "state": "California",
+        "country": "United States",
+        "stadium_id": "723e4567-e89b-12d3-a456-426614174006",
+        "founded_year": 1946,
+        "logo_url": "https://example.com/49ers_logo.png",
+        "primary_color": "#AA0000",
+        "secondary_color": "#B3995D"
+    }
+]
+```
+
+### 4. Batch Import Teams
+```http
+POST /api/v1/sports/batch/import
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+Content-Type: application/json
+
 {
-    "detail": [
+    "entity_type": "team",
+    "data": [
         {
-            "loc": ["body", "title"],
-            "msg": "field required",
-            "type": "value_error.missing"
+            "name": "Seattle Seahawks",
+            "league_name": "National Football League",
+            "city": "Seattle",
+            "state": "Washington",
+            "country": "United States",
+            "stadium_name": "Lumen Field",
+            "founded_year": 1974,
+            "primary_color": "#002244",
+            "secondary_color": "#69BE28"
+        },
+        {
+            "name": "Los Angeles Rams",
+            "league_name": "National Football League",
+            "city": "Los Angeles",
+            "state": "California",
+            "country": "United States",
+            "stadium_name": "SoFi Stadium",
+            "founded_year": 1936,
+            "primary_color": "#003594",
+            "secondary_color": "#FFA300"
         }
     ]
 }
 ```
 
-## Google Sheets Integration
+Response (200 OK):
+```json
+{
+    "success_count": 2,
+    "error_count": 0,
+    "errors": [],
+    "created_entities": [
+        {
+            "id": "823e4567-e89b-12d3-a456-426614174007",
+            "name": "Seattle Seahawks",
+            "league_id": "123e4567-e89b-12d3-a456-426614174000",
+            "city": "Seattle",
+            "state": "Washington",
+            "country": "United States",
+            "stadium_id": "923e4567-e89b-12d3-a456-426614174008",
+            "founded_year": 1974,
+            "primary_color": "#002244",
+            "secondary_color": "#69BE28"
+        },
+        {
+            "id": "a23e4567-e89b-12d3-a456-426614174009",
+            "name": "Los Angeles Rams",
+            "league_id": "123e4567-e89b-12d3-a456-426614174000",
+            "city": "Los Angeles",
+            "state": "California",
+            "country": "United States",
+            "stadium_id": "b23e4567-e89b-12d3-a456-426614174010",
+            "founded_year": 1936,
+            "primary_color": "#003594",
+            "secondary_color": "#FFA300"
+        }
+    ]
+}
+```
 
-### 1. Start OAuth Flow
+### 5. Get Available Fields for Entity Type
+```http
+GET /api/v1/sports/fields/team
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+```
+
+Response (200 OK):
+```json
+{
+    "fields": [
+        {
+            "name": "name",
+            "type": "string",
+            "required": true,
+            "description": "Team name"
+        },
+        {
+            "name": "league_id",
+            "type": "uuid",
+            "required": true,
+            "description": "League ID",
+            "relationship": true,
+            "entity_type": "league"
+        },
+        {
+            "name": "city",
+            "type": "string",
+            "required": true,
+            "description": "City where the team is based"
+        },
+        {
+            "name": "state",
+            "type": "string",
+            "required": false,
+            "description": "State/province where the team is based"
+        },
+        {
+            "name": "country",
+            "type": "string",
+            "required": true,
+            "description": "Country where the team is based"
+        },
+        {
+            "name": "stadium_id",
+            "type": "uuid",
+            "required": false,
+            "description": "Stadium ID",
+            "relationship": true,
+            "entity_type": "stadium"
+        },
+        {
+            "name": "founded_year",
+            "type": "integer",
+            "required": false,
+            "description": "Year the team was founded"
+        },
+        {
+            "name": "logo_url",
+            "type": "string",
+            "required": false,
+            "description": "URL to the team's logo"
+        },
+        {
+            "name": "primary_color",
+            "type": "string",
+            "required": false,
+            "description": "Primary team color (hex code)"
+        },
+        {
+            "name": "secondary_color",
+            "type": "string",
+            "required": false,
+            "description": "Secondary team color (hex code)"
+        }
+    ]
+}
+```
+
+### 6. Validate Entity Data
+```http
+POST /api/v1/sports/validate/team
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+Content-Type: application/json
+
+{
+    "name": "Dallas Cowboys",
+    "league_name": "National Football League",
+    "city": "Dallas",
+    "state": "Texas",
+    "country": "United States",
+    "stadium_name": "AT&T Stadium",
+    "founded_year": 1960
+}
+```
+
+Response (200 OK):
+```json
+{
+    "is_valid": true,
+    "mapped_data": {
+        "name": "Dallas Cowboys",
+        "league_id": "123e4567-e89b-12d3-a456-426614174000",
+        "city": "Dallas",
+        "state": "Texas",
+        "country": "United States",
+        "stadium_id": "c23e4567-e89b-12d3-a456-426614174011",
+        "founded_year": 1960
+    },
+    "errors": []
+}
+```
+
+## Export Service Endpoints
+
+### 1. Get Export Preview
+```http
+GET /api/v1/export/preview/123e4567-e89b-12d3-a456-426614174012?template_name=default
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+```
+
+Response (200 OK):
+```json
+{
+    "columns": ["Team", "City", "State", "Founded Year"],
+    "sampleData": [
+        ["Kansas City Chiefs", "Kansas City", "Missouri", 1960],
+        ["San Francisco 49ers", "San Francisco", "California", 1946],
+        ["Seattle Seahawks", "Seattle", "Washington", 1974],
+        ["Los Angeles Rams", "Los Angeles", "California", 1936],
+        ["Dallas Cowboys", "Dallas", "Texas", 1960]
+    ]
+}
+```
+
+### 2. Start Google OAuth Flow
 ```http
 GET /api/v1/export/auth/google
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
 ```
 
 Response: Redirects to Google OAuth consent screen
 
-### 2. OAuth Callback
+### 3. OAuth Callback
 ```http
 GET /api/v1/export/auth/callback?code={auth_code}
 ```
@@ -260,47 +522,53 @@ Response (200 OK):
 }
 ```
 
-### 3. Check Authorization Status
+### 4. Check Authorization Status
 ```http
 GET /api/v1/export/auth/status
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
 ```
 
 Response (200 OK):
 ```json
 {
-    "is_authorized": true
+    "authenticated": true
 }
 ```
 
-### 4. Create New Spreadsheet
+### 5. Create New Spreadsheet
 ```http
 POST /api/v1/export/sheets
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
 Content-Type: application/json
 
 {
-    "title": "Test Spreadsheet"
+    "title": "NFL Teams",
+    "template_name": "sports_teams",
+    "data_id": "123e4567-e89b-12d3-a456-426614174012"
 }
 ```
 
 Response (200 OK):
 ```json
 {
-    "status": "success",
     "spreadsheet_id": "1Xpfp4pRCC-6R_HlnXA7bQqrGbusi6q4gUUG93WJQqio",
-    "message": "Spreadsheet 'Test Spreadsheet' created successfully"
+    "title": "NFL Teams",
+    "template": "sports_teams",
+    "url": "https://docs.google.com/spreadsheets/d/1Xpfp4pRCC-6R_HlnXA7bQqrGbusi6q4gUUG93WJQqio/edit"
 }
 ```
 
-### 5. Update Spreadsheet Values
+### 6. Update Spreadsheet Values
 ```http
-PUT /api/v1/export/sheets/{spreadsheet_id}
+PUT /api/v1/export/sheets/1Xpfp4pRCC-6R_HlnXA7bQqrGbusi6q4gUUG93WJQqio
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
 Content-Type: application/json
 
 {
     "range": "Sheet1!A1:B2",
     "values": [
-        ["Name", "Value"],
-        ["Test", "123"]
+        ["Team", "Founded Year"],
+        ["Green Bay Packers", 1919]
     ]
 }
 ```
@@ -313,9 +581,10 @@ Response (200 OK):
 }
 ```
 
-### 6. Read Spreadsheet Values
+### 7. Read Spreadsheet Values
 ```http
-GET /api/v1/export/sheets/{spreadsheet_id}/values/Sheet1!A1:B2
+GET /api/v1/export/sheets/1Xpfp4pRCC-6R_HlnXA7bQqrGbusi6q4gUUG93WJQqio/values/Sheet1!A1:B2
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
 ```
 
 Response (200 OK):
@@ -323,8 +592,8 @@ Response (200 OK):
 {
     "status": "success",
     "values": [
-        ["Name", "Value"],
-        ["Test", "123"]
+        ["Team", "Founded Year"],
+        ["Green Bay Packers", 1919]
     ]
 }
 ```
@@ -341,7 +610,7 @@ Response (200 OK):
 ```json
 [
     "default",
-    "sales_report",
+    "sports_teams",
     "financial_summary"
 ]
 ```
@@ -353,7 +622,7 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
 Content-Type: application/json
 
 {
-    "name": "sales_report",
+    "name": "sports_teams",
     "header": {
         "backgroundColor": {
             "red": 0.2,
@@ -399,46 +668,19 @@ Response (200 OK):
 ```json
 {
     "status": "success",
-    "message": "Template 'sales_report' created successfully"
+    "message": "Template 'sports_teams' created successfully"
 }
 ```
 
-### 3. Create Spreadsheet with Template
+### 3. Apply Template to Existing Spreadsheet
 ```http
-POST /api/v1/export/sheets
+POST /api/v1/export/sheets/1Xpfp4pRCC-6R_HlnXA7bQqrGbusi6q4gUUG93WJQqio/template
 Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
 Content-Type: application/json
 
 {
-    "title": "Q1 2024 Sales Report",
-    "template_name": "sales_report",
-    "data": [
-        ["Product", "Units Sold", "Revenue"],
-        ["Product A", 100, 5000],
-        ["Product B", 150, 7500],
-        ["Product C", 200, 10000]
-    ]
-}
-```
-
-Response (200 OK):
-```json
-{
-    "spreadsheet_id": "1Xpfp4pRCC-6R_HlnXA7bQqrGbusi6q4gUUG93WJQqio",
-    "title": "Q1 2024 Sales Report",
-    "template": "sales_report"
-}
-```
-
-### 4. Apply Template to Existing Spreadsheet
-```http
-POST /api/v1/export/sheets/{spreadsheet_id}/template
-Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
-Content-Type: application/json
-
-{
-    "template_name": "sales_report",
-    "data_range": "A1:C4"
+    "template_name": "sports_teams",
+    "data_range": "A1:F20"
 }
 ```
 
@@ -446,7 +688,75 @@ Response (200 OK):
 ```json
 {
     "status": "success",
-    "message": "Template 'sales_report' applied successfully",
+    "message": "Template 'sports_teams' applied successfully",
     "spreadsheet_id": "1Xpfp4pRCC-6R_HlnXA7bQqrGbusi6q4gUUG93WJQqio"
 }
-``` 
+```
+
+## Admin Endpoints
+
+### 1. Clean Database
+```http
+POST /api/v1/admin/clean-database
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+Content-Type: application/json
+
+{
+    "preserve_users": true,
+    "tables": ["structured_data", "sports_entities"]
+}
+```
+
+Response (200 OK):
+```json
+{
+    "success": true,
+    "results": {
+        "structured_data": "Success",
+        "sports_entities": "Success"
+    },
+    "message": "Database cleaned successfully"
+}
+```
+
+## Error Responses
+
+### 1. Authentication Error
+```json
+{
+    "detail": "Could not validate credentials"
+}
+```
+
+### 2. Not Found Error
+```json
+{
+    "detail": "Resource not found"
+}
+```
+
+### 3. Permission Error
+```json
+{
+    "detail": "Not authorized to access this resource"
+}
+```
+
+### 4. Validation Error
+```json
+{
+    "detail": [
+        {
+            "loc": ["body", "name"],
+            "msg": "field required",
+            "type": "value_error.missing"
+        }
+    ]
+}
+```
+
+### 5. Database Error
+```json
+{
+    "detail": "Database operation failed"
+} 

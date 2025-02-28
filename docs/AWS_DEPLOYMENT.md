@@ -1,5 +1,7 @@
 # AWS Deployment Guide
 
+> **Note**: This guide outlines a reference architecture for deploying SheetGPT to AWS. The project currently uses Docker Compose for local development, but this guide provides a blueprint for future production deployment to AWS.
+
 ## Architecture Overview
 
 ```
@@ -35,31 +37,31 @@
 
 ### 1. Frontend Hosting
 - **S3 + CloudFront**
-  - Static website hosting
-  - Global CDN distribution
-  - SSL/TLS encryption
-  - Custom domain support
+  - Static website hosting for React application
+  - Global CDN distribution for low-latency access
+  - SSL/TLS encryption for secure communication
+  - Custom domain support with Route 53 integration
 
 ### 2. Backend Services
 - **ECS (Elastic Container Service)**
-  - Docker container management
-  - Auto-scaling
-  - Load balancing
-  - Health monitoring
+  - Docker container management for FastAPI application
+  - Auto-scaling based on CPU/memory utilization
+  - Load balancing through Application Load Balancer
+  - Health monitoring and automatic container replacement
 
 ### 3. Database
 - **RDS (PostgreSQL)**
-  - Automated backups
-  - Multi-AZ deployment
-  - Encryption at rest
-  - Performance insights
+  - Managed PostgreSQL database for reliable data storage
+  - Automated backups with point-in-time recovery
+  - Multi-AZ deployment for high availability
+  - Encryption at rest for data security
 
 ### 4. Additional Services
-- **Route 53**: DNS management
-- **CloudWatch**: Monitoring and logging
-- **API Gateway**: API management
+- **Route 53**: DNS management with health checks
+- **CloudWatch**: Monitoring, logging, and alerting
+- **API Gateway**: API management and documentation
 - **ACM**: SSL certificate management
-- **Secrets Manager**: Credential management
+- **Secrets Manager**: Secure credential management
 
 ## Deployment Process
 
@@ -68,13 +70,17 @@
 ```bash
 # Install AWS CLI
 brew install awscli  # macOS
+apt-get install awscli  # Ubuntu/Debian
 aws configure        # Set up credentials
 
 # Install AWS CDK (if using Infrastructure as Code)
 npm install -g aws-cdk
+cdk bootstrap aws://ACCOUNT-NUMBER/REGION
 ```
 
 ### 2. Infrastructure Setup
+
+The AWS CDK can be used to define infrastructure as code:
 
 ```typescript
 // AWS CDK Infrastructure Code
@@ -83,32 +89,66 @@ import * as s3 from 'aws-cdk-lib/aws-s3';
 import * as cloudfront from 'aws-cdk-lib/aws-cloudfront';
 import * as ecs from 'aws-cdk-lib/aws-ecs';
 import * as rds from 'aws-cdk-lib/aws-rds';
+import * as ec2 from 'aws-cdk-lib/aws-ec2';
 
 export class SheetGPTStack extends cdk.Stack {
   constructor(scope: cdk.App, id: string, props?: cdk.StackProps) {
     super(scope, id, props);
 
+    // VPC for networking
+    const vpc = new ec2.Vpc(this, 'SheetGPTVpc', {
+      maxAzs: 2,
+      natGateways: 1
+    });
+
     // Frontend bucket
     const websiteBucket = new s3.Bucket(this, 'WebsiteBucket', {
       websiteIndexDocument: 'index.html',
       publicReadAccess: true,
+      removalPolicy: cdk.RemovalPolicy.DESTROY,
+      autoDeleteObjects: true
     });
 
     // CloudFront distribution
-    const distribution = new cloudfront.CloudFrontWebDistribution(/*...*/);
+    const distribution = new cloudfront.CloudFrontWebDistribution(this, 'Distribution', {
+      originConfigs: [
+        {
+          s3OriginSource: {
+            s3BucketSource: websiteBucket
+          },
+          behaviors: [{ isDefaultBehavior: true }]
+        }
+      ]
+    });
 
     // ECS Cluster
     const cluster = new ecs.Cluster(this, 'SheetGPTCluster', {
-      vpc: vpc,
+      vpc: vpc
     });
 
     // RDS Instance
-    const database = new rds.DatabaseInstance(/*...*/);
+    const database = new rds.DatabaseInstance(this, 'SheetGPTDatabase', {
+      engine: rds.DatabaseInstanceEngine.postgres({
+        version: rds.PostgresEngineVersion.VER_15
+      }),
+      instanceType: ec2.InstanceType.of(
+        ec2.InstanceClass.T3,
+        ec2.InstanceSize.SMALL
+      ),
+      vpc,
+      multiAz: true,
+      allocatedStorage: 20,
+      storageType: rds.StorageType.GP2,
+      databaseName: 'sheetgpt',
+      credentials: rds.Credentials.fromGeneratedSecret('postgres')
+    });
   }
 }
 ```
 
 ### 3. Environment Configuration
+
+Create environment-specific configuration files:
 
 ```yaml
 # config/production.yml
@@ -136,6 +176,8 @@ database:
 
 ### 4. CI/CD Pipeline
 
+Set up a GitHub Actions workflow for continuous deployment:
+
 ```yaml
 # .github/workflows/deploy.yml
 name: Deploy to AWS
@@ -147,10 +189,10 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
       
       - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v1
+        uses: aws-actions/configure-aws-credentials@v2
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
@@ -159,18 +201,28 @@ jobs:
       - name: Build and push Docker image
         run: |
           docker build -t sheetgpt .
-          aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin
+          aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin ${{ secrets.ECR_REGISTRY }}
           docker tag sheetgpt:latest ${{ secrets.ECR_REGISTRY }}/sheetgpt:latest
           docker push ${{ secrets.ECR_REGISTRY }}/sheetgpt:latest
 
       - name: Deploy to ECS
         run: |
           aws ecs update-service --cluster sheetgpt-cluster --service sheetgpt-service --force-new-deployment
+
+      - name: Build and deploy frontend
+        run: |
+          cd frontend
+          npm install
+          npm run build
+          aws s3 sync dist/ s3://${{ secrets.S3_BUCKET }} --delete
+          aws cloudfront create-invalidation --distribution-id ${{ secrets.CLOUDFRONT_DISTRIBUTION_ID }} --paths "/*"
 ```
 
 ## Security Configuration
 
 ### 1. IAM Roles and Policies
+
+Create least-privilege IAM roles for services:
 
 ```json
 {
@@ -180,7 +232,8 @@ jobs:
       "Effect": "Allow",
       "Action": [
         "s3:GetObject",
-        "s3:PutObject"
+        "s3:PutObject",
+        "s3:DeleteObject"
       ],
       "Resource": "arn:aws:s3:::sheetgpt-frontend/*"
     }
@@ -190,21 +243,29 @@ jobs:
 
 ### 2. Network Security
 
-- VPC configuration
-- Security groups
-- Network ACLs
-- SSL/TLS encryption
+Implement defense-in-depth security:
+
+- VPC with public and private subnets
+- Security groups with least-privilege access
+- Network ACLs for additional protection
+- SSL/TLS encryption for all traffic
+- WAF for protection against common web exploits
 
 ### 3. Application Security
 
-- JWT token validation
-- API key management
-- Rate limiting
-- Input validation
+Ensure application-level security:
+
+- JWT token validation with proper expiration
+- API key management for external services
+- Rate limiting to prevent abuse
+- Input validation to prevent injection attacks
+- CORS configuration for frontend access
 
 ## Monitoring and Logging
 
 ### 1. CloudWatch Configuration
+
+Set up comprehensive monitoring:
 
 ```yaml
 # monitoring/cloudwatch.yml
@@ -227,18 +288,23 @@ alarms:
     threshold: 80
     period: 300
     evaluation_periods: 2
+    alarm_actions:
+      - arn:aws:sns:us-east-1:123456789012:alerts
 ```
 
 ### 2. Health Checks
 
+Implement robust health checks:
+
 ```typescript
 // health/checks.ts
 export const healthConfig = {
-  path: '/health',
+  path: '/api/v1/health',
   interval: 30,
   timeout: 5,
   healthy_threshold: 2,
   unhealthy_threshold: 3,
+  success_codes: '200-299'
 };
 ```
 
@@ -255,6 +321,8 @@ export const healthConfig = {
 
 ### 2. Auto-scaling Configuration
 
+Implement cost-effective auto-scaling:
+
 ```yaml
 # scaling/auto-scaling.yml
 ecs:
@@ -266,7 +334,7 @@ ecs:
 
 rds:
   instance_class: db.t3.small
-  auto_pause: true
+  auto_pause: true  # For dev/test environments
   min_capacity: 2
   max_capacity: 8
 ```
@@ -275,9 +343,9 @@ rds:
 
 1. **Preparation**
    - Backup local database
-   - Test application in staging
-   - Update DNS records
-   - Configure SSL certificates
+   - Test application in staging environment
+   - Update DNS records with appropriate TTL
+   - Configure SSL certificates in ACM
 
 2. **Database Migration**
    ```bash
@@ -291,27 +359,31 @@ rds:
 3. **Application Deployment**
    ```bash
    # Deploy frontend
-   aws s3 sync build/ s3://sheetgpt-frontend
+   cd frontend
+   npm run build
+   aws s3 sync dist/ s3://sheetgpt-frontend --delete
    
    # Deploy backend
    aws ecs deploy sheetgpt-cluster sheetgpt-service
    ```
 
 4. **Verification**
-   - Health check endpoints
-   - Database connectivity
-   - API functionality
-   - Frontend loading
-   - SSL certificates
+   - Check health check endpoints
+   - Verify database connectivity
+   - Test API functionality
+   - Confirm frontend loading
+   - Validate SSL certificates
 
 ## Rollback Plan
+
+In case of deployment issues:
 
 ```bash
 # Revert ECS deployment
 aws ecs update-service --cluster sheetgpt-cluster --service sheetgpt-service --task-definition previous-task-def
 
 # Revert frontend
-aws s3 cp s3://sheetgpt-frontend-backup s3://sheetgpt-frontend --recursive
+aws s3 sync s3://sheetgpt-frontend-backup s3://sheetgpt-frontend --delete
 
 # Restore database
 aws rds restore-db-instance-from-db-snapshot --db-snapshot-identifier backup-snapshot
@@ -320,39 +392,43 @@ aws rds restore-db-instance-from-db-snapshot --db-snapshot-identifier backup-sna
 ## Future Considerations
 
 1. **Scaling**
-   - Multiple regions
-   - Read replicas
-   - Caching layer
-   - Content delivery optimization
+   - Deploy to multiple regions for global availability
+   - Implement read replicas for database scaling
+   - Add ElastiCache for caching frequently accessed data
+   - Optimize content delivery with CloudFront configurations
 
 2. **Monitoring**
-   - APM integration
-   - Error tracking
-   - User analytics
-   - Performance monitoring
+   - Implement Application Performance Monitoring (APM)
+   - Set up error tracking with Sentry or similar
+   - Add user analytics with Amplitude or Google Analytics
+   - Implement performance monitoring with custom dashboards
 
 3. **Security**
-   - WAF implementation
-   - DDoS protection
-   - Regular security audits
-   - Compliance monitoring
+   - Implement AWS WAF for enhanced protection
+   - Set up AWS Shield for DDoS protection
+   - Schedule regular security audits
+   - Implement compliance monitoring for regulatory requirements
 
 4. **Cost Management**
-   - Resource tagging
-   - Budget alerts
-   - Usage optimization
-   - Reserved instances
+   - Implement resource tagging for cost allocation
+   - Set up budget alerts for cost control
+   - Optimize resource usage based on metrics
+   - Consider reserved instances for predictable workloads
 
 ## Maintenance
 
 1. **Regular Tasks**
-   - Database backups
-   - Log rotation
-   - Certificate renewal
-   - Security updates
+   - Verify database backups weekly
+   - Implement log rotation and archiving
+   - Renew SSL certificates before expiration
+   - Apply security updates promptly
 
 2. **Emergency Procedures**
-   - Incident response
-   - Backup restoration
-   - Service recovery
-   - Communication plan 
+   - Document incident response procedures
+   - Test backup restoration quarterly
+   - Implement service recovery automation
+   - Establish communication plan for outages
+
+## Current Status
+
+> **Note**: This deployment guide is a reference for future AWS deployment. The project currently uses Docker Compose for local development as described in the [README.md](../README.md) file. When ready to deploy to AWS, this guide can be used as a starting point. 

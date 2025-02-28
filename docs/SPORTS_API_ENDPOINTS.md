@@ -1,96 +1,130 @@
 # Sports Database API Endpoints
 
-This document outlines the API endpoints required for the sports database functionality.
+This document outlines the API endpoints for the sports database functionality.
 
 ## Entity Management Endpoints
 
 ### Leagues
 
-- `GET /api/sports/leagues` - Get all leagues
-- `GET /api/sports/leagues/{id}` - Get a specific league by ID
-- `POST /api/sports/leagues` - Create a new league
-- `PUT /api/sports/leagues/{id}` - Update a league
-- `DELETE /api/sports/leagues/{id}` - Delete a league
-- `GET /api/sports/leagues/{id}/teams` - Get teams for a specific league
+- `GET /api/v1/sports/leagues` - Get all leagues
+- `GET /api/v1/sports/leagues/{league_id}` - Get a specific league by ID
+- `POST /api/v1/sports/leagues` - Create a new league
+- `PUT /api/v1/sports/leagues/{league_id}` - Update a league
+- `DELETE /api/v1/sports/leagues/{league_id}` - Delete a league
 
 ### Teams
 
-- `GET /api/sports/teams` - Get all teams
-- `GET /api/sports/teams/{id}` - Get a specific team by ID
-- `POST /api/sports/teams` - Create a new team
-- `PUT /api/sports/teams/{id}` - Update a team
-- `DELETE /api/sports/teams/{id}` - Delete a team
-- `GET /api/sports/teams/{id}/players` - Get players for a specific team
-- `GET /api/sports/teams/{id}/games` - Get games for a specific team
+- `GET /api/v1/sports/teams` - Get all teams
+- `GET /api/v1/sports/teams/{team_id}` - Get a specific team by ID
+- `POST /api/v1/sports/teams` - Create a new team
+- `PUT /api/v1/sports/teams/{team_id}` - Update a team
+- `DELETE /api/v1/sports/teams/{team_id}` - Delete a team
+- `GET /api/v1/sports/teams?league_id={league_id}` - Get teams for a specific league
 
 ### Players
 
-- `GET /api/sports/players` - Get all players
-- `GET /api/sports/players/{id}` - Get a specific player by ID
-- `POST /api/sports/players` - Create a new player
-- `PUT /api/sports/players/{id}` - Update a player
-- `DELETE /api/sports/players/{id}` - Delete a player
+- `GET /api/v1/sports/players` - Get all players
+- `GET /api/v1/sports/players/{player_id}` - Get a specific player by ID
+- `POST /api/v1/sports/players` - Create a new player
+- `PUT /api/v1/sports/players/{player_id}` - Update a player
+- `DELETE /api/v1/sports/players/{player_id}` - Delete a player
+- `GET /api/v1/sports/players?team_id={team_id}` - Get players for a specific team
 
 ### Games
 
-- `GET /api/sports/games` - Get all games
-- `GET /api/sports/games/{id}` - Get a specific game by ID
-- `POST /api/sports/games` - Create a new game
-- `PUT /api/sports/games/{id}` - Update a game
-- `DELETE /api/sports/games/{id}` - Delete a game
+- `GET /api/v1/sports/games` - Get all games
+- `GET /api/v1/sports/games/{game_id}` - Get a specific game by ID
+- `POST /api/v1/sports/games` - Create a new game
+- `PUT /api/v1/sports/games/{game_id}` - Update a game
+- `DELETE /api/v1/sports/games/{game_id}` - Delete a game
+- `GET /api/v1/sports/games?team_id={team_id}` - Get games for a specific team
+- `GET /api/v1/sports/games?league_id={league_id}` - Get games for a specific league
 
 ### Stadiums
 
-- `GET /api/sports/stadiums` - Get all stadiums
-- `GET /api/sports/stadiums/{id}` - Get a specific stadium by ID
-- `POST /api/sports/stadiums` - Create a new stadium
-- `PUT /api/sports/stadiums/{id}` - Update a stadium
-- `DELETE /api/sports/stadiums/{id}` - Delete a stadium
-- `GET /api/sports/stadiums/{id}/games` - Get games for a specific stadium
+- `GET /api/v1/sports/stadiums` - Get all stadiums
+- `GET /api/v1/sports/stadiums/{stadium_id}` - Get a specific stadium by ID
+- `POST /api/v1/sports/stadiums` - Create a new stadium
+- `PUT /api/v1/sports/stadiums/{stadium_id}` - Update a stadium
+- `DELETE /api/v1/sports/stadiums/{stadium_id}` - Delete a stadium
+
+### Broadcast Companies
+
+- `GET /api/v1/sports/broadcast-companies` - Get all broadcast companies
+- `GET /api/v1/sports/broadcast-companies/{id}` - Get a specific broadcast company by ID
+- `POST /api/v1/sports/broadcast-companies` - Create a new broadcast company
+- `PUT /api/v1/sports/broadcast-companies/{id}` - Update a broadcast company
+- `DELETE /api/v1/sports/broadcast-companies/{id}` - Delete a broadcast company
 
 ### Broadcast Rights
 
-- `GET /api/sports/broadcast` - Get all broadcast rights
-- `GET /api/sports/broadcast/{id}` - Get specific broadcast rights by ID
-- `POST /api/sports/broadcast` - Create new broadcast rights
-- `PUT /api/sports/broadcast/{id}` - Update broadcast rights
-- `DELETE /api/sports/broadcast/{id}` - Delete broadcast rights
+- `GET /api/v1/sports/broadcast-rights` - Get all broadcast rights
+- `GET /api/v1/sports/broadcast-rights/{id}` - Get specific broadcast rights by ID
+- `POST /api/v1/sports/broadcast-rights` - Create new broadcast rights
+- `PUT /api/v1/sports/broadcast-rights/{id}` - Update broadcast rights
+- `DELETE /api/v1/sports/broadcast-rights/{id}` - Delete broadcast rights
+
+### Production Companies
+
+- `GET /api/v1/sports/production-companies` - Get all production companies
+- `GET /api/v1/sports/production-companies/{id}` - Get a specific production company by ID
+- `POST /api/v1/sports/production-companies` - Create a new production company
+- `PUT /api/v1/sports/production-companies/{id}` - Update a production company
+- `DELETE /api/v1/sports/production-companies/{id}` - Delete a production company
 
 ### Production Services
 
-- `GET /api/sports/production` - Get all production services
-- `GET /api/sports/production/{id}` - Get a specific production service by ID
-- `POST /api/sports/production` - Create a new production service
-- `PUT /api/sports/production/{id}` - Update a production service
-- `DELETE /api/sports/production/{id}` - Delete a production service
+- `GET /api/v1/sports/production-services` - Get all production services
+- `GET /api/v1/sports/production-services/{id}` - Get a specific production service by ID
+- `POST /api/v1/sports/production-services` - Create a new production service
+- `PUT /api/v1/sports/production-services/{id}` - Update a production service
+- `DELETE /api/v1/sports/production-services/{id}` - Delete a production service
+
+### Brands
+
+- `GET /api/v1/sports/brands` - Get all brands
+- `GET /api/v1/sports/brands/{id}` - Get a specific brand by ID
+- `POST /api/v1/sports/brands` - Create a new brand
+- `PUT /api/v1/sports/brands/{id}` - Update a brand
+- `DELETE /api/v1/sports/brands/{id}` - Delete a brand
 
 ### Brand Relationships
 
-- `GET /api/sports/brand` - Get all brand relationships
-- `GET /api/sports/brand/{id}` - Get a specific brand relationship by ID
-- `POST /api/sports/brand` - Create a new brand relationship
-- `PUT /api/sports/brand/{id}` - Update a brand relationship
-- `DELETE /api/sports/brand/{id}` - Delete a brand relationship
+- `GET /api/v1/sports/brand-relationships` - Get all brand relationships
+- `GET /api/v1/sports/brand-relationships/{id}` - Get a specific brand relationship by ID
+- `POST /api/v1/sports/brand-relationships` - Create a new brand relationship
+- `PUT /api/v1/sports/brand-relationships/{id}` - Update a brand relationship
+- `DELETE /api/v1/sports/brand-relationships/{id}` - Delete a brand relationship
 
-## Query Endpoints
+## Generic Entity Endpoints
 
-- `GET /api/sports/entities/{type}` - Get entities of a specific type
-- `GET /api/sports/entities/{type}/with-relationships` - Get entities with their relationships
-- `GET /api/sports/search/{type}` - Search entities of a specific type
+- `GET /api/v1/sports/entities/{entity_type}` - Get entities of a specific type
+
+## Batch Import
+
+- `POST /api/v1/sports/batch/import` - Import multiple entities of the same type
+
+## Field Mapping and Validation
+
+- `GET /api/v1/sports/fields/{entity_type}` - Get available fields for an entity type
+- `POST /api/v1/sports/validate/{entity_type}` - Validate entity data without saving
 
 ## Export Endpoints
 
-- `POST /api/sports/export` - Export selected entities to Google Sheets
-- `GET /api/sports/export/templates` - Get available export templates
-- `POST /api/sports/export/preview` - Preview export data format
+- `POST /api/v1/export/sheets` - Export data to Google Sheets
+- `GET /api/v1/export/preview/{data_id}` - Preview export data format
+- `GET /api/v1/export/templates` - Get available export templates
 
 ## Request and Response Examples
 
 ### Create League
 
 **Request:**
-```json
-POST /api/sports/leagues
+```http
+POST /api/v1/sports/leagues
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+Content-Type: application/json
+
 {
   "name": "National Football League",
   "sport": "Football",
@@ -103,7 +137,7 @@ POST /api/sports/leagues
 **Response:**
 ```json
 {
-  "id": "league-123",
+  "id": "123e4567-e89b-12d3-a456-426614174000",
   "name": "National Football League",
   "sport": "Football",
   "country": "United States",
@@ -117,56 +151,217 @@ POST /api/sports/leagues
 ### Create Team
 
 **Request:**
-```json
-POST /api/sports/teams
+```http
+POST /api/v1/sports/teams
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+Content-Type: application/json
+
 {
   "name": "Dallas Cowboys",
   "city": "Dallas",
   "state": "Texas",
   "country": "United States",
   "founded_year": 1960,
-  "league_id": "league-123",
-  "stadium_id": "stadium-456"
+  "league_id": "123e4567-e89b-12d3-a456-426614174000",
+  "stadium_id": "523e4567-e89b-12d3-a456-426614174004"
 }
 ```
 
 **Response:**
 ```json
 {
-  "id": "team-789",
+  "id": "423e4567-e89b-12d3-a456-426614174003",
   "name": "Dallas Cowboys",
   "city": "Dallas",
   "state": "Texas",
   "country": "United States",
   "founded_year": 1960,
-  "league_id": "league-123",
-  "stadium_id": "stadium-456",
+  "league_id": "123e4567-e89b-12d3-a456-426614174000",
+  "stadium_id": "523e4567-e89b-12d3-a456-426614174004",
   "created_at": "2024-05-15T11:15:00Z",
   "updated_at": "2024-05-15T11:15:00Z"
 }
 ```
 
-### Export Entities
+### Batch Import Teams
 
 **Request:**
-```json
-POST /api/sports/export
+```http
+POST /api/v1/sports/batch/import
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+Content-Type: application/json
+
 {
   "entity_type": "team",
-  "entity_ids": ["team-789", "team-790", "team-791"],
-  "include_relationships": true,
-  "template_id": "team-roster-template",
-  "sheet_title": "NFL Teams 2024"
+  "data": [
+    {
+      "name": "Seattle Seahawks",
+      "league_name": "National Football League",
+      "city": "Seattle",
+      "state": "Washington",
+      "country": "United States",
+      "stadium_name": "Lumen Field",
+      "founded_year": 1974,
+      "primary_color": "#002244",
+      "secondary_color": "#69BE28"
+    },
+    {
+      "name": "Los Angeles Rams",
+      "league_name": "National Football League",
+      "city": "Los Angeles",
+      "state": "California",
+      "country": "United States",
+      "stadium_name": "SoFi Stadium",
+      "founded_year": 1936,
+      "primary_color": "#003594",
+      "secondary_color": "#FFA300"
+    }
+  ]
 }
 ```
 
 **Response:**
 ```json
 {
-  "export_id": "export-123",
-  "status": "processing",
-  "sheet_url": null,
-  "estimated_completion_time": "2024-05-15T11:20:00Z"
+  "success_count": 2,
+  "error_count": 0,
+  "errors": [],
+  "created_entities": [
+    {
+      "id": "823e4567-e89b-12d3-a456-426614174007",
+      "name": "Seattle Seahawks",
+      "league_id": "123e4567-e89b-12d3-a456-426614174000",
+      "city": "Seattle",
+      "state": "Washington",
+      "country": "United States",
+      "stadium_id": "923e4567-e89b-12d3-a456-426614174008",
+      "founded_year": 1974,
+      "primary_color": "#002244",
+      "secondary_color": "#69BE28"
+    },
+    {
+      "id": "a23e4567-e89b-12d3-a456-426614174009",
+      "name": "Los Angeles Rams",
+      "league_id": "123e4567-e89b-12d3-a456-426614174000",
+      "city": "Los Angeles",
+      "state": "California",
+      "country": "United States",
+      "stadium_id": "b23e4567-e89b-12d3-a456-426614174010",
+      "founded_year": 1936,
+      "primary_color": "#003594",
+      "secondary_color": "#FFA300"
+    }
+  ]
+}
+```
+
+### Get Available Fields for Entity Type
+
+**Request:**
+```http
+GET /api/v1/sports/fields/team
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+```
+
+**Response:**
+```json
+{
+  "fields": [
+    {
+      "name": "name",
+      "type": "string",
+      "required": true,
+      "description": "Team name"
+    },
+    {
+      "name": "league_id",
+      "type": "uuid",
+      "required": true,
+      "description": "League ID",
+      "relationship": true,
+      "entity_type": "league"
+    },
+    {
+      "name": "city",
+      "type": "string",
+      "required": true,
+      "description": "City where the team is based"
+    },
+    {
+      "name": "state",
+      "type": "string",
+      "required": false,
+      "description": "State/province where the team is based"
+    },
+    {
+      "name": "country",
+      "type": "string",
+      "required": true,
+      "description": "Country where the team is based"
+    },
+    {
+      "name": "stadium_id",
+      "type": "uuid",
+      "required": false,
+      "description": "Stadium ID",
+      "relationship": true,
+      "entity_type": "stadium"
+    },
+    {
+      "name": "founded_year",
+      "type": "integer",
+      "required": false,
+      "description": "Year the team was founded"
+    },
+    {
+      "name": "primary_color",
+      "type": "string",
+      "required": false,
+      "description": "Primary team color (hex code)"
+    },
+    {
+      "name": "secondary_color",
+      "type": "string",
+      "required": false,
+      "description": "Secondary team color (hex code)"
+    }
+  ]
+}
+```
+
+### Validate Entity Data
+
+**Request:**
+```http
+POST /api/v1/sports/validate/team
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+Content-Type: application/json
+
+{
+  "name": "Dallas Cowboys",
+  "league_name": "National Football League",
+  "city": "Dallas",
+  "state": "Texas",
+  "country": "United States",
+  "stadium_name": "AT&T Stadium",
+  "founded_year": 1960
+}
+```
+
+**Response:**
+```json
+{
+  "is_valid": true,
+  "mapped_data": {
+    "name": "Dallas Cowboys",
+    "league_id": "123e4567-e89b-12d3-a456-426614174000",
+    "city": "Dallas",
+    "state": "Texas",
+    "country": "United States",
+    "stadium_id": "c23e4567-e89b-12d3-a456-426614174011",
+    "founded_year": 1960
+  },
+  "errors": []
 }
 ```
 
@@ -175,39 +370,43 @@ POST /api/sports/export
 **Validation Error:**
 ```json
 {
-  "status_code": 400,
-  "error": "validation_error",
-  "message": "Validation failed",
-  "details": {
-    "name": ["This field is required"],
-    "founded_year": ["Value must be a positive integer"]
-  }
+  "detail": [
+    {
+      "loc": ["body", "name"],
+      "msg": "field required",
+      "type": "value_error.missing"
+    }
+  ]
 }
 ```
 
 **Not Found Error:**
 ```json
 {
-  "status_code": 404,
-  "error": "not_found",
-  "message": "Entity not found",
-  "details": {
-    "entity_id": "team-999",
-    "entity_type": "team"
-  }
+  "detail": "Resource not found"
 }
 ```
 
-**Relationship Error:**
+**Permission Error:**
 ```json
 {
-  "status_code": 400,
-  "error": "relationship_error",
-  "message": "Invalid relationship",
-  "details": {
-    "field": "league_id",
-    "value": "league-999",
-    "reason": "Referenced league does not exist"
-  }
+  "detail": "Not authorized to access this resource"
 }
-``` 
+```
+
+**Database Error:**
+```json
+{
+  "detail": "Database operation failed"
+}
+```
+
+## Authentication
+
+All endpoints require authentication using a JWT token in the Authorization header:
+
+```
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+```
+
+To obtain a token, use the `/api/v1/auth/login` endpoint with valid credentials. 

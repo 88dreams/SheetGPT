@@ -31,6 +31,7 @@ SheetGPT is a full-stack application that combines AI-powered chat capabilities 
   - Added comprehensive documentation for CI/CD process
   - Ensured tests run consistently across local and CI environments
   - Set up workflow triggers for main branch pushes and pull requests
+  - Added scheduled nightly tests with automatic issue creation for failures
 - ✅ Fixed Sports Database entity type handling
   - Added support for both singular and plural entity types in the backend
   - Resolved mismatch between frontend and backend entity type naming

@@ -27,6 +27,28 @@ The CI/CD pipeline is defined in `.github/workflows/ci-cd.yml` and consists of t
 4. **Run Tests**: Executes the test suite using Docker Compose
 5. **Check Test Results**: Verifies that all tests passed successfully
 
+## Scheduled Testing
+
+In addition to the CI/CD pipeline that runs on pushes and pull requests, we have a scheduled nightly test workflow defined in `.github/workflows/nightly-tests.yml`. This workflow:
+
+1. **Runs automatically at midnight UTC every day**
+2. **Can be triggered manually** using the GitHub Actions workflow_dispatch event
+3. **Generates a test report** that is uploaded as an artifact
+4. **Creates an issue automatically** if tests fail, to ensure visibility of test failures
+
+The nightly tests help catch issues that might have been introduced during development but weren't caught by the regular CI/CD pipeline, such as:
+
+- Integration issues between components
+- Time-dependent bugs
+- Performance regressions
+- Issues that only appear after extended use
+
+### Viewing Nightly Test Results
+
+You can view the results of nightly tests in the GitHub Actions tab of the repository. The test reports are uploaded as artifacts and can be downloaded for detailed inspection.
+
+If a nightly test fails, an issue will be automatically created in the repository with details about the failure, making it easy to track and address.
+
 ## Running Tests Locally
 
 To run the same tests locally that are executed in the CI/CD pipeline:

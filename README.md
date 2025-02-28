@@ -102,6 +102,7 @@ The project uses GitHub Actions for continuous integration and deployment. The C
 1. Run automatically on pushes to the main branch and pull requests
 2. Build and test the application in a Docker environment
 3. Verify that all tests pass before allowing merges to the main branch
+4. Run nightly tests automatically at midnight UTC to catch any regressions
 
 To monitor CI/CD workflow runs:
 

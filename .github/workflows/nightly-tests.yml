@@ -1,0 +1,64 @@
+name: SheetGPT Nightly Tests
+
+on:
+  schedule:
+    # Run at midnight UTC every day
+    - cron: '0 0 * * *'
+  # Allow manual triggering
+  workflow_dispatch:
+
+jobs:
+  nightly-test:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+    
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v2
+    
+    - name: Create network volume
+      run: docker volume create network-data || true
+    
+    - name: Run tests
+      run: |
+        chmod +x ./run-tests.sh
+        ./run-tests.sh
+      
+    - name: Check test results
+      id: test-results
+      run: |
+        if [ $? -ne 0 ]; then
+          echo "status=failure" >> $GITHUB_OUTPUT
+          echo "Tests failed!"
+        else
+          echo "status=success" >> $GITHUB_OUTPUT
+          echo "Tests passed!"
+        fi
+    
+    - name: Generate test report
+      run: |
+        echo "# Nightly Test Report" > test-report.md
+        echo "Run on: $(date)" >> test-report.md
+        echo "Status: ${{ steps.test-results.outputs.status }}" >> test-report.md
+        echo "Commit: ${{ github.sha }}" >> test-report.md
+    
+    - name: Upload test report
+      uses: actions/upload-artifact@v3
+      with:
+        name: test-report
+        path: test-report.md
+        
+    - name: Send notification on failure
+      if: steps.test-results.outputs.status == 'failure'
+      uses: actions/github-script@v6
+      with:
+        github-token: ${{ secrets.GITHUB_TOKEN }}
+        script: |
+          github.rest.issues.create({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            title: '❌ Nightly tests failed on ' + new Date().toISOString().split('T')[0],
+            body: 'Nightly tests failed on commit ' + context.sha + '. Please check the [workflow run](https://github.com/' + context.repo.owner + '/' + context.repo.repo + '/actions/runs/' + context.runId + ') for details.'
+          }) 

@@ -368,7 +368,7 @@ class SportsDatabaseService {
         case 'game':
           return await api.sports.getGames(filters?.league_id);
         case 'stadium':
-          return await api.sports.getStadiums(filters?.city);
+          return await api.sports.getStadiums();
         case 'broadcast':
           return await api.sports.getBroadcastRights(filters?.broadcast_company_id);
         case 'production':

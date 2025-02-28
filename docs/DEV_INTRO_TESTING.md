@@ -246,6 +246,47 @@ You can also run tests in a Docker container:
 
 This will build and run the frontend-test service defined in the docker-compose.yml file.
 
+### 3. CI/CD Integration
+
+The SheetGPT project uses GitHub Actions for continuous integration and deployment. Tests are automatically run in the CI/CD pipeline when code is pushed to the main branch or when a pull request is created.
+
+#### CI/CD Workflow
+
+The CI/CD workflow is defined in `.github/workflows/ci-cd.yml` and includes the following steps:
+
+1. **Checkout Code**: Retrieves the latest code from the repository
+2. **Set up Docker Buildx**: Prepares the Docker build environment
+3. **Create Network Volume**: Sets up a Docker volume for networking
+4. **Run Tests**: Executes the test suite using Docker Compose
+5. **Check Test Results**: Verifies that all tests passed successfully
+
+#### Monitoring CI/CD Runs
+
+You can monitor CI/CD workflow runs using the GitHub CLI:
+
+```bash
+# List recent workflow runs
+gh run list
+
+# View details of a specific run
+gh run view [run-id]
+
+# Watch a workflow run in real-time
+gh run watch [run-id]
+```
+
+Or through the GitHub web interface under the "Actions" tab of the repository.
+
+#### Troubleshooting CI/CD Issues
+
+If tests pass locally but fail in the CI/CD pipeline, check for:
+
+1. **Environment Differences**: Ensure your local Docker setup matches the CI environment
+2. **Dependency Issues**: Verify that all dependencies are correctly installed in the Docker image
+3. **Test Timing**: Some tests may be sensitive to timing issues in the CI environment
+
+For more detailed information about the CI/CD pipeline, see [CI/CD Pipeline](../docs/CI_CD_PIPELINE.md).
+
 ## Test File Structure
 
 Tests are organized in `__tests__` directories alongside the components they test:

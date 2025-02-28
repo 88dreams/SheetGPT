@@ -95,6 +95,29 @@ The test suite includes:
 
 All tests are automatically run in the CI/CD pipeline when code is pushed to the main branch or when a pull request is created.
 
+### CI/CD Pipeline
+
+The project uses GitHub Actions for continuous integration and deployment. The CI/CD pipeline is configured to:
+
+1. Run automatically on pushes to the main branch and pull requests
+2. Build and test the application in a Docker environment
+3. Verify that all tests pass before allowing merges to the main branch
+
+To monitor CI/CD workflow runs:
+
+```bash
+# List recent workflow runs
+gh run list
+
+# View details of a specific run
+gh run view [run-id]
+
+# Watch a workflow run in real-time
+gh run watch [run-id]
+```
+
+For more detailed information about the CI/CD pipeline, see [CI/CD Pipeline](docs/CI_CD_PIPELINE.md).
+
 ## Dependencies
 
 - Frontend: React, TypeScript, React Query, TailwindCSS

@@ -551,6 +551,56 @@ class SportsDatabaseService {
       throw error;
     }
   }
+
+  /**
+   * Delete a sports entity of the specified type
+   * @param entityType The type of entity to delete
+   * @param id The ID of the entity to delete
+   * @returns A promise that resolves when the entity is deleted
+   */
+  async deleteEntity(entityType: EntityType, id: string): Promise<void> {
+    try {
+      console.log(`Deleting ${entityType} with ID: ${id}`);
+      
+      switch (entityType) {
+        case 'league':
+          await api.sports.deleteLeague(id);
+          break;
+        case 'team':
+          await api.sports.deleteTeam(id);
+          break;
+        case 'player':
+          await api.sports.deletePlayer(id);
+          break;
+        case 'game':
+          await api.sports.deleteGame(id);
+          break;
+        case 'stadium':
+          await api.sports.deleteStadium(id);
+          break;
+        case 'broadcast':
+          await api.sports.deleteBroadcastRights(id);
+          break;
+        case 'production':
+          await api.sports.deleteProductionService(id);
+          break;
+        case 'brand':
+          await api.sports.deleteBrand(id);
+          break;
+        case 'game_broadcast':
+          await api.sports.deleteGameBroadcast(id);
+          break;
+        case 'league_executive':
+          await api.sports.deleteLeagueExecutive(id);
+          break;
+        default:
+          throw new Error(`Unsupported entity type for deletion: ${entityType}`);
+      }
+    } catch (error) {
+      console.error(`Error deleting ${entityType} with ID ${id}:`, error);
+      throw error;
+    }
+  }
 }
 
 // Create a singleton instance

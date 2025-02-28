@@ -30,6 +30,12 @@ SheetGPT is a full-stack application that combines AI-powered chat capabilities 
   - Resolved mismatch between frontend and backend entity type naming
   - Fixed "Failed to load sports database" errors for Games, Stadiums, and other entities
   - Added additional mappings for frontend entity types like 'broadcast' and 'production'
+- ✅ Enhanced SportsDatabase page with new features
+  - Added delete functionality for records in the Entity List
+  - Implemented a Global View similar to SportDataMapper for overview of all entity types
+  - Added confirmation dialog for entity deletion to prevent accidental deletions
+  - Improved UI with view mode selector for switching between Entity and Global views
+  - Added action buttons for each entity with delete and view details options
 - ✅ Fixed database cleaning functionality in admin panel
   - Implemented isolated database sessions for each operation
   - Added robust error handling and reporting

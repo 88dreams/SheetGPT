@@ -74,6 +74,34 @@ The sports database schema is designed to model the relationships between variou
 
 The models use UUID primary keys and define relationships using SQLAlchemy's relationship mechanism.
 
+#### SportsDatabase Page Features
+
+The SportsDatabase page provides a comprehensive interface for managing sports entities:
+
+1. **Entity Management**:
+   - View entities by type (leagues, teams, players, games, stadiums, etc.)
+   - Delete entities with confirmation dialog to prevent accidental deletions
+   - View entity details with relationships to other entities
+   - Export entities to Google Sheets for further analysis
+
+2. **View Modes**:
+   - **Entity View**: Displays a list of entities of the selected type with their details and relationships
+   - **Global View**: Provides an overview of all entity types with counts and last updated timestamps
+
+3. **Technical Implementation**:
+   - Uses React Query for data fetching with automatic refetching after mutations
+   - Implements a service layer (`SportsDatabaseService`) to abstract API calls
+   - Uses a confirmation dialog pattern for destructive actions
+   - Implements view mode switching with conditional rendering
+   - Provides consistent UI patterns across the application
+
+4. **Delete Functionality**:
+   - Implemented in `handleDeleteEntity` function that calls `SportsDatabaseService.deleteEntity`
+   - Shows confirmation dialog before deletion
+   - Provides feedback through notifications
+   - Automatically refreshes the entity list after deletion
+   - Removes deleted entities from the selected entities list
+
 #### SportDataMapper Real Data Integration
 
 The SportDataMapper component is designed to map structured data from conversations to the sports database schema. Key technical aspects include:

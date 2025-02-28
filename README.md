@@ -29,6 +29,12 @@ As of May 2024, the project has implemented:
 
 ## Recent Improvements
 
+- Implemented CI/CD Pipeline with GitHub Actions
+  - Added automated testing workflow for consistent quality assurance
+  - Created Docker-based test environment that matches production
+  - Added comprehensive documentation for CI/CD process
+  - Ensured tests run consistently across local and CI environments
+  - Set up workflow triggers for main branch pushes and pull requests
 - Enhanced database transaction management
   - Implemented dual transaction strategies for different use cases
   - Created isolated session pattern for complex operations
@@ -68,6 +74,26 @@ docker-compose exec backend python src/scripts/alembic_wrapper.py upgrade
 # Access the application
 open http://localhost:3000
 ```
+
+## Running Tests
+
+The project includes automated tests for both frontend and backend components. Tests can be run using Docker to ensure a consistent environment:
+
+```bash
+# Run all frontend tests in Docker
+./run-tests.sh
+
+# Run tests locally (if you have Node.js installed)
+./run-tests-local.sh
+```
+
+The test suite includes:
+- Unit tests for React components
+- Tests for custom hooks
+- Tests for utility functions
+- Tests for data transformation logic
+
+All tests are automatically run in the CI/CD pipeline when code is pushed to the main branch or when a pull request is created.
 
 ## Dependencies
 

@@ -46,6 +46,25 @@ The application implements two complementary methods for database access:
 
 This dual approach enhances reliability and maintainability of database operations.
 
+### CI/CD Pipeline
+
+The project uses GitHub Actions for continuous integration and deployment:
+
+```
+.github/
+└── workflows/
+    └── ci-cd.yml    # CI/CD workflow configuration
+```
+
+The CI/CD pipeline automates testing and ensures code quality:
+
+1. **Workflow Triggers**: Activated on pushes to main branch and pull requests
+2. **Environment Setup**: Uses Ubuntu with Docker and Docker Compose
+3. **Test Execution**: Runs tests in Docker containers that match the production environment
+4. **Result Verification**: Validates test results and provides feedback
+
+The pipeline ensures that all tests pass before code is merged, maintaining code quality and preventing regressions.
+
 ### API Routes
 
 The API routes are organized by domain:

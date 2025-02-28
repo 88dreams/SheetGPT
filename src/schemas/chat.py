@@ -2,7 +2,7 @@ from datetime import datetime
 from typing import Dict, List, Optional
 from uuid import UUID
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, validator
 
 class ConversationCreate(BaseModel):
     """Schema for creating a new conversation."""
@@ -33,6 +33,12 @@ class MessageResponse(MessageBase):
 
     class Config:
         from_attributes = True
+        
+    @validator('created_at', 'updated_at', pre=True)
+    def parse_datetime(cls, value):
+        if isinstance(value, datetime):
+            return value.isoformat()
+        return value
 
 class ConversationResponse(BaseModel):
     """Schema for conversation responses."""
@@ -47,6 +53,12 @@ class ConversationResponse(BaseModel):
 
     class Config:
         from_attributes = True
+        
+    @validator('created_at', 'updated_at', pre=True)
+    def parse_datetime(cls, value):
+        if isinstance(value, datetime):
+            return value.isoformat()
+        return value
 
 class ChatResponse(BaseModel):
     """Schema for chat responses."""
@@ -65,6 +77,12 @@ class ConversationListItem(BaseModel):
 
     class Config:
         from_attributes = True
+        
+    @validator('created_at', 'updated_at', pre=True)
+    def parse_datetime(cls, value):
+        if isinstance(value, datetime):
+            return value.isoformat()
+        return value
 
 class ConversationList(BaseModel):
     """Schema for paginated conversation list."""

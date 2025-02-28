@@ -30,12 +30,9 @@ config = context.config
 # Get settings from our application config
 settings = get_settings()
 
-# Override database URL for local development if needed
-# When running locally, use localhost instead of the Docker container name
+# Use the database URL from settings directly
 database_url = settings.DATABASE_URL
-if 'db:5432' in database_url:
-    database_url = database_url.replace('db:5432', 'localhost:5432')
-    print(f"Using local database URL: {database_url}")
+print(f"Using database URL: {database_url}")
 
 # Interpret the config file for Python logging.
 # This line sets up loggers basically.

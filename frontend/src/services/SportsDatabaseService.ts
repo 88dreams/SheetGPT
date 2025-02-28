@@ -1,7 +1,7 @@
 import { api } from '../utils/api';
 
 // Entity types
-export type EntityType = 'league' | 'team' | 'player' | 'game' | 'stadium' | 'broadcast' | 'production' | 'brand';
+export type EntityType = 'league' | 'team' | 'player' | 'game' | 'stadium' | 'broadcast' | 'production' | 'brand' | 'game_broadcast' | 'league_executive';
 
 // Base entity interface
 export interface BaseEntity {
@@ -15,85 +15,108 @@ export interface BaseEntity {
 export interface League extends BaseEntity {
   sport: string;
   country: string;
-  founded_year: number;
-  description: string;
+  founded_year?: number;
+  broadcast_start_date?: string;
+  broadcast_end_date?: string;
 }
 
 // Team entity
 export interface Team extends BaseEntity {
-  city: string;
-  state: string;
-  country: string;
-  founded_year: number;
   league_id: string;
-  stadium_id?: string;
+  stadium_id: string;
+  city: string;
+  state?: string;
+  country: string;
+  founded_year?: number;
 }
 
 // Player entity
 export interface Player extends BaseEntity {
-  first_name: string;
-  last_name: string;
+  team_id: string;
   position: string;
   jersey_number?: number;
-  birth_date?: string;
-  nationality: string;
-  team_id: string;
+  college?: string;
 }
 
 // Game entity
 export interface Game extends BaseEntity {
-  date: string;
-  time: string;
+  league_id: string;
   home_team_id: string;
   away_team_id: string;
-  stadium_id?: string;
-  season: string;
-  status: 'scheduled' | 'in_progress' | 'completed' | 'postponed' | 'cancelled';
+  stadium_id: string;
+  date: string;
+  time?: string;
+  home_score?: number;
+  away_score?: number;
+  status: string;
+  season_year: number;
+  season_type: string;
 }
 
 // Stadium entity
 export interface Stadium extends BaseEntity {
   city: string;
-  state: string;
+  state?: string;
   country: string;
-  capacity: number;
-  opened_year: number;
-  description?: string;
+  capacity?: number;
+  owner?: string;
+  naming_rights_holder?: string;
+  host_broadcaster_id?: string;
 }
 
-// Broadcast Rights entity
+// BroadcastRights entity
 export interface BroadcastRights extends BaseEntity {
-  company_id: string;
-  entity_type: 'league' | 'team' | 'game';
+  broadcast_company_id: string;
+  entity_type: string;
   entity_id: string;
+  territory: string;
   start_date: string;
   end_date: string;
-  territory: string;
-  value?: number;
-  description?: string;
+  is_exclusive?: boolean;
 }
 
-// Production Service entity
+// GameBroadcast entity
+export interface GameBroadcast extends BaseEntity {
+  game_id: string;
+  broadcast_company_id: string;
+  production_company_id?: string;
+  broadcast_type: string;
+  territory: string;
+  start_time?: string;
+  end_time?: string;
+}
+
+// ProductionService entity
 export interface ProductionService extends BaseEntity {
-  company_id: string;
-  entity_type: 'league' | 'team' | 'game';
+  production_company_id: string;
+  entity_type: string;
   entity_id: string;
   service_type: string;
   start_date: string;
-  end_date?: string;
-  description?: string;
+  end_date: string;
 }
 
-// Brand Relationship entity
+// Brand entity
+export interface Brand extends BaseEntity {
+  industry: string;
+}
+
+// BrandRelationship entity
 export interface BrandRelationship extends BaseEntity {
   brand_id: string;
-  entity_type: 'league' | 'team' | 'player' | 'stadium';
+  entity_type: string;
   entity_id: string;
-  relationship_type: 'sponsor' | 'partner' | 'supplier' | 'other';
+  relationship_type: string;
+  start_date: string;
+  end_date: string;
+}
+
+// LeagueExecutive entity
+export interface LeagueExecutive extends BaseEntity {
+  league_id: string;
+  position: string;
   start_date: string;
   end_date?: string;
-  value?: number;
-  description?: string;
 }
 
 // Entity validation errors
@@ -177,7 +200,22 @@ const entityPromptTemplates: Record<EntityType, string> = {
 6. Start date (YYYY-MM-DD format)
 7. End date (YYYY-MM-DD format, optional)
 8. Value in dollars (optional)
-9. Description (optional)`
+9. Description (optional)`,
+
+  game_broadcast: `I'll help you create a new game broadcast record. Please provide the following information:
+1. Game ID
+2. Broadcast company ID
+3. Production company ID (optional)
+4. Broadcast type
+5. Territory
+6. Start time (HH:MM format, optional)
+7. End time (HH:MM format, optional)`,
+
+  league_executive: `I'll help you create a new league executive record. Please provide the following information:
+1. League ID
+2. Position
+3. Start date (YYYY-MM-DD format)
+4. End date (YYYY-MM-DD format, optional)`
 };
 
 class SportsDatabaseService {
@@ -227,28 +265,28 @@ class SportsDatabaseService {
         if (!entityData.time) errors.time = ['Time is required'];
         if (!entityData.home_team_id) errors.home_team_id = ['Home team ID is required'];
         if (!entityData.away_team_id) errors.away_team_id = ['Away team ID is required'];
-        if (!entityData.season) errors.season = ['Season is required'];
-        if (!entityData.status) errors.status = ['Status is required'];
+        if (!entityData.season_year) errors.season_year = ['Season year is required'];
+        if (!entityData.season_type) errors.season_type = ['Season type is required'];
         break;
         
       case 'stadium':
         if (!entityData.city) errors.city = ['City is required'];
         if (!entityData.country) errors.country = ['Country is required'];
         if (!entityData.capacity) errors.capacity = ['Capacity is required'];
-        if (!entityData.opened_year) errors.opened_year = ['Opened year is required'];
+        if (!entityData.owner) errors.owner = ['Owner is required'];
         break;
         
       case 'broadcast':
-        if (!entityData.company_id) errors.company_id = ['Company ID is required'];
+        if (!entityData.broadcast_company_id) errors.broadcast_company_id = ['Broadcast company ID is required'];
         if (!entityData.entity_type) errors.entity_type = ['Entity type is required'];
         if (!entityData.entity_id) errors.entity_id = ['Entity ID is required'];
+        if (!entityData.territory) errors.territory = ['Territory is required'];
         if (!entityData.start_date) errors.start_date = ['Start date is required'];
         if (!entityData.end_date) errors.end_date = ['End date is required'];
-        if (!entityData.territory) errors.territory = ['Territory is required'];
         break;
         
       case 'production':
-        if (!entityData.company_id) errors.company_id = ['Company ID is required'];
+        if (!entityData.production_company_id) errors.production_company_id = ['Production company ID is required'];
         if (!entityData.entity_type) errors.entity_type = ['Entity type is required'];
         if (!entityData.entity_id) errors.entity_id = ['Entity ID is required'];
         if (!entityData.service_type) errors.service_type = ['Service type is required'];
@@ -256,10 +294,17 @@ class SportsDatabaseService {
         break;
         
       case 'brand':
-        if (!entityData.brand_id) errors.brand_id = ['Brand ID is required'];
-        if (!entityData.entity_type) errors.entity_type = ['Entity type is required'];
-        if (!entityData.entity_id) errors.entity_id = ['Entity ID is required'];
-        if (!entityData.relationship_type) errors.relationship_type = ['Relationship type is required'];
+        if (!entityData.industry) errors.industry = ['Industry is required'];
+        break;
+        
+      case 'game_broadcast':
+        if (!entityData.game_id) errors.game_id = ['Game ID is required'];
+        if (!entityData.broadcast_company_id) errors.broadcast_company_id = ['Broadcast company ID is required'];
+        break;
+        
+      case 'league_executive':
+        if (!entityData.league_id) errors.league_id = ['League ID is required'];
+        if (!entityData.position) errors.position = ['Position is required'];
         if (!entityData.start_date) errors.start_date = ['Start date is required'];
         break;
     }
@@ -287,26 +332,15 @@ class SportsDatabaseService {
         case 'stadium':
           return await api.sports.createStadium(entityData);
         case 'broadcast':
-          // For broadcast, we need to determine if it's a company or rights
-          if (entityData.type === 'company') {
-            return await api.sports.createBroadcastCompany(entityData);
-          } else {
-            return await api.sports.createBroadcastRights(entityData);
-          }
+          return await api.sports.createBroadcastRights(entityData);
         case 'production':
-          // For production, we need to determine if it's a company or service
-          if (entityData.type === 'company') {
-            return await api.sports.createProductionCompany(entityData);
-          } else {
-            return await api.sports.createProductionService(entityData);
-          }
+          return await api.sports.createProductionService(entityData);
         case 'brand':
-          // For brand, we need to determine if it's a brand or relationship
-          if (entityData.type === 'relationship') {
-            return await api.sports.createBrandRelationship(entityData);
-          } else {
-            return await api.sports.createBrand(entityData);
-          }
+          return await api.sports.createBrand(entityData);
+        case 'game_broadcast':
+          return await api.sports.createGameBroadcast(entityData);
+        case 'league_executive':
+          return await api.sports.createLeagueExecutive(entityData);
         default:
           throw new Error(`API endpoint for creating ${entityType} not implemented yet`);
       }
@@ -331,6 +365,20 @@ class SportsDatabaseService {
           return await api.sports.getTeams(filters?.league_id);
         case 'player':
           return await api.sports.getPlayers(filters?.team_id);
+        case 'game':
+          return await api.sports.getGames(filters?.league_id);
+        case 'stadium':
+          return await api.sports.getStadiums(filters?.city);
+        case 'broadcast':
+          return await api.sports.getBroadcastRights(filters?.broadcast_company_id);
+        case 'production':
+          return await api.sports.getProductionServices(filters?.production_company_id);
+        case 'brand':
+          return await api.sports.getBrands(filters?.industry);
+        case 'game_broadcast':
+          return await api.sports.getGameBroadcasts(filters?.game_id);
+        case 'league_executive':
+          return await api.sports.getLeagueExecutives(filters?.league_id);
         default:
           // For other entity types, use the generic endpoint
           return await api.sports.getEntities(entityType, filters);
@@ -361,26 +409,15 @@ class SportsDatabaseService {
         case 'stadium':
           return await api.sports.getStadium(id);
         case 'broadcast':
-          // For broadcast, we need to determine if it's a company or rights
-          if (id.startsWith('company-')) {
-            return await api.sports.getBroadcastCompany(id.replace('company-', ''));
-          } else {
-            return await api.sports.getBroadcastRight(id);
-          }
+          return await api.sports.getBroadcastRight(id);
         case 'production':
-          // For production, we need to determine if it's a company or service
-          if (id.startsWith('company-')) {
-            return await api.sports.getProductionCompany(id.replace('company-', ''));
-          } else {
-            return await api.sports.getProductionService(id);
-          }
+          return await api.sports.getProductionService(id);
         case 'brand':
-          // For brand, we need to determine if it's a brand or relationship
-          if (id.startsWith('relationship-')) {
-            return await api.sports.getBrandRelationship(id.replace('relationship-', ''));
-          } else {
-            return await api.sports.getBrand(id);
-          }
+          return await api.sports.getBrand(id);
+        case 'game_broadcast':
+          return await api.sports.getGameBroadcast(id);
+        case 'league_executive':
+          return await api.sports.getLeagueExecutive(id);
         default:
           throw new Error(`API endpoint for getting ${entityType} by ID not implemented yet`);
       }
@@ -496,7 +533,13 @@ class SportsDatabaseService {
           response = await api.sports.createProductionService(entityData);
           break;
         case 'brand':
-          response = await api.sports.createBrandRelationship(entityData);
+          response = await api.sports.createBrand(entityData);
+          break;
+        case 'game_broadcast':
+          response = await api.sports.createGameBroadcast(entityData);
+          break;
+        case 'league_executive':
+          response = await api.sports.createLeagueExecutive(entityData);
           break;
         default:
           throw new Error(`Unsupported entity type: ${entityType}`);

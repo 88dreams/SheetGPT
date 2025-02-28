@@ -1,7 +1,7 @@
 from pydantic import BaseModel, Field, validator
 from typing import List, Optional, Dict, Any
 from uuid import UUID
-from datetime import date
+from datetime import date, datetime
 
 # Base schemas for League
 class LeagueBase(BaseModel):
@@ -28,6 +28,12 @@ class LeagueResponse(LeagueBase):
 
     class Config:
         orm_mode = True
+        
+    @validator('created_at', 'updated_at', pre=True)
+    def parse_datetime(cls, value):
+        if isinstance(value, datetime):
+            return value.isoformat()
+        return value
 
 # Base schemas for Stadium
 class StadiumBase(BaseModel):
@@ -60,6 +66,12 @@ class StadiumResponse(StadiumBase):
 
     class Config:
         orm_mode = True
+        
+    @validator('created_at', 'updated_at', pre=True)
+    def parse_datetime(cls, value):
+        if isinstance(value, datetime):
+            return value.isoformat()
+        return value
 
 # Base schemas for Team
 class TeamBase(BaseModel):
@@ -90,6 +102,12 @@ class TeamResponse(TeamBase):
 
     class Config:
         orm_mode = True
+        
+    @validator('created_at', 'updated_at', pre=True)
+    def parse_datetime(cls, value):
+        if isinstance(value, datetime):
+            return value.isoformat()
+        return value
 
 # Base schemas for Player
 class PlayerBase(BaseModel):
@@ -116,6 +134,12 @@ class PlayerResponse(PlayerBase):
 
     class Config:
         orm_mode = True
+        
+    @validator('created_at', 'updated_at', pre=True)
+    def parse_datetime(cls, value):
+        if isinstance(value, datetime):
+            return value.isoformat()
+        return value
 
 # Base schemas for Game
 class GameBase(BaseModel):
@@ -154,6 +178,12 @@ class GameResponse(GameBase):
 
     class Config:
         orm_mode = True
+        
+    @validator('created_at', 'updated_at', pre=True)
+    def parse_datetime(cls, value):
+        if isinstance(value, datetime):
+            return value.isoformat()
+        return value
 
 # Base schemas for BroadcastCompany
 class BroadcastCompanyBase(BaseModel):
@@ -176,6 +206,12 @@ class BroadcastCompanyResponse(BroadcastCompanyBase):
 
     class Config:
         orm_mode = True
+        
+    @validator('created_at', 'updated_at', pre=True)
+    def parse_datetime(cls, value):
+        if isinstance(value, datetime):
+            return value.isoformat()
+        return value
 
 # Base schemas for BroadcastRights
 class BroadcastRightsBase(BaseModel):
@@ -206,6 +242,12 @@ class BroadcastRightsResponse(BroadcastRightsBase):
 
     class Config:
         orm_mode = True
+        
+    @validator('created_at', 'updated_at', pre=True)
+    def parse_datetime(cls, value):
+        if isinstance(value, datetime):
+            return value.isoformat()
+        return value
 
 # Base schemas for ProductionCompany
 class ProductionCompanyBase(BaseModel):
@@ -224,6 +266,12 @@ class ProductionCompanyResponse(ProductionCompanyBase):
 
     class Config:
         orm_mode = True
+        
+    @validator('created_at', 'updated_at', pre=True)
+    def parse_datetime(cls, value):
+        if isinstance(value, datetime):
+            return value.isoformat()
+        return value
 
 # Base schemas for ProductionService
 class ProductionServiceBase(BaseModel):
@@ -252,6 +300,12 @@ class ProductionServiceResponse(ProductionServiceBase):
 
     class Config:
         orm_mode = True
+        
+    @validator('created_at', 'updated_at', pre=True)
+    def parse_datetime(cls, value):
+        if isinstance(value, datetime):
+            return value.isoformat()
+        return value
 
 # Base schemas for Brand
 class BrandBase(BaseModel):
@@ -272,6 +326,12 @@ class BrandResponse(BrandBase):
 
     class Config:
         orm_mode = True
+        
+    @validator('created_at', 'updated_at', pre=True)
+    def parse_datetime(cls, value):
+        if isinstance(value, datetime):
+            return value.isoformat()
+        return value
 
 # Base schemas for BrandRelationship
 class BrandRelationshipBase(BaseModel):
@@ -300,6 +360,80 @@ class BrandRelationshipResponse(BrandRelationshipBase):
 
     class Config:
         orm_mode = True
+        
+    @validator('created_at', 'updated_at', pre=True)
+    def parse_datetime(cls, value):
+        if isinstance(value, datetime):
+            return value.isoformat()
+        return value
+
+# Base schemas for GameBroadcast
+class GameBroadcastBase(BaseModel):
+    game_id: UUID
+    broadcast_company_id: UUID
+    broadcast_type: str
+    territory: str
+    production_company_id: Optional[UUID] = None
+    start_time: Optional[str] = None
+    end_time: Optional[str] = None
+
+class GameBroadcastCreate(GameBroadcastBase):
+    pass
+
+class GameBroadcastUpdate(BaseModel):
+    game_id: Optional[UUID] = None
+    broadcast_company_id: Optional[UUID] = None
+    broadcast_type: Optional[str] = None
+    territory: Optional[str] = None
+    production_company_id: Optional[UUID] = None
+    start_time: Optional[str] = None
+    end_time: Optional[str] = None
+
+class GameBroadcastResponse(GameBroadcastBase):
+    id: UUID
+    created_at: str
+    updated_at: str
+
+    class Config:
+        orm_mode = True
+        
+    @validator('created_at', 'updated_at', pre=True)
+    def parse_datetime(cls, value):
+        if isinstance(value, datetime):
+            return value.isoformat()
+        return value
+
+# Base schemas for LeagueExecutive
+class LeagueExecutiveBase(BaseModel):
+    league_id: UUID
+    name: str
+    position: str
+    start_date: Optional[date] = None
+    end_date: Optional[date] = None
+
+class LeagueExecutiveCreate(LeagueExecutiveBase):
+    pass
+
+class LeagueExecutiveUpdate(BaseModel):
+    league_id: Optional[UUID] = None
+    name: Optional[str] = None
+    position: Optional[str] = None
+    start_date: Optional[date] = None
+    end_date: Optional[date] = None
+
+class LeagueExecutiveResponse(LeagueExecutiveBase):
+    id: UUID
+    created_at: str
+    updated_at: str
+
+    class Config:
+        orm_mode = True
+        
+    @validator('created_at', 'updated_at', pre=True)
+    def parse_datetime(cls, value):
+        if isinstance(value, datetime):
+            return value.isoformat()
+        return value
 
 # Export schemas
 class EntityExportRequest(BaseModel):

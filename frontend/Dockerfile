@@ -14,6 +14,8 @@ RUN npm install react-markdown@10.0.0 --save
 RUN npm install date-fns@4.1.0 --save
 RUN npm install @heroicons/react@2.1.1 --save
 RUN npm install @headlessui/react@1.7.17 --save
+RUN npm install uuid@11.1.0 --save
+RUN npm install @types/uuid@10.0.0 --save-dev
 
 # Copy project files
 COPY . .

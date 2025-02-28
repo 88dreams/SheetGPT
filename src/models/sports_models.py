@@ -611,11 +611,15 @@ class LeagueExecutive(TimestampedBase):
         String(100),
         nullable=False
     )
-    title: Mapped[str] = mapped_column(
+    position: Mapped[str] = mapped_column(
         String(100),
         nullable=False
     )
     start_date: Mapped[Optional[datetime.date]] = mapped_column(
+        Date,
+        nullable=True
+    )
+    end_date: Mapped[Optional[datetime.date]] = mapped_column(
         Date,
         nullable=True
     )
@@ -655,6 +659,14 @@ class GameBroadcast(TimestampedBase):
     territory: Mapped[str] = mapped_column(
         String(100),
         nullable=False
+    )
+    start_time: Mapped[Optional[str]] = mapped_column(
+        String(50),
+        nullable=True
+    )
+    end_time: Mapped[Optional[str]] = mapped_column(
+        String(50),
+        nullable=True
     )
 
     # Relationships

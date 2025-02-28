@@ -1,6 +1,6 @@
 from typing import Dict, List, Optional, Any
 from uuid import UUID
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, validator
 from datetime import datetime
 
 class ColumnBase(BaseModel):
@@ -77,6 +77,12 @@ class StructuredDataResponse(BaseModel):
             datetime: lambda v: v.isoformat(),
             UUID: lambda v: str(v)
         }
+        
+    @validator('created_at', 'updated_at', pre=True)
+    def parse_datetime(cls, value):
+        if isinstance(value, datetime):
+            return value.isoformat()
+        return value
 
 class DataChangeHistoryResponse(BaseModel):
     """Schema for change history response."""
@@ -93,6 +99,12 @@ class DataChangeHistoryResponse(BaseModel):
 
     class Config:
         from_attributes = True
+        
+    @validator('created_at', pre=True)
+    def parse_datetime(cls, value):
+        if isinstance(value, datetime):
+            return value.isoformat()
+        return value
 
 ColumnResponse.model_rebuild()
 StructuredDataResponse.model_rebuild() 

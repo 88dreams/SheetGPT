@@ -26,10 +26,8 @@ def run_alembic_command(cmd, **kwargs):
     settings = get_settings()
     database_url = settings.DATABASE_URL
     
-    # Override with local database URL for direct execution
-    if 'db:5432' in database_url:
-        database_url = database_url.replace('db:5432', 'localhost:5432')
-        print(f"Using local database URL: {database_url}")
+    # For Docker environment, use the database URL as is
+    print(f"Using database URL: {database_url}")
     
     # Set environment variable for database URL
     os.environ['DATABASE_URL'] = database_url

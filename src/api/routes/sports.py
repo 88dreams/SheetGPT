@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from typing import List, Optional, Dict, Any
 from uuid import UUID
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.models.sports_models import (
     League, Team, Player, Game, Stadium, 
@@ -36,7 +36,7 @@ export_service = ExportService()
 @router.get("/entities/{entity_type}", response_model=List[Dict[str, Any]])
 async def get_entities(
     entity_type: str,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     current_user: Dict = Depends(get_current_user)
 ):
     """Get all entities of a specific type."""
@@ -45,7 +45,7 @@ async def get_entities(
 # League endpoints
 @router.get("/leagues", response_model=List[LeagueResponse])
 async def get_leagues(
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     current_user: Dict = Depends(get_current_user)
 ):
     """Get all leagues."""
@@ -54,7 +54,7 @@ async def get_leagues(
 @router.post("/leagues", response_model=LeagueResponse, status_code=status.HTTP_201_CREATED)
 async def create_league(
     league: LeagueCreate,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     current_user: Dict = Depends(get_current_user)
 ):
     """Create a new league."""
@@ -63,7 +63,7 @@ async def create_league(
 @router.get("/leagues/{league_id}", response_model=LeagueResponse)
 async def get_league(
     league_id: UUID,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     current_user: Dict = Depends(get_current_user)
 ):
     """Get a specific league by ID."""
@@ -76,7 +76,7 @@ async def get_league(
 async def update_league(
     league_id: UUID,
     league_update: LeagueUpdate,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     current_user: Dict = Depends(get_current_user)
 ):
     """Update a specific league."""
@@ -88,7 +88,7 @@ async def update_league(
 @router.delete("/leagues/{league_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_league(
     league_id: UUID,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     current_user: Dict = Depends(get_current_user)
 ):
     """Delete a specific league."""
@@ -101,7 +101,7 @@ async def delete_league(
 @router.get("/teams", response_model=List[TeamResponse])
 async def get_teams(
     league_id: Optional[UUID] = None,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     current_user: Dict = Depends(get_current_user)
 ):
     """Get all teams, optionally filtered by league."""
@@ -110,7 +110,7 @@ async def get_teams(
 @router.post("/teams", response_model=TeamResponse, status_code=status.HTTP_201_CREATED)
 async def create_team(
     team: TeamCreate,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     current_user: Dict = Depends(get_current_user)
 ):
     """Create a new team."""
@@ -119,7 +119,7 @@ async def create_team(
 @router.get("/teams/{team_id}", response_model=TeamResponse)
 async def get_team(
     team_id: UUID,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     current_user: Dict = Depends(get_current_user)
 ):
     """Get a specific team by ID."""
@@ -132,7 +132,7 @@ async def get_team(
 async def update_team(
     team_id: UUID,
     team_update: TeamUpdate,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     current_user: Dict = Depends(get_current_user)
 ):
     """Update a specific team."""
@@ -144,7 +144,7 @@ async def update_team(
 @router.delete("/teams/{team_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_team(
     team_id: UUID,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     current_user: Dict = Depends(get_current_user)
 ):
     """Delete a specific team."""
@@ -157,7 +157,7 @@ async def delete_team(
 @router.get("/players", response_model=List[PlayerResponse])
 async def get_players(
     team_id: Optional[UUID] = None,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     current_user: Dict = Depends(get_current_user)
 ):
     """Get all players, optionally filtered by team."""
@@ -166,7 +166,7 @@ async def get_players(
 @router.post("/players", response_model=PlayerResponse, status_code=status.HTTP_201_CREATED)
 async def create_player(
     player: PlayerCreate,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     current_user: Dict = Depends(get_current_user)
 ):
     """Create a new player."""
@@ -175,7 +175,7 @@ async def create_player(
 @router.get("/players/{player_id}", response_model=PlayerResponse)
 async def get_player(
     player_id: UUID,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     current_user: Dict = Depends(get_current_user)
 ):
     """Get a specific player by ID."""
@@ -188,7 +188,7 @@ async def get_player(
 async def update_player(
     player_id: UUID,
     player_update: PlayerUpdate,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     current_user: Dict = Depends(get_current_user)
 ):
     """Update a specific player."""
@@ -200,7 +200,7 @@ async def update_player(
 @router.delete("/players/{player_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_player(
     player_id: UUID,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     current_user: Dict = Depends(get_current_user)
 ):
     """Delete a specific player."""
@@ -215,7 +215,7 @@ async def get_games(
     league_id: Optional[UUID] = None,
     team_id: Optional[UUID] = None,
     season_year: Optional[int] = None,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     current_user: Dict = Depends(get_current_user)
 ):
     """Get all games, optionally filtered by league, team, or season."""
@@ -224,7 +224,7 @@ async def get_games(
 @router.post("/games", response_model=GameResponse, status_code=status.HTTP_201_CREATED)
 async def create_game(
     game: GameCreate,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     current_user: Dict = Depends(get_current_user)
 ):
     """Create a new game."""
@@ -233,7 +233,7 @@ async def create_game(
 @router.get("/games/{game_id}", response_model=GameResponse)
 async def get_game(
     game_id: UUID,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     current_user: Dict = Depends(get_current_user)
 ):
     """Get a specific game by ID."""
@@ -246,7 +246,7 @@ async def get_game(
 async def update_game(
     game_id: UUID,
     game_update: GameUpdate,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     current_user: Dict = Depends(get_current_user)
 ):
     """Update a specific game."""
@@ -258,7 +258,7 @@ async def update_game(
 @router.delete("/games/{game_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_game(
     game_id: UUID,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     current_user: Dict = Depends(get_current_user)
 ):
     """Delete a specific game."""
@@ -270,7 +270,7 @@ async def delete_game(
 # Stadium endpoints
 @router.get("/stadiums", response_model=List[StadiumResponse])
 async def get_stadiums(
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     current_user: Dict = Depends(get_current_user)
 ):
     """Get all stadiums."""
@@ -279,7 +279,7 @@ async def get_stadiums(
 @router.post("/stadiums", response_model=StadiumResponse, status_code=status.HTTP_201_CREATED)
 async def create_stadium(
     stadium: StadiumCreate,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     current_user: Dict = Depends(get_current_user)
 ):
     """Create a new stadium."""
@@ -288,7 +288,7 @@ async def create_stadium(
 @router.get("/stadiums/{stadium_id}", response_model=StadiumResponse)
 async def get_stadium(
     stadium_id: UUID,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     current_user: Dict = Depends(get_current_user)
 ):
     """Get a specific stadium by ID."""
@@ -301,7 +301,7 @@ async def get_stadium(
 async def update_stadium(
     stadium_id: UUID,
     stadium_update: StadiumUpdate,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     current_user: Dict = Depends(get_current_user)
 ):
     """Update a specific stadium."""
@@ -313,7 +313,7 @@ async def update_stadium(
 @router.delete("/stadiums/{stadium_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_stadium(
     stadium_id: UUID,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     current_user: Dict = Depends(get_current_user)
 ):
     """Delete a specific stadium."""
@@ -325,7 +325,7 @@ async def delete_stadium(
 # Broadcast Company endpoints
 @router.get("/broadcast-companies", response_model=List[BroadcastCompanyResponse])
 async def get_broadcast_companies(
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     current_user: Dict = Depends(get_current_user)
 ):
     """Get all broadcast companies."""
@@ -334,7 +334,7 @@ async def get_broadcast_companies(
 @router.post("/broadcast-companies", response_model=BroadcastCompanyResponse, status_code=status.HTTP_201_CREATED)
 async def create_broadcast_company(
     broadcast_company: BroadcastCompanyCreate,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     current_user: Dict = Depends(get_current_user)
 ):
     """Create a new broadcast company."""
@@ -343,7 +343,7 @@ async def create_broadcast_company(
 @router.get("/broadcast-companies/{company_id}", response_model=BroadcastCompanyResponse)
 async def get_broadcast_company(
     company_id: UUID,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     current_user: Dict = Depends(get_current_user)
 ):
     """Get a specific broadcast company by ID."""
@@ -356,7 +356,7 @@ async def get_broadcast_company(
 async def update_broadcast_company(
     company_id: UUID,
     company_update: BroadcastCompanyUpdate,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     current_user: Dict = Depends(get_current_user)
 ):
     """Update a specific broadcast company."""
@@ -368,7 +368,7 @@ async def update_broadcast_company(
 @router.delete("/broadcast-companies/{company_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_broadcast_company(
     company_id: UUID,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     current_user: Dict = Depends(get_current_user)
 ):
     """Delete a specific broadcast company."""
@@ -383,7 +383,7 @@ async def get_broadcast_rights(
     entity_type: Optional[str] = None,
     entity_id: Optional[UUID] = None,
     company_id: Optional[UUID] = None,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     current_user: Dict = Depends(get_current_user)
 ):
     """Get all broadcast rights, optionally filtered by entity or company."""
@@ -392,7 +392,7 @@ async def get_broadcast_rights(
 @router.post("/broadcast-rights", response_model=BroadcastRightsResponse, status_code=status.HTTP_201_CREATED)
 async def create_broadcast_rights(
     broadcast_rights: BroadcastRightsCreate,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     current_user: Dict = Depends(get_current_user)
 ):
     """Create new broadcast rights."""
@@ -401,7 +401,7 @@ async def create_broadcast_rights(
 @router.get("/broadcast-rights/{rights_id}", response_model=BroadcastRightsResponse)
 async def get_broadcast_rights_by_id(
     rights_id: UUID,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     current_user: Dict = Depends(get_current_user)
 ):
     """Get specific broadcast rights by ID."""
@@ -414,7 +414,7 @@ async def get_broadcast_rights_by_id(
 async def update_broadcast_rights(
     rights_id: UUID,
     rights_update: BroadcastRightsUpdate,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     current_user: Dict = Depends(get_current_user)
 ):
     """Update specific broadcast rights."""
@@ -426,7 +426,7 @@ async def update_broadcast_rights(
 @router.delete("/broadcast-rights/{rights_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_broadcast_rights(
     rights_id: UUID,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     current_user: Dict = Depends(get_current_user)
 ):
     """Delete specific broadcast rights."""
@@ -438,7 +438,7 @@ async def delete_broadcast_rights(
 # Production Company endpoints
 @router.get("/production-companies", response_model=List[ProductionCompanyResponse])
 async def get_production_companies(
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     current_user: Dict = Depends(get_current_user)
 ):
     """Get all production companies."""
@@ -447,7 +447,7 @@ async def get_production_companies(
 @router.post("/production-companies", response_model=ProductionCompanyResponse, status_code=status.HTTP_201_CREATED)
 async def create_production_company(
     production_company: ProductionCompanyCreate,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     current_user: Dict = Depends(get_current_user)
 ):
     """Create a new production company."""
@@ -456,7 +456,7 @@ async def create_production_company(
 @router.get("/production-companies/{company_id}", response_model=ProductionCompanyResponse)
 async def get_production_company(
     company_id: UUID,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     current_user: Dict = Depends(get_current_user)
 ):
     """Get a specific production company by ID."""
@@ -469,7 +469,7 @@ async def get_production_company(
 async def update_production_company(
     company_id: UUID,
     company_update: ProductionCompanyUpdate,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     current_user: Dict = Depends(get_current_user)
 ):
     """Update a specific production company."""
@@ -481,7 +481,7 @@ async def update_production_company(
 @router.delete("/production-companies/{company_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_production_company(
     company_id: UUID,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     current_user: Dict = Depends(get_current_user)
 ):
     """Delete a specific production company."""
@@ -496,7 +496,7 @@ async def get_production_services(
     entity_type: Optional[str] = None,
     entity_id: Optional[UUID] = None,
     company_id: Optional[UUID] = None,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     current_user: Dict = Depends(get_current_user)
 ):
     """Get all production services, optionally filtered by entity or company."""
@@ -505,7 +505,7 @@ async def get_production_services(
 @router.post("/production-services", response_model=ProductionServiceResponse, status_code=status.HTTP_201_CREATED)
 async def create_production_service(
     production_service: ProductionServiceCreate,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     current_user: Dict = Depends(get_current_user)
 ):
     """Create a new production service."""
@@ -514,7 +514,7 @@ async def create_production_service(
 @router.get("/production-services/{service_id}", response_model=ProductionServiceResponse)
 async def get_production_service(
     service_id: UUID,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     current_user: Dict = Depends(get_current_user)
 ):
     """Get a specific production service by ID."""
@@ -527,7 +527,7 @@ async def get_production_service(
 async def update_production_service(
     service_id: UUID,
     service_update: ProductionServiceUpdate,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     current_user: Dict = Depends(get_current_user)
 ):
     """Update a specific production service."""
@@ -539,7 +539,7 @@ async def update_production_service(
 @router.delete("/production-services/{service_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_production_service(
     service_id: UUID,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     current_user: Dict = Depends(get_current_user)
 ):
     """Delete a specific production service."""
@@ -552,7 +552,7 @@ async def delete_production_service(
 @router.get("/brands", response_model=List[BrandResponse])
 async def get_brands(
     industry: Optional[str] = None,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     current_user: Dict = Depends(get_current_user)
 ):
     """Get all brands, optionally filtered by industry."""
@@ -561,7 +561,7 @@ async def get_brands(
 @router.post("/brands", response_model=BrandResponse, status_code=status.HTTP_201_CREATED)
 async def create_brand(
     brand: BrandCreate,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     current_user: Dict = Depends(get_current_user)
 ):
     """Create a new brand."""
@@ -570,7 +570,7 @@ async def create_brand(
 @router.get("/brands/{brand_id}", response_model=BrandResponse)
 async def get_brand(
     brand_id: UUID,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     current_user: Dict = Depends(get_current_user)
 ):
     """Get a specific brand by ID."""
@@ -583,7 +583,7 @@ async def get_brand(
 async def update_brand(
     brand_id: UUID,
     brand_update: BrandUpdate,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     current_user: Dict = Depends(get_current_user)
 ):
     """Update a specific brand."""
@@ -595,7 +595,7 @@ async def update_brand(
 @router.delete("/brands/{brand_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_brand(
     brand_id: UUID,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     current_user: Dict = Depends(get_current_user)
 ):
     """Delete a specific brand."""
@@ -611,7 +611,7 @@ async def get_brand_relationships(
     entity_type: Optional[str] = None,
     entity_id: Optional[UUID] = None,
     relationship_type: Optional[str] = None,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     current_user: Dict = Depends(get_current_user)
 ):
     """Get all brand relationships, optionally filtered by brand, entity, or relationship type."""
@@ -620,7 +620,7 @@ async def get_brand_relationships(
 @router.post("/brand-relationships", response_model=BrandRelationshipResponse, status_code=status.HTTP_201_CREATED)
 async def create_brand_relationship(
     relationship: BrandRelationshipCreate,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     current_user: Dict = Depends(get_current_user)
 ):
     """Create a new brand relationship."""
@@ -629,7 +629,7 @@ async def create_brand_relationship(
 @router.get("/brand-relationships/{relationship_id}", response_model=BrandRelationshipResponse)
 async def get_brand_relationship(
     relationship_id: UUID,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     current_user: Dict = Depends(get_current_user)
 ):
     """Get a specific brand relationship by ID."""
@@ -642,7 +642,7 @@ async def get_brand_relationship(
 async def update_brand_relationship(
     relationship_id: UUID,
     relationship_update: BrandRelationshipUpdate,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     current_user: Dict = Depends(get_current_user)
 ):
     """Update a specific brand relationship."""
@@ -654,7 +654,7 @@ async def update_brand_relationship(
 @router.delete("/brand-relationships/{relationship_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_brand_relationship(
     relationship_id: UUID,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     current_user: Dict = Depends(get_current_user)
 ):
     """Delete a specific brand relationship."""
@@ -667,7 +667,7 @@ async def delete_brand_relationship(
 @router.post("/export", response_model=EntityExportResponse)
 async def export_entities(
     export_request: EntityExportRequest,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     current_user: Dict = Depends(get_current_user)
 ):
     """Export selected entities to Google Sheets."""

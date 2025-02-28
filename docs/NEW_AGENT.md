@@ -1,11 +1,66 @@
 # SheetGPT Project Status for New Agent
 
+## AGENT_INTRO
+```
+Welcome to the SheetGPT project! This document will help you quickly understand the current state of the project and what needs to be done next. Follow these steps to get up to speed:
+
+1. **Project Overview**: 
+   - SheetGPT is a full-stack application combining AI chat capabilities with structured data management and a sports database
+   - The application extracts structured data from AI conversations, allows data manipulation, and supports sports entity management
+   - Key components include: authentication system, chat interface, data management, sports database, and export functionality
+
+2. **Current Focus**:
+   - We're currently focused on improving the SportDataMapper component for better usability and data mapping
+   - Recent work has fixed drag and drop functionality and added guidance for League and Stadium entity types
+   - Entity type detection has been enhanced to better identify the correct entity type based on data
+
+3. **Key Files to Review**:
+   - `frontend/src/components/data/SportDataMapper.tsx` - The main component for mapping structured data to sports entities
+   - `frontend/src/services/SportsDatabaseService.ts` - Service for interacting with the sports database API
+   - `docs/PROGRESS.md` - Contains detailed progress information and recent fixes
+   - `docs/API_ARCHITECTURE.md` - Explains the API architecture and endpoints
+   - `docs/TECHNICAL_DESCRIPTION.md` - Provides technical details of major code sections
+
+4. **Development Environment**:
+   - The project uses Docker for development with volume mounts for hot reloading
+   - Frontend: React with TypeScript, React Query, and react-dnd for drag and drop
+   - Backend: FastAPI with SQLAlchemy ORM and PostgreSQL
+   - Start with `docker-compose up --build -d` to set up the development environment
+
+5. **Next Steps**:
+   - Review the "IMMEDIATE_TASKS" section below for priority tasks
+   - Focus on the "sportdatamapper_improvements" for specific enhancements needed
+   - Check "RECENT_CHANGES" to understand what has been recently modified
+   - Refer to "TROUBLESHOOTING_GUIDE" if you encounter common issues
+
+6. **Entity Relationships**:
+   - Understand that Leagues and Stadiums are foundation entities that should be created first
+   - Teams depend on Leagues and Stadiums
+   - Players depend on Teams
+   - Games depend on Teams, Leagues, and Stadiums
+   - Other entities have various dependencies on these foundation entities
+
+7. **Recent Database Changes**:
+   - Added missing fields to GameBroadcast (start_time, end_time)
+   - Added end_date to LeagueExecutive
+   - Renamed title to position in LeagueExecutive
+
+When continuing development, prioritize:
+1. Enhancing the batch import process with better progress visualization
+2. Implementing field value preview for better mapping decisions
+3. Adding field type validation to prevent mismatches
+4. Improving entity relationship handling with visual indicators
+5. Implementing field mapping templates for common data sources
+
+The code is well-structured but has some technical debt in the SportDataMapper component that needs refactoring for better organization. Focus on improving the user experience while maintaining the existing architecture.
+```
+
 ## SYSTEM_STATE
 ```json
 {
   "project_name": "SheetGPT",
-  "version": "0.3.3",
-  "last_updated": "2024-05-15",
+  "version": "0.3.4",
+  "last_updated": "2024-05-20",
   "environment": {
     "development": "Docker-based",
     "services": ["frontend", "backend", "db"],
@@ -22,9 +77,12 @@
       "react": "^18.3.1",
       "react-query": "^5.8.4",
       "react-icons": "^4.12.0",
-      "react-beautiful-dnd": "^13.1.1",
+      "react-dnd": "^16.0.1",
+      "react-dnd-html5-backend": "^16.0.1",
       "react-markdown": "latest",
-      "date-fns": "latest"
+      "date-fns": "latest",
+      "uuid": "^11.1.0",
+      "@types/uuid": "^10.0.0"
     },
     "backend": {
       "fastapi": "latest",
@@ -61,7 +119,11 @@
     "Sport Data Mapper button integration",
     "Optimized UI button styling for better visibility",
     "Enhanced SportDataMapper component with improved navigation controls",
-    "Fixed record loading in SportDataMapper to properly handle all records"
+    "Fixed record loading in SportDataMapper to properly handle all records",
+    "Fixed drag and drop functionality in SportDataMapper",
+    "Added guidance for League and Stadium entity types in SportDataMapper",
+    "Improved entity type detection in SportDataMapper",
+    "Enhanced source field extraction with values for better entity type detection"
   ],
   "in_progress": [
     "Google Sheets API backend integration",
@@ -73,20 +135,15 @@
     "Optimizing database queries for sports entities"
   ],
   "recent_fixes": [
-    "Fixed column resizing functionality with direct width updates",
-    "Enhanced grid expansion to dynamically adjust height based on content",
-    "Added visual feedback for resize handles with hover effects",
-    "Improved z-index management for better interaction",
-    "Fixed event listener cleanup to prevent memory leaks",
-    "Added detailed logging for data transformation debugging",
-    "Enhanced raw data display with better formatting",
-    "Fixed UUID handling in database models by using SQLUUID type",
-    "Resolved import issues with sheets_service by updating import paths",
-    "Created auth.py utility to provide get_current_user functionality",
-    "Fixed backend startup issues related to missing modules",
-    "Improved MessageItem component to use MessageThread for consistent rendering",
-    "Enhanced UI button styling for better visibility and differentiation",
-    "Fixed missing dependencies (react-markdown, date-fns) in frontend container",
+    "Fixed drag and drop functionality in SportDataMapper by correcting type mismatch between useDrag and useDrop hooks",
+    "Removed 'Drop here to map' text from target fields while maintaining visual indicators",
+    "Added guidance for League and Stadium entity types with minimum required fields and progress tracking",
+    "Fixed entity type detection by adding sourceFieldValues state to store field values for detection",
+    "Enhanced entity type detection to check both field names and values",
+    "Fixed detection of Stadium entity type based on field names and values",
+    "Added fallback entity type selection to prevent blank state",
+    "Fixed field extraction to properly handle different data formats",
+    "Enhanced UI with better visual feedback for drag and drop operations",
     "Fixed SportDataMapper navigation controls to always be visible regardless of record count",
     "Enhanced SportDataMapper styling with blue color scheme for better visibility",
     "Fixed record loading in SportDataMapper to properly handle all records in structured data"
@@ -133,14 +190,15 @@
     },
     "sport_data_mapping": {
       "1": "User clicks 'Map Sports Data' button on a message with structured data",
-      "2": "SportDataMapper component extracts source fields from structured data",
-      "3": "User selects entity type (team, player, league, etc.)",
-      "4": "System loads entity fields for the selected type",
-      "5": "User maps source fields to entity fields using drag-and-drop",
-      "6": "User navigates through records using navigation controls",
-      "7": "User can exclude specific records from import",
-      "8": "User saves mapped data to database",
-      "9": "System processes batch import and provides feedback"
+      "2": "SportDataMapper component extracts source fields and values from structured data",
+      "3": "System recommends entity type based on source fields and values",
+      "4": "User selects entity type (team, player, league, etc.)",
+      "5": "System loads entity fields for the selected type",
+      "6": "User maps source fields to entity fields using drag-and-drop",
+      "7": "User navigates through records using navigation controls",
+      "8": "User can exclude specific records from import",
+      "9": "User saves mapped data to database",
+      "10": "System processes batch import and provides feedback"
     }
   },
   "key_components": {
@@ -152,7 +210,7 @@
     "SportsService": "Backend service for managing sports entities with comprehensive CRUD operations",
     "ExportService": "Backend service for exporting data to Google Sheets",
     "GoogleSheetsService": "Service for interacting with Google Sheets API",
-    "SportDataMapper": "Component for mapping structured data to sports database entities with enhanced navigation controls and record handling"
+    "SportDataMapper": "Component for mapping structured data to sports database entities with enhanced navigation controls, drag-and-drop functionality, and entity type guidance"
   },
   "backend_architecture": {
     "routes": "API endpoints defined in src/api/routes/ directory",
@@ -160,6 +218,40 @@
     "models": "Database models defined in src/models/ directory",
     "schemas": "Request/response validation using Pydantic schemas",
     "utils": "Utility functions for authentication, database access, and security"
+  },
+  "drag_and_drop_implementation": {
+    "library": "react-dnd with HTML5Backend",
+    "components": {
+      "FieldItem": "Handles both drag source and drop target functionality",
+      "useDrag": "Configures drag behavior with type ItemType ('FIELD')",
+      "useDrop": "Configures drop behavior accepting ItemType",
+      "handleFieldMapping": "Processes field mapping when drop occurs"
+    },
+    "visual_feedback": {
+      "drag_source": "Blue background with move cursor",
+      "drop_target": "Dotted indigo border when draggable",
+      "active_drop": "Green border when item is dragged over",
+      "mapping_visualization": "Shows mapped fields with source → target visualization"
+    }
+  },
+  "entity_type_guidance": {
+    "foundation_entities": {
+      "league": {
+        "required_fields": ["name", "sport", "country"],
+        "guidance": "Leagues are foundation entities and should be created first"
+      },
+      "stadium": {
+        "required_fields": ["name", "city", "country"],
+        "guidance": "Stadiums are foundation entities and should be created first"
+      }
+    },
+    "progress_tracking": "Dynamic counter shows mapped fields vs. required fields",
+    "visual_indicators": {
+      "recommended": "Blue highlight for recommended entity types",
+      "selected": "Dark blue background with white text",
+      "valid": "Normal styling with hover effect",
+      "invalid": "Greyed out and disabled"
+    }
   }
 }
 ```
@@ -199,6 +291,13 @@
       "Check for race conditions in asynchronous operations",
       "Verify proper state management in data store",
       "Look for detailed logs added to transformData function"
+    ],
+    "drag_and_drop_issues": [
+      "Check browser console for drag and drop debug logs",
+      "Verify ItemType constant matches in useDrag and useDrop hooks",
+      "Check that ref is properly applied to draggable/droppable elements",
+      "Verify onDrop callback is being passed correctly",
+      "Ensure DndProvider is wrapping the component correctly"
     ]
   }
 }
@@ -235,6 +334,18 @@
     "src/services/sports_service.py - Optimize database queries",
     "tests/ - Add unit and integration tests for backend services"
   ],
+  "sportdatamapper_improvements": [
+    "Add batch import progress visualization",
+    "Implement field value preview for better mapping decisions",
+    "Add field type validation to prevent type mismatches",
+    "Enhance entity relationship handling with visual indicators",
+    "Implement field mapping templates for common data sources",
+    "Add support for custom field transformations during mapping",
+    "Improve error handling during batch import process",
+    "Add detailed validation feedback for individual records",
+    "Implement undo/redo functionality for mapping operations",
+    "Add search functionality for fields in large datasets"
+  ],
   "backend_priorities": [
     "Develop advanced query capabilities for sports database entities",
     "Implement efficient data retrieval for complex relationships",
@@ -248,317 +359,87 @@
   ],
   "ui_improvements": [
     "Enhance sports database interface for better data exploration",
-    "Implement intuitive filtering and search capabilities",
-    "Create visual representations of sports data relationships",
-    "Improve responsive design for various screen sizes",
-    "Enhance accessibility features throughout the application",
-    "Optimize UI performance for large datasets",
-    "Standardize component styling for consistent user experience"
+    "Implement advanced filtering and sorting in data tables",
+    "Add visual indicators for data relationships",
+    "Improve mobile responsiveness across all components",
+    "Enhance accessibility features for better usability",
+    "Implement dark mode support",
+    "Add keyboard shortcuts for common operations",
+    "Improve loading states and progress indicators"
   ]
 }
 ```
 
-## TECHNICAL_NOTES
-```
-- The project uses a Docker-based development environment with volume mounts for hot reloading
-- Frontend and backend are separate services in docker-compose
-- Data transformation is a critical component handling various JSON formats
-- The "Send to Data" feature includes robust error handling and retry mechanisms
-- The DataTable component has been enhanced with improved column resizing and grid expansion
-- Column resizing now uses direct width updates during mouse movement for smoother UX
-- Grid expansion dynamically adjusts height based on content with smooth transitions
-- Comprehensive logging has been added throughout the data transformation process
-- Event listener cleanup has been improved to prevent memory leaks
-- The application uses TypeScript for type safety, with proper typing for data structures
-- Export to Sheets UI implementation is complete but awaiting backend integration
-- Z-index management has been improved for better interaction with overlapping elements
-- The backend uses SQLAlchemy ORM with PostgreSQL for database operations
-- UUID fields in database models use SQLUUID type for proper handling
-- Authentication is implemented using JWT tokens with secure password hashing
-- The sports database includes comprehensive models for leagues, teams, players, games, etc.
-- The export service integrates with Google Sheets API for data export
-- The SportDataMapper component has been enhanced with improved navigation controls
-- Navigation controls in SportDataMapper are now always visible regardless of record count
-- SportDataMapper styling has been improved with a blue color scheme for better visibility
-- Record loading in SportDataMapper has been fixed to properly handle all records in structured data
-```
-
-## RECENT_IMPROVEMENTS
+## RECENT_CHANGES
 ```json
 {
-  "datatable_component": {
-    "column_resizing": {
-      "direct_updates": "Implemented width updates during mouse movement for smoother experience",
-      "visual_feedback": "Added hover effects on resize handles for better discoverability",
-      "z_index": "Fixed to ensure resize handles are always accessible",
-      "event_listeners": "Improved management to prevent memory leaks",
-      "styling": "Enhanced for better usability and interaction"
+  "sportdatamapper_component": {
+    "drag_and_drop_fix": {
+      "issue": "Type mismatch between useDrag and useDrop hooks",
+      "solution": "Updated useDrop accept parameter to use ItemType constant instead of string literal",
+      "files_changed": ["frontend/src/components/data/SportDataMapper.tsx"],
+      "impact": "Fixed drag and drop functionality for field mapping"
     },
-    "grid_expansion": {
-      "dynamic_height": "Implemented adjustment based on content",
-      "transitions": "Added smooth transitions for expansion and collapse",
-      "calculations": "Fixed issues with height calculations",
-      "resize_handle": "Improved positioning and interaction"
+    "ui_improvements": {
+      "removed_text": "Removed 'Drop here to map' text while maintaining visual indicators",
+      "added_guidance": "Added information box for League and Stadium entity types",
+      "progress_tracking": "Added dynamic counter for mapped vs. required fields",
+      "visual_feedback": "Enhanced visual indicators for drag and drop operations"
     },
-    "raw_data_display": {
-      "formatting": "Enhanced with better JSON formatting",
-      "toggle_controls": "Improved visibility and interaction",
-      "height_adjustment": "Added smooth resizing capability"
+    "entity_detection": {
+      "source_field_values": "Added sourceFieldValues state to store field values for detection",
+      "detection_logic": "Enhanced to check both field names and values",
+      "stadium_detection": "Improved detection of Stadium entity type",
+      "fallback_selection": "Added default entity type selection to prevent blank state"
+    },
+    "field_extraction": {
+      "data_formats": "Fixed to handle different structured data formats",
+      "value_extraction": "Added extraction of field values for better entity detection",
+      "error_handling": "Improved error handling for invalid data structures"
     }
   },
-  "data_transformation": {
-    "logging": {
-      "comprehensive": "Added throughout transformation process",
-      "data_flow": "Detailed tracking between components",
-      "type_checking": "Improved for various data formats"
-    },
-    "error_handling": {
-      "edge_cases": "Improved for unusual data formats",
-      "validation": "Enhanced for incoming data structures",
-      "recovery": "Better mechanisms for malformed data"
-    }
-  },
-  "send_to_data_feature": {
-    "error_handling": {
-      "retry_logic": "Implemented for API calls with exponential backoff",
-      "verification_steps": "Added to check if data was created despite errors",
-      "duplicate_detection": "Automatic cleanup of duplicate entries",
-      "race_condition_prevention": "Improved synchronization of async operations"
-    },
-    "user_experience": {
-      "button_state": "Changes during processing to provide visual feedback",
-      "processing_state": "Tracked to prevent multiple simultaneous operations",
-      "navigation_timing": "Delayed to ensure backend processing completes",
-      "button_styling": "Optimized for better visibility with smaller size and distinct colors",
-      "visual_differentiation": "Send to Data (blue) and Map Sports Data (green) buttons have distinct colors"
-    },
-    "data_extraction": {
-      "helper_function": "extractStructuredData standardizes data format",
-      "nested_structures": "Enhanced handling for complex data formats",
-      "validation": "Improved checks before sending to backend"
-    }
-  },
-  "export_functionality": {
-    "ui_implementation": {
-      "export_dialog": "Created component for template selection and preview",
-      "integration": "Added to DataTable component",
-      "state_management": "Implemented for dialog visibility"
-    }
-  },
-  "message_components": {
-    "rendering_consistency": {
-      "issue": "Inconsistent rendering between MessageThread and MessageItem components",
-      "fix": "Updated MessageThread to use MessageItem for consistent rendering",
-      "affected_files": [
-        "frontend/src/components/chat/MessageThread.tsx",
-        "frontend/src/components/chat/MessageItem.tsx"
-      ],
-      "benefits": "Consistent button styling, improved visibility, and unified data extraction"
-    },
-    "button_styling": {
-      "size_optimization": "Reduced button size for better UI integration (px-2 py-1, text-xs)",
-      "icon_spacing": "Adjusted icon spacing (mr-1) to match smaller button size",
-      "color_differentiation": "Map Sports Data button uses green styling to distinguish from blue Send to Data button",
-      "affected_files": [
-        "frontend/src/components/chat/MessageItem.tsx"
-      ]
-    },
-    "dependencies": {
-      "issue": "Missing dependencies for MessageItem component",
-      "fix": "Added react-markdown and date-fns packages to frontend container",
-      "command": "docker-compose exec frontend npm install react-markdown date-fns"
-    }
-  },
-  "backend_fixes": {
-    "uuid_handling": {
-      "issue": "Incorrect UUID type in database models causing serialization errors",
-      "fix": "Updated UUID fields to use SQLUUID type from sqlalchemy.dialects.postgresql",
-      "affected_files": [
-        "src/models/sports_models.py"
-      ],
-      "example": "league_id: Mapped[UUID] = mapped_column(SQLUUID, ForeignKey('leagues.id'), nullable=False)"
-    },
-    "import_path_resolution": {
-      "issue": "Incorrect import paths causing ModuleNotFoundError",
-      "fix": "Updated import paths to reflect correct directory structure",
-      "affected_files": [
-        "src/services/export_service.py"
-      ],
-      "example": "from src.services.export.sheets_service import GoogleSheetsService as SheetsService"
-    },
-    "authentication_utility": {
-      "issue": "Missing get_current_user function causing import errors",
-      "fix": "Created new auth.py utility in src/utils directory",
-      "affected_files": [
-        "src/utils/auth.py"
-      ],
-      "functionality": "Retrieves authenticated user information using get_current_user_id dependency"
-    }
-  },
-  "sport_data_mapper": {
-    "navigation_controls": {
-      "issue": "Navigation controls not visible when totalRecords <= 1",
-      "fix": "Removed conditional rendering based on totalRecords",
-      "affected_files": [
-        "frontend/src/components/data/SportDataMapper.tsx"
-      ],
-      "benefits": "Navigation controls always visible regardless of record count"
-    },
-    "styling_enhancements": {
-      "color_scheme": "Updated to blue color scheme for better visibility",
-      "button_styling": "Enhanced with hover effects and shadows",
-      "icon_size": "Increased size of navigation icons for better usability",
-      "spacing": "Improved spacing between elements for better readability",
-      "typography": "Updated font sizes and weights for better readability"
-    },
-    "record_handling": {
-      "issue": "Only 1 out of multiple records loading correctly",
-      "fix": "Updated extractSourceFields and getFieldValue functions to handle different data formats correctly",
-      "affected_files": [
-        "frontend/src/components/data/SportDataMapper.tsx"
-      ],
-      "benefits": "Properly handles all records in structured data"
-    },
-    "logging": {
-      "data_processing": "Added logging to track which record is being accessed",
-      "field_extraction": "Enhanced logging for source field extraction",
-      "data_format_detection": "Improved logging to identify data format"
-    }
-  }
+  "recent_bug_fixes": [
+    "Fixed drag and drop functionality in SportDataMapper",
+    "Fixed entity type detection for Stadium entity type",
+    "Fixed field extraction for different data formats",
+    "Fixed UI issues with SportDataMapper component",
+    "Added fallback entity type selection to prevent blank state"
+  ],
+  "recent_enhancements": [
+    "Added guidance for League and Stadium entity types",
+    "Enhanced entity type detection with field values",
+    "Improved visual feedback for drag and drop operations",
+    "Added progress tracking for required fields",
+    "Enhanced UI with better styling and visual indicators"
+  ]
 }
-```
-
-## CRITICAL_FILES
-```json
-{
-  "frontend": {
-    "components": {
-      "chat": {
-        "MessageThread.tsx": {
-          "purpose": "Displays chat messages and implements Send to Data functionality",
-          "key_functions": [
-            "handleViewData - Processes data and sends to backend with retry logic",
-            "extractStructuredData - Helper function to standardize data format"
-          ],
-          "recent_changes": "Enhanced error handling, retry logic, and async/await implementation. Now uses MessageItem component for consistent rendering."
-        },
-        "MessageItem.tsx": {
-          "purpose": "Renders individual chat messages with action buttons",
-          "key_functions": [
-            "extractAndOpenSportDataMapper - Extracts data from message content and opens the SportDataMapper",
-            "handleDataExtraction - Processes data for the data preview modal"
-          ],
-          "recent_changes": "Optimized button styling with smaller size and distinct colors. Send to Data button is blue, Map Sports Data button is green."
-        }
-      },
-      "data": {
-        "DataTable.tsx": {
-          "purpose": "Displays structured data in grid format",
-          "key_functions": [
-            "transformData - Converts various data formats for display with enhanced logging",
-            "handleResizeStart - Manages column resizing with direct width updates",
-            "toggleGridExpansion - Controls grid height with dynamic adjustment",
-            "toggleRawDataExpansion - Manages raw data display",
-            "handleGridResize - Controls grid height resizing",
-            "handleRawDataResize - Controls raw data height resizing"
-          ],
-          "recent_changes": "Improved column resizing, grid expansion, event listener cleanup, and added comprehensive logging"
-        },
-        "SportDataMapper.tsx": {
-          "purpose": "Maps extracted sports data to database fields",
-          "key_functions": [
-            "extractSourceFields - Extracts fields from structured data",
-            "handleFieldMapping - Maps source fields to target fields",
-            "handleSaveToDatabase - Saves mapped data to database",
-            "goToNextRecord - Navigates to the next record",
-            "goToPreviousRecord - Navigates to the previous record",
-            "getFieldValue - Retrieves field value from structured data"
-          ],
-          "recent_changes": "Enhanced navigation controls to always be visible, improved styling with blue color scheme, fixed record loading to properly handle all records in structured data"
-        },
-        "ExportDialog.tsx": {
-          "purpose": "UI for exporting data to Google Sheets",
-          "key_functions": [
-            "handleAuth - Initiates Google Sheets authentication",
-            "exportMutation - Handles export process"
-          ],
-          "recent_changes": "Initial implementation of UI components, awaiting backend integration"
-        }
-      }
-    },
-    "pages": {
-      "DataManagement.tsx": {
-        "purpose": "Main page for data viewing and manipulation",
-        "key_functions": [
-          "useEffect hooks for data loading and verification",
-          "renderSidebar - Displays available data sets"
-        ],
-        "recent_changes": "Enhanced sidebar updates and data verification process"
-      }
-    },
-    "services": {
-      "DataExtractionService.ts": {
-        "purpose": "Handles data extraction and transformation",
-        "key_functions": [
-          "extractStructuredData - Extracts data from message content",
-          "transformToRowFormat - Standardizes data format",
-          "appendRows - Adds rows to existing data"
-        ],
-        "recent_changes": "Improved handling of complex data structures and error recovery"
-      }
-    }
-  }
-}
-```
-
-## DEBUGGING_NOTES
-```
-- DataTable component now has comprehensive logging in transformData function to track data flow
-- Check browser console for logs prefixed with "DataTable:" for transformation debugging
-- Column resizing issues can be diagnosed by checking event listener attachment/detachment
-- Grid expansion issues may relate to height calculations or state management
-- "Send to Data" functionality has detailed logging throughout the process
-- When troubleshooting data transformation, check logs for data structure type and format
-- Export functionality UI is complete but backend integration is still pending
-- After making changes to components, restart the frontend container with docker-compose restart frontend
-- Memory leaks have been addressed with improved event listener cleanup in useEffect hooks
-- Z-index issues have been resolved for better interaction with overlapping elements
-- Raw data display now has better formatting and toggle controls
-- SportDataMapper component has enhanced logging for data processing and field extraction
-- Check browser console for logs prefixed with "SportDataMapper:" for debugging
-- Record navigation issues in SportDataMapper can be diagnosed by checking currentRecordIndex and totalRecords values
-- Field mapping issues may relate to source field extraction or data format detection
 ```
 
 ## CURRENT_FOCUS
 ```json
 {
-  "datatable_enhancements": {
-    "pagination": "Needed for large datasets to improve performance",
-    "filtering": "Advanced filtering capabilities for better data exploration",
-    "column_typing": "Improved detection and formatting based on data types"
-  },
-  "export_system": {
-    "backend_integration": "Complete Google Sheets API integration",
-    "template_system": "Finalize template selection and application",
-    "status_tracking": "Add notifications and progress indicators"
-  },
-  "data_transformation": {
-    "standardization": "Create consistent process across all components",
-    "nested_structures": "Improve handling of complex nested data",
-    "validation": "Enhance checks for data integrity"
-  },
-  "performance": {
-    "large_datasets": "Optimize rendering and processing",
-    "caching": "Implement strategies for frequently accessed data",
-    "query_optimization": "Improve database queries for better response times"
-  },
-  "sport_data_mapper": {
-    "field_mapping": "Enhance drag-and-drop interface for better usability",
-    "validation": "Improve field validation before saving to database",
-    "error_handling": "Add comprehensive error handling for edge cases",
-    "batch_import": "Optimize batch import process for better performance"
-  }
+  "main_focus": "Improving the SportDataMapper component for better usability and data mapping",
+  "key_areas": [
+    "Entity type detection and recommendation",
+    "Drag and drop functionality for field mapping",
+    "Visual guidance for foundation entities (League and Stadium)",
+    "Progress tracking for required fields",
+    "UI improvements for better user experience"
+  ],
+  "next_steps": [
+    "Enhance batch import process with better progress visualization",
+    "Implement field value preview for better mapping decisions",
+    "Add field type validation to prevent type mismatches",
+    "Enhance entity relationship handling with visual indicators",
+    "Implement field mapping templates for common data sources"
+  ],
+  "technical_debt": [
+    "Refactor SportDataMapper component for better code organization",
+    "Add comprehensive unit tests for drag and drop functionality",
+    "Improve error handling during batch import process",
+    "Standardize field mapping logic across the application",
+    "Enhance documentation for SportDataMapper component"
+  ]
 }
 ```
 

@@ -35,7 +35,7 @@ const SportsDatabase: React.FC = () => {
   // Update data flow when component mounts
   useEffect(() => {
     setDestination('sportsdb');
-  }, [setDestination]);
+  }, []);
 
   // Fetch entities based on selected type
   const {

@@ -161,7 +161,21 @@ async function request<T>(endpoint: string, options: RequestOptions = {}): Promi
           errorData,
           headers: Object.fromEntries(response.headers.entries())
         })
-        errorDetail = errorData.detail || `Request failed with status ${response.status}`
+        
+        // Handle different error formats
+        if (errorData.detail) {
+          errorDetail = errorData.detail
+        } else if (errorData.message) {
+          errorDetail = errorData.message
+        } else if (typeof errorData === 'string') {
+          errorDetail = errorData
+        } else if (Array.isArray(errorData)) {
+          errorDetail = errorData.map(err => 
+            typeof err === 'object' ? JSON.stringify(err) : err
+          ).join(', ')
+        } else {
+          errorDetail = JSON.stringify(errorData)
+        }
       } catch (parseError) {
         console.error(`Failed to parse error response:`, {
           endpoint,
@@ -800,7 +814,67 @@ export const api = {
         method: 'POST',
         body: JSON.stringify(data),
         requiresAuth: true
-      })
+      }),
+
+    // GameBroadcast endpoints
+    getGameBroadcasts: (game_id?: string): Promise<any[]> =>
+      request('/sports/game-broadcasts', { 
+        requiresAuth: true,
+        ...(game_id && { params: { game_id } })
+      }),
+      
+    createGameBroadcast: (data: any): Promise<any> =>
+      request('/sports/game-broadcasts', {
+        method: 'POST',
+        body: JSON.stringify(data),
+        requiresAuth: true
+      }),
+      
+    getGameBroadcast: (id: string): Promise<any> =>
+      request(`/sports/game-broadcasts/${id}`, { requiresAuth: true }),
+      
+    updateGameBroadcast: (id: string, data: any): Promise<any> =>
+      request(`/sports/game-broadcasts/${id}`, {
+        method: 'PUT',
+        body: JSON.stringify(data),
+        requiresAuth: true
+      }),
+      
+    deleteGameBroadcast: (id: string): Promise<void> =>
+      request(`/sports/game-broadcasts/${id}`, {
+        method: 'DELETE',
+        requiresAuth: true
+      }),
+      
+    // LeagueExecutive endpoints
+    getLeagueExecutives: (league_id?: string): Promise<any[]> =>
+      request('/sports/league-executives', { 
+        requiresAuth: true,
+        ...(league_id && { params: { league_id } })
+      }),
+      
+    createLeagueExecutive: (data: any): Promise<any> =>
+      request('/sports/league-executives', {
+        method: 'POST',
+        body: JSON.stringify(data),
+        requiresAuth: true
+      }),
+      
+    getLeagueExecutive: (id: string): Promise<any> =>
+      request(`/sports/league-executives/${id}`, { requiresAuth: true }),
+      
+    updateLeagueExecutive: (id: string, data: any): Promise<any> =>
+      request(`/sports/league-executives/${id}`, {
+        method: 'PUT',
+        body: JSON.stringify(data),
+        requiresAuth: true
+      }),
+      
+    deleteLeagueExecutive: (id: string): Promise<void> =>
+      request(`/sports/league-executives/${id}`, {
+        method: 'DELETE',
+        requiresAuth: true
+      }),
   },
 
   admin: {

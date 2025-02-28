@@ -1,14 +1,19 @@
 from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.exc import SQLAlchemyError
 from typing import List, Optional, Dict, Any, Type
 from uuid import UUID
 import logging
+from sqlalchemy import select, delete, update, or_
+from sqlalchemy.future import select
 
 from src.models.sports_models import (
     League, Team, Player, Game, Stadium, 
     BroadcastCompany, BroadcastRights, 
     ProductionCompany, ProductionService,
-    Brand, BrandRelationship
+    Brand, BrandRelationship,
+    GameBroadcast, LeagueExecutive,
+    TeamRecord, TeamOwnership
 )
 from src.schemas.sports import (
     LeagueCreate, LeagueUpdate,
@@ -21,7 +26,9 @@ from src.schemas.sports import (
     ProductionCompanyCreate, ProductionCompanyUpdate,
     ProductionServiceCreate, ProductionServiceUpdate,
     BrandCreate, BrandUpdate,
-    BrandRelationshipCreate, BrandRelationshipUpdate
+    BrandRelationshipCreate, BrandRelationshipUpdate,
+    GameBroadcastCreate, GameBroadcastUpdate,
+    LeagueExecutiveCreate, LeagueExecutiveUpdate
 )
 
 logger = logging.getLogger(__name__)
@@ -31,6 +38,7 @@ class SportsService:
 
     # Entity type mapping
     ENTITY_TYPES = {
+        # Plural forms (original)
         "leagues": League,
         "teams": Team,
         "players": Player,
@@ -41,16 +49,37 @@ class SportsService:
         "production_companies": ProductionCompany,
         "production_services": ProductionService,
         "brands": Brand,
-        "brand_relationships": BrandRelationship
+        "brand_relationships": BrandRelationship,
+        "game_broadcasts": GameBroadcast,
+        "league_executives": LeagueExecutive,
+        # Singular forms (added for frontend compatibility)
+        "league": League,
+        "team": Team,
+        "player": Player,
+        "game": Game,
+        "stadium": Stadium,
+        "broadcast_company": BroadcastCompany,
+        "broadcast_right": BroadcastRights,
+        "production_company": ProductionCompany,
+        "production_service": ProductionService,
+        "brand": Brand,
+        "brand_relationship": BrandRelationship,
+        "game_broadcast": GameBroadcast,
+        "league_executive": LeagueExecutive,
+        # Additional mappings for frontend entity types
+        "broadcast": BroadcastCompany,
+        "production": ProductionCompany
     }
 
-    async def get_entities(self, db: Session, entity_type: str) -> List[Dict[str, Any]]:
+    async def get_entities(self, db: AsyncSession, entity_type: str) -> List[Dict[str, Any]]:
         """Get all entities of a specific type."""
         if entity_type not in self.ENTITY_TYPES:
             raise ValueError(f"Invalid entity type: {entity_type}")
         
-        model = self.ENTITY_TYPES[entity_type]
-        entities = db.query(model).all()
+        model_class = self.ENTITY_TYPES[entity_type]
+        result = await db.execute(select(model_class))
+        entities = result.scalars().all()
+        
         return [self._model_to_dict(entity) for entity in entities]
 
     def _model_to_dict(self, model: Any) -> Dict[str, Any]:
@@ -61,269 +90,270 @@ class SportsService:
         return result
 
     # League methods
-    async def get_leagues(self, db: Session) -> List[League]:
+    async def get_leagues(self, db: AsyncSession) -> List[League]:
         """Get all leagues."""
-        return db.query(League).all()
+        result = await db.execute(select(League))
+        return result.scalars().all()
 
-    async def create_league(self, db: Session, league: LeagueCreate) -> League:
+    async def create_league(self, db: AsyncSession, league: LeagueCreate) -> League:
         """Create a new league."""
         db_league = League(**league.dict())
-        try:
-            db.add(db_league)
-            db.commit()
-            db.refresh(db_league)
-            return db_league
-        except SQLAlchemyError as e:
-            db.rollback()
-            logger.error(f"Error creating league: {str(e)}")
-            raise
+        db.add(db_league)
+        await db.commit()
+        await db.refresh(db_league)
+        return db_league
 
-    async def get_league(self, db: Session, league_id: UUID) -> Optional[League]:
-        """Get a specific league by ID."""
-        return db.query(League).filter(League.id == league_id).first()
+    async def get_league(self, db: AsyncSession, league_id: UUID) -> Optional[League]:
+        """Get a league by ID."""
+        result = await db.execute(select(League).where(League.id == league_id))
+        return result.scalars().first()
 
-    async def update_league(self, db: Session, league_id: UUID, league_update: LeagueUpdate) -> Optional[League]:
-        """Update a specific league."""
-        db_league = await self.get_league(db, league_id)
+    async def update_league(self, db: AsyncSession, league_id: UUID, league_update: LeagueUpdate) -> Optional[League]:
+        """Update a league."""
+        result = await db.execute(select(League).where(League.id == league_id))
+        db_league = result.scalars().first()
         if not db_league:
             return None
-
+        
         update_data = league_update.dict(exclude_unset=True)
         for key, value in update_data.items():
             setattr(db_league, key, value)
-
+        
         try:
-            db.add(db_league)
-            db.commit()
-            db.refresh(db_league)
+            await db.commit()
+            await db.refresh(db_league)
             return db_league
         except SQLAlchemyError as e:
-            db.rollback()
+            await db.rollback()
             logger.error(f"Error updating league: {str(e)}")
             raise
 
-    async def delete_league(self, db: Session, league_id: UUID) -> bool:
-        """Delete a specific league."""
-        db_league = await self.get_league(db, league_id)
+    async def delete_league(self, db: AsyncSession, league_id: UUID) -> bool:
+        """Delete a league."""
+        result = await db.execute(select(League).where(League.id == league_id))
+        db_league = result.scalars().first()
         if not db_league:
             return False
-
+        
         try:
-            db.delete(db_league)
-            db.commit()
+            await db.delete(db_league)
+            await db.commit()
             return True
         except SQLAlchemyError as e:
-            db.rollback()
+            await db.rollback()
             logger.error(f"Error deleting league: {str(e)}")
             raise
 
     # Team methods
-    async def get_teams(self, db: Session, league_id: Optional[UUID] = None) -> List[Team]:
+    async def get_teams(self, db: AsyncSession, league_id: Optional[UUID] = None) -> List[Team]:
         """Get all teams, optionally filtered by league."""
-        query = db.query(Team)
+        query = select(Team)
         if league_id:
-            query = query.filter(Team.league_id == league_id)
-        return query.all()
+            query = query.where(Team.league_id == league_id)
+        result = await db.execute(query)
+        return result.scalars().all()
 
-    async def create_team(self, db: Session, team: TeamCreate) -> Team:
+    async def create_team(self, db: AsyncSession, team: TeamCreate) -> Team:
         """Create a new team."""
-        # Validate that the league and stadium exist
-        league = db.query(League).filter(League.id == team.league_id).first()
+        # First check if the league exists
+        result = await db.execute(select(League).where(League.id == team.league_id))
+        league = result.scalars().first()
+        
         if not league:
             raise ValueError(f"League with ID {team.league_id} not found")
         
-        stadium = db.query(Stadium).filter(Stadium.id == team.stadium_id).first()
-        if not stadium:
-            raise ValueError(f"Stadium with ID {team.stadium_id} not found")
-
+        # Create the team
         db_team = Team(**team.dict())
-        try:
-            db.add(db_team)
-            db.commit()
-            db.refresh(db_team)
-            return db_team
-        except SQLAlchemyError as e:
-            db.rollback()
-            logger.error(f"Error creating team: {str(e)}")
-            raise
+        db.add(db_team)
+        await db.commit()
+        await db.refresh(db_team)
+        return db_team
 
-    async def get_team(self, db: Session, team_id: UUID) -> Optional[Team]:
-        """Get a specific team by ID."""
-        return db.query(Team).filter(Team.id == team_id).first()
+    async def get_team(self, db: AsyncSession, team_id: UUID) -> Optional[Team]:
+        """Get a team by ID."""
+        result = await db.execute(select(Team).where(Team.id == team_id))
+        return result.scalars().first()
 
-    async def update_team(self, db: Session, team_id: UUID, team_update: TeamUpdate) -> Optional[Team]:
-        """Update a specific team."""
-        db_team = await self.get_team(db, team_id)
+    async def update_team(self, db: AsyncSession, team_id: UUID, team_update: TeamUpdate) -> Optional[Team]:
+        """Update a team."""
+        # First get the team
+        result = await db.execute(select(Team).where(Team.id == team_id))
+        db_team = result.scalars().first()
+        
         if not db_team:
             return None
-
+        
+        # Update team attributes
         update_data = team_update.dict(exclude_unset=True)
         
-        # Validate foreign keys if they are being updated
+        # Validate league_id if it's being updated
         if 'league_id' in update_data:
-            league = db.query(League).filter(League.id == update_data['league_id']).first()
+            league_result = await db.execute(select(League).where(League.id == update_data['league_id']))
+            league = league_result.scalars().first()
             if not league:
                 raise ValueError(f"League with ID {update_data['league_id']} not found")
         
+        # Validate stadium_id if it's being updated
         if 'stadium_id' in update_data:
-            stadium = db.query(Stadium).filter(Stadium.id == update_data['stadium_id']).first()
+            stadium_result = await db.execute(select(Stadium).where(Stadium.id == update_data['stadium_id']))
+            stadium = stadium_result.scalars().first()
             if not stadium:
                 raise ValueError(f"Stadium with ID {update_data['stadium_id']} not found")
-
+        
+        # Apply updates
         for key, value in update_data.items():
             setattr(db_team, key, value)
+        
+        await db.commit()
+        await db.refresh(db_team)
+        return db_team
 
-        try:
-            db.add(db_team)
-            db.commit()
-            db.refresh(db_team)
-            return db_team
-        except SQLAlchemyError as e:
-            db.rollback()
-            logger.error(f"Error updating team: {str(e)}")
-            raise
-
-    async def delete_team(self, db: Session, team_id: UUID) -> bool:
-        """Delete a specific team."""
-        db_team = await self.get_team(db, team_id)
+    async def delete_team(self, db: AsyncSession, team_id: UUID) -> bool:
+        """Delete a team."""
+        # First check if the team exists
+        result = await db.execute(select(Team).where(Team.id == team_id))
+        db_team = result.scalars().first()
+        
         if not db_team:
             return False
-
-        try:
-            db.delete(db_team)
-            db.commit()
-            return True
-        except SQLAlchemyError as e:
-            db.rollback()
-            logger.error(f"Error deleting team: {str(e)}")
-            raise
+        
+        # Delete the team
+        await db.delete(db_team)
+        await db.commit()
+        return True
 
     # Similar methods would be implemented for other entity types
     # (Player, Game, Stadium, BroadcastCompany, BroadcastRights, etc.)
     # following the same pattern as above 
     # Player methods
         
-    async def get_players(self, db: Session, team_id: Optional[UUID] = None) -> List[Player]:
+    async def get_players(self, db: AsyncSession, team_id: Optional[UUID] = None) -> List[Player]:
         """Get all players, optionally filtered by team."""
-        query = db.query(Player)
+        query = select(Player)
         if team_id:
-            query = query.filter(Player.team_id == team_id)
-        return query.all()
+            query = query.where(Player.team_id == team_id)
+        result = await db.execute(query)
+        return result.scalars().all()
 
-    async def create_player(self, db: Session, player: PlayerCreate) -> Player:
+    async def create_player(self, db: AsyncSession, player: PlayerCreate) -> Player:
         """Create a new player."""
-        # Validate that the team exists
-        team = db.query(Team).filter(Team.id == player.team_id).first()
+        # First check if the team exists
+        result = await db.execute(select(Team).where(Team.id == player.team_id))
+        team = result.scalars().first()
+        
         if not team:
             raise ValueError(f"Team with ID {player.team_id} not found")
         
+        # Create the player
         db_player = Player(**player.dict())
-        try:
-            db.add(db_player)
-            db.commit()
-            db.refresh(db_player)
-            return db_player
-        except SQLAlchemyError as e:
-            db.rollback()
-            logger.error(f"Error creating player: {str(e)}")
-            raise
+        db.add(db_player)
+        await db.commit()
+        await db.refresh(db_player)
+        return db_player
 
-    async def get_player(self, db: Session, player_id: UUID) -> Optional[Player]:
-        """Get a specific player by ID."""
-        return db.query(Player).filter(Player.id == player_id).first()
+    async def get_player(self, db: AsyncSession, player_id: UUID) -> Optional[Player]:
+        """Get a player by ID."""
+        result = await db.execute(select(Player).where(Player.id == player_id))
+        return result.scalars().first()
 
-    async def update_player(self, db: Session, player_id: UUID, player_update: PlayerUpdate) -> Optional[Player]:
-        """Update a specific player."""
-        db_player = await self.get_player(db, player_id)
+    async def update_player(self, db: AsyncSession, player_id: UUID, player_update: PlayerUpdate) -> Optional[Player]:
+        """Update a player."""
+        # First get the player
+        result = await db.execute(select(Player).where(Player.id == player_id))
+        db_player = result.scalars().first()
+        
         if not db_player:
             return None
-
+        
+        # Update player attributes
         update_data = player_update.dict(exclude_unset=True)
         
-        # Validate foreign keys if they are being updated
+        # Validate team_id if it's being updated
         if 'team_id' in update_data:
-            team = db.query(Team).filter(Team.id == update_data['team_id']).first()
+            team_result = await db.execute(select(Team).where(Team.id == update_data['team_id']))
+            team = team_result.scalars().first()
             if not team:
                 raise ValueError(f"Team with ID {update_data['team_id']} not found")
-
+        
+        # Apply updates
         for key, value in update_data.items():
             setattr(db_player, key, value)
+        
+        await db.commit()
+        await db.refresh(db_player)
+        return db_player
 
-        try:
-            db.add(db_player)
-            db.commit()
-            db.refresh(db_player)
-            return db_player
-        except SQLAlchemyError as e:
-            db.rollback()
-            logger.error(f"Error updating player: {str(e)}")
-            raise
-
-    async def delete_player(self, db: Session, player_id: UUID) -> bool:
-        """Delete a specific player."""
-        db_player = await self.get_player(db, player_id)
+    async def delete_player(self, db: AsyncSession, player_id: UUID) -> bool:
+        """Delete a player."""
+        # First check if the player exists
+        result = await db.execute(select(Player).where(Player.id == player_id))
+        db_player = result.scalars().first()
+        
         if not db_player:
             return False
-
-        try:
-            db.delete(db_player)
-            db.commit()
-            return True
-        except SQLAlchemyError as e:
-            db.rollback()
-            logger.error(f"Error deleting player: {str(e)}")
-            raise
+        
+        # Delete the player
+        await db.delete(db_player)
+        await db.commit()
+        return True
 
     # Game methods
-    async def get_games(self, db: Session, league_id: Optional[UUID] = None, 
+    async def get_games(self, db: AsyncSession, league_id: Optional[UUID] = None, 
                     team_id: Optional[UUID] = None, season_year: Optional[int] = None) -> List[Game]:
         """Get all games, optionally filtered by league, team, or season."""
-        query = db.query(Game)
+        query = select(Game)
         if league_id:
-            query = query.filter(Game.league_id == league_id)
+            query = query.where(Game.league_id == league_id)
         if team_id:
-            query = query.filter((Game.home_team_id == team_id) | (Game.away_team_id == team_id))
+            query = query.where((Game.home_team_id == team_id) | (Game.away_team_id == team_id))
         if season_year:
-            query = query.filter(Game.season_year == season_year)
-        return query.all()
+            query = query.where(Game.season_year == season_year)
+        result = await db.execute(query)
+        return result.scalars().all()
 
-    async def create_game(self, db: Session, game: GameCreate) -> Game:
+    async def create_game(self, db: AsyncSession, game: GameCreate) -> Game:
         """Create a new game."""
         # Validate that the league, teams, and stadium exist
-        league = db.query(League).filter(League.id == game.league_id).first()
+        league_result = await db.execute(select(League).where(League.id == game.league_id))
+        league = league_result.scalars().first()
         if not league:
             raise ValueError(f"League with ID {game.league_id} not found")
         
-        home_team = db.query(Team).filter(Team.id == game.home_team_id).first()
+        home_team_result = await db.execute(select(Team).where(Team.id == game.home_team_id))
+        home_team = home_team_result.scalars().first()
         if not home_team:
             raise ValueError(f"Home team with ID {game.home_team_id} not found")
         
-        away_team = db.query(Team).filter(Team.id == game.away_team_id).first()
+        away_team_result = await db.execute(select(Team).where(Team.id == game.away_team_id))
+        away_team = away_team_result.scalars().first()
         if not away_team:
             raise ValueError(f"Away team with ID {game.away_team_id} not found")
         
-        stadium = db.query(Stadium).filter(Stadium.id == game.stadium_id).first()
+        stadium_result = await db.execute(select(Stadium).where(Stadium.id == game.stadium_id))
+        stadium = stadium_result.scalars().first()
         if not stadium:
             raise ValueError(f"Stadium with ID {game.stadium_id} not found")
 
         db_game = Game(**game.dict())
         try:
             db.add(db_game)
-            db.commit()
-            db.refresh(db_game)
+            await db.commit()
+            await db.refresh(db_game)
             return db_game
         except SQLAlchemyError as e:
-            db.rollback()
+            await db.rollback()
             logger.error(f"Error creating game: {str(e)}")
             raise
 
-    async def get_game(self, db: Session, game_id: UUID) -> Optional[Game]:
+    async def get_game(self, db: AsyncSession, game_id: UUID) -> Optional[Game]:
         """Get a specific game by ID."""
-        return db.query(Game).filter(Game.id == game_id).first()
+        result = await db.execute(select(Game).where(Game.id == game_id))
+        return result.scalars().first()
 
-    async def update_game(self, db: Session, game_id: UUID, game_update: GameUpdate) -> Optional[Game]:
+    async def update_game(self, db: AsyncSession, game_id: UUID, game_update: GameUpdate) -> Optional[Game]:
         """Update a specific game."""
-        db_game = await self.get_game(db, game_id)
+        result = await db.execute(select(Game).where(Game.id == game_id))
+        db_game = result.scalars().first()
         if not db_game:
             return None
 
@@ -331,22 +361,26 @@ class SportsService:
         
         # Validate foreign keys if they are being updated
         if 'league_id' in update_data:
-            league = db.query(League).filter(League.id == update_data['league_id']).first()
+            league_result = await db.execute(select(League).where(League.id == update_data['league_id']))
+            league = league_result.scalars().first()
             if not league:
                 raise ValueError(f"League with ID {update_data['league_id']} not found")
         
         if 'home_team_id' in update_data:
-            home_team = db.query(Team).filter(Team.id == update_data['home_team_id']).first()
+            home_team_result = await db.execute(select(Team).where(Team.id == update_data['home_team_id']))
+            home_team = home_team_result.scalars().first()
             if not home_team:
                 raise ValueError(f"Home team with ID {update_data['home_team_id']} not found")
         
         if 'away_team_id' in update_data:
-            away_team = db.query(Team).filter(Team.id == update_data['away_team_id']).first()
+            away_team_result = await db.execute(select(Team).where(Team.id == update_data['away_team_id']))
+            away_team = away_team_result.scalars().first()
             if not away_team:
                 raise ValueError(f"Away team with ID {update_data['away_team_id']} not found")
         
         if 'stadium_id' in update_data:
-            stadium = db.query(Stadium).filter(Stadium.id == update_data['stadium_id']).first()
+            stadium_result = await db.execute(select(Stadium).where(Stadium.id == update_data['stadium_id']))
+            stadium = stadium_result.scalars().first()
             if not stadium:
                 raise ValueError(f"Stadium with ID {update_data['stadium_id']} not found")
 
@@ -354,162 +388,185 @@ class SportsService:
             setattr(db_game, key, value)
 
         try:
-            db.add(db_game)
-            db.commit()
-            db.refresh(db_game)
+            await db.commit()
+            await db.refresh(db_game)
             return db_game
         except SQLAlchemyError as e:
-            db.rollback()
+            await db.rollback()
             logger.error(f"Error updating game: {str(e)}")
             raise
 
-    async def delete_game(self, db: Session, game_id: UUID) -> bool:
+    async def delete_game(self, db: AsyncSession, game_id: UUID) -> bool:
         """Delete a specific game."""
-        db_game = await self.get_game(db, game_id)
+        result = await db.execute(select(Game).where(Game.id == game_id))
+        db_game = result.scalars().first()
         if not db_game:
             return False
 
         try:
-            db.delete(db_game)
-            db.commit()
+            await db.delete(db_game)
+            await db.commit()
             return True
         except SQLAlchemyError as e:
-            db.rollback()
+            await db.rollback()
             logger.error(f"Error deleting game: {str(e)}")
             raise
 
     # Stadium methods
-    async def get_stadiums(self, db: Session) -> List[Stadium]:
+    async def get_stadiums(self, db: AsyncSession) -> List[Stadium]:
         """Get all stadiums."""
-        return db.query(Stadium).all()
+        query = select(Stadium)
+        result = await db.execute(query)
+        return result.scalars().all()
 
-    async def create_stadium(self, db: Session, stadium: StadiumCreate) -> Stadium:
+    async def create_stadium(self, db: AsyncSession, stadium: StadiumCreate) -> Stadium:
         """Create a new stadium."""
-        db_stadium = Stadium(**stadium.dict())
+        db_stadium = Stadium(
+            name=stadium.name,
+            city=stadium.city,
+            state=stadium.state,
+            country=stadium.country,
+            capacity=stadium.capacity,
+            owner=stadium.owner,
+            naming_rights_holder=stadium.naming_rights_holder,
+            host_broadcaster_id=stadium.host_broadcaster_id
+        )
+        
         try:
             db.add(db_stadium)
-            db.commit()
-            db.refresh(db_stadium)
+            await db.commit()
+            await db.refresh(db_stadium)
             return db_stadium
         except SQLAlchemyError as e:
-            db.rollback()
+            await db.rollback()
             logger.error(f"Error creating stadium: {str(e)}")
             raise
 
-    async def get_stadium(self, db: Session, stadium_id: UUID) -> Optional[Stadium]:
+    async def get_stadium(self, db: AsyncSession, stadium_id: UUID) -> Optional[Stadium]:
         """Get a specific stadium by ID."""
-        return db.query(Stadium).filter(Stadium.id == stadium_id).first()
+        result = await db.execute(select(Stadium).where(Stadium.id == stadium_id))
+        return result.scalars().first()
 
-    async def update_stadium(self, db: Session, stadium_id: UUID, stadium_update: StadiumUpdate) -> Optional[Stadium]:
+    async def update_stadium(self, db: AsyncSession, stadium_id: UUID, stadium_update: StadiumUpdate) -> Optional[Stadium]:
         """Update a specific stadium."""
-        db_stadium = await self.get_stadium(db, stadium_id)
+        # Get the stadium
+        result = await db.execute(select(Stadium).where(Stadium.id == stadium_id))
+        db_stadium = result.scalars().first()
         if not db_stadium:
             return None
-
+        
+        # Update the stadium
         update_data = stadium_update.dict(exclude_unset=True)
         for key, value in update_data.items():
             setattr(db_stadium, key, value)
-
+        
         try:
-            db.add(db_stadium)
-            db.commit()
-            db.refresh(db_stadium)
+            await db.commit()
+            await db.refresh(db_stadium)
             return db_stadium
         except SQLAlchemyError as e:
-            db.rollback()
+            await db.rollback()
             logger.error(f"Error updating stadium: {str(e)}")
             raise
 
-    async def delete_stadium(self, db: Session, stadium_id: UUID) -> bool:
+    async def delete_stadium(self, db: AsyncSession, stadium_id: UUID) -> bool:
         """Delete a specific stadium."""
-        db_stadium = await self.get_stadium(db, stadium_id)
+        # Get the stadium
+        result = await db.execute(select(Stadium).where(Stadium.id == stadium_id))
+        db_stadium = result.scalars().first()
         if not db_stadium:
             return False
-
-        try:
-            db.delete(db_stadium)
-            db.commit()
-            return True
-        except SQLAlchemyError as e:
-            db.rollback()
-            logger.error(f"Error deleting stadium: {str(e)}")
-            raise
+        
+        # Delete the stadium
+        await db.delete(db_stadium)
+        await db.commit()
+        return True
         
     # BroadcastCompany methods
-    async def get_broadcast_companies(self, db: Session) -> List[BroadcastCompany]:
+    async def get_broadcast_companies(self, db: AsyncSession) -> List[BroadcastCompany]:
         """Get all broadcast companies."""
-        return db.query(BroadcastCompany).all()
+        query = select(BroadcastCompany)
+        result = await db.execute(query)
+        return result.scalars().all()
 
-    async def create_broadcast_company(self, db: Session, broadcast_company: BroadcastCompanyCreate) -> BroadcastCompany:
+    async def create_broadcast_company(self, db: AsyncSession, broadcast_company: BroadcastCompanyCreate) -> BroadcastCompany:
         """Create a new broadcast company."""
-        db_broadcast_company = BroadcastCompany(**broadcast_company.dict())
+        db_broadcast_company = BroadcastCompany(
+            name=broadcast_company.name,
+            type=broadcast_company.type,
+            country=broadcast_company.country
+        )
+        
         try:
             db.add(db_broadcast_company)
-            db.commit()
-            db.refresh(db_broadcast_company)
+            await db.commit()
+            await db.refresh(db_broadcast_company)
             return db_broadcast_company
         except SQLAlchemyError as e:
-            db.rollback()
+            await db.rollback()
             logger.error(f"Error creating broadcast company: {str(e)}")
             raise
 
-    async def get_broadcast_company(self, db: Session, broadcast_company_id: UUID) -> Optional[BroadcastCompany]:
+    async def get_broadcast_company(self, db: AsyncSession, broadcast_company_id: UUID) -> Optional[BroadcastCompany]:
         """Get a specific broadcast company by ID."""
-        return db.query(BroadcastCompany).filter(BroadcastCompany.id == broadcast_company_id).first()
+        result = await db.execute(select(BroadcastCompany).where(BroadcastCompany.id == broadcast_company_id))
+        return result.scalars().first()
 
-    async def update_broadcast_company(self, db: Session, broadcast_company_id: UUID, 
+    async def update_broadcast_company(self, db: AsyncSession, broadcast_company_id: UUID, 
                                     broadcast_company_update: BroadcastCompanyUpdate) -> Optional[BroadcastCompany]:
         """Update a specific broadcast company."""
-        db_broadcast_company = await self.get_broadcast_company(db, broadcast_company_id)
+        # Get the broadcast company
+        result = await db.execute(select(BroadcastCompany).where(BroadcastCompany.id == broadcast_company_id))
+        db_broadcast_company = result.scalars().first()
         if not db_broadcast_company:
             return None
-
+        
+        # Update the broadcast company
         update_data = broadcast_company_update.dict(exclude_unset=True)
         for key, value in update_data.items():
             setattr(db_broadcast_company, key, value)
-
+        
         try:
-            db.add(db_broadcast_company)
-            db.commit()
-            db.refresh(db_broadcast_company)
+            await db.commit()
+            await db.refresh(db_broadcast_company)
             return db_broadcast_company
         except SQLAlchemyError as e:
-            db.rollback()
+            await db.rollback()
             logger.error(f"Error updating broadcast company: {str(e)}")
             raise
 
-    async def delete_broadcast_company(self, db: Session, broadcast_company_id: UUID) -> bool:
+    async def delete_broadcast_company(self, db: AsyncSession, broadcast_company_id: UUID) -> bool:
         """Delete a specific broadcast company."""
-        db_broadcast_company = await self.get_broadcast_company(db, broadcast_company_id)
+        # Get the broadcast company
+        result = await db.execute(select(BroadcastCompany).where(BroadcastCompany.id == broadcast_company_id))
+        db_broadcast_company = result.scalars().first()
         if not db_broadcast_company:
             return False
-
-        try:
-            db.delete(db_broadcast_company)
-            db.commit()
-            return True
-        except SQLAlchemyError as e:
-            db.rollback()
-            logger.error(f"Error deleting broadcast company: {str(e)}")
-            raise
+        
+        # Delete the broadcast company
+        await db.delete(db_broadcast_company)
+        await db.commit()
+        return True
 
     # BroadcastRights methods
-    async def get_broadcast_rights(self, db: Session, entity_id: Optional[UUID] = None, 
+    async def get_broadcast_rights(self, db: AsyncSession, entity_id: Optional[UUID] = None, 
                                 broadcast_company_id: Optional[UUID] = None) -> List[BroadcastRights]:
         """Get all broadcast rights, optionally filtered by entity or broadcast company."""
-        query = db.query(BroadcastRights)
+        query = select(BroadcastRights)
         if entity_id:
-            query = query.filter(BroadcastRights.entity_id == entity_id)
+            query = query.where(BroadcastRights.entity_id == entity_id)
         if broadcast_company_id:
-            query = query.filter(BroadcastRights.broadcast_company_id == broadcast_company_id)
-        return query.all()
+            query = query.where(BroadcastRights.broadcast_company_id == broadcast_company_id)
+        result = await db.execute(query)
+        return result.scalars().all()
 
-    async def create_broadcast_rights(self, db: Session, broadcast_rights: BroadcastRightsCreate) -> BroadcastRights:
+    async def create_broadcast_rights(self, db: AsyncSession, broadcast_rights: BroadcastRightsCreate) -> BroadcastRights:
         """Create new broadcast rights."""
         # Validate that the broadcast company exists
-        broadcast_company = db.query(BroadcastCompany).filter(
+        broadcast_company_result = await db.execute(select(BroadcastCompany).where(
             BroadcastCompany.id == broadcast_rights.broadcast_company_id
-        ).first()
+        ))
+        broadcast_company = broadcast_company_result.scalars().first()
         if not broadcast_company:
             raise ValueError(f"Broadcast company with ID {broadcast_rights.broadcast_company_id} not found")
         
@@ -519,19 +576,20 @@ class SportsService:
         db_broadcast_rights = BroadcastRights(**broadcast_rights.dict())
         try:
             db.add(db_broadcast_rights)
-            db.commit()
-            db.refresh(db_broadcast_rights)
+            await db.commit()
+            await db.refresh(db_broadcast_rights)
             return db_broadcast_rights
         except SQLAlchemyError as e:
-            db.rollback()
+            await db.rollback()
             logger.error(f"Error creating broadcast rights: {str(e)}")
             raise
 
-    async def get_broadcast_right(self, db: Session, broadcast_rights_id: UUID) -> Optional[BroadcastRights]:
+    async def get_broadcast_right(self, db: AsyncSession, broadcast_rights_id: UUID) -> Optional[BroadcastRights]:
         """Get specific broadcast rights by ID."""
-        return db.query(BroadcastRights).filter(BroadcastRights.id == broadcast_rights_id).first()
+        result = await db.execute(select(BroadcastRights).where(BroadcastRights.id == broadcast_rights_id))
+        return result.scalars().first()
 
-    async def update_broadcast_rights(self, db: Session, broadcast_rights_id: UUID, 
+    async def update_broadcast_rights(self, db: AsyncSession, broadcast_rights_id: UUID, 
                                     broadcast_rights_update: BroadcastRightsUpdate) -> Optional[BroadcastRights]:
         """Update specific broadcast rights."""
         db_broadcast_rights = await self.get_broadcast_right(db, broadcast_rights_id)
@@ -540,315 +598,533 @@ class SportsService:
 
         update_data = broadcast_rights_update.dict(exclude_unset=True)
         
-        # Validate foreign keys if they are being updated
+        # Validate broadcast_company_id if it's being updated
         if 'broadcast_company_id' in update_data:
-            broadcast_company = db.query(BroadcastCompany).filter(
+            broadcast_company_result = await db.execute(select(BroadcastCompany).where(
                 BroadcastCompany.id == update_data['broadcast_company_id']
-            ).first()
+            ))
+            broadcast_company = broadcast_company_result.scalars().first()
             if not broadcast_company:
                 raise ValueError(f"Broadcast company with ID {update_data['broadcast_company_id']} not found")
-
+        
         for key, value in update_data.items():
             setattr(db_broadcast_rights, key, value)
 
         try:
-            db.add(db_broadcast_rights)
-            db.commit()
-            db.refresh(db_broadcast_rights)
+            await db.commit()
+            await db.refresh(db_broadcast_rights)
             return db_broadcast_rights
         except SQLAlchemyError as e:
-            db.rollback()
+            await db.rollback()
             logger.error(f"Error updating broadcast rights: {str(e)}")
             raise
 
-    async def delete_broadcast_rights(self, db: Session, broadcast_rights_id: UUID) -> bool:
+    async def delete_broadcast_rights(self, db: AsyncSession, broadcast_rights_id: UUID) -> bool:
         """Delete specific broadcast rights."""
         db_broadcast_rights = await self.get_broadcast_right(db, broadcast_rights_id)
         if not db_broadcast_rights:
             return False
 
         try:
-            db.delete(db_broadcast_rights)
-            db.commit()
+            await db.delete(db_broadcast_rights)
+            await db.commit()
             return True
         except SQLAlchemyError as e:
-            db.rollback()
+            await db.rollback()
             logger.error(f"Error deleting broadcast rights: {str(e)}")
             raise
 
     # ProductionCompany methods
-    async def get_production_companies(self, db: Session) -> List[ProductionCompany]:
+    async def get_production_companies(self, db: AsyncSession) -> List[ProductionCompany]:
         """Get all production companies."""
-        return db.query(ProductionCompany).all()
+        query = select(ProductionCompany)
+        result = await db.execute(query)
+        return result.scalars().all()
 
-    async def create_production_company(self, db: Session, production_company: ProductionCompanyCreate) -> ProductionCompany:
+    async def create_production_company(self, db: AsyncSession, production_company: ProductionCompanyCreate) -> ProductionCompany:
         """Create a new production company."""
-        db_production_company = ProductionCompany(**production_company.dict())
+        db_production_company = ProductionCompany(
+            name=production_company.name
+        )
+        
         try:
             db.add(db_production_company)
-            db.commit()
-            db.refresh(db_production_company)
+            await db.commit()
+            await db.refresh(db_production_company)
             return db_production_company
         except SQLAlchemyError as e:
-            db.rollback()
+            await db.rollback()
             logger.error(f"Error creating production company: {str(e)}")
             raise
 
-    async def get_production_company(self, db: Session, production_company_id: UUID) -> Optional[ProductionCompany]:
+    async def get_production_company(self, db: AsyncSession, production_company_id: UUID) -> Optional[ProductionCompany]:
         """Get a specific production company by ID."""
-        return db.query(ProductionCompany).filter(ProductionCompany.id == production_company_id).first()
+        result = await db.execute(select(ProductionCompany).where(ProductionCompany.id == production_company_id))
+        return result.scalars().first()
 
-    async def update_production_company(self, db: Session, production_company_id: UUID, 
+    async def update_production_company(self, db: AsyncSession, production_company_id: UUID, 
                                     production_company_update: ProductionCompanyUpdate) -> Optional[ProductionCompany]:
-        """Update a specific production company."""
-        db_production_company = await self.get_production_company(db, production_company_id)
+        """Update a production company."""
+        # Get the production company
+        result = await db.execute(select(ProductionCompany).where(ProductionCompany.id == production_company_id))
+        db_production_company = result.scalars().first()
         if not db_production_company:
             return None
-
+        
+        # Update the production company
         update_data = production_company_update.dict(exclude_unset=True)
         for key, value in update_data.items():
             setattr(db_production_company, key, value)
-
+        
         try:
-            db.add(db_production_company)
-            db.commit()
-            db.refresh(db_production_company)
+            await db.commit()
+            await db.refresh(db_production_company)
             return db_production_company
         except SQLAlchemyError as e:
-            db.rollback()
+            await db.rollback()
             logger.error(f"Error updating production company: {str(e)}")
             raise
 
-    async def delete_production_company(self, db: Session, production_company_id: UUID) -> bool:
-        """Delete a specific production company."""
-        db_production_company = await self.get_production_company(db, production_company_id)
+    async def delete_production_company(self, db: AsyncSession, production_company_id: UUID) -> bool:
+        """Delete a production company."""
+        # Get the production company
+        result = await db.execute(select(ProductionCompany).where(ProductionCompany.id == production_company_id))
+        db_production_company = result.scalars().first()
         if not db_production_company:
             return False
-
-        try:
-            db.delete(db_production_company)
-            db.commit()
-            return True
-        except SQLAlchemyError as e:
-            db.rollback()
-            logger.error(f"Error deleting production company: {str(e)}")
-            raise
+        
+        # Delete the production company
+        await db.delete(db_production_company)
+        await db.commit()
+        return True
 
     # ProductionService methods
-    async def get_production_services(self, db: Session, entity_id: Optional[UUID] = None, 
+    async def get_production_services(self, db: AsyncSession, entity_id: Optional[UUID] = None, 
                                     production_company_id: Optional[UUID] = None) -> List[ProductionService]:
         """Get all production services, optionally filtered by entity or production company."""
-        query = db.query(ProductionService)
+        query = select(ProductionService)
         if entity_id:
-            query = query.filter(ProductionService.entity_id == entity_id)
+            query = query.where(ProductionService.entity_id == entity_id)
         if production_company_id:
-            query = query.filter(ProductionService.production_company_id == production_company_id)
-        return query.all()
+            query = query.where(ProductionService.production_company_id == production_company_id)
+        result = await db.execute(query)
+        return result.scalars().all()
 
-    async def create_production_service(self, db: Session, production_service: ProductionServiceCreate) -> ProductionService:
+    async def create_production_service(self, db: AsyncSession, production_service: ProductionServiceCreate) -> ProductionService:
         """Create a new production service."""
         # Validate that the production company exists
-        production_company = db.query(ProductionCompany).filter(
-            ProductionCompany.id == production_service.production_company_id
-        ).first()
+        result = await db.execute(select(ProductionCompany).where(ProductionCompany.id == production_service.production_company_id))
+        production_company = result.scalars().first()
         if not production_company:
             raise ValueError(f"Production company with ID {production_service.production_company_id} not found")
         
-        # Validate entity exists (could be a league, team, or game)
-        # This would require more complex validation based on entity_type
+        # Create the production service
+        db_production_service = ProductionService(
+            entity_type=production_service.entity_type,
+            entity_id=production_service.entity_id,
+            production_company_id=production_service.production_company_id,
+            service_type=production_service.service_type,
+            start_date=production_service.start_date,
+            end_date=production_service.end_date
+        )
         
-        db_production_service = ProductionService(**production_service.dict())
         try:
             db.add(db_production_service)
-            db.commit()
-            db.refresh(db_production_service)
+            await db.commit()
+            await db.refresh(db_production_service)
             return db_production_service
         except SQLAlchemyError as e:
-            db.rollback()
+            await db.rollback()
             logger.error(f"Error creating production service: {str(e)}")
             raise
 
-    async def get_production_service(self, db: Session, production_service_id: UUID) -> Optional[ProductionService]:
+    async def get_production_service(self, db: AsyncSession, production_service_id: UUID) -> Optional[ProductionService]:
         """Get a specific production service by ID."""
-        return db.query(ProductionService).filter(ProductionService.id == production_service_id).first()
+        result = await db.execute(select(ProductionService).where(ProductionService.id == production_service_id))
+        return result.scalars().first()
 
-    async def update_production_service(self, db: Session, production_service_id: UUID, 
+    async def update_production_service(self, db: AsyncSession, production_service_id: UUID, 
                                     production_service_update: ProductionServiceUpdate) -> Optional[ProductionService]:
-        """Update a specific production service."""
-        db_production_service = await self.get_production_service(db, production_service_id)
+        """Update a production service."""
+        # Get the production service
+        result = await db.execute(select(ProductionService).where(ProductionService.id == production_service_id))
+        db_production_service = result.scalars().first()
         if not db_production_service:
             return None
-
-        update_data = production_service_update.dict(exclude_unset=True)
         
-        # Validate foreign keys if they are being updated
-        if 'production_company_id' in update_data:
-            production_company = db.query(ProductionCompany).filter(
-                ProductionCompany.id == update_data['production_company_id']
-            ).first()
+        # Validate production company if it's being updated
+        if production_service_update.production_company_id:
+            result = await db.execute(select(ProductionCompany).where(ProductionCompany.id == production_service_update.production_company_id))
+            production_company = result.scalars().first()
             if not production_company:
-                raise ValueError(f"Production company with ID {update_data['production_company_id']} not found")
-
+                raise ValueError(f"Production company with ID {production_service_update.production_company_id} not found")
+        
+        # Update the production service
+        update_data = production_service_update.dict(exclude_unset=True)
         for key, value in update_data.items():
             setattr(db_production_service, key, value)
-
+        
         try:
-            db.add(db_production_service)
-            db.commit()
-            db.refresh(db_production_service)
+            await db.commit()
+            await db.refresh(db_production_service)
             return db_production_service
         except SQLAlchemyError as e:
-            db.rollback()
+            await db.rollback()
             logger.error(f"Error updating production service: {str(e)}")
             raise
 
-    async def delete_production_service(self, db: Session, production_service_id: UUID) -> bool:
-        """Delete a specific production service."""
-        db_production_service = await self.get_production_service(db, production_service_id)
+    async def delete_production_service(self, db: AsyncSession, production_service_id: UUID) -> bool:
+        """Delete a production service."""
+        # Get the production service
+        result = await db.execute(select(ProductionService).where(ProductionService.id == production_service_id))
+        db_production_service = result.scalars().first()
         if not db_production_service:
             return False
-
-        try:
-            db.delete(db_production_service)
-            db.commit()
-            return True
-        except SQLAlchemyError as e:
-            db.rollback()
-            logger.error(f"Error deleting production service: {str(e)}")
-            raise
+        
+        # Delete the production service
+        await db.delete(db_production_service)
+        await db.commit()
+        return True
 
     # Brand methods
-    async def get_brands(self, db: Session) -> List[Brand]:
+    async def get_brands(self, db: AsyncSession) -> List[Brand]:
         """Get all brands."""
-        return db.query(Brand).all()
+        query = select(Brand)
+        result = await db.execute(query)
+        return result.scalars().all()
 
-    async def create_brand(self, db: Session, brand: BrandCreate) -> Brand:
+    async def create_brand(self, db: AsyncSession, brand: BrandCreate) -> Brand:
         """Create a new brand."""
-        db_brand = Brand(**brand.dict())
+        db_brand = Brand(
+            name=brand.name,
+            industry=brand.industry
+        )
+        
         try:
             db.add(db_brand)
-            db.commit()
-            db.refresh(db_brand)
+            await db.commit()
+            await db.refresh(db_brand)
             return db_brand
         except SQLAlchemyError as e:
-            db.rollback()
+            await db.rollback()
             logger.error(f"Error creating brand: {str(e)}")
             raise
 
-    async def get_brand(self, db: Session, brand_id: UUID) -> Optional[Brand]:
+    async def get_brand(self, db: AsyncSession, brand_id: UUID) -> Optional[Brand]:
         """Get a specific brand by ID."""
-        return db.query(Brand).filter(Brand.id == brand_id).first()
+        result = await db.execute(select(Brand).where(Brand.id == brand_id))
+        return result.scalars().first()
 
-    async def update_brand(self, db: Session, brand_id: UUID, brand_update: BrandUpdate) -> Optional[Brand]:
-        """Update a specific brand."""
-        db_brand = await self.get_brand(db, brand_id)
+    async def update_brand(self, db: AsyncSession, brand_id: UUID, brand_update: BrandUpdate) -> Optional[Brand]:
+        """Update a brand."""
+        # Get the brand
+        result = await db.execute(select(Brand).where(Brand.id == brand_id))
+        db_brand = result.scalars().first()
         if not db_brand:
             return None
-
+        
+        # Update the brand
         update_data = brand_update.dict(exclude_unset=True)
         for key, value in update_data.items():
             setattr(db_brand, key, value)
-
+        
         try:
-            db.add(db_brand)
-            db.commit()
-            db.refresh(db_brand)
+            await db.commit()
+            await db.refresh(db_brand)
             return db_brand
         except SQLAlchemyError as e:
-            db.rollback()
+            await db.rollback()
             logger.error(f"Error updating brand: {str(e)}")
             raise
 
-    async def delete_brand(self, db: Session, brand_id: UUID) -> bool:
-        """Delete a specific brand."""
-        db_brand = await self.get_brand(db, brand_id)
+    async def delete_brand(self, db: AsyncSession, brand_id: UUID) -> bool:
+        """Delete a brand."""
+        # Get the brand
+        result = await db.execute(select(Brand).where(Brand.id == brand_id))
+        db_brand = result.scalars().first()
         if not db_brand:
             return False
-
-        try:
-            db.delete(db_brand)
-            db.commit()
-            return True
-        except SQLAlchemyError as e:
-            db.rollback()
-            logger.error(f"Error deleting brand: {str(e)}")
-            raise
+        
+        # Delete the brand
+        await db.delete(db_brand)
+        await db.commit()
+        return True
 
     # BrandRelationship methods
-    async def get_brand_relationships(self, db: Session, entity_id: Optional[UUID] = None, 
+    async def get_brand_relationships(self, db: AsyncSession, entity_id: Optional[UUID] = None, 
                                     brand_id: Optional[UUID] = None) -> List[BrandRelationship]:
         """Get all brand relationships, optionally filtered by entity or brand."""
-        query = db.query(BrandRelationship)
+        query = select(BrandRelationship)
         if entity_id:
-            query = query.filter(BrandRelationship.entity_id == entity_id)
+            query = query.where(BrandRelationship.entity_id == entity_id)
         if brand_id:
-            query = query.filter(BrandRelationship.brand_id == brand_id)
-        return query.all()
+            query = query.where(BrandRelationship.brand_id == brand_id)
+        result = await db.execute(query)
+        return result.scalars().all()
 
-    async def create_brand_relationship(self, db: Session, brand_relationship: BrandRelationshipCreate) -> BrandRelationship:
+    async def create_brand_relationship(self, db: AsyncSession, brand_relationship: BrandRelationshipCreate) -> BrandRelationship:
         """Create a new brand relationship."""
         # Validate that the brand exists
-        brand = db.query(Brand).filter(Brand.id == brand_relationship.brand_id).first()
+        result = await db.execute(select(Brand).where(Brand.id == brand_relationship.brand_id))
+        brand = result.scalars().first()
         if not brand:
             raise ValueError(f"Brand with ID {brand_relationship.brand_id} not found")
         
-        # Validate entity exists (could be a league, team, player, etc.)
-        # This would require more complex validation based on entity_type
+        # Create the brand relationship
+        db_brand_relationship = BrandRelationship(
+            brand_id=brand_relationship.brand_id,
+            entity_type=brand_relationship.entity_type,
+            entity_id=brand_relationship.entity_id,
+            relationship_type=brand_relationship.relationship_type,
+            start_date=brand_relationship.start_date,
+            end_date=brand_relationship.end_date
+        )
         
-        db_brand_relationship = BrandRelationship(**brand_relationship.dict())
         try:
             db.add(db_brand_relationship)
-            db.commit()
-            db.refresh(db_brand_relationship)
+            await db.commit()
+            await db.refresh(db_brand_relationship)
             return db_brand_relationship
         except SQLAlchemyError as e:
-            db.rollback()
+            await db.rollback()
             logger.error(f"Error creating brand relationship: {str(e)}")
             raise
 
-    async def get_brand_relationship(self, db: Session, brand_relationship_id: UUID) -> Optional[BrandRelationship]:
+    async def get_brand_relationship(self, db: AsyncSession, brand_relationship_id: UUID) -> Optional[BrandRelationship]:
         """Get a specific brand relationship by ID."""
-        return db.query(BrandRelationship).filter(BrandRelationship.id == brand_relationship_id).first()
+        result = await db.execute(select(BrandRelationship).where(BrandRelationship.id == brand_relationship_id))
+        return result.scalars().first()
 
-    async def update_brand_relationship(self, db: Session, brand_relationship_id: UUID, 
+    async def update_brand_relationship(self, db: AsyncSession, brand_relationship_id: UUID, 
                                     brand_relationship_update: BrandRelationshipUpdate) -> Optional[BrandRelationship]:
-        """Update a specific brand relationship."""
-        db_brand_relationship = await self.get_brand_relationship(db, brand_relationship_id)
+        """Update a brand relationship."""
+        # Get the brand relationship
+        result = await db.execute(select(BrandRelationship).where(BrandRelationship.id == brand_relationship_id))
+        db_brand_relationship = result.scalars().first()
         if not db_brand_relationship:
             return None
-
-        update_data = brand_relationship_update.dict(exclude_unset=True)
         
-        # Validate foreign keys if they are being updated
-        if 'brand_id' in update_data:
-            brand = db.query(Brand).filter(Brand.id == update_data['brand_id']).first()
-            if not brand:
-                raise ValueError(f"Brand with ID {update_data['brand_id']} not found")
-
+        # Update the brand relationship
+        update_data = brand_relationship_update.dict(exclude_unset=True)
         for key, value in update_data.items():
             setattr(db_brand_relationship, key, value)
-
+        
         try:
-            db.add(db_brand_relationship)
-            db.commit()
-            db.refresh(db_brand_relationship)
+            await db.commit()
+            await db.refresh(db_brand_relationship)
             return db_brand_relationship
         except SQLAlchemyError as e:
-            db.rollback()
+            await db.rollback()
             logger.error(f"Error updating brand relationship: {str(e)}")
             raise
 
-    async def delete_brand_relationship(self, db: Session, brand_relationship_id: UUID) -> bool:
-        """Delete a specific brand relationship."""
-        db_brand_relationship = await self.get_brand_relationship(db, brand_relationship_id)
+    async def delete_brand_relationship(self, db: AsyncSession, brand_relationship_id: UUID) -> bool:
+        """Delete a brand relationship."""
+        # Get the brand relationship
+        result = await db.execute(select(BrandRelationship).where(BrandRelationship.id == brand_relationship_id))
+        db_brand_relationship = result.scalars().first()
         if not db_brand_relationship:
             return False
+        
+        # Delete the brand relationship
+        await db.delete(db_brand_relationship)
+        await db.commit()
+        return True
 
+    async def get_game_broadcasts(self, db: AsyncSession, game_id: Optional[UUID] = None, 
+                             broadcast_company_id: Optional[UUID] = None) -> List[GameBroadcast]:
+        """Get all game broadcasts, optionally filtered by game or broadcast company."""
+        query = select(GameBroadcast)
+        if game_id:
+            query = query.where(GameBroadcast.game_id == game_id)
+        if broadcast_company_id:
+            query = query.where(GameBroadcast.broadcast_company_id == broadcast_company_id)
+        result = await db.execute(query)
+        return result.scalars().all()
+
+    async def create_game_broadcast(self, db: AsyncSession, game_broadcast: GameBroadcastCreate) -> GameBroadcast:
+        """Create a new game broadcast."""
+        # Validate that the game exists
+        result = await db.execute(select(Game).where(Game.id == game_broadcast.game_id))
+        game = result.scalars().first()
+        if not game:
+            raise ValueError(f"Game with ID {game_broadcast.game_id} not found")
+        
+        # Validate that the broadcast company exists
+        result = await db.execute(select(BroadcastCompany).where(BroadcastCompany.id == game_broadcast.broadcast_company_id))
+        broadcast_company = result.scalars().first()
+        if not broadcast_company:
+            raise ValueError(f"Broadcast company with ID {game_broadcast.broadcast_company_id} not found")
+        
+        # Validate that the production company exists if provided
+        if game_broadcast.production_company_id:
+            result = await db.execute(select(ProductionCompany).where(ProductionCompany.id == game_broadcast.production_company_id))
+            production_company = result.scalars().first()
+            if not production_company:
+                raise ValueError(f"Production company with ID {game_broadcast.production_company_id} not found")
+        
+        # Create the game broadcast
+        db_game_broadcast = GameBroadcast(
+            game_id=game_broadcast.game_id,
+            broadcast_company_id=game_broadcast.broadcast_company_id,
+            production_company_id=game_broadcast.production_company_id,
+            broadcast_type=game_broadcast.broadcast_type,
+            territory=game_broadcast.territory,
+            start_time=game_broadcast.start_time,
+            end_time=game_broadcast.end_time
+        )
+        
         try:
-            db.delete(db_brand_relationship)
-            db.commit()
-            return True
+            db.add(db_game_broadcast)
+            await db.commit()
+            await db.refresh(db_game_broadcast)
+            return db_game_broadcast
         except SQLAlchemyError as e:
-            db.rollback()
-            logger.error(f"Error deleting brand relationship: {str(e)}")
+            await db.rollback()
+            logger.error(f"Error creating game broadcast: {str(e)}")
             raise
+
+    async def get_game_broadcast(self, db: AsyncSession, game_broadcast_id: UUID) -> Optional[GameBroadcast]:
+        """Get a specific game broadcast by ID."""
+        result = await db.execute(select(GameBroadcast).where(GameBroadcast.id == game_broadcast_id))
+        return result.scalars().first()
+
+    async def update_game_broadcast(self, db: AsyncSession, game_broadcast_id: UUID, 
+                                game_broadcast_update: GameBroadcastUpdate) -> Optional[GameBroadcast]:
+        """Update a game broadcast."""
+        # Get the game broadcast
+        result = await db.execute(select(GameBroadcast).where(GameBroadcast.id == game_broadcast_id))
+        db_game_broadcast = result.scalars().first()
+        if not db_game_broadcast:
+            return None
+        
+        # Validate related entities if they are being updated
+        update_data = game_broadcast_update.dict(exclude_unset=True)
+        
+        if "game_id" in update_data:
+            result = await db.execute(select(Game).where(Game.id == update_data["game_id"]))
+            game = result.scalars().first()
+            if not game:
+                raise ValueError(f"Game with ID {update_data['game_id']} not found")
+        
+        if "broadcast_company_id" in update_data:
+            result = await db.execute(select(BroadcastCompany).where(BroadcastCompany.id == update_data["broadcast_company_id"]))
+            broadcast_company = result.scalars().first()
+            if not broadcast_company:
+                raise ValueError(f"Broadcast company with ID {update_data['broadcast_company_id']} not found")
+        
+        if "production_company_id" in update_data and update_data["production_company_id"] is not None:
+            result = await db.execute(select(ProductionCompany).where(ProductionCompany.id == update_data["production_company_id"]))
+            production_company = result.scalars().first()
+            if not production_company:
+                raise ValueError(f"Production company with ID {update_data['production_company_id']} not found")
+        
+        # Update the game broadcast
+        for key, value in update_data.items():
+            setattr(db_game_broadcast, key, value)
+        
+        try:
+            await db.commit()
+            await db.refresh(db_game_broadcast)
+            return db_game_broadcast
+        except SQLAlchemyError as e:
+            await db.rollback()
+            logger.error(f"Error updating game broadcast: {str(e)}")
+            raise
+
+    async def delete_game_broadcast(self, db: AsyncSession, game_broadcast_id: UUID) -> bool:
+        """Delete a game broadcast."""
+        # Get the game broadcast
+        result = await db.execute(select(GameBroadcast).where(GameBroadcast.id == game_broadcast_id))
+        db_game_broadcast = result.scalars().first()
+        if not db_game_broadcast:
+            return False
+        
+        # Delete the game broadcast
+        await db.delete(db_game_broadcast)
+        await db.commit()
+        return True
+
+    async def get_league_executives(self, db: AsyncSession, league_id: Optional[UUID] = None) -> List[LeagueExecutive]:
+        """Get all league executives, optionally filtered by league."""
+        query = select(LeagueExecutive)
+        if league_id:
+            query = query.where(LeagueExecutive.league_id == league_id)
+        result = await db.execute(query)
+        return result.scalars().all()
+
+    async def create_league_executive(self, db: AsyncSession, league_executive: LeagueExecutiveCreate) -> LeagueExecutive:
+        """Create a new league executive."""
+        # Validate that the league exists
+        result = await db.execute(select(League).where(League.id == league_executive.league_id))
+        league = result.scalars().first()
+        if not league:
+            raise ValueError(f"League with ID {league_executive.league_id} not found")
+        
+        # Create the league executive
+        db_league_executive = LeagueExecutive(
+            league_id=league_executive.league_id,
+            name=league_executive.name,
+            position=league_executive.position,
+            start_date=league_executive.start_date,
+            end_date=league_executive.end_date
+        )
+        
+        try:
+            db.add(db_league_executive)
+            await db.commit()
+            await db.refresh(db_league_executive)
+            return db_league_executive
+        except SQLAlchemyError as e:
+            await db.rollback()
+            logger.error(f"Error creating league executive: {str(e)}")
+            raise
+
+    async def get_league_executive(self, db: AsyncSession, league_executive_id: UUID) -> Optional[LeagueExecutive]:
+        """Get a specific league executive by ID."""
+        result = await db.execute(select(LeagueExecutive).where(LeagueExecutive.id == league_executive_id))
+        return result.scalars().first()
+
+    async def update_league_executive(self, db: AsyncSession, league_executive_id: UUID, 
+                                  league_executive_update: LeagueExecutiveUpdate) -> Optional[LeagueExecutive]:
+        """Update a league executive."""
+        # Get the league executive
+        result = await db.execute(select(LeagueExecutive).where(LeagueExecutive.id == league_executive_id))
+        db_league_executive = result.scalars().first()
+        if not db_league_executive:
+            return None
+        
+        # Validate related entities if they are being updated
+        update_data = league_executive_update.dict(exclude_unset=True)
+        
+        if "league_id" in update_data:
+            result = await db.execute(select(League).where(League.id == update_data["league_id"]))
+            league = result.scalars().first()
+            if not league:
+                raise ValueError(f"League with ID {update_data['league_id']} not found")
+        
+        # Update the league executive
+        for key, value in update_data.items():
+            setattr(db_league_executive, key, value)
+        
+        try:
+            await db.commit()
+            await db.refresh(db_league_executive)
+            return db_league_executive
+        except SQLAlchemyError as e:
+            await db.rollback()
+            logger.error(f"Error updating league executive: {str(e)}")
+            raise
+
+    async def delete_league_executive(self, db: AsyncSession, league_executive_id: UUID) -> bool:
+        """Delete a league executive."""
+        # Get the league executive
+        result = await db.execute(select(LeagueExecutive).where(LeagueExecutive.id == league_executive_id))
+        db_league_executive = result.scalars().first()
+        if not db_league_executive:
+            return False
+        
+        # Delete the league executive
+        await db.delete(db_league_executive)
+        await db.commit()
+        return True

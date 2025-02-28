@@ -99,6 +99,9 @@ The frontend integrates with the sports database API through the SportDataMapper
 3. **Record Navigation**: Controls for navigating through multiple records
 4. **Batch Import**: Support for importing multiple records at once
 5. **Data Validation**: Validation of mapped data before saving to the database
+6. **Intelligent Entity Type Selection**: Automatically recommends and highlights the most appropriate entity type based on source data
+7. **Guided Walkthrough**: Step-by-step guidance for users through the data mapping process
+8. **Contextual Help**: Field-specific tooltips explaining the purpose and expected format of each field
 
 The SportDataMapper component handles different formats of structured data:
 - Array of objects
@@ -109,6 +112,35 @@ Recent improvements to the SportDataMapper component include:
 - Enhanced navigation controls with improved visibility
 - Fixed record loading to properly handle all records
 - Improved UI with better styling and user experience
+- Intelligent entity type recommendation based on source data
+- Visual indicators for valid and invalid entity types
+- Guided walkthrough for first-time users
+- Contextual help tooltips for specific fields
+
+### Entity Relationship Handling
+
+The SportDataMapper component now includes sophisticated entity relationship handling to streamline the data import process:
+
+1. **Automatic Entity Resolution**: During batch imports, the system automatically resolves entity relationships by name:
+   - When importing teams, stadium and league names are automatically resolved to their respective IDs
+   - When importing players, team names are automatically resolved to team IDs
+   - When importing games, team names are automatically resolved to team IDs
+
+2. **Entity Creation on Demand**: If a referenced entity doesn't exist, the system can create it automatically:
+   - Stadiums can be created during team imports, using city and country information from the import data
+   - Leagues can be created during team imports if they don't already exist
+   - This eliminates the need for users to manually create dependent entities before importing related entities
+
+3. **Name-to-UUID Conversion**: The system handles the conversion between human-readable names and database UUIDs:
+   - The `lookupEntityIdByName` function finds entities by name or creates them if they don't exist
+   - The `enhancedMapToDatabaseFieldNames` function processes entity references based on the selected entity type
+   - UUID validation ensures that valid UUIDs are used directly without lookup
+
+This approach provides several benefits:
+- Simplifies the user experience by eliminating manual steps
+- Maintains data integrity through proper relationship handling
+- Reduces errors by automating the creation of related entities
+- Provides a more intuitive workflow that matches how users think about the data
 
 ## Export Service
 
@@ -460,4 +492,70 @@ This approach significantly enhances the reliability of administrative operation
 5. **Pagination and Filtering**: Support for pagination and filtering on list endpoints.
 6. **Validation**: Request validation using Pydantic schemas.
 7. **Documentation**: Comprehensive API documentation using OpenAPI/Swagger.
-8. **Testing**: Extensive test coverage for all endpoints. 
+8. **Testing**: Extensive test coverage for all endpoints.
+
+## Entity Relationship Handling
+
+The SheetGPT application implements a sophisticated approach to handling entity relationships, particularly in the sports database module. This is crucial for maintaining data integrity while providing a seamless user experience.
+
+### Automatic Entity Resolution
+
+One of the key architectural decisions is the implementation of automatic entity resolution during the batch import process. This allows users to import data using human-readable names (like "NBA" or "Staples Center") instead of requiring UUIDs.
+
+#### Key Components:
+
+1. **Entity Lookup Service**: 
+   - The `lookupEntityIdByName` function serves as a bridge between human-readable names and database UUIDs
+   - It first attempts to find existing entities by name using case-insensitive matching
+   - If no match is found, it can automatically create new entities for certain types (stadiums, leagues)
+   - Returns valid UUIDs that can be used in database operations
+
+2. **Enhanced Field Mapping**:
+   - The `enhancedMapToDatabaseFieldNames` function extends the basic field mapping with relationship handling
+   - Processes entity references based on the selected entity type
+   - Supports different entity types with their specific relationship requirements
+   - Validates UUID format to determine whether to use direct values or perform lookups
+
+3. **UUID Validation**:
+   - Implements RFC 4122 compliant UUID validation
+   - Used to distinguish between UUIDs and entity names
+   - Ensures data integrity by preventing invalid references
+
+### Entity Relationship Flow
+
+The entity relationship handling follows this flow:
+
+1. User maps fields in the SportDataMapper interface
+2. During batch import, the system:
+   - Maps basic fields using direct field-to-field mapping
+   - Identifies relationship fields (e.g., league_id, stadium_id, team_id)
+   - For each relationship field:
+     - Checks if the value is a valid UUID
+     - If not, treats it as a name and looks up the corresponding entity
+     - If the entity exists, uses its UUID
+     - If the entity doesn't exist (for supported types), creates it and uses the new UUID
+   - Validates the final mapped data before saving to the database
+
+### Benefits of This Architecture
+
+1. **Improved User Experience**:
+   - Users can work with familiar names instead of technical identifiers
+   - Eliminates the need for manual prerequisite creation
+   - Reduces friction in the data import process
+
+2. **Data Integrity**:
+   - Maintains proper foreign key relationships
+   - Prevents invalid references
+   - Ensures consistent data across the application
+
+3. **Flexibility**:
+   - Supports both direct UUID references and name-based references
+   - Can be extended to support additional entity types
+   - Allows for customization of the entity creation process
+
+4. **Error Handling**:
+   - Provides detailed feedback about the import process
+   - Identifies specific issues with entity relationships
+   - Allows for partial success in batch operations
+
+This architecture represents a balance between user-friendly interfaces and robust data modeling, allowing the application to handle complex entity relationships while maintaining a simple user experience. 

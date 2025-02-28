@@ -404,6 +404,9 @@ export const api = {
         requiresAuth: true
       }),
 
+    getRows: (dataId: string, skip: number = 0, limit: number = 50): Promise<RowsResponse> =>
+      request(`/data/${dataId}/rows?skip=${skip}&limit=${limit}`, { requiresAuth: true }),
+
     updateCell: (dataId: string, update: { column_name: string; row_index: number; value: any }): Promise<any> =>
       request(`/data/${dataId}/cells`, {
         method: 'PUT',

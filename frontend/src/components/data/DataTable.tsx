@@ -5,6 +5,8 @@ import LoadingSpinner from '../common/LoadingSpinner'
 import { transformDataForDisplay } from '../../utils/dataTransformer'
 // @ts-ignore
 import { FaEye, FaEyeSlash, FaFileExport, FaArrowsAlt, FaExpand, FaCompress } from 'react-icons/fa'
+// @ts-ignore
+import { FaChevronLeft, FaChevronRight, FaStepBackward, FaStepForward } from 'react-icons/fa'
 import ExportDialog from './ExportDialog'
 
 interface DataTableProps {
@@ -24,6 +26,12 @@ const DataTable: React.FC<DataTableProps> = ({ dataId }) => {
   const [rawDataHeight, setRawDataHeight] = useState(300)
   const [isGridExpanded, setIsGridExpanded] = useState(false)
   const [isRawDataExpanded, setIsRawDataExpanded] = useState(false)
+  
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1)
+  const [rowsPerPage, setRowsPerPage] = useState(50)
+  const [totalRows, setTotalRows] = useState(0)
+  const [isPaginationEnabled, setIsPaginationEnabled] = useState(false)
   
   // Column and row management
   const [columnWidths, setColumnWidths] = useState<Record<string, number>>({})
@@ -45,6 +53,21 @@ const DataTable: React.FC<DataTableProps> = ({ dataId }) => {
     queryKey: ['structured-data', dataId],
     queryFn: () => api.data.getStructuredDataById(dataId),
   })
+
+  // Fetch paginated rows when pagination is enabled
+  const { 
+    data: paginatedData, 
+    isLoading: isPaginatedLoading,
+    error: paginatedError
+  } = useQuery({
+    queryKey: ['structured-data-rows', dataId, currentPage, rowsPerPage],
+    queryFn: async () => {
+      const skip = (currentPage - 1) * rowsPerPage;
+      const response = await api.data.getRows(dataId, skip, rowsPerPage);
+      return response;
+    },
+    enabled: isPaginationEnabled && !!dataId,
+  });
 
   // Transform the data for display using the centralized transformer
   const transformData = useCallback(() => {
@@ -86,11 +109,37 @@ const DataTable: React.FC<DataTableProps> = ({ dataId }) => {
       rowCount: transformedData.rows.length
     });
     
+    // Check if we should enable pagination based on row count
+    const shouldEnablePagination = transformedData.rows.length > rowsPerPage;
+    if (shouldEnablePagination !== isPaginationEnabled) {
+      setIsPaginationEnabled(shouldEnablePagination);
+      setTotalRows(transformedData.rows.length);
+    }
+    
     return transformedData;
-  }, [data]);
+  }, [data, isPaginationEnabled, rowsPerPage]);
 
   // Get transformed data
-  const { headers: originalHeaders = [], rows: originalRows = [] } = useMemo(() => transformData(), [transformData]);
+  const { headers: originalHeaders = [], rows: originalRows = [] } = useMemo(() => {
+    // If pagination is enabled and we have paginated data, use that
+    if (isPaginationEnabled && paginatedData) {
+      const columnOrder = paginatedData.column_order || [];
+      return {
+        headers: columnOrder,
+        rows: paginatedData.rows || []
+      };
+    }
+    
+    // Otherwise use the full data
+    return transformData();
+  }, [transformData, isPaginationEnabled, paginatedData]);
+
+  // Update total rows when paginated data changes
+  useEffect(() => {
+    if (isPaginationEnabled && paginatedData) {
+      setTotalRows(paginatedData.total);
+    }
+  }, [isPaginationEnabled, paginatedData]);
 
   // Use reordered headers and rows if available, otherwise use original
   const headers = useMemo(() => {
@@ -131,10 +180,12 @@ const DataTable: React.FC<DataTableProps> = ({ dataId }) => {
         dataId,
         dataType: data.data_type,
         headers,
-        rowCount: rows.length
+        rowCount: rows.length,
+        isPaginationEnabled,
+        totalRows
       });
     }
-  }, [data, headers, rows, dataId]);
+  }, [data, headers, rows, dataId, isPaginationEnabled, totalRows]);
 
   // Handle column resize start
   const handleResizeStart = (e: React.MouseEvent, header: string) => {
@@ -312,6 +363,19 @@ const DataTable: React.FC<DataTableProps> = ({ dataId }) => {
     document.addEventListener('mouseup', handleMouseUp);
   };
 
+  // Pagination handlers
+  const handlePageChange = (newPage: number) => {
+    setCurrentPage(newPage);
+  };
+
+  const handleRowsPerPageChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const newRowsPerPage = parseInt(e.target.value, 10);
+    setRowsPerPage(newRowsPerPage);
+    setCurrentPage(1); // Reset to first page when changing rows per page
+  };
+
+  const totalPages = Math.ceil(totalRows / rowsPerPage);
+
   // Add a cleanup effect to ensure no lingering event listeners
   useEffect(() => {
     return () => {
@@ -322,7 +386,7 @@ const DataTable: React.FC<DataTableProps> = ({ dataId }) => {
   }, []);
 
   // Loading state
-  if (isLoading) {
+  if (isLoading || (isPaginationEnabled && isPaginatedLoading)) {
     return (
       <div className="flex justify-center py-8">
         <LoadingSpinner />
@@ -331,8 +395,8 @@ const DataTable: React.FC<DataTableProps> = ({ dataId }) => {
   }
 
   // Error state
-  if (error) {
-    console.error('DataTable: Error loading data:', error);
+  if (error || (isPaginationEnabled && paginatedError)) {
+    console.error('DataTable: Error loading data:', error || paginatedError);
     return (
       <div className="text-red-600 py-4">
         Failed to load data. Please try again.
@@ -419,7 +483,7 @@ const DataTable: React.FC<DataTableProps> = ({ dataId }) => {
                       #
                     </th>
                   )}
-                  {headers.map((header) => (
+                  {headers.map((header: string) => (
                     <th 
                       key={header} 
                       scope="col" 
@@ -453,7 +517,7 @@ const DataTable: React.FC<DataTableProps> = ({ dataId }) => {
               </thead>
             )}
             <tbody className="bg-white divide-y divide-gray-200">
-              {rows.map((row, rowIndex) => (
+              {rows.map((row: Record<string, any>, rowIndex: number) => (
                 <tr 
                   key={rowIndex}
                   className={`hover:bg-gray-50 ${
@@ -472,10 +536,12 @@ const DataTable: React.FC<DataTableProps> = ({ dataId }) => {
                     <td 
                       className="px-3 py-2 whitespace-nowrap text-sm text-gray-500 w-12 sticky left-0 bg-white z-10 cursor-move"
                     >
-                      {rowIndex + 1}
+                      {isPaginationEnabled 
+                        ? (currentPage - 1) * rowsPerPage + rowIndex + 1 
+                        : rowIndex + 1}
                     </td>
                   )}
-                  {headers.map((header) => (
+                  {headers.map((header: string) => (
                     <td 
                       key={`${rowIndex}-${header}`} 
                       className="px-3 py-2 whitespace-pre-wrap break-words text-sm text-gray-900"
@@ -489,6 +555,90 @@ const DataTable: React.FC<DataTableProps> = ({ dataId }) => {
             </tbody>
           </table>
         </div>
+        
+        {/* Pagination controls */}
+        {isPaginationEnabled && (
+          <div className="p-3 border-t border-gray-200 bg-gray-50 flex items-center justify-between">
+            <div className="flex items-center space-x-2">
+              <span className="text-sm text-gray-700">
+                Rows per page:
+              </span>
+              <select
+                value={rowsPerPage}
+                onChange={handleRowsPerPageChange}
+                className="text-sm border border-gray-300 rounded px-2 py-1"
+              >
+                <option value={10}>10</option>
+                <option value={25}>25</option>
+                <option value={50}>50</option>
+                <option value={100}>100</option>
+              </select>
+            </div>
+            
+            <div className="flex items-center space-x-1">
+              <span className="text-sm text-gray-700 mr-2">
+                {(currentPage - 1) * rowsPerPage + 1}-
+                {Math.min(currentPage * rowsPerPage, totalRows)} of {totalRows}
+              </span>
+              
+              <button
+                onClick={() => handlePageChange(1)}
+                disabled={currentPage === 1}
+                className={`p-1 rounded ${
+                  currentPage === 1 
+                    ? 'text-gray-400 cursor-not-allowed' 
+                    : 'text-gray-700 hover:bg-gray-200'
+                }`}
+                aria-label="First page"
+              >
+                <FaStepBackward size={14} />
+              </button>
+              
+              <button
+                onClick={() => handlePageChange(currentPage - 1)}
+                disabled={currentPage === 1}
+                className={`p-1 rounded ${
+                  currentPage === 1 
+                    ? 'text-gray-400 cursor-not-allowed' 
+                    : 'text-gray-700 hover:bg-gray-200'
+                }`}
+                aria-label="Previous page"
+              >
+                <FaChevronLeft size={14} />
+              </button>
+              
+              <div className="px-2 py-1 text-sm">
+                Page {currentPage} of {totalPages}
+              </div>
+              
+              <button
+                onClick={() => handlePageChange(currentPage + 1)}
+                disabled={currentPage === totalPages}
+                className={`p-1 rounded ${
+                  currentPage === totalPages 
+                    ? 'text-gray-400 cursor-not-allowed' 
+                    : 'text-gray-700 hover:bg-gray-200'
+                }`}
+                aria-label="Next page"
+              >
+                <FaChevronRight size={14} />
+              </button>
+              
+              <button
+                onClick={() => handlePageChange(totalPages)}
+                disabled={currentPage === totalPages}
+                className={`p-1 rounded ${
+                  currentPage === totalPages 
+                    ? 'text-gray-400 cursor-not-allowed' 
+                    : 'text-gray-700 hover:bg-gray-200'
+                }`}
+                aria-label="Last page"
+              >
+                <FaStepForward size={14} />
+              </button>
+            </div>
+          </div>
+        )}
         
         {/* Resizer handle */}
         <div 

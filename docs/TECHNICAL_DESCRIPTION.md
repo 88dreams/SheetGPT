@@ -265,3 +265,37 @@ Recent testing improvements include:
 5. **User Permissions**:
    - Implement role-based access control
    - Add team collaboration features
+
+## Frontend Components
+
+### DataTable Component
+
+The DataTable component is a versatile grid for displaying structured data with the following features:
+
+1. **Data Transformation**: Uses a centralized transformer to handle various data formats consistently
+2. **Pagination**: Implements client-side and server-side pagination for efficient handling of large datasets
+   - Automatically enables pagination when row count exceeds the page size
+   - Supports configurable rows per page (10, 25, 50, 100)
+   - Provides intuitive navigation controls (first, previous, next, last)
+   - Maintains correct row numbering across pages
+3. **Column Management**:
+   - Resizable columns with drag handles
+   - Reorderable columns via drag and drop
+   - Customizable column visibility
+4. **Row Management**:
+   - Reorderable rows via drag and drop
+   - Row numbering with optional visibility
+5. **UI Flexibility**:
+   - Expandable/collapsible grid and raw data views
+   - Resizable panel heights
+   - Export functionality to Google Sheets
+
+The pagination implementation integrates with the backend API's pagination support:
+- Frontend sends `skip` and `limit` parameters to the `/data/{data_id}/rows` endpoint
+- Backend returns paginated data with total count information
+- UI automatically updates to reflect the current page and total available data
+
+This approach significantly improves performance when dealing with large datasets by:
+- Reducing the amount of data transferred over the network
+- Decreasing rendering time for large tables
+- Improving the overall user experience with faster load times

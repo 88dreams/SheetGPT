@@ -9,6 +9,7 @@ import Register from './pages/Register'
 import Chat from './pages/Chat'
 import DataManagement from './pages/DataManagement'
 import SportsDatabase from './pages/SportsDatabase'
+import EntityDetail from './pages/EntityDetail'
 import Export from './pages/Export'
 import Settings from './pages/Settings'
 import LoadingSpinner from './components/common/LoadingSpinner'
@@ -77,6 +78,7 @@ export default function App() {
             <Route path="chat" element={<Chat />} />
             <Route path="data" element={<DataManagement />} />
             <Route path="sports" element={<SportsDatabase />} />
+            <Route path="sports/:entityType/:id" element={<EntityDetail />} />
             <Route path="export" element={<Export />} />
             <Route path="settings" element={<Settings />} />
           </Route>

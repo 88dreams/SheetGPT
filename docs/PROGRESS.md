@@ -36,6 +36,7 @@ SheetGPT is a full-stack application that combines AI-powered chat capabilities 
   - Added confirmation dialog for entity deletion to prevent accidental deletions
   - Improved UI with view mode selector for switching between Entity and Global views
   - Added action buttons for each entity with delete and view details options
+  - Added Fields View to display available fields for each entity type, including required fields and field descriptions
 - ✅ Fixed database cleaning functionality in admin panel
   - Implemented isolated database sessions for each operation
   - Added robust error handling and reporting

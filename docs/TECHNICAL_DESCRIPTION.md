@@ -78,29 +78,28 @@ The models use UUID primary keys and define relationships using SQLAlchemy's rel
 
 The SportsDatabase page provides a comprehensive interface for managing sports entities:
 
-1. **Entity Management**:
-   - View entities by type (leagues, teams, players, games, stadiums, etc.)
-   - Delete entities with confirmation dialog to prevent accidental deletions
-   - View entity details with relationships to other entities
-   - Export entities to Google Sheets for further analysis
+- Displays a list of entity types (leagues, teams, players, etc.)
+- Allows users to select an entity type to view its records
+- Provides a table view of entities with key information
+- Supports selecting entities for export to Google Sheets
+- Includes relationship visualization for related entities
+- Implements a service layer (`SportsDatabaseService`) to abstract API calls
+- Provides multiple view modes:
+  - Entity View: Displays a table of entities with their details
+  - Global View: Shows an overview of all entity types and their counts
+  - Fields View: Displays available fields for each entity type, including required fields and field descriptions
+- Includes delete functionality for removing entities
+  - Implemented in `handleDeleteEntity` function that calls `SportsDatabaseService.deleteEntity`
+  - Includes confirmation dialog to prevent accidental deletions
+- Provides navigation to entity detail view for viewing complete information
 
-2. **View Modes**:
-   - **Entity View**: Displays a list of entities of the selected type with their details and relationships
-   - **Global View**: Provides an overview of all entity types with counts and last updated timestamps
-
-3. **Technical Implementation**:
-   - Uses React Query for data fetching with automatic refetching after mutations
-   - Implements a service layer (`SportsDatabaseService`) to abstract API calls
-   - Uses a confirmation dialog pattern for destructive actions
-   - Implements view mode switching with conditional rendering
-   - Provides consistent UI patterns across the application
-
-4. **Delete Functionality**:
-   - Implemented in `handleDeleteEntity` function that calls `SportsDatabaseService.deleteEntity`
-   - Shows confirmation dialog before deletion
-   - Provides feedback through notifications
-   - Automatically refreshes the entity list after deletion
-   - Removes deleted entities from the selected entities list
+The Fields View feature helps users understand the data structure for each entity type:
+- Shows all available fields for the selected entity type
+- Indicates which fields are required and which are optional
+- Displays the data type for each field (string, number, boolean, date, etc.)
+- Provides descriptions of each field's purpose and usage
+- Uses color-coded badges to visually distinguish field types and requirements
+- Implemented using the `getEntityFields` helper function that extracts field information from entity interfaces
 
 #### SportDataMapper Real Data Integration
 
@@ -1541,8 +1540,8 @@ The stadium data import process includes several validation and data formatting 
      ...(databaseItem.owner && { owner: databaseItem.owner }),
      ...(databaseItem.naming_rights_holder && { naming_rights_holder: databaseItem.naming_rights_holder }),
      ...(databaseItem.host_broadcaster_id && { host_broadcaster_id: databaseItem.host_broadcaster_id })
-   };
-   ```
+};
+```
 
 4. **Enhanced Error Handling**: Captures and displays detailed validation error messages:
    ```typescript

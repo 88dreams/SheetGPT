@@ -186,6 +186,12 @@ The credentials file contains sensitive information. Make sure to:
 - **Data Visualization**: Display structured data in a customizable data grid.
 - **Data Export**: Export structured data to Google Sheets and other formats.
 - **Sports Database**: Access and manage sports-related data entities.
+- **SportDataMapper**: Map structured data to sports database entities with automatic entity detection and field mapping.
+  - **Drag-and-Drop Interface**: Easily map source fields to database fields.
+  - **Automatic Entity Detection**: Intelligently detect the most likely entity type based on field names and values.
+  - **Entity Validation**: Validate data before saving to ensure data integrity.
+  - **Related Entity Lookup**: Automatically look up and create related entities by name.
+  - **Batch Import**: Import multiple records at once with detailed success/error reporting.
 - **Admin Dashboard**: Administrative interface for database management and system configuration.
   - **Role-Based Access**: Restricted access to administrative functions based on user roles.
   - **Database Management**: Tools for cleaning and maintaining the database.
@@ -309,4 +315,29 @@ For more detailed information about the project, refer to the documentation in t
 - [Backend Implementation Plan](docs/BACKEND_IMPLEMENTATION_PLAN.md)
 - [Web Interface](docs/WEB_INTERFACE.md)
 - [API Examples](docs/API_EXAMPLES.md)
-- [AWS Deployment](docs/AWS_DEPLOYMENT.md) 
+- [AWS Deployment](docs/AWS_DEPLOYMENT.md)
+
+### SportDataMapper
+
+The SportDataMapper component allows users to:
+
+- Import structured data (CSV, Excel, etc.) into the sports database
+- Automatically detect the entity type based on field names and values
+- Map source fields to database fields using a drag-and-drop interface
+- Validate data before saving to ensure data integrity
+- Automatically look up related entities by name
+- Create related entities if they don't exist
+- Batch import multiple records at once
+- View global mappings across all entity types
+
+## Contributing
+
+1. Fork the repository
+2. Create your feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -m 'Add some amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
+
+## License
+
+This project is licensed under the MIT License - see the LICENSE file for details. 

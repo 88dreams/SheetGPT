@@ -558,4 +558,95 @@ The entity relationship handling follows this flow:
    - Identifies specific issues with entity relationships
    - Allows for partial success in batch operations
 
-This architecture represents a balance between user-friendly interfaces and robust data modeling, allowing the application to handle complex entity relationships while maintaining a simple user experience. 
+This architecture represents a balance between user-friendly interfaces and robust data modeling, allowing the application to handle complex entity relationships while maintaining a simple user experience.
+
+## SportDataMapper Component
+
+### Overview
+
+The SportDataMapper component is a specialized tool for mapping structured data to sports database entities. It allows users to:
+
+1. Import structured data from various sources
+2. Automatically detect the entity type based on the data structure
+3. Map source fields to database fields using a drag-and-drop interface
+4. Validate the mapped data before saving to the database
+5. Save individual records or batch import multiple records
+
+### Architecture
+
+The SportDataMapper follows a modular architecture with the following components:
+
+#### Main Container
+
+- **SportDataMapperContainer**: The main container component that orchestrates all functionality
+- **SportDataMapper**: A wrapper component that provides the entry point to the mapping tool
+
+#### Reusable Components
+
+- **FieldItem**: Represents a draggable/droppable field in the UI
+- **GuidedWalkthrough**: Provides step-by-step guidance for users
+- **FieldHelpTooltip**: Provides contextual help for different field types
+
+#### Custom Hooks
+
+- **useFieldMapping**: Manages field mapping functionality
+  - Stores mappings by entity type
+  - Handles field mapping operations
+  - Provides methods to add, remove, and clear mappings
+
+- **useRecordNavigation**: Handles record navigation and exclusion
+  - Manages current record index
+  - Provides navigation between records
+  - Handles record exclusion/inclusion
+
+- **useImportProcess**: Manages database saving and batch import operations
+  - Handles saving individual records
+  - Manages batch import of multiple records
+  - Provides notification system for success/error messages
+
+- **useUiState**: Manages UI state
+  - Controls view mode (entity or global)
+  - Manages guided walkthrough functionality
+  - Handles field help tooltips
+  - Tracks data validation state
+
+- **useDataManagement**: Manages data operations
+  - Handles data extraction from structured data
+  - Manages source fields and field values
+  - Updates mapped data based on field mappings
+  - Provides methods for data transformation
+
+#### Utility Modules
+
+- **entityTypes.ts**: Defines entity types and their required fields
+- **entityDetection.ts**: Logic for detecting entity types from data
+- **validationUtils.ts**: Validation logic for different entity types
+- **mappingUtils.ts**: Functions for mapping fields and data transformation
+- **uiUtils.ts**: UI-related helper functions
+
+### Data Flow
+
+1. User uploads structured data
+2. Component automatically detects the entity type
+3. User maps source fields to database fields using drag-and-drop
+4. Component validates the mapped data
+5. User saves individual records or batch imports multiple records
+
+### Key Features
+
+- **Automatic Entity Type Detection**: Analyzes source data to recommend the most likely entity type
+- **Drag-and-Drop Mapping**: Intuitive interface for mapping fields
+- **Field Validation**: Validates required fields and data formats
+- **Batch Import**: Efficiently imports multiple records of the same entity type
+- **Guided Walkthrough**: Step-by-step guidance for first-time users
+- **Field Help**: Contextual help for understanding field requirements
+
+### Technical Implementation
+
+The component is built using React with TypeScript and leverages the following technologies:
+
+- **React**: For component-based UI development
+- **react-dnd**: For drag-and-drop functionality
+- **TypeScript**: For type safety and better developer experience
+- **Custom Hooks**: For state management and separation of concerns
+- **Modular Architecture**: For maintainability and code organization 

@@ -100,6 +100,46 @@ This document outlines the API endpoints for the sports database functionality.
 
 - `GET /api/v1/sports/entities/{entity_type}` - Get entities of a specific type
 
+### Advanced Filtering
+
+The `/api/v1/sports/entities/{entity_type}` endpoint supports advanced filtering capabilities:
+
+**Query Parameters**:
+- `filters`: JSON string of filter configurations
+- `page`: Page number for pagination (default: 1)
+- `limit`: Number of items per page (default: 50, max: 100)
+- `sort_by`: Field to sort by (default: "id")
+- `sort_direction`: Sort direction ("asc" or "desc", default: "asc")
+
+**Filter Format**:
+```json
+[
+  {
+    "field": "name",
+    "operator": "contains",
+    "value": "New York"
+  },
+  {
+    "field": "founded_year",
+    "operator": "gt",
+    "value": 1980
+  }
+]
+```
+
+**Supported Operators**:
+- String fields: "eq" (equals), "neq" (not equals), "contains", "startswith", "endswith"
+- Number fields: "eq" (equals), "neq" (not equals), "gt" (greater than), "lt" (less than)
+- Date fields: "eq" (equals), "neq" (not equals), "gt" (greater than), "lt" (less than)
+- Boolean fields: "eq" (equals), "neq" (not equals)
+
+**Example Request**:
+```
+GET /api/v1/sports/entities/team?filters=[{"field":"name","operator":"contains","value":"New York"},{"field":"founded_year","operator":"gt","value":1980}]&sort_by=name&sort_direction=asc&page=1&limit=10
+```
+
+This request will return teams with "New York" in their name that were founded after 1980, sorted by name in ascending order, and limited to 10 results per page.
+
 ## Batch Import
 
 - `POST /api/v1/sports/batch/import` - Import multiple entities of the same type

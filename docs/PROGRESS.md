@@ -25,6 +25,13 @@ SheetGPT is a full-stack application that combines AI-powered chat capabilities 
 - ✅ Admin functionality with database management capabilities
 
 #### Recent Improvements
+- ✅ Documentation Consolidation: Filter Changes
+  - Incorporated the detailed filter functionality improvements from FILTER_CHANGES.md into TECHNICAL_DESCRIPTION.md
+  - Expanded the "Advanced Filtering" section under SportsDatabase Component with comprehensive details
+  - Added implementation examples for both backend and frontend filtering approaches
+  - Included testing procedures and future enhancement plans
+  - Removed the separate FILTER_CHANGES.md file to reduce documentation duplication
+  - Improved overall documentation organization and maintainability
 - ✅ Enhanced Field Mapping Visualization
   - Adjusted font sizes to improve readability (increased from very small to medium size)
   - Expanded the Connections column width to make mappings more visible
@@ -461,3 +468,15 @@ These changes significantly improve the usability and visual consistency of the 
 - Integration with additional sports data sources
 - Improved batch processing capabilities
 - User preference settings
+
+## Recent Improvements
+
+### Documentation Update: Sports API Endpoints
+
+- Updated the `SPORTS_API_ENDPOINTS.md` file to include detailed information about the advanced filtering capabilities.
+- Added comprehensive documentation for the `/api/v1/sports/entities/{entity_type}` endpoint, including:
+  - Query parameters for filtering, pagination, and sorting
+  - JSON format for filter configurations
+  - Supported operators for different field types
+  - Example request demonstrating the filtering syntax
+- This update ensures that the API documentation accurately reflects the implemented backend functionality for advanced filtering.

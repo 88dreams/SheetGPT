@@ -112,6 +112,8 @@ export class DataExtractionService {
    * @returns Extracted JSON data or null if no valid JSON found
    */
   private static extractJsonStructures(content: string): ExtractedData | null {
+    console.log('DataExtractionService: Attempting to extract JSON structures from content');
+    
     // Look for JSON-like structures in the message
     const jsonMatches = content.match(/\{[\s\S]*?\}/g) || [];
     const jsonArrayMatches = content.match(/\[[\s\S]*?\]/g) || [];
@@ -123,21 +125,44 @@ export class DataExtractionService {
       return null;
     }
     
+    console.log(`DataExtractionService: Found ${allMatches.length} potential JSON structures`);
+    
     // Try to parse each match, starting with the largest one (most likely to be the complete structure)
     const sortedMatches = allMatches.sort((a, b) => b.length - a.length);
     
     for (const match of sortedMatches) {
       try {
+        console.log(`DataExtractionService: Attempting to parse JSON structure: ${match.substring(0, 100)}...`);
         const data = JSON.parse(match);
         console.log('DataExtractionService: Successfully parsed JSON structure', data);
         
-        // Special case for sports data: Check if headers contain typical sports entity fields
-        if (data.headers && Array.isArray(data.headers)) {
-          const sportDataHeaders = ['Team', 'Player', 'League', 'City', 'State', 'Stadium', 'Home Stadium'];
-          const isSportsData = data.headers.some((header: string) => sportDataHeaders.includes(header));
+        // Special case for sports data: Check if it contains typical sports entity fields
+        const sportDataFields = ['name', 'team', 'player', 'league', 'city', 'state', 'stadium', 'sport', 'founded_year'];
+        const dataKeys = Array.isArray(data) && data.length > 0 
+          ? Object.keys(data[0]) 
+          : Object.keys(data);
           
-          if (isSportsData) {
-            console.log('DataExtractionService: Detected sports data format');
+        const isSportsData = dataKeys.some(key => 
+          sportDataFields.includes(key.toLowerCase())
+        );
+        
+        if (isSportsData) {
+          console.log('DataExtractionService: Detected sports data format');
+          
+          // If it's an array, return it directly
+          if (Array.isArray(data)) {
+            return {
+              rows: data,
+              meta_data: {
+                source: 'json-structure',
+                data_type: 'sports-data',
+                extracted_at: new Date().toISOString()
+              }
+            };
+          }
+          
+          // If it has a rows property that's an array, use that
+          if (data.rows && Array.isArray(data.rows)) {
             return {
               ...data,
               meta_data: {
@@ -148,6 +173,16 @@ export class DataExtractionService {
               }
             };
           }
+          
+          // If it's a single object, wrap it in an array
+          return {
+            rows: [data],
+            meta_data: {
+              source: 'json-structure',
+              data_type: 'sports-data',
+              extracted_at: new Date().toISOString()
+            }
+          };
         }
         
         // Check if this looks like our expected data format

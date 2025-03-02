@@ -1,13 +1,31 @@
 /// <reference types="vite/client" />
 
-import axios from 'axios';
+import axios, { AxiosError, AxiosRequestConfig, AxiosResponse } from 'axios';
+import { FilterConfig } from '../components/sports/EntityFilter';
 
+// Determine if we're running in Docker by checking the hostname
+const isDocker = window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1';
+
+// For browser access, always use localhost or the environment variable
+// This ensures the browser can resolve the hostname
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+const API_PREFIX = '/api/v1'
+
+console.log('API configuration:', {
+  isDocker,
+  API_URL,
+  hostname: window.location.hostname,
+  envApiUrl: import.meta.env.VITE_API_URL
+});
+
+// Create an Axios instance with default configuration
 const apiClient = axios.create({
-  baseURL: 'http://localhost:8000',
-  withCredentials: true,
-  headers: {
-    'Content-Type': 'application/json',
-  },
+    baseURL: API_URL,
+    withCredentials: true,
+    timeout: 15000,
+    headers: {
+        'Content-Type': 'application/json',
+    },
 });
 
 // Types
@@ -83,10 +101,6 @@ interface RequestOptions extends Omit<RequestInit, 'headers'> {
   headers?: Record<string, string>
 }
 
-// API URL configuration
-const API_URL = (import.meta.env.VITE_API_URL as string) || 'http://localhost:8000'
-const API_PREFIX = '/api/v1'
-
 // Token storage
 const TOKEN_KEY = 'auth_token'
 
@@ -134,73 +148,101 @@ async function request<T>(endpoint: string, options: RequestOptions = {}): Promi
     method: options.method || 'GET',
     requiresAuth: options.requiresAuth,
     hasToken: !!requestHeaders['Authorization'],
-    body: options.body ? JSON.parse(options.body as string) : undefined
+    body: options.body ? JSON.parse(options.body as string) : undefined,
+    headers: requestHeaders
   })
 
   try {
-    const response = await fetch(url, {
-      ...restOptions,
-      headers: requestHeaders,
-      credentials: 'include'
-    })
-
-    console.log(`Response from ${endpoint}:`, {
-      status: response.status,
-      ok: response.ok,
-      statusText: response.statusText,
-      headers: Object.fromEntries(response.headers.entries())
-    })
-
-    if (!response.ok) {
-      let errorDetail
+    // Add retry logic for network errors
+    let attempts = 0;
+    const maxAttempts = 3;
+    let lastError: any = null;
+    
+    while (attempts < maxAttempts) {
       try {
-        const errorData = await response.json()
-        console.error(`API Error Details:`, {
-          endpoint,
-          status: response.status,
-          errorData,
-          headers: Object.fromEntries(response.headers.entries())
-        })
+        console.log(`API request attempt ${attempts + 1} to ${endpoint}`);
         
-        // Handle different error formats
-        if (errorData.detail) {
-          errorDetail = errorData.detail
-        } else if (errorData.message) {
-          errorDetail = errorData.message
-        } else if (typeof errorData === 'string') {
-          errorDetail = errorData
-        } else if (Array.isArray(errorData)) {
-          errorDetail = errorData.map(err => 
-            typeof err === 'object' ? JSON.stringify(err) : err
-          ).join(', ')
-        } else {
-          errorDetail = JSON.stringify(errorData)
-        }
-      } catch (parseError) {
-        console.error(`Failed to parse error response:`, {
-          endpoint,
+        const response = await fetch(url, {
+          ...restOptions,
+          headers: requestHeaders,
+          credentials: 'include',
+          mode: 'cors' // Explicitly set CORS mode
+        });
+
+        console.log(`Response from ${endpoint}:`, {
           status: response.status,
-          parseError,
-          responseText: await response.text()
-        })
-        errorDetail = `HTTP error! status: ${response.status}`
+          ok: response.ok,
+          statusText: response.statusText,
+          headers: Object.fromEntries(response.headers.entries())
+        });
+
+        if (!response.ok) {
+          let errorDetail
+          try {
+            const errorData = await response.json()
+            console.error(`API Error Details:`, {
+              endpoint,
+              status: response.status,
+              errorData,
+              headers: Object.fromEntries(response.headers.entries())
+            })
+            
+            // Handle different error formats
+            if (errorData.detail) {
+              errorDetail = errorData.detail
+            } else if (errorData.message) {
+              errorDetail = errorData.message
+            } else if (typeof errorData === 'string') {
+              errorDetail = errorData
+            } else if (Array.isArray(errorData)) {
+              errorDetail = errorData.map(err => 
+                typeof err === 'object' ? JSON.stringify(err) : err
+              ).join(', ')
+            } else {
+              errorDetail = JSON.stringify(errorData)
+            }
+          } catch (parseError) {
+            console.error(`Failed to parse error response:`, {
+              endpoint,
+              status: response.status,
+              parseError,
+              responseText: await response.text()
+            })
+            errorDetail = `HTTP error! status: ${response.status}`
+          }
+          throw new APIError(errorDetail, response.status)
+        }
+
+        // Handle successful response
+        // Handle 204 No Content responses
+        if (response.status === 204) {
+          return undefined as T;
+        }
+
+        const data = await response.json();
+        console.log(`Successful response from ${endpoint}:`, {
+          dataType: typeof data,
+          isArray: Array.isArray(data),
+          length: Array.isArray(data) ? data.length : undefined,
+          data: data
+        });
+        return data;
+      } catch (error) {
+        console.error(`API request attempt ${attempts + 1} failed:`, error);
+        lastError = error;
+        attempts++;
+        
+        if (attempts < maxAttempts) {
+          // Wait before retrying (exponential backoff)
+          const delay = Math.pow(2, attempts) * 500;
+          console.log(`Retrying in ${delay}ms...`);
+          await new Promise(resolve => setTimeout(resolve, delay));
+        }
       }
-      throw new APIError(errorDetail, response.status)
     }
-
-    // Handle 204 No Content responses
-    if (response.status === 204) {
-      return undefined as T
-    }
-
-    const data = await response.json()
-    console.log(`Successful response from ${endpoint}:`, {
-      dataType: typeof data,
-      isArray: Array.isArray(data),
-      length: Array.isArray(data) ? data.length : undefined,
-      data: data
-    })
-    return data
+    
+    // If we get here, all attempts failed
+    throw lastError || new Error('API request failed after multiple attempts');
   } catch (error) {
     console.error(`Request failed for ${endpoint}:`, {
       error,
@@ -487,11 +529,65 @@ export const api = {
   // Add sports API endpoints
   sports: {
     // Generic entity endpoints
-    getEntities: (entityType: string, filters?: Record<string, any>): Promise<any[]> =>
-      request(`/sports/entities/${entityType}`, { 
-        requiresAuth: true,
-        ...(filters && { params: filters })
-      }),
+    getEntities: async (
+      entityType: string,
+      filters: FilterConfig[] = [],
+      page: number = 1,
+      limit: number = 50,
+      sortBy: string = 'id',
+      sortDirection: 'asc' | 'desc' = 'asc'
+    ) => {
+      const params = new URLSearchParams({
+        page: page.toString(),
+        limit: limit.toString(),
+        sort_by: sortBy,
+        sort_direction: sortDirection
+      });
+
+      // Add filters to the request
+      if (filters && filters.length > 0) {
+        try {
+          // Log the filters we're sending
+          console.log(`API: Original filters for ${entityType}:`, filters);
+          console.log(`API: First filter value type:`, typeof filters[0].value);
+          
+          // Ensure filters have the correct structure expected by the backend
+          const formattedFilters = filters.map(filter => ({
+            field: filter.field,
+            operator: filter.operator,
+            value: filter.value
+          }));
+          
+          console.log(`API: Formatted filters:`, formattedFilters);
+          console.log(`API: First formatted filter value type:`, typeof formattedFilters[0].value);
+          
+          // Convert filters to a format the API can understand
+          const filtersParam = JSON.stringify(formattedFilters);
+          params.append('filters', filtersParam);
+          console.log(`API: Adding filters to ${entityType} request:`, filtersParam);
+          console.log(`API: URL-encoded filters:`, encodeURIComponent(filtersParam));
+        } catch (error) {
+          console.error('Error stringifying filters:', error);
+        }
+      }
+
+      const url = `/sports/entities/${entityType}?${params.toString()}`;
+      console.log(`API: Making request to ${url}`);
+      
+      try {
+        const result = await request(url, { requiresAuth: true });
+        console.log(`API: Received response for ${entityType}:`, {
+          resultType: typeof result,
+          isArray: Array.isArray(result),
+          length: Array.isArray(result) ? result.length : 'not an array',
+          sample: Array.isArray(result) && result.length > 0 ? result[0] : result
+        });
+        return result;
+      } catch (error) {
+        console.error(`API: Error fetching ${entityType} entities:`, error);
+        throw error;
+      }
+    },
       
     // League endpoints
     getLeagues: (): Promise<any[]> =>

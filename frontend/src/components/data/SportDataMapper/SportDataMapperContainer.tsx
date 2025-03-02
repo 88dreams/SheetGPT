@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Dialog } from '@headlessui/react';
 import { XMarkIcon } from '@heroicons/react/24/outline';
 import { DndProvider } from 'react-dnd';
@@ -6,7 +6,6 @@ import { HTML5Backend } from 'react-dnd-html5-backend';
 
 // Import utility functions
 import {
-  EntityType,
   ENTITY_TYPES,
   detectEntityType,
   validateEntityData,
@@ -20,10 +19,19 @@ import {
   calculateMappingStats
 } from '../../../utils/sportDataMapper';
 
+import { EntityType as MapperEntityType } from '../../../utils/sportDataMapper/entityTypes';
+
 // Import components
-import FieldItem from './components/FieldItem';
-import GuidedWalkthrough from './components/GuidedWalkthrough';
-import FieldHelpTooltip from './components/FieldHelpTooltip';
+import {
+  EntityTypeSelector,
+  ViewModeSelector,
+  RecordNavigation,
+  FieldMappingArea,
+  GlobalMappingView,
+  ActionButtons,
+  Notification,
+  GuidedWalkthrough
+} from './components';
 
 // Import custom hooks
 import { useFieldMapping, useRecordNavigation, useImportProcess, useUiState, useDataManagement } from './hooks';
@@ -39,42 +47,23 @@ interface SportDataMapperProps {
   structuredData: any;
 }
 
-/**
- * SportDataMapperContainer - Main component for mapping structured data to sports database entities
- */
 const SportDataMapperContainer: React.FC<SportDataMapperProps> = ({ isOpen, onClose, structuredData }) => {
-  // Use UI state hook
+  // Use custom hooks for state management
   const {
-    viewMode,
-    showGuidedWalkthrough,
-    guidedStep,
-    showFieldHelp,
-    validStructuredData,
-    setViewMode,
-    setShowGuidedWalkthrough,
-    setGuidedStep,
-    setShowFieldHelp,
-    setValidStructuredData,
-    toggleViewMode,
-    startGuidedWalkthrough,
-    endGuidedWalkthrough,
-    nextGuidedStep,
-    previousGuidedStep,
-    showHelpForField,
-    hideFieldHelp,
-    setDataValidity
-  } = useUiState();
+    mappingsByEntityType,
+    selectedEntityType,
+    setSelectedEntityType,
+    handleFieldMapping,
+    clearMappings,
+    removeMapping,
+    getCurrentMappings
+  } = useFieldMapping(structuredData);
   
-  // Use data management hook
   const {
     dataToImport,
     sourceFields,
     sourceFieldValues,
     mappedData,
-    setDataToImport,
-    setSourceFields,
-    setSourceFieldValues,
-    setMappedData,
     extractSourceFields: hookExtractSourceFields,
     updateMappedDataForEntityType: hookUpdateMappedDataForEntityType,
     updateSourceFieldValues,
@@ -82,42 +71,103 @@ const SportDataMapperContainer: React.FC<SportDataMapperProps> = ({ isOpen, onCl
     clearMappedData
   } = useDataManagement();
   
-  // Use custom hooks
-  const {
-    mappingsByEntityType,
-    selectedEntityType,
-    setSelectedEntityType,
-    handleFieldMapping: hookHandleFieldMapping,
-    clearMappings,
-    removeMapping,
-    getCurrentMappings
-  } = useFieldMapping();
-  
   const {
     currentRecordIndex,
     totalRecords,
     includedRecordsCount,
     goToNextRecord: hookGoToNextRecord,
-    goToPreviousRecord: hookGoToPreviousRecord,
-    toggleExcludeRecord: hookToggleExcludeRecord,
+    goToPreviousRecord,
+    toggleExcludeRecord,
     isCurrentRecordExcluded,
-    getCurrentRecord,
     getIncludedRecords
   } = useRecordNavigation(dataToImport);
   
   const {
     isSaving,
     isBatchImporting,
-    importResults,
     notification,
-    showNotification,
     saveToDatabase,
     batchImport
   } = useImportProcess();
   
+  const {
+    viewMode,
+    setViewMode,
+    showGuidedWalkthrough,
+    setShowGuidedWalkthrough,
+    guidedStep,
+    setGuidedStep,
+    showFieldHelp,
+    setShowFieldHelp,
+    validStructuredData,
+    setDataValidity,
+    showHelpForField,
+    hideFieldHelp
+  } = useUiState();
+  
+  // Local state
+  const [suggestedEntityType, setSuggestedEntityType] = useState<MapperEntityType | null>(null);
+  const [leagueAndStadiumExist, setLeagueAndStadiumExist] = useState<boolean>(false);
+  
+  // Check if League and Stadium data exist
+  useEffect(() => {
+    const checkLeagueAndStadiumData = async () => {
+      try {
+        // Fetch league and stadium counts
+        const leagueResponse = await sportsDatabaseService.getEntities({ 
+          entityType: 'league' as unknown as DbEntityType 
+        });
+        const stadiumResponse = await sportsDatabaseService.getEntities({ 
+          entityType: 'stadium' as unknown as DbEntityType 
+        });
+        
+        // If both have at least one entry, set to true
+        const hasLeagues = leagueResponse && leagueResponse.length > 0;
+        const hasStadiums = stadiumResponse && stadiumResponse.length > 0;
+        
+        setLeagueAndStadiumExist(hasLeagues && hasStadiums);
+        console.log(`League and Stadium data exist: ${hasLeagues && hasStadiums}`);
+      } catch (error) {
+        console.error('Error checking League and Stadium data:', error);
+        setLeagueAndStadiumExist(false);
+      }
+    };
+    
+    checkLeagueAndStadiumData();
+  }, []);
+  
   // Extract source fields from structured data
   const extractSourceFields = (data: any) => {
-    hookExtractSourceFields(data, setDataValidity);
+    console.log('SportDataMapperContainer: Extracting source fields from data:', data);
+    
+    // Create a properly formatted data object for the hook
+    let formattedData = data;
+    
+    // If data is in the format {"headers": [...], "rows": [...]}
+    if (data && data.headers && data.rows) {
+      console.log('SportDataMapperContainer: Data has headers and rows format');
+      
+      // Create objects from rows using headers as keys
+      if (Array.isArray(data.rows) && Array.isArray(data.headers)) {
+        const processedRows = data.rows.map((row: any[]) => {
+          const rowObj: Record<string, any> = {};
+          data.headers.forEach((header: string, index: number) => {
+            rowObj[header] = row[index];
+          });
+          return rowObj;
+        });
+        
+        formattedData = {
+          headers: data.headers,
+          rows: processedRows
+        };
+        
+        console.log('SportDataMapperContainer: Processed rows with headers:', processedRows);
+      }
+    }
+    
+    // Pass the formatted data to the hook
+    hookExtractSourceFields(formattedData, setDataValidity);
   };
   
   // Initialize data when the component mounts or structuredData changes
@@ -128,7 +178,7 @@ const SportDataMapperContainer: React.FC<SportDataMapperProps> = ({ isOpen, onCl
   }, [structuredData]);
   
   // Update mapped data when entity type changes
-  const updateMappedDataForEntityType = (entityType: EntityType) => {
+  const updateMappedDataForEntityType = (entityType: MapperEntityType) => {
     hookUpdateMappedDataForEntityType(entityType, mappingsByEntityType, currentRecordIndex);
   };
   
@@ -136,6 +186,8 @@ const SportDataMapperContainer: React.FC<SportDataMapperProps> = ({ isOpen, onCl
   useEffect(() => {
     if (currentRecordIndex !== null) {
       updateSourceFieldValues(currentRecordIndex);
+      console.log('Updated source field values for record index:', currentRecordIndex);
+      console.log('Source field values:', sourceFieldValues);
     }
   }, [currentRecordIndex, updateSourceFieldValues]);
   
@@ -151,354 +203,205 @@ const SportDataMapperContainer: React.FC<SportDataMapperProps> = ({ isOpen, onCl
     hookGoToNextRecord();
     if (currentRecordIndex !== null && dataToImport.length > 0) {
       const nextIndex = (currentRecordIndex + 1) % dataToImport.length;
-      setSourceFieldValues(dataToImport[nextIndex]);
+      updateSourceFieldValues(nextIndex);
     }
   };
   
-  const goToPreviousRecord = () => {
-    hookGoToPreviousRecord();
-    if (currentRecordIndex !== null && dataToImport.length > 0) {
-      const prevIndex = (currentRecordIndex - 1 + dataToImport.length) % dataToImport.length;
-      setSourceFieldValues(dataToImport[prevIndex]);
-    }
-  };
-  
-  const toggleExcludeRecord = () => {
-    hookToggleExcludeRecord();
+  // Handle entity type selection
+  const handleEntityTypeSelect = (entityType: MapperEntityType) => {
+    setSelectedEntityType(entityType);
+    updateMappedDataForEntityType(entityType);
   };
   
   // Handle field mapping
-  const handleFieldMapping = (sourceField: string, targetField: string) => {
-    hookHandleFieldMapping(sourceField, targetField);
+  const handleFieldMappingDrop = (sourceField: string, targetField: string) => {
+    handleFieldMapping(sourceField, targetField);
     updateMappedDataForField(sourceField, targetField, currentRecordIndex);
   };
   
-  // Save to database handler
+  // Handle save to database
   const handleSaveToDatabase = async () => {
     if (!selectedEntityType) return;
     
-    const currentRecord = currentRecordIndex !== null ? dataToImport[currentRecordIndex] : undefined;
-    const success = await saveToDatabase(selectedEntityType, mappedData, currentRecord);
+    const success = await saveToDatabase(
+      selectedEntityType,
+      mappedData,
+      currentRecordIndex !== null ? dataToImport[currentRecordIndex] : undefined
+    );
     
     if (success) {
+      // If we just saved a league or stadium, update the leagueAndStadiumExist state
+      if (selectedEntityType === 'league' || selectedEntityType === 'stadium') {
+        setLeagueAndStadiumExist(true);
+      }
       goToNextRecord();
     }
   };
   
-  // Batch import handler
+  // Handle batch import
   const handleBatchImport = async () => {
     if (!selectedEntityType) return;
     
-    const mappings = mappingsByEntityType[selectedEntityType] || {};
-    const recordsToImport = getIncludedRecords();
+    const includedRecords = getIncludedRecords();
+    const mappings = getCurrentMappings();
     
-    await batchImport(selectedEntityType, mappings, recordsToImport);
+    await batchImport(selectedEntityType, mappings, includedRecords);
+    
+    // If we just imported leagues or stadiums, update the leagueAndStadiumExist state
+    if (selectedEntityType === 'league' || selectedEntityType === 'stadium') {
+      setLeagueAndStadiumExist(true);
+    }
   };
   
-  // Auto-detect entity type when source fields change
+  // Detect entity type from data
   useEffect(() => {
-    if (sourceFields.length > 0 && !selectedEntityType) {
-      const detectedType = detectEntityType(sourceFields, sourceFieldValues);
+    if (dataToImport.length > 0 && sourceFields.length > 0) {
+      const detectedType = detectEntityType(dataToImport[0], sourceFields);
       if (detectedType) {
-        console.log(`Auto-detected entity type: ${detectedType}`);
-        setSelectedEntityType(detectedType);
+        setSuggestedEntityType(detectedType);
       }
     }
-  }, [sourceFields, sourceFieldValues, selectedEntityType]);
+  }, [dataToImport, sourceFields]);
   
-  // Render the component
   return (
     <Dialog
       open={isOpen}
-      onClose={() => {
-        if (!isSaving && !isBatchImporting) {
-          onClose();
-        }
-      }}
-      className="relative z-50"
+      onClose={onClose}
+      className="fixed inset-0 z-50 overflow-y-auto"
     >
-      <div className="fixed inset-0 bg-black/30" aria-hidden="true" />
-      
-      <div className="fixed inset-0 flex items-center justify-center p-4">
-        <Dialog.Panel className="w-full max-w-6xl max-h-[90vh] overflow-auto bg-white rounded-lg shadow-xl">
-          <div className="p-6">
-            <div className="flex justify-between items-center mb-6">
-              <Dialog.Title className="text-xl font-semibold text-gray-900">
-                Sports Data Mapper
+      <div className="flex items-center justify-center min-h-screen">
+        <Dialog.Overlay className="fixed inset-0 bg-black opacity-30" />
+        
+        <Dialog.Panel className="relative bg-white rounded-lg shadow-xl max-w-7xl w-full max-h-[90vh] overflow-y-auto">
+          <div className="flex flex-col h-full">
+            {/* Header */}
+            <div className="flex justify-between items-center px-6 py-4 border-b">
+              <Dialog.Title className="text-lg font-medium text-gray-900">
+                Data Mapper
               </Dialog.Title>
-              
               <button
                 onClick={onClose}
                 className="text-gray-400 hover:text-gray-500"
-                disabled={isSaving || isBatchImporting}
               >
                 <XMarkIcon className="h-6 w-6" />
               </button>
             </div>
             
-            {!validStructuredData ? (
-              <div className="text-center py-8">
-                <p className="text-red-500">Invalid data format. Please provide structured data as an array of objects.</p>
-              </div>
-            ) : (
-              <div className="space-y-6">
-                {/* Entity Type Selection */}
-                <div className="border rounded-lg p-4">
-                  <h3 className="font-medium text-gray-900 mb-3">Select Entity Type</h3>
-                  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
-                    {ENTITY_TYPES.map(entityType => {
-                      const isSelected = selectedEntityType === entityType.id;
-                      const mappingCount = Object.keys(mappingsByEntityType[entityType.id] || {}).length;
-                      
-                      return (
-                        <button
-                          key={entityType.id}
-                          onClick={() => setSelectedEntityType(entityType.id as EntityType)}
-                          className={`p-3 rounded-md border text-left ${
-                            isSelected
-                              ? 'border-indigo-500 bg-indigo-50 text-indigo-700'
-                              : mappingCount > 0
-                                ? 'border-blue-200 bg-blue-50 text-blue-700'
-                                : 'border-gray-200 hover:bg-gray-50'
-                          }`}
-                        >
-                          <div className="font-medium">{entityType.name}</div>
-                          <div className="text-xs text-gray-500 mt-1">{entityType.description}</div>
-                          {mappingCount > 0 && (
-                            <div className="text-xs mt-1 font-medium text-blue-700">
-                              {mappingCount} field{mappingCount !== 1 ? 's' : ''} mapped
-                            </div>
-                          )}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-                
-                {/* View Mode Toggle */}
-                <div className="flex justify-center">
-                  <div className="inline-flex rounded-md shadow-sm" role="group">
-                    <button
-                      type="button"
-                      onClick={() => setViewMode('entity')}
-                      className={`px-4 py-2 text-sm font-medium rounded-l-lg ${
-                        viewMode === 'entity'
-                          ? 'bg-indigo-600 text-white'
-                          : 'bg-white text-gray-700 hover:bg-gray-50 border border-gray-300'
-                      }`}
-                    >
-                      Entity View
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setViewMode('global')}
-                      className={`px-4 py-2 text-sm font-medium rounded-r-lg ${
-                        viewMode === 'global'
-                          ? 'bg-indigo-600 text-white'
-                          : 'bg-white text-gray-700 hover:bg-gray-50 border border-gray-300'
-                      }`}
-                    >
-                      Global View
-                    </button>
-                  </div>
-                </div>
-                
-                {/* Record View */}
-                {viewMode === 'entity' && (
-                  <div className="border rounded-lg p-4">
-                    <div className="flex justify-between items-center mb-4">
-                      <h3 className="font-medium text-gray-900">
-                        Record {currentRecordIndex !== null ? currentRecordIndex + 1 : 0} of {dataToImport.length}
-                      </h3>
-                      
-                      <div className="flex space-x-2">
-                        <button
-                          onClick={goToPreviousRecord}
-                          className="px-3 py-1 text-sm border border-gray-300 rounded-md hover:bg-gray-50"
-                        >
-                          Previous
-                        </button>
-                        <button
-                          onClick={goToNextRecord}
-                          className="px-3 py-1 text-sm border border-gray-300 rounded-md hover:bg-gray-50"
-                        >
-                          Next
-                        </button>
-                        <button
-                          onClick={toggleExcludeRecord}
-                          className={`px-3 py-1 text-sm border rounded-md ${
-                            isCurrentRecordExcluded()
-                              ? 'border-red-300 bg-red-50 text-red-700 hover:bg-red-100'
-                              : 'border-gray-300 hover:bg-gray-50'
-                          }`}
-                        >
-                          {isCurrentRecordExcluded()
-                            ? 'Include'
-                            : 'Exclude'}
-                        </button>
+            {/* Content */}
+            <div className="flex-1 overflow-y-auto p-6">
+              {!validStructuredData ? (
+                <div className="bg-red-50 border border-red-300 rounded-md p-4 mb-4">
+                  <div className="flex">
+                    <div className="flex-shrink-0">
+                      <svg className="h-5 w-5 text-red-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                      </svg>
+                    </div>
+                    <div className="ml-3">
+                      <h3 className="text-sm font-medium text-red-800">Invalid Data Format</h3>
+                      <div className="mt-2 text-sm text-red-700">
+                        <p>
+                          The data provided is not in a valid format for mapping. Please ensure your data is structured as an array of objects or a table with headers.
+                        </p>
                       </div>
                     </div>
-                    
-                    <DndProvider backend={HTML5Backend}>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        {/* Source Fields */}
+                  </div>
+                </div>
+              ) : (
+                <div>
+                  {/* Entity View */}
+                  {viewMode === 'entity' && (
+                    <div>
+                      {/* Entity Type Selector */}
+                      <EntityTypeSelector
+                        selectedEntityType={selectedEntityType}
+                        onEntityTypeSelect={handleEntityTypeSelect}
+                        suggestedEntityType={suggestedEntityType}
+                        leagueAndStadiumExist={leagueAndStadiumExist}
+                      />
+                      
+                      {/* View Mode Selector - Moved here and centered */}
+                      <div className="flex justify-center mb-4">
+                        <ViewModeSelector 
+                          viewMode={viewMode}
+                          onViewModeChange={setViewMode}
+                        />
+                      </div>
+                      
+                      {selectedEntityType && (
                         <div>
-                          <h4 className="font-medium text-gray-700 mb-2">Source Fields</h4>
-                          <div className="border border-gray-200 rounded-md p-3 bg-gray-50">
-                            {sourceFields.map(field => (
-                              <FieldItem
-                                key={field}
-                                field={field}
-                                value={sourceFieldValues[field]}
-                                isSource={true}
-                                onDrop={handleFieldMapping}
-                              />
-                            ))}
-                          </div>
-                        </div>
-                        
-                        {/* Database Fields */}
-                        <div>
-                          <h4 className="font-medium text-gray-700 mb-2">
-                            Database Fields
-                            {selectedEntityType && (
-                              <span className="ml-2 text-sm text-gray-500">
-                                ({getEntityTypeDisplayName(selectedEntityType)})
-                              </span>
-                            )}
-                          </h4>
+                          {/* Field Mapping Area */}
+                          <DndProvider backend={HTML5Backend}>
+                            <FieldMappingArea
+                              selectedEntityType={selectedEntityType}
+                              sourceFields={sourceFields}
+                              sourceFieldValues={sourceFieldValues}
+                              mappingsByEntityType={mappingsByEntityType}
+                              showFieldHelp={showFieldHelp}
+                              onFieldMapping={handleFieldMappingDrop}
+                              onRemoveMapping={removeMapping}
+                              onShowFieldHelp={showHelpForField}
+                              onHideFieldHelp={hideFieldHelp}
+                              currentRecordIndex={currentRecordIndex}
+                              totalRecords={totalRecords}
+                              onPreviousRecord={goToPreviousRecord}
+                              onNextRecord={goToNextRecord}
+                              onToggleExcludeRecord={toggleExcludeRecord}
+                              isCurrentRecordExcluded={isCurrentRecordExcluded()}
+                            />
+                          </DndProvider>
                           
-                          {selectedEntityType ? (
-                            <div className="border border-gray-200 rounded-md p-3 bg-gray-50">
-                              {ENTITY_TYPES.find(et => et.id === selectedEntityType)?.requiredFields.map(field => {
-                                const isRequired = true;
-                                const isMapped = Object.values(mappingsByEntityType[selectedEntityType] || {}).includes(field);
-                                
-                                return (
-                                  <div key={field} className="relative">
-                                    <FieldItem
-                                      field={`${field}${isRequired ? ' *' : ''}`}
-                                      value={mappedData[field]}
-                                      isSource={false}
-                                      onDrop={handleFieldMapping}
-                                    />
-                                    <button 
-                                      className="absolute top-2 right-6 text-gray-400 hover:text-gray-600"
-                                      onClick={() => setShowFieldHelp(showFieldHelp === field ? null : field)}
-                                    >
-                                      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                      </svg>
-                                    </button>
-                                    <FieldHelpTooltip field={field} showFieldHelp={showFieldHelp} />
-                                  </div>
-                                );
-                              })}
-                            </div>
-                          ) : (
-                            <div className="border border-gray-200 rounded-md p-4 bg-gray-50 text-center text-gray-500">
-                              Please select an entity type
-                            </div>
-                          )}
+                          {/* Action Buttons */}
+                          <ActionButtons
+                            selectedEntityType={selectedEntityType}
+                            isSaving={isSaving}
+                            isBatchImporting={isBatchImporting}
+                            onSaveToDatabase={handleSaveToDatabase}
+                            onBatchImport={handleBatchImport}
+                          />
                         </div>
+                      )}
+                    </div>
+                  )}
+                  
+                  {/* Field View */}
+                  {viewMode === 'field' && (
+                    <div>
+                      {/* View Mode Selector - Centered */}
+                      <div className="flex justify-center mb-4">
+                        <ViewModeSelector 
+                          viewMode={viewMode}
+                          onViewModeChange={setViewMode}
+                        />
                       </div>
-                    </DndProvider>
-                    
-                    <div className="mt-6 flex justify-end space-x-3">
-                      <button
-                        onClick={handleSaveToDatabase}
-                        disabled={!selectedEntityType || isSaving}
-                        className={`px-4 py-2 rounded-md ${
-                          !selectedEntityType || isSaving
-                            ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                            : 'bg-indigo-600 text-white hover:bg-indigo-700'
-                        }`}
-                      >
-                        {isSaving ? 'Saving...' : 'Save & Next'}
-                      </button>
                       
-                      <button
-                        onClick={handleBatchImport}
-                        disabled={!selectedEntityType || isBatchImporting}
-                        className={`px-4 py-2 rounded-md ${
-                          !selectedEntityType || isBatchImporting
-                            ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                            : 'bg-green-600 text-white hover:bg-green-700'
-                        }`}
-                      >
-                        {isBatchImporting ? 'Importing...' : 'Batch Import All'}
-                      </button>
+                      {/* Field view implementation */}
+                      <p>Field view is not implemented yet.</p>
                     </div>
-                  </div>
-                )}
-                
-                {/* Global View */}
-                {viewMode === 'global' && (
-                  <div className="border rounded-lg p-4">
-                    <h4 className="font-medium text-gray-900 mb-3">Global Field Mappings Across All Entities</h4>
-                    
-                    {/* Entity Totals Summary */}
-                    <div className="mb-4 bg-gray-50 p-3 rounded-md">
-                      <h5 className="text-sm font-medium text-gray-700 mb-2">Entity Mapping Totals</h5>
-                      <div className="grid grid-cols-3 gap-2 md:grid-cols-4 lg:grid-cols-5">
-                        {ENTITY_TYPES.map(entityType => {
-                          const mappingCount = Object.keys(mappingsByEntityType[entityType.id] || {}).length;
-                          return (
-                            <div 
-                              key={entityType.id} 
-                              className={`text-xs p-2 rounded-md ${
-                                mappingCount > 0 
-                                  ? 'bg-blue-100 text-blue-800' 
-                                  : 'bg-gray-100 text-gray-500'
-                              }`}
-                            >
-                              <span className="font-medium">{entityType.name}: </span>
-                              <span>{mappingCount}</span>
-                            </div>
-                          );
-                        })}
+                  )}
+                  
+                  {/* Global View */}
+                  {viewMode === 'global' && (
+                    <div>
+                      {/* View Mode Selector - Centered */}
+                      <div className="flex justify-center mb-4">
+                        <ViewModeSelector 
+                          viewMode={viewMode}
+                          onViewModeChange={setViewMode}
+                        />
                       </div>
+                      
+                      <GlobalMappingView
+                        mappingsByEntityType={mappingsByEntityType}
+                      />
                     </div>
-                    
-                    {/* Mappings by Entity Type */}
-                    <div className="space-y-4">
-                      {ENTITY_TYPES.map(entityType => {
-                        const mappings = mappingsByEntityType[entityType.id] || {};
-                        const mappingEntries = Object.entries(mappings);
-                        
-                        if (mappingEntries.length === 0) return null;
-                        
-                        return (
-                          <div key={entityType.id} className="border rounded-md p-3">
-                            <h5 className="font-medium text-gray-800 mb-2">{entityType.name}</h5>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                              {mappingEntries.map(([sourceField, targetField]) => (
-                                <div key={`${sourceField}-${targetField}`} className="text-sm bg-gray-50 p-2 rounded border border-gray-200">
-                                  <span className="font-medium text-blue-600">{sourceField}</span>
-                                  <span className="text-gray-500 mx-2">→</span>
-                                  <span className="font-medium text-indigo-600">{targetField}</span>
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
+                  )}
+                </div>
+              )}
+            </div>
             
             {/* Notification */}
-            {notification && (
-              <div className={`fixed bottom-4 right-4 p-4 rounded-md shadow-lg ${
-                notification.type === 'success' ? 'bg-green-100 border border-green-300 text-green-800' :
-                notification.type === 'error' ? 'bg-red-100 border border-red-300 text-red-800' :
-                'bg-blue-100 border border-blue-300 text-blue-800'
-              }`}>
-                {notification.message}
-              </div>
-            )}
+            <Notification notification={notification} />
             
             {/* Guided Walkthrough */}
             <GuidedWalkthrough

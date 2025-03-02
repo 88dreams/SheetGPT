@@ -29,29 +29,27 @@ As of May 2024, the project has implemented:
 
 ## Recent Improvements
 
-- Implemented CI/CD Pipeline with GitHub Actions
-  - Added automated testing workflow for consistent quality assurance
-  - Created Docker-based test environment that matches production
-  - Added comprehensive documentation for CI/CD process
-  - Ensured tests run consistently across local and CI environments
-  - Set up workflow triggers for main branch pushes and pull requests
-- Enhanced database transaction management
-  - Implemented dual transaction strategies for different use cases
-  - Created isolated session pattern for complex operations
-  - Added robust error handling and detailed reporting
-  - Improved database cleaning functionality with transaction isolation
-  - Fixed transaction errors in administrative operations
-- Enhanced SportDataMapper component with improved navigation controls
-  - Navigation controls now always visible regardless of record count
-  - Improved styling with blue color scheme for better visibility
-  - Enhanced button styling with hover effects and shadows
-  - Fixed record loading to properly handle all records in structured data
-- Fixed NFL teams data display issues in the Data Grid
-- Enhanced data extraction from message content
-- Improved error handling and logging throughout the application
-- Added special case detection for NFL teams data format
-- Updated data transformation process for better consistency
-- Fixed dependency issues with react-icons and tailwind-scrollbar
+### Conversation Persistence
+- Fixed an issue where conversations were not persisting between container restarts
+- Implemented a dedicated PostgreSQL volume (`postgres-data`) in the Docker Compose configuration
+- Ensured that all user conversations and message history are properly stored and retrieved
+
+### Enhanced Data Mapping
+- Improved the "Map to Data" functionality to handle various data formats more robustly
+- Enhanced JSON structure detection and parsing in the data extraction service
+- Added comprehensive error handling and data validation in the data management hooks
+- Improved sports data format detection with more comprehensive field recognition
+- Implemented detailed logging throughout the data extraction and mapping process
+
+### Hybrid Filtering Approach for Sports Database
+- Implemented a robust filtering system that utilizes backend filtering with client-side fallback
+- Enhanced backend filter processing with improved error handling and diagnostics
+- Fixed SQL query parameter binding issues and added special handling for problematic filters
+- Added automatic fallback mechanisms when backend filtering encounters issues
+- Enhanced client-side filtering activation with intelligent detection
+- Added comprehensive logging and UI updates to display matching entity counts
+- Implemented filter persistence using localStorage
+- Resolved TypeScript linter errors and improved code organization
 
 ## Development Setup
 
@@ -68,12 +66,39 @@ docker-compose up --build -d
 # Install frontend dependencies
 docker-compose exec frontend npm install
 
-# Run database migrations
+# Initialize the database (creates tables and test user)
+docker cp init_db.py sheetgpt-backend-1:/app/ && docker exec -it sheetgpt-backend-1 python /app/init_db.py
+
+# Or run database migrations (alternative approach)
 docker-compose exec backend python src/scripts/alembic_wrapper.py upgrade
 
 # Access the application
 open http://localhost:3000
+
+# Default test user credentials
+# Email: test@example.com
+# Password: password123
 ```
+
+## Database Initialization
+
+If you encounter authentication issues or missing database tables, you can use the included initialization script:
+
+```bash
+# Copy and run the initialization script in the backend container
+docker cp init_db.py sheetgpt-backend-1:/app/ && docker exec -it sheetgpt-backend-1 python /app/init_db.py
+```
+
+The script performs the following actions:
+- Creates all necessary database tables if they don't exist
+- Preserves any existing data in the database
+- Creates a test user if one doesn't exist (email: test@example.com, password: password123)
+
+This is particularly useful when:
+- Setting up the application for the first time
+- Recovering from database connection issues
+- Troubleshooting authentication problems
+- After rebuilding Docker containers
 
 ## Running Tests
 
@@ -236,16 +261,30 @@ The credentials file contains sensitive information. Make sure to:
 - **Data Visualization**: Display structured data in a customizable data grid.
 - **Data Export**: Export structured data to Google Sheets and other formats.
 - **Sports Database**: Access and manage sports-related data entities.
-- **SportDataMapper**: Map structured data to sports database entities with automatic entity detection and field mapping.
+- **SportDataMapper**: Map structured data to sports database entities with a modern, modular architecture.
   - **Drag-and-Drop Interface**: Easily map source fields to database fields.
   - **Automatic Entity Detection**: Intelligently detect the most likely entity type based on field names and values.
   - **Entity Validation**: Validate data before saving to ensure data integrity.
   - **Related Entity Lookup**: Automatically look up and create related entities by name.
   - **Batch Import**: Import multiple records at once with detailed success/error reporting.
+  - **Guided Walkthrough**: Step-by-step guidance for first-time users.
+  - **Field Help**: Contextual help for understanding field requirements.
+  - **Record Navigation**: Intuitive controls for navigating through records.
+  - **Record Exclusion**: Ability to exclude specific records from import.
+  - **Modular Architecture**: Maintainable and extensible code structure with custom hooks and utility modules.
 - **Admin Dashboard**: Administrative interface for database management and system configuration.
   - **Role-Based Access**: Restricted access to administrative functions based on user roles.
   - **Database Management**: Tools for cleaning and maintaining the database.
   - **User Management**: Functionality for managing user accounts and permissions.
+
+### Sports Database Management
+
+- **Entity Management**: Create, read, update, and delete sports entities (leagues, teams, players, etc.)
+- **Advanced Filtering**: Filter entities using a powerful and intuitive interface with support for multiple filter types and operators
+- **Relationship Management**: Manage relationships between different entity types
+- **Batch Operations**: Perform operations on multiple entities at once
+- **Data Validation**: Validate entity data against predefined schemas
+- **Export to Google Sheets**: Export entities to Google Sheets for further analysis
 
 ## Getting Started
 
@@ -354,40 +393,4 @@ docker-compose restart backend
 
 ## Documentation
 
-For more detailed information about the project, refer to the documentation in the `docs` directory:
-
-- [API Architecture](docs/API_ARCHITECTURE.md)
-- [Technical Description](docs/TECHNICAL_DESCRIPTION.md)
-- [Progress](docs/PROGRESS.md)
-- [Alembic Guide](docs/ALEMBIC_GUIDE.md)
-- [New Agent](docs/NEW_AGENT.md)
-- [Sports API Endpoints](docs/SPORTS_API_ENDPOINTS.md)
-- [Backend Implementation Plan](docs/BACKEND_IMPLEMENTATION_PLAN.md)
-- [Web Interface](docs/WEB_INTERFACE.md)
-- [API Examples](docs/API_EXAMPLES.md)
-- [AWS Deployment](docs/AWS_DEPLOYMENT.md)
-
-### SportDataMapper
-
-The SportDataMapper component allows users to:
-
-- Import structured data (CSV, Excel, etc.) into the sports database
-- Automatically detect the entity type based on field names and values
-- Map source fields to database fields using a drag-and-drop interface
-- Validate data before saving to ensure data integrity
-- Automatically look up related entities by name
-- Create related entities if they don't exist
-- Batch import multiple records at once
-- View global mappings across all entity types
-
-## Contributing
-
-1. Fork the repository
-2. Create your feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add some amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
-
-## License
-
-This project is licensed under the MIT License - see the LICENSE file for details. 
+For more detailed information about the project, refer to the documentation in the `

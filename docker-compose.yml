@@ -32,7 +32,7 @@ services:
     volumes:
       - .:/app
       - ./credentials:/app/credentials
-      - network-data:/app/data
+      - local-data:/app/data
     environment:
       - DEBUG=True
       - DATABASE_URL=postgresql+asyncpg://postgres:postgres@db:5432/sheetgpt
@@ -50,7 +50,7 @@ services:
       - POSTGRES_PASSWORD=postgres
       - POSTGRES_DB=sheetgpt
     volumes:
-      - network-data:/var/lib/postgresql/data
+      - postgres-data:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres"]
       interval: 5s
@@ -58,5 +58,8 @@ services:
       retries: 5
 
 volumes:
-  network-data:
-    external: true 
+  local-data:
+    # Using a local volume instead of external network storage
+  postgres-data:
+    # Using a named volume for better persistence
+    # This ensures data is preserved across container restarts and rebuilds 

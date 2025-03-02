@@ -17,11 +17,18 @@ app = FastAPI(
 # Configure CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173"],  # Specific origin for development
+    allow_origins=[
+        "http://localhost:5173",  # Local development frontend
+        "http://localhost:8000",  # Local API
+        "http://frontend:5173",   # Docker container frontend
+        "http://127.0.0.1:5173",  # Alternative local frontend
+        "http://localhost",       # Base localhost
+        f"http://{settings.PROJECT_NAME.lower()}.localhost", # Project-specific localhost
+    ],
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-    expose_headers=["*"]
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allow_headers=["Content-Type", "Authorization", "Accept"],
+    expose_headers=["Content-Type", "Authorization"]
 )
 
 # Include API Router

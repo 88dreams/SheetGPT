@@ -5,7 +5,7 @@ import { useState } from 'react';
  */
 export default function useUiState() {
   // View mode state
-  const [viewMode, setViewMode] = useState<'entity' | 'global'>('entity');
+  const [viewMode, setViewMode] = useState<'entity' | 'field' | 'global'>('entity');
   
   // Guided walkthrough state
   const [showGuidedWalkthrough, setShowGuidedWalkthrough] = useState<boolean>(false);
@@ -18,10 +18,14 @@ export default function useUiState() {
   const [validStructuredData, setValidStructuredData] = useState<boolean>(true);
   
   /**
-   * Toggle the view mode between entity and global
+   * Toggle the view mode between entity, field, and global
    */
   const toggleViewMode = () => {
-    setViewMode(prev => prev === 'entity' ? 'global' : 'entity');
+    setViewMode(prev => {
+      if (prev === 'entity') return 'field';
+      if (prev === 'field') return 'global';
+      return 'entity';
+    });
   };
   
   /**

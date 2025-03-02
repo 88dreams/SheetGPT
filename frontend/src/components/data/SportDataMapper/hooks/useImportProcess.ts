@@ -12,6 +12,7 @@ export interface ImportResults {
 interface NotificationType {
   type: 'success' | 'error' | 'info';
   message: string;
+  details?: string;
 }
 
 /**
@@ -26,8 +27,8 @@ export default function useImportProcess() {
   /**
    * Show a notification message
    */
-  const showNotification = (type: 'success' | 'error' | 'info', message: string) => {
-    setNotification({ type, message });
+  const showNotification = (type: 'success' | 'error' | 'info', message: string, details?: string) => {
+    setNotification({ type, message, details });
     
     // Auto-hide notification after 5 seconds
     setTimeout(() => {
@@ -115,72 +116,95 @@ export default function useImportProcess() {
       return;
     }
     
+    if (recordsToImport.length === 0) {
+      showNotification('error', 'No records to import', 'All records have been excluded or there are no records available.');
+      return;
+    }
+    
     setIsBatchImporting(true);
     
     try {
-      console.log(`Batch importing ${recordsToImport.length} records as ${entityType}`);
-      
-      let successCount = 0;
-      let errorCount = 0;
-      
-      for (let i = 0; i < recordsToImport.length; i++) {
-        const record = recordsToImport[i];
-        
-        // Apply mappings to the record
-        const mappedRecord: Record<string, any> = {};
-        Object.entries(mappings).forEach(([sourceField, targetField]) => {
-          mappedRecord[targetField] = record[sourceField];
-        });
-        
-        try {
-          // Map UI field names back to database field names and handle lookups
-          const databaseMappedData = await enhancedMapToDatabaseFieldNames(
-            entityType, 
-            mappedRecord,
-            api,
-            record
-          );
-          
-          // Validate the data
-          const validation = validateEntityData(entityType, databaseMappedData);
-          if (!validation.isValid) {
-            console.error(`Validation failed for record ${i}:`, validation.errors);
-            errorCount++;
-            continue;
-          }
-          
-          // Save to database
-          if (entityType === 'brand_relationship') {
-            await api.sports.createBrandRelationship(databaseMappedData);
-          } else {
-            await sportsDatabaseService.createEntity(entityType as DbEntityType, databaseMappedData);
-          }
-          
-          successCount++;
-        } catch (error) {
-          console.error(`Error importing record ${i}:`, error);
-          errorCount++;
-        }
-      }
-      
-      const results = {
-        success: successCount,
-        failed: errorCount,
+      const results: ImportResults = {
+        success: 0,
+        failed: 0,
         total: recordsToImport.length
       };
       
+      // Process records in batches to avoid overwhelming the server
+      const batchSize = 10;
+      const batches = Math.ceil(recordsToImport.length / batchSize);
+      
+      for (let i = 0; i < batches; i++) {
+        const start = i * batchSize;
+        const end = Math.min(start + batchSize, recordsToImport.length);
+        const batch = recordsToImport.slice(start, end);
+        
+        // Show progress notification
+        const progressPercent = Math.round((i / batches) * 100);
+        showNotification(
+          'info', 
+          `Importing batch ${i + 1} of ${batches}...`, 
+          `Processing records ${start + 1} to ${end} (${progressPercent}% complete)`
+        );
+        
+        // Process each record in the batch
+        const batchPromises = batch.map(async (record) => {
+          try {
+            // Map the data using the provided mappings
+            const mappedData = await enhancedMapToDatabaseFieldNames(
+              entityType,
+              record,
+              api,
+              record
+            );
+            
+            // Validate the data
+            const validationResult = validateEntityData(entityType, mappedData);
+            
+            if (!validationResult.isValid) {
+              console.error(`Validation failed for record:`, validationResult.errors);
+              results.failed++;
+              return;
+            }
+            
+            // Save to database
+            const dbEntityType = entityType.toLowerCase() as DbEntityType;
+            await sportsDatabaseService.createEntity(dbEntityType, mappedData);
+            
+            results.success++;
+          } catch (error) {
+            console.error(`Error importing record:`, error);
+            results.failed++;
+          }
+        });
+        
+        // Wait for all records in the batch to be processed
+        await Promise.all(batchPromises);
+      }
+      
       setImportResults(results);
       
-      showNotification(
-        errorCount > 0 ? 'info' : 'success',
-        `Batch import completed: ${successCount} records imported successfully, ${errorCount} errors`
-      );
-      
-      return results;
+      // Show final results notification
+      if (results.failed === 0) {
+        showNotification(
+          'success', 
+          `Successfully imported ${results.success} records`, 
+          `All records were imported successfully.`
+        );
+      } else {
+        showNotification(
+          'info', 
+          `Imported ${results.success} of ${results.total} records`, 
+          `${results.failed} records failed to import. Check the console for details.`
+        );
+      }
     } catch (error) {
-      console.error('Error during batch import:', error);
-      showNotification('error', `Error during batch import: ${error instanceof Error ? error.message : String(error)}`);
-      return null;
+      console.error('Batch import error:', error);
+      showNotification(
+        'error', 
+        'Error during batch import', 
+        error instanceof Error ? error.message : 'An unknown error occurred'
+      );
     } finally {
       setIsBatchImporting(false);
     }

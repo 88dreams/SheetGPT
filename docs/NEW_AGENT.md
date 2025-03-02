@@ -12,7 +12,9 @@ Welcome to the SheetGPT project! This document will help you quickly understand 
 
 2. **Current Focus**:
    - We're currently focused on improving the SportsDatabase component with enhanced viewing, querying, and filtering capabilities
-   - Recent work has fixed testing infrastructure for the SportDataMapper component and related hooks
+   - Recently implemented pagination for large datasets in the DataTable component
+   - Added server-side pagination support with skip/limit parameters in the API
+   - Fixed testing infrastructure for the SportDataMapper component and related hooks
    - Enhanced entity detail view with comprehensive information display
    - Added Fields View to display available fields for each entity type with required status and descriptions
    - Implemented sorting functionality across various views in the SportsDatabase component
@@ -23,6 +25,8 @@ Welcome to the SheetGPT project! This document will help you quickly understand 
    - `docs/PROGRESS.md` - Contains detailed progress information and recent fixes
    - `docs/API_ARCHITECTURE.md` - Explains the API architecture and endpoints
    - `docs/TECHNICAL_DESCRIPTION.md` - Provides technical details of major code sections
+   - `frontend/src/components/data/DataTable.tsx` - The main component for displaying structured data with pagination
+   - `frontend/src/utils/api.ts` - Contains API client methods including the getRows method for pagination
    - `frontend/src/pages/SportsDatabase.tsx` - The main component for viewing and managing sports entities
    - `frontend/src/pages/EntityDetail.tsx` - Component for displaying detailed entity information
    - `frontend/src/components/data/SportDataMapper.tsx` - Component for mapping structured data to sports entities
@@ -38,13 +42,13 @@ Welcome to the SheetGPT project! This document will help you quickly understand 
    - Common commands are documented in the PROGRESS.md file under "Development Workflow"
 
 5. **Current Challenges**:
-   - Performance optimization for large datasets (pagination needed)
    - Completing Google Sheets export backend integration
    - Implementing advanced filtering capabilities for sports database entities
    - Enhancing data visualization for sports statistics
    - Standardizing data transformation process across components
    - Improving test coverage for frontend and backend components
    - Technical debt in the SportDataMapper component that needs refactoring
+   - Optimizing performance for very large datasets (pagination is now implemented)
 
 6. **Entity Relationships**:
    - Understand that Leagues and Stadiums are foundation entities that should be created first
@@ -73,8 +77,8 @@ When continuing development, prioritize:
 2. Enhancing data visualization for sports statistics
 3. Creating more efficient data retrieval mechanisms for large datasets
 4. Completing Google Sheets export backend integration
-5. Implementing pagination for large datasets
-6. Expanding test coverage for frontend and backend components
+5. Expanding test coverage for frontend and backend components
+6. Refactoring the SportDataMapper component for better maintainability
 
 The code is well-structured but has some technical debt in the SportDataMapper component that needs refactoring for better organization. Focus on improving the user experience while maintaining the existing architecture. Refer to the "IMMEDIATE_TASKS" section for specific tasks that need attention.
 ```
@@ -83,8 +87,8 @@ The code is well-structured but has some technical debt in the SportDataMapper c
 ```json
 {
   "project_name": "SheetGPT",
-  "version": "0.3.4",
-  "last_updated": "2024-05-24",
+  "version": "0.3.5",
+  "last_updated": "2024-05-28",
   "environment": {
     "development": "Docker-based",
     "services": ["frontend", "backend", "db"],
@@ -153,13 +157,15 @@ The code is well-structured but has some technical debt in the SportDataMapper c
     "Implemented sorting functionality in SportsDatabase views",
     "Improved button text for better user experience",
     "Enhanced entity detail view with comprehensive information display",
-    "Fixed testing infrastructure for SportDataMapper component and related hooks"
+    "Fixed testing infrastructure for SportDataMapper component and related hooks",
+    "Implemented pagination for large datasets in DataTable component",
+    "Added server-side pagination support with skip/limit parameters in the API",
+    "Added CI/CD Pipeline with GitHub Actions including scheduled nightly tests"
   ],
   "in_progress": [
     "Google Sheets API backend integration",
     "Data transformation debugging and enhancement",
-    "Performance optimization for large datasets",
-    "Pagination for large datasets",
+    "Performance optimization for very large datasets",
     "Testing sports database API endpoints",
     "Implementing comprehensive error handling for API operations",
     "Optimizing database queries for sports entities",
@@ -167,6 +173,10 @@ The code is well-structured but has some technical debt in the SportDataMapper c
     "Enhancing data visualization for sports statistics"
   ],
   "recent_fixes": [
+    "Implemented pagination for large datasets in DataTable component",
+    "Added server-side pagination support with skip/limit parameters in the API",
+    "Added pagination controls with first, previous, next, and last page navigation",
+    "Implemented rows-per-page selector (10, 25, 50, 100 options)",
     "Fixed drag and drop functionality in SportDataMapper by correcting type mismatch between useDrag and useDrop hooks",
     "Removed 'Drop here to map' text from target fields while maintaining visual indicators",
     "Added guidance for League and Stadium entity types with minimum required fields and progress tracking",
@@ -189,7 +199,7 @@ The code is well-structured but has some technical debt in the SportDataMapper c
   ],
   "known_issues": [
     "Linter errors for react-icons/fa (can be ignored in Docker environment)",
-    "Performance issues with large datasets",
+    "Performance issues with very large datasets (pagination helps but further optimization needed)",
     "Missing pagination for conversations",
     "Export functionality backend integration not complete",
     "Data transformation inconsistencies between components",
@@ -248,62 +258,55 @@ The code is well-structured but has some technical debt in the SportDataMapper c
       "6": "Global View shows counts and last updated timestamps for all entity types",
       "7": "Fields View displays available fields for each entity type with required status and descriptions",
       "8": "User can sort entities by clicking on column headers",
-      "9": "User can view entity details by clicking 'View Details' button",
-      "10": "User can delete entities with confirmation dialog"
-    }
-  },
-  "key_components": {
-    "DataTable": "Displays structured data in grid format with enhanced data transformation logic, column resizing, and grid expansion",
-    "DataExtractionService": "Handles data extraction and transformation from various formats",
-    "DataManagement": "Main page for data viewing and manipulation with improved sidebar updates",
-    "MessageThread": "Implements robust 'Send to Data' functionality with retry logic and error handling",
-    "ExportDialog": "UI component for Google Sheets export functionality",
-    "SportsService": "Backend service for managing sports entities with comprehensive CRUD operations",
-    "ExportService": "Backend service for exporting data to Google Sheets",
-    "GoogleSheetsService": "Service for interacting with Google Sheets API",
-    "SportDataMapper": "Component for mapping structured data to sports database entities with enhanced navigation controls, drag-and-drop functionality, and entity type guidance",
-    "SportsDatabase": "Main page for viewing and managing sports entities with multiple view modes (Entity, Global, Fields)",
-    "EntityDetail": "Component for displaying detailed entity information with basic info, metadata, and relationships"
-  },
-  "backend_architecture": {
-    "routes": "API endpoints defined in src/api/routes/ directory",
-    "services": "Business logic implemented in src/services/ directory",
-    "models": "Database models defined in src/models/ directory",
-    "schemas": "Request/response validation using Pydantic schemas",
-    "utils": "Utility functions for authentication, database access, and security"
-  },
-  "drag_and_drop_implementation": {
-    "library": "react-dnd with HTML5Backend",
-    "components": {
-      "FieldItem": "Handles both drag source and drop target functionality",
-      "useDrag": "Configures drag behavior with type ItemType ('FIELD')",
-      "useDrop": "Configures drop behavior accepting ItemType",
-      "handleFieldMapping": "Processes field mapping when drop occurs"
+      "9": "User can view entity details by clicking on the view details button"
     },
-    "visual_feedback": {
-      "drag_source": "Blue background with move cursor",
-      "drop_target": "Dotted indigo border when draggable",
-      "active_drop": "Green border when item is dragged over",
-      "mapping_visualization": "Shows mapped fields with source → target visualization"
+    "pagination": {
+      "1": "DataTable component automatically enables pagination when row count exceeds page size",
+      "2": "Frontend sends skip and limit parameters to backend API",
+      "3": "Backend returns paginated data with total count information",
+      "4": "UI displays current page, total pages, and navigation controls",
+      "5": "User can navigate between pages and change rows per page",
+      "6": "Row numbering is maintained correctly across pages"
     }
   },
-  "entity_type_guidance": {
-    "foundation_entities": {
-      "league": {
-        "required_fields": ["name", "sport", "country"],
-        "guidance": "Leagues are foundation entities and should be created first"
-      },
-      "stadium": {
-        "required_fields": ["name", "city", "country"],
-        "guidance": "Stadiums are foundation entities and should be created first"
+  "component_architecture": {
+    "DataTable": {
+      "features": [
+        "Data transformation with centralized transformer",
+        "Pagination with client-side and server-side support",
+        "Column management (resize, reorder, visibility)",
+        "Row management (reorder, numbering)",
+        "UI flexibility (expand/collapse, resize)",
+        "Export functionality"
+      ],
+      "pagination": {
+        "automatic_detection": "Based on row count exceeding page size",
+        "rows_per_page_options": [10, 25, 50, 100],
+        "navigation_controls": ["first", "previous", "next", "last"],
+        "api_integration": "Uses getRows method with skip/limit parameters"
       }
     },
-    "progress_tracking": "Dynamic counter shows mapped fields vs. required fields",
-    "visual_indicators": {
-      "recommended": "Blue highlight for recommended entity types",
-      "selected": "Dark blue background with white text",
-      "valid": "Normal styling with hover effect",
-      "invalid": "Greyed out and disabled"
+    "SportDataMapper": {
+      "refactoring_status": "In progress - extracting smaller components and custom hooks",
+      "extracted_components": [
+        "FieldHelpTooltip",
+        "FieldItem",
+        "GuidedWalkthrough"
+      ],
+      "custom_hooks": [
+        "useFieldMapping",
+        "useRecordNavigation",
+        "useImportProcess",
+        "useUiState",
+        "useDataManagement"
+      ],
+      "utility_modules": [
+        "entityTypes.ts",
+        "entityDetection.ts",
+        "validationUtils.ts",
+        "mappingUtils.ts",
+        "uiUtils.ts"
+      ]
     }
   }
 }
@@ -368,90 +371,99 @@ The code is well-structured but has some technical debt in the SportDataMapper c
 ## IMMEDIATE_TASKS
 ```json
 {
-  "priority_tasks": [
-    "Continue UI improvements for better user experience and accessibility",
-    "Enhance database viewing, querying, and data extraction capabilities",
-    "Implement advanced search and filtering for sports database entities",
-    "Develop intuitive data visualization for sports statistics",
-    "Create more efficient data retrieval mechanisms for large datasets",
-    "Complete Google Sheets export backend integration",
-    "Test sports database API endpoints with real data",
-    "Implement pagination for large datasets",
-    "Optimize performance for data operations",
-    "Standardize data transformation process across components",
-    "Improve handling of deeply nested data structures",
-    "Implement comprehensive error handling for API operations",
-    "Expand test coverage for frontend components"
+  "high_priority": [
+    {
+      "task": "Complete Google Sheets export backend integration",
+      "description": "Finish implementing the backend API for exporting data to Google Sheets",
+      "files": [
+        "backend/src/services/sheets_service.py",
+        "backend/src/api/routes/export.py",
+        "frontend/src/components/data/ExportDialog.tsx"
+      ],
+      "steps": [
+        "Implement Google Sheets API authentication",
+        "Create sheet creation and data writing functions",
+        "Add error handling and retry logic",
+        "Implement progress tracking for large exports",
+        "Update frontend to handle export responses"
+      ]
+    },
+    {
+      "task": "Implement advanced filtering for sports database entities",
+      "description": "Add filtering capabilities to the SportsDatabase component",
+      "files": [
+        "frontend/src/pages/SportsDatabase.tsx",
+        "frontend/src/components/sports/EntityFilter.tsx",
+        "backend/src/api/routes/sports.py",
+        "backend/src/services/sports_service.py"
+      ],
+      "steps": [
+        "Create EntityFilter component with filter controls",
+        "Update backend API to support filtering parameters",
+        "Implement filter state management in SportsDatabase",
+        "Add UI for selecting and applying filters",
+        "Ensure filter persistence across page navigation"
+      ]
+    },
+    {
+      "task": "Complete SportDataMapper component refactoring",
+      "description": "Finish the refactoring of the SportDataMapper component",
+      "files": [
+        "frontend/src/components/data/SportDataMapper/SportDataMapperContainer.tsx",
+        "frontend/src/components/data/SportDataMapper/hooks/*.ts",
+        "frontend/src/components/data/SportDataMapper/utils/*.ts",
+        "frontend/src/components/data/SportDataMapper/components/*.tsx"
+      ],
+      "steps": [
+        "Complete UI implementation in SportDataMapperContainer",
+        "Update original SportDataMapper to use new structure",
+        "Add tests for new components and utility functions",
+        "Update documentation to reflect new architecture"
+      ]
+    }
   ],
-  "code_areas_needing_attention": [
-    "frontend/src/pages/SportsDatabase.tsx - Implement advanced filtering capabilities",
-    "frontend/src/components/data/DataTable.tsx - Implement pagination and optimize performance",
-    "frontend/src/components/sports/* - Improve data visualization and filtering capabilities",
-    "frontend/src/services/SportsService.ts - Enhance data retrieval and querying functionality",
-    "frontend/src/components/export/ExportDialog.tsx - Complete Google Sheets backend integration",
-    "frontend/src/pages/DataManagement.tsx - Add advanced filtering",
-    "frontend/src/components/chat/MessageThread.tsx - Standardize data transformation",
-    "frontend/src/services/DataExtractionService.ts - Enhance handling of complex data structures",
-    "src/services/export/sheets_service.py - Complete Google Sheets API integration",
-    "src/api/routes/sports.py - Add comprehensive error handling",
-    "src/services/sports_service.py - Optimize database queries",
-    "tests/ - Add unit and integration tests for backend services",
-    "frontend/src/components/data/SportDataMapper/__tests__/ - Expand test coverage for SportDataMapper components"
+  "medium_priority": [
+    {
+      "task": "Enhance data visualization for sports statistics",
+      "description": "Add charts and graphs for visualizing sports data",
+      "files": [
+        "frontend/src/components/sports/DataVisualization.tsx",
+        "frontend/src/pages/EntityDetail.tsx"
+      ]
+    },
+    {
+      "task": "Optimize database queries for sports entities",
+      "description": "Improve performance of database queries for sports entities",
+      "files": [
+        "backend/src/services/sports_service.py",
+        "backend/src/models/sports.py"
+      ]
+    },
+    {
+      "task": "Add pagination for conversations",
+      "description": "Implement pagination for the conversation list",
+      "files": [
+        "frontend/src/components/chat/ConversationList.tsx",
+        "backend/src/api/routes/chat.py"
+      ]
+    }
   ],
-  "sportdatamapper_improvements": [
-    "Add batch import progress visualization",
-    "Implement field value preview for better mapping decisions",
-    "Add field type validation to prevent type mismatches",
-    "Enhance entity relationship handling with visual indicators",
-    "Implement field mapping templates for common data sources",
-    "Add support for custom field transformations during mapping",
-    "Improve error handling during batch import process",
-    "Add detailed validation feedback for individual records",
-    "Implement undo/redo functionality for mapping operations",
-    "Add search functionality for fields in large datasets",
-    "Expand test coverage for all SportDataMapper components and hooks"
-  ],
-  "sportsdatabase_improvements": [
-    "Implement advanced filtering capabilities for entities",
-    "Add pagination for large entity lists",
-    "Enhance sorting with multi-column support",
-    "Implement search functionality across all entity types",
-    "Add export options for filtered entity lists",
-    "Enhance Fields View with example values",
-    "Implement batch operations for entities (delete, update)",
-    "Add relationship visualization in entity details",
-    "Improve performance for large entity lists",
-    "Add data validation indicators in entity lists"
-  ],
-  "backend_priorities": [
-    "Develop advanced query capabilities for sports database entities",
-    "Implement efficient data retrieval for complex relationships",
-    "Create specialized endpoints for sports statistics and analytics",
-    "Complete Google Sheets API integration",
-    "Optimize database queries for sports entities",
-    "Add comprehensive error handling for edge cases",
-    "Implement caching for frequently accessed data",
-    "Add filtering and sorting capabilities to entity lists",
-    "Create test suite for backend services"
-  ],
-  "ui_improvements": [
-    "Enhance sports database interface for better data exploration",
-    "Implement advanced filtering and sorting in data tables",
-    "Add visual indicators for data relationships",
-    "Improve mobile responsiveness across all components",
-    "Enhance accessibility features for better usability",
-    "Implement dark mode support",
-    "Add keyboard shortcuts for common operations",
-    "Improve loading states and progress indicators"
-  ],
-  "testing_improvements": [
-    "Expand test coverage for SportDataMapper components and hooks",
-    "Add tests for SportsDatabase component and its features",
-    "Improve mocking for external libraries and components",
-    "Add integration tests for data flow between components",
-    "Create test utilities for common testing patterns",
-    "Add tests for edge cases and error handling",
-    "Implement CI/CD pipeline for automated testing"
+  "low_priority": [
+    {
+      "task": "Improve error handling in API endpoints",
+      "description": "Add comprehensive error handling to all API endpoints",
+      "files": [
+        "backend/src/api/routes/*.py",
+        "frontend/src/utils/api.ts"
+      ]
+    },
+    {
+      "task": "Add unit tests for backend services",
+      "description": "Increase test coverage for backend services",
+      "files": [
+        "backend/tests/services/*.py"
+      ]
+    }
   ]
 }
 ```
@@ -459,109 +471,49 @@ The code is well-structured but has some technical debt in the SportDataMapper c
 ## RECENT_CHANGES
 ```json
 {
-  "sportdatamapper_component": {
-    "drag_and_drop_fix": {
-      "issue": "Type mismatch between useDrag and useDrop hooks",
-      "solution": "Updated useDrop accept parameter to use ItemType constant instead of string literal",
-      "files_changed": ["frontend/src/components/data/SportDataMapper.tsx"],
-      "impact": "Fixed drag and drop functionality for field mapping"
-    },
-    "ui_improvements": {
-      "removed_text": "Removed 'Drop here to map' text while maintaining visual indicators",
-      "added_guidance": "Added information box for League and Stadium entity types",
-      "progress_tracking": "Added dynamic counter for mapped vs. required fields",
-      "visual_feedback": "Enhanced visual indicators for drag and drop operations"
-    },
-    "entity_detection": {
-      "source_field_values": "Added sourceFieldValues state to store field values for detection",
-      "detection_logic": "Enhanced to check both field names and values",
-      "stadium_detection": "Improved detection of Stadium entity type",
-      "fallback_selection": "Added default entity type selection to prevent blank state"
-    },
-    "field_extraction": {
-      "data_formats": "Fixed to handle different structured data formats",
-      "value_extraction": "Added extraction of field values for better entity detection",
-      "error_handling": "Improved error handling for invalid data structures"
-    },
-    "capacity_parsing": {
-      "issue": "Stadium capacity parsing truncated at first non-numeric character",
-      "solution": "Added regex to remove non-numeric characters before parsing",
-      "files_changed": ["frontend/src/components/data/SportDataMapper.tsx"],
-      "impact": "Fixed capacity parsing to handle formatted numbers (e.g., '20,500' → 20500)"
-    },
-    "testing_infrastructure": {
-      "issue": "Incomplete mocking of @headlessui/react components causing test failures",
-      "solution": "Enhanced mocks in jest-setup.ts to include all necessary Dialog subcomponents",
-      "files_changed": ["frontend/src/jest-setup.ts"],
-      "components_added": ["Dialog.Panel", "Dialog.Title", "Dialog.Overlay", "Dialog.Description", "Menu", "Listbox"],
-      "impact": "Fixed test failures in SportDataMapperContainer.test.tsx"
-    },
-    "test_expectations": {
-      "issue": "Test expectations not matching actual component behavior",
-      "solution": "Updated test expectations to match actual rendered content",
-      "files_changed": ["frontend/src/components/data/SportDataMapper/__tests__/SportDataMapperContainer.test.tsx"],
-      "changes": [
-        "Updated modal title expectations",
-        "Changed entity type selection checks",
-        "Modified source fields verification",
-        "Updated record navigation checks",
-        "Fixed close button verification"
-      ],
-      "impact": "All tests now pass correctly"
-    },
-    "entity_detection_tests": {
-      "issue": "Test expectations not matching actual implementation behavior",
-      "solution": "Updated test expectations to align with actual function behavior",
-      "files_changed": ["frontend/src/utils/sportDataMapper/__tests__/entityDetection.test.ts"],
-      "changes": [
-        "Updated expected entity type for capacity field from 'stadium' to 'league'"
-      ],
-      "impact": "All entityDetection tests now pass correctly"
-    }
+  "pagination_implementation": {
+    "date": "2024-05-28",
+    "description": "Implemented pagination for large datasets in the DataTable component",
+    "files_changed": [
+      "frontend/src/components/data/DataTable.tsx",
+      "frontend/src/utils/api.ts",
+      "docs/PROGRESS.md",
+      "docs/TECHNICAL_DESCRIPTION.md"
+    ],
+    "key_changes": [
+      "Added pagination state management (current page, rows per page, total rows)",
+      "Implemented automatic pagination detection based on dataset size",
+      "Added pagination controls with first, previous, next, and last page navigation",
+      "Integrated with the backend pagination API",
+      "Maintained correct row numbering across pages",
+      "Added a rows-per-page selector (10, 25, 50, 100 options)",
+      "Added the getRows method to the API client to fetch paginated data",
+      "Implemented proper TypeScript interfaces for the paginated data response",
+      "Updated documentation to reflect the pagination implementation"
+    ],
+    "benefits": [
+      "Performance Improvement: Reduces the amount of data transferred and rendered at once",
+      "Better User Experience: Users can navigate through large datasets more easily",
+      "Scalability: The application can now handle datasets of any size without performance degradation",
+      "Flexibility: Users can choose how many rows to display per page based on their preferences"
+    ]
   },
-  "sportsdatabase_component": {
-    "fields_view": {
-      "feature": "Added Fields View to display available fields for each entity type",
-      "implementation": "Created getEntityFields helper function to retrieve field information",
-      "ui": "Added table display with field name, type, required status, and description",
-      "files_changed": ["frontend/src/pages/SportsDatabase.tsx"],
-      "impact": "Improved user understanding of entity data structure"
-    },
-    "sorting_functionality": {
-      "feature": "Implemented sorting functionality across various views",
-      "implementation": "Added sortField and sortDirection state variables",
-      "ui": "Added sort indicators to column headers",
-      "files_changed": ["frontend/src/pages/SportsDatabase.tsx"],
-      "impact": "Improved data organization and exploration"
-    },
-    "button_text": {
-      "change": "Improved button text for better user experience",
-      "files_changed": ["frontend/src/pages/SportsDatabase.tsx"],
-      "impact": "Enhanced user interface clarity"
-    }
-  },
-  "recent_bug_fixes": [
-    "Fixed drag and drop functionality in SportDataMapper",
-    "Fixed entity type detection for Stadium entity type",
-    "Fixed field extraction for different data formats",
-    "Fixed UI issues with SportDataMapper component",
-    "Added fallback entity type selection to prevent blank state",
-    "Fixed stadium capacity parsing to handle formatted numbers",
-    "Fixed testing infrastructure for SportDataMapper component",
-    "Updated test expectations to match actual component behavior",
-    "Fixed entityDetection tests to align with actual implementation"
-  ],
-  "recent_enhancements": [
-    "Added guidance for League and Stadium entity types",
-    "Enhanced entity type detection with field values",
-    "Improved visual feedback for drag and drop operations",
-    "Added progress tracking for required fields",
-    "Enhanced UI with better styling and visual indicators",
-    "Added Fields View to SportsDatabase page",
-    "Implemented sorting functionality in SportsDatabase views",
-    "Improved button text for better user experience",
-    "Enhanced testing infrastructure with comprehensive mocks"
-  ]
+  "ci_cd_pipeline": {
+    "date": "2024-05-24",
+    "description": "Added scheduled nightly tests to the CI/CD pipeline",
+    "files_changed": [
+      ".github/workflows/nightly-tests.yml",
+      "docs/CI_CD_PIPELINE.md",
+      "README.md",
+      "docs/PROGRESS.md"
+    ],
+    "key_changes": [
+      "Created a new GitHub Actions workflow for nightly tests",
+      "Set up automatic issue creation for test failures",
+      "Added comprehensive documentation for the CI/CD process",
+      "Updated README with information about the CI/CD pipeline"
+    ]
+  }
 }
 ```
 

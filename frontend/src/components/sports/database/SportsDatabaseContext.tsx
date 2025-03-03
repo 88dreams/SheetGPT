@@ -14,8 +14,8 @@ export interface EntitySummary {
   count: number;
   lastUpdated: number;
   entityType: string;
-  mostRecentEntity: any;
-  [key: string]: any; // Add index signature to allow string indexing
+  mostRecentEntity: Record<string, unknown>;
+  [key: string]: unknown;
 }
 
 export interface EntityField {
@@ -34,7 +34,7 @@ interface SportsDatabaseContextType {
   setSelectedEntityType: (type: EntityType) => void;
   
   // Entity data and loading state
-  entities: any[];
+  entities: Record<string, unknown>[];
   isLoading: boolean;
   error: Error | null;
   refetch: () => void;
@@ -55,7 +55,7 @@ interface SportsDatabaseContextType {
   includeRelationships: boolean;
   setIncludeRelationships: (include: boolean) => void;
   isExporting: boolean;
-  handleExportToSheets: (allEntities: any[]) => Promise<void>;
+  handleExportToSheets: (allEntities: Record<string, unknown>[]) => Promise<void>;
   
   // Delete functionality
   isDeleting: boolean;
@@ -68,7 +68,7 @@ interface SportsDatabaseContextType {
   sortField: string;
   sortDirection: 'asc' | 'desc';
   handleSort: (field: string) => void;
-  getSortedEntities: () => any[];
+  getSortedEntities: () => Record<string, unknown>[];
   renderSortIcon: (field: string) => JSX.Element;
   
   // Filtering
@@ -80,7 +80,15 @@ interface SportsDatabaseContextType {
   getEntityFields: (entityType: EntityType) => EntityField[];
   
   // Entity update
-  handleUpdateEntity: (entityId: string, updates: Record<string, any>) => Promise<void>;
+  handleUpdateEntity: (entityId: string, updates: Record<string, unknown>) => Promise<void>;
+  
+  // Pagination
+  currentPage: number;
+  setCurrentPage: (page: number) => void;
+  totalPages: number;
+  pageSize: number;
+  setPageSize: (size: number) => void;
+  totalItems: number;
 }
 
 // Create the context with a default undefined value
@@ -109,6 +117,9 @@ export const SportsDatabaseProvider: React.FC<SportsDatabaseProviderProps> = ({ 
   const [showDeleteConfirm, setShowDeleteConfirm] = useState<string | null>(null);
   const [sortField, setSortField] = useState<string>('name');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+  const [totalItems, setTotalItems] = useState(0);
 
   // Update data flow when component mounts
   useEffect(() => {
@@ -127,44 +138,53 @@ export const SportsDatabaseProvider: React.FC<SportsDatabaseProviderProps> = ({ 
 
   // Fetch entities based on selected type
   const {
-    data: entities = [],
+    data: response,
     isLoading,
     error,
     refetch
   } = useQuery({
-    queryKey: ['sportsEntities', selectedEntityType, sortField, sortDirection],
+    queryKey: ['sportsEntities', selectedEntityType, sortField, sortDirection, currentPage, pageSize],
     queryFn: async () => {
       console.log('Fetching entities with:', {
         entityType: selectedEntityType,
         filters: activeFilters,
         sortField,
-        sortDirection
+        sortDirection,
+        page: currentPage,
+        limit: pageSize
       });
       
       try {
-        // Always fetch all entities without filters
         const result = await SportsDatabaseService.getEntities({
           entityType: selectedEntityType,
-          filters: [],
+          filters: activeFilters,
+          page: currentPage,
+          limit: pageSize,
           sortBy: sortField,
           sortDirection: sortDirection
         });
         
-        console.log('Fetched entities result:', {
-          count: result?.length || 0,
-          sample: result?.length > 0 ? result[0] : null
-        });
+        // Update total items count
+        setTotalItems(result.total || 0);
         
-        return result || [];
+        return result.items || [];
       } catch (error) {
         console.error('Error fetching entities:', error);
-        return []; // Return empty array on error
+        return [];
       }
     },
     enabled: isAuthenticated && isReady,
-    staleTime: 0, // Don't cache results
-    refetchOnWindowFocus: false // Don't refetch when window regains focus
+    staleTime: 0,
+    refetchOnWindowFocus: false
   });
+
+  const entities = response || [];
+  const totalPages = Math.ceil(totalItems / pageSize);
+
+  // Reset to first page when entity type changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [selectedEntityType]);
 
   // Handle entity selection
   const toggleEntitySelection = (entityId: string) => {
@@ -203,7 +223,7 @@ export const SportsDatabaseProvider: React.FC<SportsDatabaseProviderProps> = ({ 
   };
 
   // Handle export to Google Sheets
-  const handleExportToSheets = async (allEntities: any[]) => {
+  const handleExportToSheets = async (allEntities: Record<string, unknown>[]) => {
     try {
       setIsExporting(true);
       
@@ -588,7 +608,7 @@ export const SportsDatabaseProvider: React.FC<SportsDatabaseProviderProps> = ({ 
   };
 
   // Handle entity update
-  const handleUpdateEntity = async (entityId: string, updates: Record<string, any>) => {
+  const handleUpdateEntity = async (entityId: string, updates: Record<string, unknown>) => {
     try {
       await SportsDatabaseService.updateEntity(selectedEntityType, entityId, updates);
       showNotification('success', 'Entity updated successfully');
@@ -634,7 +654,13 @@ export const SportsDatabaseProvider: React.FC<SportsDatabaseProviderProps> = ({ 
     handleApplyFilters,
     handleClearFilters,
     getEntityFields,
-    handleUpdateEntity
+    handleUpdateEntity,
+    currentPage,
+    setCurrentPage,
+    totalPages,
+    pageSize,
+    setPageSize,
+    totalItems,
   };
 
   return (

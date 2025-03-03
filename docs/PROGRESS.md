@@ -439,71 +439,28 @@ SheetGPT is a full-stack application that combines AI-powered chat capabilities 
 - Comprehensive logging
 - Enhanced UI feedback
 
-## Recent Fixes (Current)
+### Entity List Pagination Implementation (March 2024)
 
-### Browser Login Fix
-- Fixed issue where browser login was failing with "net::ERR_NAME_NOT_RESOLVED" error
-- Updated the API URL configuration in the frontend to always use "localhost:8000" for browser access
-- Removed the conditional logic that was using the Docker service name "backend" which isn't resolvable from the browser
-- Updated the Docker Compose file to set VITE_API_URL=http://localhost:8000 instead of http://backend:8000
-- Simplified the API URL configuration to prioritize the environment variable or fall back to localhost
-- Ensured consistent API URL resolution across all environments (local development and Docker)
+Added comprehensive pagination support to the Entity List component and backend API:
 
-### Conversation Persistence
-- Fixed issue where conversations were not persisting between container restarts
-- Implemented dedicated PostgreSQL volume (`postgres-data`) in Docker Compose configuration
-- Ensured proper storage and retrieval of user conversations and message history
+**Frontend Changes**:
+- Enhanced EntityList component with pagination controls
+- Added page size selection (10, 25, 50, 100 items per page)
+- Implemented first, previous, next, and last page navigation
+- Added visual feedback showing current page and total results
 
-### "Map to Data" Functionality
-- Enhanced data extraction and mapping process
-- Improved JSON structure detection
-- Robust error handling
-- Better logging throughout the process
+**Backend Changes**:
+- Updated entity retrieval endpoints to support pagination
+- Added sorting parameters (field and direction)
+- Implemented PaginatedResponse schema for standardized response format
+- Added total count and page calculation
 
-### Database Initialization
-- Created database initialization script (`init_db.py`)
-- Script creates all necessary database tables if they don't exist
-- Adds a test user (test@example.com / password123) for easy login
-- Non-destructive approach that preserves existing data
-- Resolves authentication issues caused by missing database tables
+**API Enhancements**:
+- Added query parameters for page, limit, sort_by, and sort_direction
+- Standardized response format with items, total, page, page_size, and total_pages
+- Improved error handling for invalid pagination parameters
 
-## Data Mapper UI Improvements (Latest)
-
-The Data Mapper component has been further refined with the following improvements:
-
-1. **Simplified Naming**: Changed the title from "Sport Data Mapper" to "Data Mapper" for a cleaner, more generic interface.
-
-2. **Removed Suggested Entity Indicators**: Removed the "Suggested" message from entity type buttons to create a cleaner interface.
-
-3. **Consistent Button Heights**: Fixed the entity type buttons to have consistent heights across all rows.
-
-4. **Improved Data Handling**: Enhanced the data processing logic to properly handle formatted data with headers and rows, ensuring source field values are correctly displayed and mapped.
-
-5. **Fixed Field Mapping**: Resolved issues with field mapping from formatted data to source fields, ensuring proper data transformation.
-
-6. **Enhanced Field View**: Implemented a comprehensive Field View that displays all available fields for the selected entity, not just the required ones. This view includes:
-   - A structured table layout with columns for field name, required/optional status, and mapping status
-   - Visual indicators (checkmarks) showing which fields are mapped
-   - Clear distinction between required and optional fields with color-coded badges
-   - Improved field value display with proper formatting and truncation for long values
-
-7. **Improved UI Layout**: Removed unnecessary spacing between UI elements, creating a more compact and efficient interface. Specifically:
-   - Removed the space between entity type selection and warning messages
-   - Optimized the layout of field mapping components for better space utilization
-   - Enhanced the visual hierarchy to make important information more prominent
-
-8. **Better Field Status Visualization**: Added clear visual indicators for field mapping status:
-   - Green checkmarks for mapped fields
-   - Color-coded badges for required/optional status (red for required, green for optional)
-   - Improved field value display with proper formatting
-
-These changes significantly improve the usability and visual consistency of the Data Mapper interface, making it more intuitive for users to map their data to the database schema while providing better visibility into field requirements and mapping status.
-
-## Upcoming Features
-- Improved data visualization options
-- Integration with additional sports data sources
-- Improved batch processing capabilities
-- User preference settings
+These changes improve the user experience when dealing with large datasets and provide better performance by limiting the number of records fetched at once.
 
 ## Recent Improvements
 

@@ -98,7 +98,41 @@ This document outlines the API endpoints for the sports database functionality.
 
 ## Generic Entity Endpoints
 
-- `GET /api/v1/sports/entities/{entity_type}` - Get entities of a specific type
+### Get Entities
+`GET /api/v1/sports/entities/{entity_type}`
+
+Gets a paginated list of entities of a specific type.
+
+**Query Parameters**:
+- `page`: Page number (default: 1, min: 1)
+- `limit`: Number of items per page (default: 50, min: 1, max: 100)
+- `sort_by`: Field to sort by (default: "id")
+- `sort_direction`: Sort direction ("asc" or "desc", default: "asc")
+- `filters`: JSON string of filter configurations (optional)
+
+**Response Format**:
+```json
+{
+  "items": [
+    {
+      "id": "uuid",
+      "name": "string",
+      ...
+    }
+  ],
+  "total": 100,
+  "page": 1,
+  "page_size": 50,
+  "total_pages": 2
+}
+```
+
+**Response Fields**:
+- `items`: Array of entities for the current page
+- `total`: Total number of entities matching the query
+- `page`: Current page number
+- `page_size`: Number of items per page
+- `total_pages`: Total number of pages available
 
 ### Advanced Filtering
 

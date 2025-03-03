@@ -27,20 +27,37 @@ from src.utils.database import get_db
 from src.services.sports_service import SportsService
 from src.services.export_service import ExportService
 from src.utils.auth import get_current_user
+from src.schemas.common import PaginatedResponse
 
 router = APIRouter()
 sports_service = SportsService()
 export_service = ExportService()
 
 # Generic entity endpoints
-@router.get("/entities/{entity_type}", response_model=List[Dict[str, Any]])
+@router.get("/entities/{entity_type}", response_model=PaginatedResponse[Dict[str, Any]])
 async def get_entities(
     entity_type: str,
+    page: int = Query(1, ge=1, description="Page number"),
+    limit: int = Query(50, ge=1, le=100, description="Items per page"),
+    sort_by: str = Query("id", description="Field to sort by"),
+    sort_direction: str = Query("asc", description="Sort direction (asc or desc)"),
     db: AsyncSession = Depends(get_db),
     current_user: Dict = Depends(get_current_user)
 ):
-    """Get all entities of a specific type."""
-    return await sports_service.get_entities(db, entity_type)
+    """Get paginated entities of a specific type."""
+    try:
+        return await sports_service.get_entities(
+            db=db,
+            entity_type=entity_type,
+            page=page,
+            limit=limit,
+            sort_by=sort_by,
+            sort_direction=sort_direction
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 # League endpoints
 @router.get("/leagues", response_model=List[LeagueResponse])

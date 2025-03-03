@@ -6,6 +6,8 @@ from uuid import UUID
 import logging
 from sqlalchemy import select, delete, update, or_
 from sqlalchemy.future import select
+from sqlalchemy import func
+import math
 
 from src.models.sports_models import (
     League, Team, Player, Game, Stadium, 
@@ -71,16 +73,41 @@ class SportsService:
         "production": ProductionCompany
     }
 
-    async def get_entities(self, db: AsyncSession, entity_type: str) -> List[Dict[str, Any]]:
-        """Get all entities of a specific type."""
+    async def get_entities(self, db: AsyncSession, entity_type: str, page: int = 1, limit: int = 50, sort_by: str = "id", sort_direction: str = "asc") -> Dict[str, Any]:
+        """Get paginated entities of a specific type."""
         if entity_type not in self.ENTITY_TYPES:
             raise ValueError(f"Invalid entity type: {entity_type}")
         
         model_class = self.ENTITY_TYPES[entity_type]
-        result = await db.execute(select(model_class))
+        
+        # Get total count
+        count_query = select(func.count()).select_from(model_class)
+        total_count = await db.scalar(count_query)
+        
+        # Get paginated results
+        query = select(model_class)
+        
+        # Add sorting
+        if hasattr(model_class, sort_by):
+            sort_column = getattr(model_class, sort_by)
+            if sort_direction.lower() == "desc":
+                query = query.order_by(sort_column.desc())
+            else:
+                query = query.order_by(sort_column.asc())
+                
+        # Add pagination
+        query = query.offset((page - 1) * limit).limit(limit)
+        
+        result = await db.execute(query)
         entities = result.scalars().all()
         
-        return [self._model_to_dict(entity) for entity in entities]
+        return {
+            "items": [self._model_to_dict(entity) for entity in entities],
+            "total": total_count,
+            "page": page,
+            "page_size": limit,
+            "total_pages": math.ceil(total_count / limit)
+        }
 
     def _model_to_dict(self, model: Any) -> Dict[str, Any]:
         """Convert a model instance to a dictionary."""

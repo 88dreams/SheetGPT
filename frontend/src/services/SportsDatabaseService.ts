@@ -230,6 +230,14 @@ export interface GetEntitiesParams {
   sortDirection?: 'asc' | 'desc';
 }
 
+interface PaginatedResponse<T> {
+  items: T[];
+  total: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
+}
+
 class SportsDatabaseService {
   private baseUrl: string;
 
@@ -392,12 +400,8 @@ class SportsDatabaseService {
     limit?: number;
     sortBy?: string;
     sortDirection?: 'asc' | 'desc';
-  }): Promise<any[]> {
+  }): Promise<PaginatedResponse<any>> {
     console.log(`SportsDatabaseService: Fetching ${entityType} entities with filters:`, filters);
-    
-    if (filters.length === 0) {
-      console.log(`SportsDatabaseService: No filters provided, fetching all ${entityType} entities`);
-    }
     
     try {
       const response = await api.sports.getEntities(
@@ -409,8 +413,30 @@ class SportsDatabaseService {
         sortDirection
       );
       
-      console.log(`SportsDatabaseService: Received response for ${entityType}:`, response);
-      return Array.isArray(response) ? response : [];
+      // Handle both paginated and non-paginated responses
+      if (response && typeof response === 'object' && 'items' in response) {
+        return response as PaginatedResponse<any>;
+      }
+      
+      // If the response is an array, convert it to paginated format
+      if (Array.isArray(response)) {
+        return {
+          items: response,
+          total: response.length,
+          page,
+          pageSize: limit,
+          totalPages: Math.ceil(response.length / limit)
+        };
+      }
+      
+      // Return empty response if nothing matches
+      return {
+        items: [],
+        total: 0,
+        page,
+        pageSize: limit,
+        totalPages: 0
+      };
     } catch (error) {
       console.error(`SportsDatabaseService: Error fetching ${entityType} entities:`, error);
       throw error;
@@ -467,7 +493,7 @@ class SportsDatabaseService {
       
       // For each entity, fetch related entities based on the entity type
       const entitiesWithRelationships = await Promise.all(
-        entities.map(async (entity) => {
+        entities.items.map(async (entity) => {
           const relationships: Record<string, any[]> = {};
           
           switch(entityType) {

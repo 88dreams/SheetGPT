@@ -33,7 +33,13 @@ const EntityList: React.FC<EntityListProps> = ({ className = '' }) => {
     handleBulkDelete,
     isDeleting,
     activeFilters,
-    handleUpdateEntity
+    handleUpdateEntity,
+    currentPage,
+    setCurrentPage,
+    totalPages,
+    pageSize,
+    setPageSize,
+    totalItems
   } = useSportsDatabase();
 
   const startEdit = (entity: any) => {
@@ -105,7 +111,7 @@ const EntityList: React.FC<EntityListProps> = ({ className = '' }) => {
   }
 
   return (
-    <div className={`border rounded-lg overflow-hidden ${className}`}>
+    <div className={`bg-white rounded-lg shadow ${className}`}>
       {/* Add bulk actions bar when items are selected */}
       {selectedCount > 0 && (
         <div className="bg-gray-50 px-6 py-3 border-b border-gray-200 flex items-center justify-between">
@@ -134,191 +140,248 @@ const EntityList: React.FC<EntityListProps> = ({ className = '' }) => {
         </div>
       )}
 
-      {hasActiveFilters && (
-        <div className="bg-blue-50 p-3 border-b border-blue-100">
-          <p className="text-blue-700 text-sm">
-            Filters applied: Showing {filteredEntities.length} {selectedEntityType}(s) matching your filters.
-          </p>
-        </div>
-      )}
-      <table className="min-w-full divide-y divide-gray-200">
-        <thead className="bg-gray-50">
-          <tr>
-            <th scope="col" className="w-12 px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-              <div className="flex items-center">
-                <input
-                  type="checkbox"
-                  checked={Array.isArray(entities) && entities.length > 0 && 
-                    Object.values(selectedEntities).filter(Boolean).length === entities.length}
-                  onChange={(e) => {
-                    if (e.target.checked) {
-                      selectAllEntities();
-                    } else {
-                      deselectAllEntities();
-                    }
-                  }}
-                />
-              </div>
-            </th>
-            <th 
-              scope="col" 
-              className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
-              onClick={() => handleSort('name')}
-            >
-              <div className="flex items-center">
-                Name
-                {renderSortIcon('name')}
-              </div>
-            </th>
-            <th 
-              scope="col" 
-              className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
-              onClick={() => handleSort('created_at')}
-            >
-              <div className="flex items-center">
-                Created
-                {renderSortIcon('created_at')}
-              </div>
-            </th>
-            <th 
-              scope="col" 
-              className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
-              onClick={() => handleSort('relationships')}
-            >
-              <div className="flex items-center">
-                Relationships
-                {renderSortIcon('relationships')}
-              </div>
-            </th>
-            <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-              Actions
-            </th>
-          </tr>
-        </thead>
-        <tbody className="bg-white divide-y divide-gray-200">
-          {getSortedEntities().map((entity) => (
-            <tr key={entity.id} className="hover:bg-gray-50">
-              <td className="px-6 py-4 whitespace-nowrap">
+      <div className="overflow-x-auto">
+        {hasActiveFilters && (
+          <div className="bg-blue-50 p-3 border-b border-blue-100">
+            <p className="text-blue-700 text-sm">
+              Filters applied: Showing {totalItems} {selectedEntityType}(s) matching your filters.
+            </p>
+          </div>
+        )}
+        <table className="min-w-full divide-y divide-gray-200">
+          <thead className="bg-gray-50">
+            <tr>
+              <th scope="col" className="w-12 px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 <div className="flex items-center">
                   <input
                     type="checkbox"
-                    checked={!!selectedEntities[entity.id]}
-                    onChange={() => toggleEntitySelection(entity.id)}
+                    checked={Array.isArray(entities) && entities.length > 0 && 
+                      Object.values(selectedEntities).filter(Boolean).length === entities.length}
+                    onChange={(e) => {
+                      if (e.target.checked) {
+                        selectAllEntities();
+                      } else {
+                        deselectAllEntities();
+                      }
+                    }}
                   />
                 </div>
-              </td>
-              <td className="px-6 py-4 whitespace-nowrap">
-                {editingId === entity.id ? (
-                  <div className="flex items-center space-x-2">
-                    <input
-                      type="text"
-                      value={editValue}
-                      onChange={(e) => setEditValue(e.target.value)}
-                      onKeyDown={(e) => handleKeyDown(e, entity.id)}
-                      className="flex-1 px-2 py-1 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      autoFocus
-                    />
-                    <button
-                      onClick={() => saveEdit(entity.id)}
-                      className="text-green-600 hover:text-green-800"
-                      title="Save"
-                    >
-                      <FaCheck className="w-4 h-4" />
-                    </button>
-                    <button
-                      onClick={cancelEdit}
-                      className="text-red-600 hover:text-red-800"
-                      title="Cancel"
-                    >
-                      <FaTimes className="w-4 h-4" />
-                    </button>
-                  </div>
-                ) : (
-                  <div className="flex items-center space-x-2">
-                    <div className="text-sm font-medium text-gray-900">{entity.name}</div>
-                    <button
-                      onClick={() => startEdit(entity)}
-                      className="text-gray-400 hover:text-gray-600"
-                      title="Edit name"
-                    >
-                      <FaPencilAlt className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
-                )}
-              </td>
-              <td className="px-6 py-4 whitespace-nowrap">
-                <div className="text-sm text-gray-500">
-                  {new Date(entity.created_at).toLocaleDateString()}
+              </th>
+              <th 
+                scope="col" 
+                className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
+                onClick={() => handleSort('name')}
+              >
+                <div className="flex items-center">
+                  Name
+                  {renderSortIcon('name')}
                 </div>
-              </td>
-              <td className="px-6 py-4 whitespace-nowrap">
-                <div className="text-sm text-gray-500">
-                  {entity.relationships && (
-                    <div className="flex flex-wrap gap-1">
-                      {entity.relationships.teams && entity.relationships.teams.length > 0 && (
-                        <span className="px-2 py-1 text-xs rounded-full bg-blue-100 text-blue-800">
-                          {entity.relationships.teams.length} Teams
-                        </span>
-                      )}
-                      {entity.relationships.players && entity.relationships.players.length > 0 && (
-                        <span className="px-2 py-1 text-xs rounded-full bg-green-100 text-green-800">
-                          {entity.relationships.players.length} Players
-                        </span>
-                      )}
-                      {entity.relationships.games && entity.relationships.games.length > 0 && (
-                        <span className="px-2 py-1 text-xs rounded-full bg-purple-100 text-purple-800">
-                          {entity.relationships.games.length} Games
-                        </span>
-                      )}
+              </th>
+              <th 
+                scope="col" 
+                className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
+                onClick={() => handleSort('created_at')}
+              >
+                <div className="flex items-center">
+                  Created
+                  {renderSortIcon('created_at')}
+                </div>
+              </th>
+              <th 
+                scope="col" 
+                className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
+                onClick={() => handleSort('relationships')}
+              >
+                <div className="flex items-center">
+                  Relationships
+                  {renderSortIcon('relationships')}
+                </div>
+              </th>
+              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Actions
+              </th>
+            </tr>
+          </thead>
+          <tbody className="bg-white divide-y divide-gray-200">
+            {filteredEntities.map((entity) => (
+              <tr key={entity.id} className="hover:bg-gray-50">
+                <td className="px-6 py-4 whitespace-nowrap">
+                  <div className="flex items-center">
+                    <input
+                      type="checkbox"
+                      checked={!!selectedEntities[entity.id]}
+                      onChange={() => toggleEntitySelection(entity.id)}
+                    />
+                  </div>
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap">
+                  {editingId === entity.id ? (
+                    <div className="flex items-center space-x-2">
+                      <input
+                        type="text"
+                        value={editValue}
+                        onChange={(e) => setEditValue(e.target.value)}
+                        onKeyDown={(e) => handleKeyDown(e, entity.id)}
+                        className="flex-1 px-2 py-1 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        autoFocus
+                      />
+                      <button
+                        onClick={() => saveEdit(entity.id)}
+                        className="text-green-600 hover:text-green-800"
+                        title="Save"
+                      >
+                        <FaCheck className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={cancelEdit}
+                        className="text-red-600 hover:text-red-800"
+                        title="Cancel"
+                      >
+                        <FaTimes className="w-4 h-4" />
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="flex items-center space-x-2">
+                      <div className="text-sm font-medium text-gray-900">{entity.name}</div>
+                      <button
+                        onClick={() => startEdit(entity)}
+                        className="text-gray-400 hover:text-gray-600"
+                        title="Edit name"
+                      >
+                        <FaPencilAlt className="w-3.5 h-3.5" />
+                      </button>
                     </div>
                   )}
-                </div>
-              </td>
-              <td className="px-6 py-4 whitespace-nowrap">
-                <div className="flex space-x-2">
-                  <button
-                    onClick={() => setShowDeleteConfirm(entity.id)}
-                    className="text-red-500 hover:text-red-700"
-                    title="Delete"
-                  >
-                    <FaTrash />
-                  </button>
-                  <button
-                    onClick={() => {
-                      // Navigate to entity detail view
-                      navigate(`/sports/${selectedEntityType}/${entity.id}`);
-                    }}
-                    className="text-blue-500 hover:text-blue-700"
-                    title="View Details"
-                  >
-                    <FaEye />
-                  </button>
-                </div>
-                {showDeleteConfirm === entity.id && (
-                  <div className="absolute z-10 mt-2 p-3 bg-white rounded-md shadow-lg border border-gray-200">
-                    <p className="text-sm text-gray-700 mb-2">Are you sure you want to delete this {selectedEntityType}?</p>
-                    <div className="flex justify-end space-x-2">
-                      <button
-                        onClick={() => setShowDeleteConfirm(null)}
-                        className="px-2 py-1 text-xs text-gray-600 hover:text-gray-800 border border-gray-300 rounded"
-                      >
-                        Cancel
-                      </button>
-                      <button
-                        onClick={() => handleDeleteEntity(entity.id)}
-                        className="px-2 py-1 text-xs text-white bg-red-500 hover:bg-red-600 rounded"
-                        disabled={isDeleting}
-                      >
-                        {isDeleting ? 'Deleting...' : 'Delete'}
-                      </button>
-                    </div>
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap">
+                  <div className="text-sm text-gray-500">
+                    {new Date(entity.created_at).toLocaleDateString()}
                   </div>
-                )}
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap">
+                  <div className="text-sm text-gray-500">
+                    {entity.relationships && (
+                      <div className="flex flex-wrap gap-1">
+                        {entity.relationships.teams && entity.relationships.teams.length > 0 && (
+                          <span className="px-2 py-1 text-xs rounded-full bg-blue-100 text-blue-800">
+                            {entity.relationships.teams.length} Teams
+                          </span>
+                        )}
+                        {entity.relationships.players && entity.relationships.players.length > 0 && (
+                          <span className="px-2 py-1 text-xs rounded-full bg-green-100 text-green-800">
+                            {entity.relationships.players.length} Players
+                          </span>
+                        )}
+                        {entity.relationships.games && entity.relationships.games.length > 0 && (
+                          <span className="px-2 py-1 text-xs rounded-full bg-purple-100 text-purple-800">
+                            {entity.relationships.games.length} Games
+                          </span>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap">
+                  <div className="flex space-x-2">
+                    <button
+                      onClick={() => setShowDeleteConfirm(entity.id)}
+                      className="text-red-500 hover:text-red-700"
+                      title="Delete"
+                    >
+                      <FaTrash />
+                    </button>
+                    <button
+                      onClick={() => {
+                        // Navigate to entity detail view
+                        navigate(`/sports/${selectedEntityType}/${entity.id}`);
+                      }}
+                      className="text-blue-500 hover:text-blue-700"
+                      title="View Details"
+                    >
+                      <FaEye />
+                    </button>
+                  </div>
+                  {showDeleteConfirm === entity.id && (
+                    <div className="absolute z-10 mt-2 p-3 bg-white rounded-md shadow-lg border border-gray-200">
+                      <p className="text-sm text-gray-700 mb-2">Are you sure you want to delete this {selectedEntityType}?</p>
+                      <div className="flex justify-end space-x-2">
+                        <button
+                          onClick={() => setShowDeleteConfirm(null)}
+                          className="px-2 py-1 text-xs text-gray-600 hover:text-gray-800 border border-gray-300 rounded"
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          onClick={() => handleDeleteEntity(entity.id)}
+                          className="px-2 py-1 text-xs text-white bg-red-500 hover:bg-red-600 rounded"
+                          disabled={isDeleting}
+                        >
+                          {isDeleting ? 'Deleting...' : 'Delete'}
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      {/* Pagination Controls */}
+      <div className="px-4 py-3 border-t border-gray-200 sm:px-6">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center">
+            <span className="text-sm text-gray-700">
+              Showing {((currentPage - 1) * pageSize) + 1} to {Math.min(currentPage * pageSize, totalItems)} of {totalItems} results
+            </span>
+            <select
+              value={pageSize}
+              onChange={(e) => setPageSize(Number(e.target.value))}
+              className="ml-4 border-gray-300 rounded-md text-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+            >
+              {[10, 25, 50, 100].map((size) => (
+                <option key={size} value={size}>
+                  {size} per page
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="flex items-center space-x-2">
+            <button
+              onClick={() => setCurrentPage(1)}
+              disabled={currentPage === 1}
+              className="px-3 py-1 border rounded-md text-sm disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
+            >
+              First
+            </button>
+            <button
+              onClick={() => setCurrentPage(currentPage - 1)}
+              disabled={currentPage === 1}
+              className="px-3 py-1 border rounded-md text-sm disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
+            >
+              Previous
+            </button>
+            <span className="px-3 py-1 text-sm text-gray-700">
+              Page {currentPage} of {totalPages}
+            </span>
+            <button
+              onClick={() => setCurrentPage(currentPage + 1)}
+              disabled={currentPage === totalPages}
+              className="px-3 py-1 border rounded-md text-sm disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
+            >
+              Next
+            </button>
+            <button
+              onClick={() => setCurrentPage(totalPages)}
+              disabled={currentPage === totalPages}
+              className="px-3 py-1 border rounded-md text-sm disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
+            >
+              Last
+            </button>
+          </div>
+        </div>
+      </div>
     </div>
   );
 };

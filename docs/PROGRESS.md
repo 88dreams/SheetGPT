@@ -32,7 +32,12 @@ SheetGPT is a full-stack application that combines AI-powered chat capabilities 
    - Successfully cleaned database of test data
    - Verified data integrity and referential constraints
 
-2. Previous Updates:
+2. Team Creation Enhancement - Name-based References
+   - Added support for creating teams using league and stadium names instead of requiring UUIDs
+   - Modified validation logic to automatically convert name references to UUIDs
+   - Improved error handling and user experience for team creation process
+
+3. Previous Updates:
    - Implemented create_sample_sports_data.py with proper field handling
    - Fixed UI dialog implementation
    - Added host_broadcaster support to stadiums

@@ -449,4 +449,60 @@ All endpoints require authentication using a JWT token in the Authorization head
 Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
 ```
 
-To obtain a token, use the `/api/v1/auth/login` endpoint with valid credentials. 
+To obtain a token, use the `/api/v1/auth/login` endpoint with valid credentials.
+
+## Team Endpoints
+
+### Create Team
+`POST /api/v1/sports/teams`
+
+Creates a new team. Supports both UUID and name-based references for leagues and stadiums.
+
+**Request Body:**
+```json
+{
+  "name": "string (required)",
+  "league_id": "UUID or league name (required)",
+  "stadium_id": "UUID or stadium name (optional)",
+  "city": "string (required)",
+  "state": "string (optional)",
+  "country": "string (required)",
+  "founded_year": "number (optional)"
+}
+```
+
+**Examples:**
+
+Using names:
+```json
+{
+  "name": "Utah Jazz",
+  "league_id": "National Basketball Association",
+  "stadium_id": "Vivint Arena",
+  "city": "Salt Lake City",
+  "state": "Utah",
+  "country": "USA",
+  "founded_year": 1974
+}
+```
+
+Using UUIDs:
+```json
+{
+  "name": "Utah Jazz",
+  "league_id": "123e4567-e89b-12d3-a456-426614174000",
+  "stadium_id": "123e4567-e89b-12d3-a456-426614174001",
+  "city": "Salt Lake City",
+  "state": "Utah",
+  "country": "USA",
+  "founded_year": 1974
+}
+```
+
+**Notes:**
+- If a league name is provided instead of UUID, the system will:
+  1. Look up the league by name
+  2. Create a new league if it doesn't exist
+  3. Use the resulting UUID
+- Same behavior applies for stadium references
+- The system maintains referential integrity while allowing flexible input 

@@ -299,7 +299,8 @@ const Chat: React.FC = () => {
     data: messages,
     isLoading: isLoadingMessages,
     error: messagesError,
-    isError: isMessagesError
+    isError: isMessagesError,
+    refetch: refetchMessages
   } = useQuery<Message[], Error>({
     queryKey: ['messages', selectedConversation],
     queryFn: async () => {
@@ -309,20 +310,21 @@ const Chat: React.FC = () => {
       })
       if (!selectedConversation) return []
       const conversation = await api.chat.getConversation(selectedConversation)
+      const messages = conversation.messages
       console.log('Messages fetched:', {
         conversationId: selectedConversation,
-        messageCount: conversation.messages.length,
+        messageCount: messages.length,
         timestamp: new Date().toISOString()
       })
-      return conversation.messages
+      return messages
     },
     enabled: !!selectedConversation && isAuthenticated && isReady,
     retry: 2,
-    staleTime: 1000 * 60 * 15, // Increase stale time to 15 minutes
+    staleTime: 1000 * 60, // Consider data fresh for 1 minute
     gcTime: 1000 * 60 * 60, // Cache for 60 minutes
     refetchOnMount: true,
-    refetchOnWindowFocus: false, // Disable refetch on window focus to prevent data loss
-    refetchOnReconnect: true
+    refetchOnWindowFocus: false, // Disable automatic refetch on window focus
+    refetchOnReconnect: false, // Disable automatic refetch on reconnect
   })
 
   // Add component mount/unmount tracking
@@ -389,56 +391,73 @@ const Chat: React.FC = () => {
     mutationFn: async (params: { content: string; structuredFormat?: Record<string, any> }) => {
       if (!selectedConversation) throw new Error('No conversation selected')
       
+      console.log('Sending message:', {
+        conversationId: selectedConversation,
+        content: params.content,
+        hasStructuredFormat: !!params.structuredFormat,
+        timestamp: new Date().toISOString()
+      })
+      
+      // Get current messages from the cache
+      const currentMessages = queryClient.getQueryData(['messages', selectedConversation]) as Message[] || []
+      
       // Create a temporary message ID for optimistic updates
       const tempMessageId = crypto.randomUUID()
+      const userMessage = {
+        id: tempMessageId,
+        role: 'user',
+        content: params.content,
+        created_at: new Date().toISOString(),
+        conversation_id: selectedConversation,
+        meta_data: params.structuredFormat ? { structuredFormat: params.structuredFormat } : {}
+      }
       
-      // Add user message to the UI immediately
-      queryClient.setQueryData(['messages', selectedConversation], (old: Message[] | undefined) => {
-        const messages = old || []
-        return [...messages, {
-          id: tempMessageId,
-          role: 'user',
-          content: params.content,
-          created_at: new Date().toISOString(),
-          conversation_id: selectedConversation,
-          meta_data: {}
-        }]
-      })
-
       // Create a temporary message for the assistant's response
       const assistantMessageId = crypto.randomUUID()
-      queryClient.setQueryData(['messages', selectedConversation], (old: Message[] | undefined) => {
-        const messages = old || []
-        return [...messages, {
-          id: assistantMessageId,
-          role: 'assistant',
-          content: '',
-          created_at: new Date().toISOString(),
-          conversation_id: selectedConversation,
-          meta_data: {}
-        }]
-      })
+      const assistantMessage = {
+        id: assistantMessageId,
+        role: 'assistant',
+        content: '',
+        created_at: new Date().toISOString(),
+        conversation_id: selectedConversation,
+        meta_data: {}
+      }
+      
+      // Update the cache with both messages
+      const updatedMessages = [...currentMessages, userMessage, assistantMessage]
+      queryClient.setQueryData(['messages', selectedConversation], updatedMessages)
 
-      // Send the message and handle streaming response
-      return api.chat.sendMessage(
-        selectedConversation,
-        params.content,
-        params.structuredFormat,
-        (chunk) => {
-          // Update the assistant's message as chunks arrive
-          queryClient.setQueryData(['messages', selectedConversation], (old: Message[] | undefined) => {
-            const messages = old || []
-            return messages.map(msg => 
-              msg.id === assistantMessageId
-                ? { ...msg, content: msg.content + chunk }
-                : msg
-            )
-          })
-        }
-      )
+      try {
+        // Send the message and handle streaming response
+        const response = await api.chat.sendMessage(
+          selectedConversation,
+          params.content,
+          params.structuredFormat,
+          (chunk) => {
+            queryClient.setQueryData(['messages', selectedConversation], (old: Message[] | undefined) => {
+              const messages = old || []
+              return messages.map(msg => 
+                msg.id === assistantMessageId
+                  ? { ...msg, content: (msg.content || '') + chunk }
+                  : msg
+              )
+            })
+          }
+        )
+        
+        // After streaming is complete, fetch fresh messages once
+        await refetchMessages()
+        
+        return response
+      } catch (error) {
+        // On error, rollback the optimistic update
+        queryClient.setQueryData(['messages', selectedConversation], currentMessages)
+        throw error
+      }
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['messages', selectedConversation] })
+    onSuccess: async () => {
+      // Invalidate conversations to update last message
+      await queryClient.invalidateQueries({ queryKey: ['conversations'] })
     },
     onError: (error: Error) => {
       showNotification('error', error.message)

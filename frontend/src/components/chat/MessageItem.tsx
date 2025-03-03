@@ -1,19 +1,14 @@
 import React, { useState, useEffect } from 'react'
-import { Message } from '../../utils/api'
-// @ts-ignore
-import ReactMarkdown from 'react-markdown'
-// @ts-ignore
-import { formatDistanceToNow } from 'date-fns'
-// @ts-ignore
-import { FaTable, FaMapMarkedAlt } from 'react-icons/fa'
 import { useNavigate } from 'react-router-dom'
+import { useQueryClient, useMutation } from '@tanstack/react-query'
+import { Message, api } from '../../utils/api'
+import { useNotification } from '../../contexts/NotificationContext'
 import { useDataManagement } from '../../hooks/useDataManagement'
 import { DataExtractionService } from '../../services/DataExtractionService'
-import { api } from '../../utils/api'
+import { FaTable, FaMapMarkedAlt } from 'react-icons/fa'
 import DataPreviewModal from './DataPreviewModal'
 import SportDataMapper from '../data/SportDataMapper'
 import '../../styles/dataPreviewModal.css'
-import { StandardDataFormat } from '../../utils/dataTransformer'
 import { Dialog } from '@headlessui/react'
 import { XMarkIcon } from '@heroicons/react/24/outline'
 
@@ -135,14 +130,16 @@ const DataExtractionModal: React.FC<DataExtractionModalProps> = ({ isOpen, onClo
 export interface MessageItemProps {
   message: Message;
   isLastMessage?: boolean;
-  onDataPreview?: (data: any) => Promise<StandardDataFormat>;
+  onDataPreview?: (data: any) => Promise<any>;
 }
 
 const MessageItem: React.FC<MessageItemProps> = ({ message, isLastMessage, onDataPreview }) => {
   const navigate = useNavigate()
   const dataManagement = useDataManagement()
+  const queryClient = useQueryClient()
+  const { showNotification } = useNotification()
   const [showDataPreview, setShowDataPreview] = useState(false)
-  const [extractedData, setExtractedData] = useState<any>(null)
+  const [extractedData, setExtractedData] = useState<string>('')
   // Add state for SportDataMapper
   const [showSportDataMapper, setShowSportDataMapper] = useState(false)
   const [sportMapperData, setSportMapperData] = useState<any>(null)
@@ -152,6 +149,24 @@ const MessageItem: React.FC<MessageItemProps> = ({ message, isLastMessage, onDat
   const [isExtracting, setIsExtracting] = useState(false)
   const [extractionError, setExtractionError] = useState<string | null>(null)
   
+  // Delete message mutation
+  const deleteMessageMutation = useMutation({
+    mutationFn: async () => {
+      await api.chat.deleteMessage(message.conversation_id, message.id)
+    },
+    onSuccess: () => {
+      // Update the messages cache to remove the deleted message
+      queryClient.setQueryData(['messages', message.conversation_id], (old: Message[] | undefined) => {
+        if (!old) return old
+        return old.filter(m => m.id !== message.id)
+      })
+      showNotification('success', 'Message deleted successfully')
+    },
+    onError: (error: Error) => {
+      showNotification('error', `Failed to delete message: ${error.message}`)
+    }
+  })
+
   // Handle data extraction for the data preview modal
   const handleDataExtraction = async (extractedData: any) => {
     try {
@@ -288,7 +303,7 @@ const MessageItem: React.FC<MessageItemProps> = ({ message, isLastMessage, onDat
         const dataText = contentParts[1].trim()
         const parsedData = JSON.parse(dataText)
         const standardData = await onDataPreview(parsedData)
-        setExtractedData(standardData)
+        setExtractedData(JSON.stringify(standardData, null, 2))
         setShowDataPreview(true)
       } catch (error) {
         console.error('Error previewing data:', error)
@@ -298,31 +313,55 @@ const MessageItem: React.FC<MessageItemProps> = ({ message, isLastMessage, onDat
 
   const handleDataConfirm = async (data: any) => {
     try {
-      const result = await dataManagement.saveData(data, message.id)
-      if (result) {
-        navigate('/data')
-      }
+      // Save data and navigate to data view
+      navigate('/data')
     } catch (error) {
       console.error('Error saving data:', error)
     }
   }
 
+  const handleDelete = async () => {
+    if (window.confirm('Are you sure you want to delete this message?')) {
+      await deleteMessageMutation.mutateAsync()
+    }
+  }
+
   return (
-    <div
-      id={`message-${message.id}`}
-      className={`p-4 rounded-lg ${message.role === 'assistant' ? 'bg-blue-50' : 'bg-gray-50'}`}
-    >
-      <div className="font-bold text-sm text-gray-600 mb-2">
-        {message.role === 'assistant' ? 'Assistant' : 'You'}
+    <div className={`flex flex-col gap-2 p-4 rounded-lg ${
+      message.role === 'assistant' ? 'bg-blue-50' : 'bg-gray-50'
+    }`}>
+      <div className="flex justify-between items-start">
+        <div className="font-semibold text-sm text-gray-600">
+          {message.role === 'assistant' ? 'Assistant' : 'You'}
+        </div>
+        <div className="flex gap-2">
+          {message.content.includes('---DATA---') && (
+            <button
+              onClick={handleDataPreview}
+              className="text-sm text-blue-600 hover:text-blue-800"
+            >
+              View Data
+            </button>
+          )}
+          <button
+            onClick={handleDelete}
+            className="text-sm text-red-600 hover:text-red-800"
+            title="Delete message"
+          >
+            Delete
+          </button>
+        </div>
       </div>
-      <div className="whitespace-pre-wrap text-gray-800">{message.content}</div>
+      <div className="whitespace-pre-wrap">{message.content.split('---DATA---')[0]}</div>
+      
+      {/* Restore Send to Data and Map to Sports buttons */}
       {message.role === 'assistant' && (
         <div className="mt-2 flex space-x-2">
           <button
             onClick={() => {
               const extractedData = DataExtractionService.extractStructuredData(message.content);
               if (extractedData) {
-                setExtractedData(extractedData);
+                setExtractedData(JSON.stringify(extractedData, null, 2));
                 setShowDataPreview(true);
               } else {
                 alert('No structured data found in this message');
@@ -342,11 +381,12 @@ const MessageItem: React.FC<MessageItemProps> = ({ message, isLastMessage, onDat
           </button>
         </div>
       )}
-      {showDataPreview && (
+
+      {showDataPreview && extractedData && (
         <DataPreviewModal
           isOpen={showDataPreview}
           onClose={() => setShowDataPreview(false)}
-          messageContent={message.content}
+          messageContent={extractedData}
           onConfirm={handleDataConfirm}
         />
       )}

@@ -94,140 +94,173 @@ class ChatService:
         structured_format: Optional[Dict] = None
     ):
         """Get streaming response from ChatGPT."""
-        # Add user message to conversation
-        user_msg = await self.add_message(conversation_id, "user", user_message)
+        try:
+            # Add user message to conversation
+            user_msg = await self.add_message(conversation_id, "user", user_message)
 
-        # Get conversation history
-        messages = await self.get_conversation_messages(conversation_id)
-        
-        # Prepare conversation history for ChatGPT
-        chat_messages = [
-            {"role": msg.role, "content": msg.content}
-            for msg in messages[-10:]  # Last 10 messages for context
-        ]
+            # Get conversation history
+            messages = await self.get_conversation_messages(conversation_id)
+            
+            # Prepare conversation history for ChatGPT
+            chat_messages = [
+                {"role": msg.role, "content": msg.content}
+                for msg in messages[-15:]  # Last 15 messages for context
+            ]
 
-        # If structured format is requested, add it to the system message
-        if structured_format:
-            import json
-            format_str = json.dumps(structured_format, ensure_ascii=False)
-            system_message = {
+            # Add base system message
+            base_system_message = {
                 "role": "system",
-                "content": f"""Please provide responses in two parts:
-                1. A natural conversation response
-                2. Structured data in the following format: {format_str}
-                
-                Separate the parts with '---DATA---'"""
+                "content": """You are a helpful assistant that provides accurate and thorough responses.
+                When you need real-time or up-to-date information:
+                1. Indicate that you need to search the web
+                2. Use the phrase '[SEARCH]query[/SEARCH]' to perform web searches
+                3. Incorporate the search results into your response
+                4. Always cite your sources with URLs when using web information
+
+                When asked for structured data, you will:
+                1. First provide a natural language response
+                2. Then provide the structured data exactly as requested
+                3. Always separate the two parts with '---DATA---'
+                4. For data requests, verify information is accurate and complete
+                5. Include all relevant fields in the structured data
+                6. Format numbers and dates consistently"""
             }
-            chat_messages.insert(0, system_message)
+            chat_messages.insert(0, base_system_message)
 
-        # Get response from ChatGPT with streaming
-        response = await self.client.chat.completions.create(
-            model=self.model,
-            messages=chat_messages,
-            temperature=0.7,
-            max_tokens=2000,
-            stream=True  # Enable streaming
-        )
+            # If structured format is requested, add it as an additional system message
+            if structured_format:
+                import json
+                format_str = json.dumps(structured_format, ensure_ascii=False)
+                format_system_message = {
+                    "role": "system",
+                    "content": f"""For this response, you MUST:
+                    1. Provide a natural conversation response
+                    2. Then provide structured data in this EXACT format: {format_str}
+                    3. Separate the two parts with '---DATA---'
+                    4. Ensure ALL required fields are included
+                    5. Format the data as valid JSON"""
+                }
+                chat_messages.insert(1, format_system_message)
 
-        full_response = ""
-        async for chunk in response:
-            if chunk.choices[0].delta.content is not None:
-                content = chunk.choices[0].delta.content
-                full_response += content
-                yield content
+            print(f"Sending request to OpenAI with {len(chat_messages)} messages")
 
-        # Save the complete response
-        assistant_msg = await self.add_message(conversation_id, "assistant", full_response)
+            # Get response from ChatGPT with streaming
+            response = await self.client.chat.completions.create(
+                model=self.model,
+                messages=chat_messages,
+                temperature=0.3,  # Set to 0.3 for more focused, data-oriented responses
+                max_tokens=4000,
+                stream=True  # Enable streaming
+            )
 
-        # Handle structured data if requested
-        if structured_format and "---DATA---" in full_response:
-            try:
-                conversation_part, data_part = full_response.split("---DATA---")
-                data_str = data_part.strip()
-                
-                # Try to parse the data as JSON if possible
+            full_response = ""
+            buffer = ""
+            search_query = None
+
+            async for chunk in response:
+                if chunk.choices[0].delta.content is not None:
+                    content = chunk.choices[0].delta.content
+                    buffer += content
+
+                    # Check for complete search tags
+                    while '[SEARCH]' in buffer and '[/SEARCH]' in buffer:
+                        start = buffer.find('[SEARCH]')
+                        end = buffer.find('[/SEARCH]')
+                        if start < end:
+                            # Extract search query
+                            search_query = buffer[start + 8:end].strip()
+                            
+                            # Remove the search tags from buffer
+                            buffer = buffer[:start] + buffer[end + 9:]
+                            
+                            try:
+                                # Perform web search
+                                import aiohttp
+                                async with aiohttp.ClientSession() as session:
+                                    search_url = f"https://api.duckduckgo.com/?q={search_query}&format=json"
+                                    async with session.get(search_url) as search_response:
+                                        search_data = await search_response.json()
+                                        
+                                        # Format search results
+                                        search_results = "\n\nSearch Results:\n"
+                                        for result in search_data.get('RelatedTopics', [])[:3]:
+                                            if 'Text' in result:
+                                                search_results += f"- {result['Text']}\n"
+                                        
+                                        # Add search results to buffer
+                                        buffer += search_results
+                            except Exception as e:
+                                print(f"Error performing web search: {str(e)}")
+                                buffer += f"\n\nError performing web search: {str(e)}\n"
+
+                    # Yield any complete sentences from buffer
+                    while '. ' in buffer:
+                        period_idx = buffer.find('. ') + 2
+                        sentence = buffer[:period_idx]
+                        buffer = buffer[period_idx:]
+                        full_response += sentence
+                        yield sentence
+
+                    # If we have a long enough chunk without a period, yield it
+                    if len(buffer) > 100:
+                        full_response += buffer
+                        yield buffer
+                        buffer = ""
+
+            # Yield any remaining content in buffer
+            if buffer:
+                full_response += buffer
+                yield buffer
+
+            print(f"Full response received, length: {len(full_response)}")
+
+            # Save the complete response
+            assistant_msg = await self.add_message(conversation_id, "assistant", full_response)
+
+            # Handle structured data if requested
+            if structured_format and "---DATA---" in full_response:
                 try:
-                    parsed_data = json.loads(data_str)
-                except json.JSONDecodeError:
-                    parsed_data = {"raw_text": data_str}
-                
-                # Get conversation for the title
-                conversation = await self.get_conversation(conversation_id)
-                
-                # Transform data into row-based format if it's a dictionary
-                transformed_data = {"rows": [], "column_order": []}
-                if isinstance(parsed_data, dict):
-                    # Get all keys as columns
-                    columns = list(parsed_data.keys())
-                    transformed_data["column_order"] = columns
+                    conversation_part, data_part = full_response.split("---DATA---")
+                    data_str = data_part.strip()
                     
-                    # Find the maximum length of any column's data
-                    max_rows = 1
-                    for value in parsed_data.values():
-                        if isinstance(value, list):
-                            max_rows = max(max_rows, len(value))
+                    # Try to parse the data as JSON
+                    try:
+                        parsed_data = json.loads(data_str)
+                    except json.JSONDecodeError:
+                        print(f"Failed to parse JSON data: {data_str}")
+                        parsed_data = {"raw_text": data_str}
                     
-                    # Create rows
-                    for i in range(max_rows):
-                        row = {}
-                        for col in columns:
-                            value = parsed_data[col]
-                            if isinstance(value, list):
-                                row[col] = value[i] if i < len(value) else None
-                            else:
-                                row[col] = value if i == 0 else None
-                        transformed_data["rows"].append(row)
-                else:
-                    transformed_data = {"rows": [{"raw_text": str(parsed_data)}], "column_order": ["raw_text"]}
-                
-                # Store structured data
-                structured_data = StructuredData(
-                    conversation_id=conversation_id,
-                    data_type="chat_extraction",
-                    schema_version="1.0",
-                    data=transformed_data,
-                    meta_data={
-                        "format": structured_format,
-                        "message_id": str(assistant_msg.id),
-                        "title": conversation.title
-                    }
-                )
-                self.db.add(structured_data)
-                await self.db.commit()
-                await self.db.refresh(structured_data)
-
-                # Create default columns based on the column order
-                columns = []
-                for i, col_name in enumerate(transformed_data["column_order"]):
-                    # Determine data type from the first row if available
-                    data_type = "string"
-                    if transformed_data["rows"]:
-                        value = transformed_data["rows"][0].get(col_name)
-                        if isinstance(value, (int, float)):
-                            data_type = "number"
-                        elif isinstance(value, bool):
-                            data_type = "boolean"
-                        elif isinstance(value, dict):
-                            data_type = "object"
-                        elif isinstance(value, list):
-                            data_type = "array"
-
-                    column = DataColumn(
-                        structured_data_id=structured_data.id,
-                        name=col_name,
-                        data_type=data_type,
-                        order=i,
-                        is_active=True,
-                        meta_data={}
+                    # Get conversation for the title
+                    conversation = await self.get_conversation(conversation_id)
+                    
+                    # Store structured data
+                    structured_data = StructuredData(
+                        conversation_id=conversation_id,
+                        data_type="chat_extraction",
+                        schema_version="1.0",
+                        data=parsed_data,
+                        meta_data={
+                            "format": structured_format,
+                            "message_id": str(assistant_msg.id),
+                            "title": conversation.title
+                        }
                     )
-                    columns.append(column)
-                
-                self.db.add_all(columns)
-                await self.db.commit()
+                    self.db.add(structured_data)
+                    await self.db.commit()
                     
-            except Exception as e:
-                print(f"Error processing structured data: {str(e)}")
-                # Continue even if structured data processing fails
+                except Exception as e:
+                    print(f"Error processing structured data: {str(e)}")
+                    # Continue even if structured data processing fails
+
+        except Exception as e:
+            print(f"Error in get_chat_response: {str(e)}")
+            # Add error message to conversation
+            await self.add_message(
+                conversation_id,
+                "assistant",
+                f"I apologize, but I encountered an error: {str(e)}"
+            )
+            raise
 
     async def update_conversation_title(
         self,
@@ -277,4 +310,21 @@ class ChatService:
         # Delete the conversation - this will cascade delete all related records
         # due to the cascade="all, delete-orphan" setting in the model
         await self.db.delete(conversation)
+        await self.db.commit()
+
+    async def delete_message(self, message_id: UUID) -> None:
+        """Delete a specific message from a conversation."""
+        # Get message with a single query
+        stmt = (
+            select(Message)
+            .where(Message.id == message_id)
+        )
+        result = await self.db.execute(stmt)
+        message = result.scalar_one_or_none()
+        
+        if not message:
+            raise ValueError("Message not found")
+        
+        # Delete the message
+        await self.db.delete(message)
         await self.db.commit() 

@@ -42,4 +42,7 @@ mypy>=1.7.0
 
 # Logging & Monitoring
 python-json-logger>=2.0.7
-prometheus-client>=0.18.0 
+prometheus-client>=0.18.0
+
+# Added from the code block
+aiohttp>=3.9.0 

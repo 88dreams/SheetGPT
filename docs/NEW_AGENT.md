@@ -1,39 +1,144 @@
-# SheetGPT Project Status for New Agent
+# NEW AGENT INTRODUCTION
 
-## AGENT_INTRO
-Welcome to the SheetGPT project! This document provides essential information for new AI agents to quickly understand and continue development. Please review in the following order:
+## AGENT INTRO SECTION
 
-1. **Core Documentation Review**:
-   - This file (NEW_AGENT.md) - Quick start and current status
-   - PROGRESS.md - Detailed progress and recent changes
-   - TECHNICAL_DESCRIPTION.md - Architecture and implementation details
-   - API_ARCHITECTURE.md - API design and endpoints
+### Project Overview
+SheetGPT is a full-stack application combining AI-powered chat with structured data management and sports database functionality. Key capabilities:
+- AI chat for data extraction and structuring
+- Tabular data management with column controls
+- Sports entity management (leagues, teams, players, etc.)
+- Google Sheets export integration
 
-2. **Project Overview**: 
-   - Full-stack application combining AI chat, data management, and sports database
-   - Tech Stack: React/TypeScript frontend, FastAPI/PostgreSQL backend
-   - Key Features: AI chat, data extraction, sports entity management, data export
-   - Development Environment: Docker-based with hot reloading
+### Technical Architecture
 
-3. **Current Development Focus**:
-   - Sample data management and validation
-   - Entity relationship handling
-   - Data cleanup and maintenance scripts
-   - Enhanced error handling and validation
-   - Test coverage expansion
+#### Backend
+- FastAPI with SQLAlchemy ORM and PostgreSQL
+- JWT authentication with role-based access
+- Modular design with isolated services
+- Transaction management with session control
 
-4. **Critical Components**:
-   - SportDataMapper: Maps structured data to sports entities
-   - SportsDatabase: Manages sports-related entities with comprehensive validation
-   - DataManagementScripts: Handles sample data creation and cleanup
-   - EntityRelationshipHandler: Manages entity dependencies and relationships
+#### Frontend
+- React with TypeScript
+- React Query for data management
+- Advanced DataTable component
+- Sports database interface with relationship visualization
 
-5. **Recent Major Changes**:
-   - Implemented comprehensive sample data management
-   - Enhanced entity relationship handling
-   - Added data cleanup scripts with proper dependency order
-   - Improved field validation and error handling
-   - Updated documentation for new components
+### Key Components
+
+1. **Entity Reference Resolution System**
+   - Flexible reference system (UUID/name-based)
+   - Validation layer (`validationUtils.ts`)
+   - Mapping layer (`mappingUtils.ts`)
+   - Automatic entity creation and lookup
+
+2. **SportDataMapper**
+   - Field mapping with drag-and-drop
+   - Entity type detection
+   - Batch import capabilities
+   - Progress tracking
+   - Record navigation
+
+3. **Advanced Filtering**
+   - Hybrid approach (backend/client-side)
+   - Multiple filter types and operators
+   - Filter persistence
+   - Dynamic query building
+
+### Current Status (March 2025)
+
+#### Completed Features
+- ✅ User authentication and management
+- ✅ Chat interface with AI integration
+- ✅ Structured data extraction
+- ✅ Sports database with comprehensive models
+- ✅ Frontend-backend integration
+- ✅ Admin functionality
+- ✅ Enhanced field mapping visualization
+- ✅ Hybrid filtering implementation
+- ✅ Bulk operations for entities
+
+#### In Progress
+- 🔄 Google Sheets API backend integration
+- 🔄 Sports database API endpoint testing
+- 🔄 Error handling improvements
+- 🔄 Frontend component test coverage
+
+### Critical Information
+
+1. **Database Schema**
+   - All entities use UUID primary keys
+   - Strict referential integrity
+   - Required fields enforced at database level
+   - Relationship tables for many-to-many
+
+2. **Entity Dependencies**
+   Primary:
+   - Leagues
+   - Broadcast Companies
+   - Production Companies
+   - Brands
+   
+   Secondary:
+   - Teams (requires leagues)
+   - Stadiums (requires broadcast companies)
+   - Players (requires teams)
+   
+   Relationship:
+   - Games (requires teams, stadiums)
+   - Broadcast Rights
+   - Production Services
+   - Brand Relationships
+
+3. **Recent Changes**
+   - Enhanced name-based entity references
+   - Improved validation order
+   - Fixed bulk operations
+   - Updated field mapping visualization
+
+### Common Issues and Solutions
+
+1. **Entity Creation**
+   - Use name-based references when possible
+   - System handles UUID conversion
+   - Automatic entity creation for missing references
+
+2. **Validation**
+   - Validation occurs before mapping
+   - Support for both UUID and name fields
+   - Clear error messages for debugging
+
+3. **Data Import**
+   - Batch import with progress tracking
+   - Automatic relationship resolution
+   - Error aggregation and reporting
+
+### Required Reading
+1. TECHNICAL_DESCRIPTION.md - Detailed component documentation
+2. SPORTS_API_ENDPOINTS.md - API endpoint specifications
+3. API_ARCHITECTURE.md - System architecture details
+4. PROGRESS.md - Latest updates and status
+
+### Next Actions
+1. Complete Google Sheets integration
+2. Enhance test coverage
+3. Optimize performance for large datasets
+4. Implement advanced search capabilities
+5. Add mobile responsiveness
+
+### Communication Guidelines
+1. Reference files and functions using exact paths
+2. Use line numbers for specific code references
+3. Follow TypeScript type definitions strictly
+4. Maintain documentation consistency
+
+### Error Handling Protocol
+1. Check validation layer first
+2. Verify entity relationships
+3. Review transaction logs
+4. Confirm client-side state
+5. Validate API responses
+
+This document should be updated with each significant change to maintain accuracy for new agents.
 
 ## SYSTEM_STATE
 ```json

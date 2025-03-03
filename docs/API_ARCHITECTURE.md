@@ -323,4 +323,44 @@ Modular component architecture:
 2. **Performance Optimization**: Implement pagination and query optimization
 3. **Enhanced Batch Processing**: Add asynchronous processing for large imports
 4. **Advanced Field Mapping**: Support custom transformations and templates
-5. **Comprehensive Testing**: Create test suite for all endpoints 
+5. **Comprehensive Testing**: Create test suite for all endpoints
+
+## Entity Reference Resolution System
+
+The API implements a flexible entity reference system that balances user experience with data integrity:
+
+### Components
+
+1. **Validation Layer**
+   - Located in `frontend/src/utils/sportDataMapper/validationUtils.ts`
+   - Handles both UUID and name-based entity references
+   - Converts between reference types as needed
+   - Ensures data consistency before processing
+
+2. **Mapping Layer**
+   - Located in `frontend/src/utils/sportDataMapper/mappingUtils.ts`
+   - Resolves entity references to UUIDs
+   - Creates new entities when needed
+   - Maintains referential integrity
+
+3. **Database Layer**
+   - Stores all references as UUIDs
+   - Enforces referential integrity constraints
+   - Maintains clean data structure
+
+### Design Decisions
+
+1. **Flexible Input**
+   - Accept both UUIDs and names for entity references
+   - Automatically handle conversion and entity creation
+   - Reduce friction in data entry process
+
+2. **Data Integrity**
+   - All database references use UUIDs
+   - Automatic entity creation with sensible defaults
+   - Strong validation at all layers
+
+3. **Error Handling**
+   - Clear error messages for validation issues
+   - Graceful handling of missing references
+   - Detailed logging for debugging 

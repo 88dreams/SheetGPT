@@ -28,20 +28,30 @@ export const validateEntityData = (entityType: EntityType, data: Record<string, 
       break;
       
     case 'team':
-      if (!data.league_id) {
-        errors.push('League ID is required');
-        console.warn(`Team validation error: League ID is required`);
-      } else if (!isValidUUID(data.league_id)) {
-        errors.push('League ID must be a valid UUID');
-        console.warn(`Team validation error: League ID must be a valid UUID, got: ${data.league_id}`);
+      // Check if either league_id or league_name is provided
+      if (!data.league_id && !data.league_name) {
+        errors.push('Either League ID or League Name is required');
+        console.warn(`Team validation error: Either League ID or League Name is required`);
+      } else if (data.league_id && isValidUUID(data.league_id)) {
+        // Only validate UUID format if it's meant to be a UUID
+        console.log('Using provided league_id as UUID');
+      } else {
+        // Treat non-UUID league_id as league_name
+        console.log('Treating league_id as league_name:', data.league_id);
+        data.league_name = data.league_id;
+        delete data.league_id;
       }
       
-      if (!data.stadium_id) {
-        errors.push('Stadium ID is required');
-        console.warn(`Team validation error: Stadium ID is required`);
-      } else if (!isValidUUID(data.stadium_id)) {
-        errors.push('Stadium ID must be a valid UUID');
-        console.warn(`Team validation error: Stadium ID must be a valid UUID, got: ${data.stadium_id}`);
+      // Handle stadium - it's optional but if provided should be valid
+      if (data.stadium_id) {
+        if (isValidUUID(data.stadium_id)) {
+          console.log('Using provided stadium_id as UUID');
+        } else {
+          // Treat non-UUID stadium_id as stadium_name
+          console.log('Treating stadium_id as stadium_name:', data.stadium_id);
+          data.stadium_name = data.stadium_id;
+          delete data.stadium_id;
+        }
       }
       
       if (!data.city) {

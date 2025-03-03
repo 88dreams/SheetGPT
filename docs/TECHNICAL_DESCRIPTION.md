@@ -494,3 +494,37 @@ The field view system is implemented through several layers:
 - Error aggregation for bulk operations
 - User-friendly error messages
 - Detailed console logging for debugging
+
+## Data Validation and Mapping System
+
+### Entity Reference Resolution
+The system implements a flexible reference resolution system that allows entities to be referenced by either UUID or name:
+
+1. **Validation Layer (`validationUtils.ts`)**
+   - Accepts both UUID and name-based references
+   - Automatically detects reference type based on format
+   - Converts name references to name fields (e.g., `league_id` to `league_name`)
+   - Maintains validation requirements while improving user experience
+
+2. **Mapping Layer (`mappingUtils.ts`)**
+   - Handles conversion of names to UUIDs
+   - Implements entity lookup by name
+   - Creates new entities if referenced entities don't exist
+   - Maintains referential integrity while allowing flexible input
+
+3. **Entity Creation Flow**
+   ```
+   User Input (name or UUID)
+   ↓
+   Validation (detect & convert format)
+   ↓
+   Mapping (lookup or create entity)
+   ↓
+   Database (store with proper UUIDs)
+   ```
+
+### Key Features
+- Automatic name-to-UUID conversion
+- Graceful handling of non-existent entities
+- Maintains data integrity while improving usability
+- Supports both direct UUID references and name-based references

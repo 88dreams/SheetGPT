@@ -183,8 +183,30 @@ export const enhancedMapToDatabaseFieldNames = async (
   
   // For team entity, handle special lookups
   if (entityType === 'team') {
-    // If league_id is not a UUID but looks like a name, look it up
-    if (basicMapped.league_id && !isValidUUID(basicMapped.league_id)) {
+    // Handle league lookup by name if provided
+    if (data.league_name) {
+      console.log(`Looking up league ID for name: ${data.league_name}`);
+      const leagueId = await lookupEntityIdByName('league', data.league_name, apiClient);
+      if (leagueId) {
+        basicMapped.league_id = leagueId;
+        console.log(`Found league ID: ${leagueId} for name: ${data.league_name}`);
+      } else {
+        // Try to create a new league if it doesn't exist
+        const newLeagueId = await createEntityIfNotExists('league', data.league_name, {
+          sport: data.sport || 'Unknown Sport',
+          country: data.country || 'Unknown Country'
+        }, apiClient);
+        
+        if (newLeagueId) {
+          basicMapped.league_id = newLeagueId;
+          console.log(`Created new league with ID: ${newLeagueId} for name: ${data.league_name}`);
+        } else {
+          console.warn(`Could not find or create league ID for name: ${data.league_name}`);
+        }
+      }
+    }
+    // If league_id is provided but not a UUID, treat it as a name
+    else if (basicMapped.league_id && !isValidUUID(basicMapped.league_id)) {
       console.log(`Looking up league ID for name: ${basicMapped.league_id}`);
       const leagueId = await lookupEntityIdByName('league', basicMapped.league_id, apiClient);
       if (leagueId) {
@@ -193,8 +215,8 @@ export const enhancedMapToDatabaseFieldNames = async (
       } else {
         // Try to create a new league if it doesn't exist
         const newLeagueId = await createEntityIfNotExists('league', basicMapped.league_id, {
-          sport: 'Unknown Sport',
-          country: 'Unknown Country'
+          sport: data.sport || 'Unknown Sport',
+          country: data.country || 'Unknown Country'
         }, apiClient);
         
         if (newLeagueId) {
@@ -206,8 +228,33 @@ export const enhancedMapToDatabaseFieldNames = async (
       }
     }
     
-    // If stadium_id is not a UUID but looks like a name, look it up
-    if (basicMapped.stadium_id && !isValidUUID(basicMapped.stadium_id)) {
+    // Handle stadium lookup by name if provided
+    if (data.stadium_name) {
+      console.log(`Looking up stadium ID for name: ${data.stadium_name}`);
+      const stadiumId = await lookupEntityIdByName('stadium', data.stadium_name, apiClient);
+      if (stadiumId) {
+        basicMapped.stadium_id = stadiumId;
+        console.log(`Found stadium ID: ${stadiumId} for name: ${data.stadium_name}`);
+      } else {
+        // Try to create a new stadium if it doesn't exist
+        const city = data.city || contextData?.city || 'Unknown City';
+        const country = data.country || contextData?.country || 'Unknown Country';
+        
+        const newStadiumId = await createEntityIfNotExists('stadium', data.stadium_name, {
+          city,
+          country
+        }, apiClient);
+        
+        if (newStadiumId) {
+          basicMapped.stadium_id = newStadiumId;
+          console.log(`Created new stadium with ID: ${newStadiumId} for name: ${data.stadium_name}`);
+        } else {
+          console.warn(`Could not find or create stadium ID for name: ${data.stadium_name}`);
+        }
+      }
+    }
+    // If stadium_id is provided but not a UUID, treat it as a name
+    else if (basicMapped.stadium_id && !isValidUUID(basicMapped.stadium_id)) {
       console.log(`Looking up stadium ID for name: ${basicMapped.stadium_id}`);
       const stadiumId = await lookupEntityIdByName('stadium', basicMapped.stadium_id, apiClient);
       if (stadiumId) {
@@ -215,8 +262,8 @@ export const enhancedMapToDatabaseFieldNames = async (
         console.log(`Found stadium ID: ${stadiumId} for name: ${data.stadium_id}`);
       } else {
         // Try to create a new stadium if it doesn't exist
-        const city = contextData?.city || 'Unknown City';
-        const country = contextData?.country || 'Unknown Country';
+        const city = data.city || contextData?.city || 'Unknown City';
+        const country = data.country || contextData?.country || 'Unknown Country';
         
         const newStadiumId = await createEntityIfNotExists('stadium', basicMapped.stadium_id, {
           city,
@@ -231,6 +278,10 @@ export const enhancedMapToDatabaseFieldNames = async (
         }
       }
     }
+    
+    // Remove name fields after processing
+    delete basicMapped.league_name;
+    delete basicMapped.stadium_name;
   }
   
   // For player entity, handle team lookups

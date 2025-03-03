@@ -221,6 +221,15 @@ export const api = {
         }
       }),
 
+    deleteMessage: (conversationId: string, messageId: string): Promise<void> =>
+      request(`/chat/conversations/${conversationId}/messages/${messageId}`, {
+        method: 'DELETE',
+        requiresAuth: true,
+        headers: {
+          'Accept': '*/*'  // Accept any response type since we expect 204
+        }
+      }),
+
     updateConversation: (id: string, data: { title: string; description?: string }): Promise<Conversation> =>
       request(`/chat/conversations/${id}/update`, {
         method: 'POST',

@@ -15,15 +15,19 @@ export const useFieldMapping = (initialEntityType: EntityType | null = null) => 
   const handleFieldMapping = useCallback((sourceField: string, targetField: string) => {
     if (!selectedEntityType) return;
     
+    console.log(`Creating mapping: source=${sourceField}, target=${targetField}`);
+    
     setMappingsByEntityType(prev => {
       // Create a new mapping object for the current entity type if it doesn't exist
       const currentMappings = prev[selectedEntityType] || {};
       
-      // Update the mapping
+      // Store mapping with database field (target) as key and source field as value
       const updatedMappings = {
         ...currentMappings,
-        [targetField]: sourceField
+        [targetField]: sourceField  // e.g., { "name": "League Name" }
       };
+      
+      console.log('Updated mappings:', updatedMappings);
       
       // Return the updated mappings by entity type
       return {

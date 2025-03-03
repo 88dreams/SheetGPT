@@ -24,12 +24,22 @@ const EntityTypeSelector: React.FC<EntityTypeSelectorProps> = ({
 
   return (
     <div className="mb-4">
-      <h4 className="font-medium text-gray-900 mb-2 flex items-center">
-        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2 text-indigo-500" viewBox="0 0 20 20" fill="currentColor">
-          <path fillRule="evenodd" d="M17.707 9.293a1 1 0 010 1.414l-7 7a1 1 0 01-1.414 0l-7-7A.997.997 0 012 10V5a3 3 0 013-3h5c.256 0 .512.098.707.293l7 7zM5 6a1 1 0 100-2 1 1 0 000 2z" clipRule="evenodd" />
-        </svg>
-        Select Entity Type
-      </h4>
+      <div className="flex items-center justify-between mb-2">
+        <h4 className="font-medium text-gray-900 flex items-center">
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2 text-indigo-500" viewBox="0 0 20 20" fill="currentColor">
+            <path fillRule="evenodd" d="M17.707 9.293a1 1 0 010 1.414l-7 7a1 1 0 01-1.414 0l-7-7A.997.997 0 012 10V5a3 3 0 013-3h5c.256 0 .512.098.707.293l7 7zM5 6a1 1 0 100-2 1 1 0 000 2z" clipRule="evenodd" />
+          </svg>
+          Select Entity Type
+        </h4>
+        {!leagueAndStadiumExist && (
+          <div className="text-sm text-amber-600 flex items-center bg-amber-50 px-3 py-1 rounded-md border border-amber-200">
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+            </svg>
+            League and Stadium data must be entered first
+          </div>
+        )}
+      </div>
       <div className="grid grid-cols-3 gap-1 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
         {orderedEntityTypes.map(entityType => {
           const isDisabled = !leagueAndStadiumExist && 
@@ -71,14 +81,6 @@ const EntityTypeSelector: React.FC<EntityTypeSelectorProps> = ({
           );
         })}
       </div>
-      {!leagueAndStadiumExist && (
-        <div className="text-sm text-amber-600 flex items-center">
-          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-          </svg>
-          League and Stadium data must be entered first
-        </div>
-      )}
     </div>
   );
 };

@@ -42,8 +42,8 @@ export default function useImportProcess() {
   const saveToDatabase = async (
     entityType: EntityType,
     mappedData: Record<string, any>,
-    currentRecord?: Record<string, any>
-  ) => {
+    currentRecord: Record<string, any>
+  ): Promise<boolean> => {
     if (!entityType || Object.keys(mappedData).length === 0) {
       showNotification('error', 'Please select an entity type and map at least one field');
       return false;
@@ -52,10 +52,27 @@ export default function useImportProcess() {
     setIsSaving(true);
     
     try {
+      // Transform the mappings into actual data
+      const transformedData: Record<string, any> = {};
+      
+      console.log('Starting data transformation:');
+      console.log('Mapped Data:', mappedData);
+      console.log('Current Record:', currentRecord);
+      
+      // mappedData contains { databaseField: sourceField } mappings
+      // e.g., { "name": "League Name" }
+      Object.entries(mappedData).forEach(([databaseField, sourceField]) => {
+        console.log(`Mapping database field "${databaseField}" using source field "${sourceField}"`);
+        console.log(`Value from source:`, currentRecord[sourceField]);
+        transformedData[databaseField] = currentRecord[sourceField];
+      });
+      
+      console.log('Transformed Data:', transformedData);
+
       // Map UI field names back to database field names
       const databaseMappedData = await enhancedMapToDatabaseFieldNames(
         entityType, 
-        mappedData,
+        transformedData,
         api,
         currentRecord
       );
@@ -150,13 +167,13 @@ export default function useImportProcess() {
         // Process each record in the batch
         const batchPromises = batch.map(async (record) => {
           try {
-            // Map the data using the provided mappings
-            const mappedData = await enhancedMapToDatabaseFieldNames(
-              entityType,
-              record,
-              api,
-              record
-            );
+            // Create mapped data using the provided mappings
+            const mappedData: Record<string, any> = {};
+            
+            // Apply mappings: mappings is { databaseField: sourceField }
+            for (const [dbField, sourceField] of Object.entries(mappings)) {
+              mappedData[dbField] = record[sourceField];
+            }
             
             // Validate the data
             const validationResult = validateEntityData(entityType, mappedData);

@@ -223,9 +223,12 @@ const SportDataMapperContainer: React.FC<SportDataMapperProps> = ({ isOpen, onCl
   const handleSaveToDatabase = async () => {
     if (!selectedEntityType) return;
     
+    // Get the current mappings for the selected entity type
+    const currentMappings = mappingsByEntityType[selectedEntityType] || {};
+    
     const success = await saveToDatabase(
       selectedEntityType,
-      mappedData,
+      currentMappings,  // Use the mappings from useFieldMapping instead of mappedData
       currentRecordIndex !== null ? dataToImport[currentRecordIndex] : undefined
     );
     
@@ -275,15 +278,15 @@ const SportDataMapperContainer: React.FC<SportDataMapperProps> = ({ isOpen, onCl
         <Dialog.Panel className="relative bg-white rounded-lg shadow-xl max-w-7xl w-full max-h-[90vh] overflow-y-auto">
           <div className="flex flex-col h-full">
             {/* Header */}
-            <div className="flex justify-between items-center px-6 py-4 border-b">
-              <Dialog.Title className="text-lg font-medium text-gray-900">
+            <div className="flex justify-between items-center px-6 py-2 border-b">
+              <Dialog.Title className="text-base font-medium text-gray-900">
                 Data Mapper
               </Dialog.Title>
               <button
                 onClick={onClose}
                 className="text-gray-400 hover:text-gray-500"
               >
-                <XMarkIcon className="h-6 w-6" />
+                <XMarkIcon className="h-5 w-5" />
               </button>
             </div>
             

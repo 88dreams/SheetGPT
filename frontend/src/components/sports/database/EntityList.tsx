@@ -27,6 +27,7 @@ const EntityList: React.FC<EntityListProps> = ({ className = '' }) => {
     showDeleteConfirm,
     setShowDeleteConfirm,
     handleDeleteEntity,
+    handleBulkDelete,
     isDeleting,
     activeFilters
   } = useSportsDatabase();
@@ -50,6 +51,9 @@ const EntityList: React.FC<EntityListProps> = ({ className = '' }) => {
   const filteredEntities = getSortedEntities();
   const hasActiveFilters = activeFilters && activeFilters.length > 0;
 
+  // Get selected count
+  const selectedCount = Object.values(selectedEntities).filter(Boolean).length;
+
   if (isLoading) {
     return (
       <div className={`flex justify-center items-center h-64 ${className}`}>
@@ -72,6 +76,34 @@ const EntityList: React.FC<EntityListProps> = ({ className = '' }) => {
 
   return (
     <div className={`border rounded-lg overflow-hidden ${className}`}>
+      {/* Add bulk actions bar when items are selected */}
+      {selectedCount > 0 && (
+        <div className="bg-gray-50 px-6 py-3 border-b border-gray-200 flex items-center justify-between">
+          <div className="text-sm text-gray-700">
+            {selectedCount} {selectedCount === 1 ? 'item' : 'items'} selected
+          </div>
+          <div className="flex space-x-2">
+            <button
+              onClick={() => deselectAllEntities()}
+              className="px-3 py-1 text-sm text-gray-600 hover:text-gray-800 border border-gray-300 rounded"
+            >
+              Clear Selection
+            </button>
+            <button
+              onClick={() => {
+                if (window.confirm(`Are you sure you want to delete ${selectedCount} selected ${selectedEntityType}(s)?`)) {
+                  handleBulkDelete();
+                }
+              }}
+              disabled={isDeleting}
+              className="px-3 py-1 text-sm text-white bg-red-500 hover:bg-red-600 rounded disabled:opacity-50"
+            >
+              {isDeleting ? 'Deleting...' : `Delete ${selectedCount} Selected`}
+            </button>
+          </div>
+        </div>
+      )}
+
       {hasActiveFilters && (
         <div className="bg-blue-50 p-3 border-b border-blue-100">
           <p className="text-blue-700 text-sm">

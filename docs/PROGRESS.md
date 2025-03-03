@@ -480,3 +480,37 @@ These changes significantly improve the usability and visual consistency of the 
   - Supported operators for different field types
   - Example request demonstrating the filtering syntax
 - This update ensures that the API documentation accurately reflects the implemented backend functionality for advanced filtering.
+
+## March 2, 2025 - SportDB Enhancements
+
+### Bulk Delete Functionality
+- Added ability to delete multiple selected records in the SportDB page
+- Implemented bulk delete confirmation dialog
+- Added visual feedback during bulk deletion process
+- Records are deleted in parallel for better performance
+- Success/failure notifications show detailed results
+
+### Field View Improvements
+- Extended field definitions for all entity types in the system
+- Each entity type now shows its complete set of fields with:
+  - Field name and type
+  - Required/optional status
+  - Detailed field descriptions
+- Supported entity types include:
+  - Leagues
+  - Teams
+  - Players
+  - Games
+  - Stadiums
+  - Broadcasts
+  - Production Services
+  - Brands
+  - Game Broadcasts
+  - League Executives
+
+### UI Enhancements
+- Added bulk action bar when items are selected
+- Shows count of selected items
+- Clear selection button
+- Delete selected button with confirmation
+- Improved error handling and user feedback

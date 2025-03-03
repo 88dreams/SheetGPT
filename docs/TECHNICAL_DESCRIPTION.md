@@ -347,3 +347,63 @@ Jest and React Testing Library with:
 3. **Advanced Data Visualization**: Interactive diagrams, statistical dashboards
 4. **Mobile Responsiveness**: Enhanced UI for mobile devices
 5. **User Permissions**: Role-based access control, team collaboration
+
+## SportDB Page Components
+
+### Entity Management
+The SportDB page provides comprehensive entity management through several key components:
+
+#### Entity List View
+- Uses React context (`SportsDatabaseContext`) for state management
+- Implements checkbox-based selection system
+- Supports both individual and bulk operations
+- Real-time updates through React Query
+
+#### Bulk Operations
+- Implemented in `SportsDatabaseService.ts`
+- Uses Promise.all for parallel processing
+- Returns detailed success/failure results
+- Optimistic UI updates with error rollback
+
+#### Field View System
+The field view system is implemented through several layers:
+
+1. **Field Definitions**
+   - Centralized in `SportsDatabaseContext`
+   - Uses TypeScript interfaces for type safety
+   - Supports common and entity-specific fields
+   - Each field includes:
+     ```typescript
+     interface FieldData {
+       name: string;
+       type: string;
+       required: boolean;
+       description: string;
+     }
+     ```
+
+2. **Entity Type Handling**
+   - Each entity type has its own field set
+   - Fields are organized by:
+     - Common fields (id, name, timestamps)
+     - Entity-specific fields
+     - Relationship fields
+
+3. **Field Display**
+   - Dynamic rendering based on entity type
+   - Responsive grid layout
+   - Field type-specific formatting
+   - Required field indicators
+
+### Data Flow
+1. User selects entity type
+2. Context loads entity-specific fields
+3. Fields are rendered in grid view
+4. Changes trigger context updates
+5. UI reflects current state
+
+### Error Handling
+- Validation at service layer
+- Error aggregation for bulk operations
+- User-friendly error messages
+- Detailed console logging for debugging

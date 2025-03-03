@@ -573,8 +573,6 @@ class SportsDatabaseService {
    */
   async deleteEntity(entityType: EntityType, id: string): Promise<void> {
     try {
-      console.log(`Deleting ${entityType} with ID: ${id}`);
-      
       switch (entityType) {
         case 'league':
           await api.sports.deleteLeague(id);
@@ -610,9 +608,34 @@ class SportsDatabaseService {
           throw new Error(`Unsupported entity type for deletion: ${entityType}`);
       }
     } catch (error) {
-      console.error(`Error deleting ${entityType} with ID ${id}:`, error);
+      console.error(`Error deleting ${entityType}:`, error);
       throw error;
     }
+  }
+
+  /**
+   * Delete multiple entities of the same type
+   */
+  async bulkDeleteEntities(entityType: EntityType, ids: string[]): Promise<{ success: string[]; failed: string[] }> {
+    const results = {
+      success: [] as string[],
+      failed: [] as string[]
+    };
+
+    // Process deletions in parallel with Promise.all
+    await Promise.all(
+      ids.map(async (id) => {
+        try {
+          await this.deleteEntity(entityType, id);
+          results.success.push(id);
+        } catch (error) {
+          console.error(`Error deleting ${entityType} with ID ${id}:`, error);
+          results.failed.push(id);
+        }
+      })
+    );
+
+    return results;
   }
 
   async validateAndGetRelatedEntities(entityType: EntityType, data: any): Promise<any> {

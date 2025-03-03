@@ -277,14 +277,51 @@ The credentials file contains sensitive information. Make sure to:
   - **Database Management**: Tools for cleaning and maintaining the database.
   - **User Management**: Functionality for managing user accounts and permissions.
 
-### Sports Database Management
+## Sports Database Management
 
-- **Entity Management**: Create, read, update, and delete sports entities (leagues, teams, players, etc.)
-- **Advanced Filtering**: Filter entities using a powerful and intuitive interface with support for multiple filter types and operators
-- **Relationship Management**: Manage relationships between different entity types
-- **Batch Operations**: Perform operations on multiple entities at once
-- **Data Validation**: Validate entity data against predefined schemas
-- **Export to Google Sheets**: Export entities to Google Sheets for further analysis
+The Sports Database (SportDB) provides comprehensive management of sports-related entities:
+
+### Features
+
+#### Entity Management
+- Create, read, update, and delete operations for all entity types
+- Bulk operations support (select multiple, delete multiple)
+- Real-time updates and optimistic UI
+- Detailed success/failure reporting
+
+#### Views
+1. **Entity View**
+   - List view with sorting and filtering
+   - Checkbox selection for bulk operations
+   - Quick actions (view, delete)
+   - Relationship indicators
+
+2. **Field View**
+   - Complete field definitions for all entity types
+   - Field properties:
+     - Name and type
+     - Required/optional status
+     - Detailed descriptions
+   - Organized by entity type
+
+3. **Global View**
+   - Overview of all entity types
+   - Relationship mappings
+   - Quick navigation
+
+#### Supported Entities
+- Leagues
+- Teams
+- Players
+- Games
+- Stadiums
+- Broadcasts
+- Production Services
+- Brands
+- Game Broadcasts
+- League Executives
+
+Each entity type has specific fields and relationships defined in the system.
 
 ## Getting Started
 

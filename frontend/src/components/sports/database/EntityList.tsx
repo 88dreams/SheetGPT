@@ -1,9 +1,9 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useSportsDatabase } from './SportsDatabaseContext';
 import LoadingSpinner from '../../common/LoadingSpinner';
 // @ts-ignore
-import { FaTrash, FaEye, FaSortUp, FaSortDown, FaSort } from 'react-icons/fa';
+import { FaTrash, FaEye, FaSortUp, FaSortDown, FaSort, FaPencilAlt, FaCheck, FaTimes } from 'react-icons/fa';
 
 interface EntityListProps {
   className?: string;
@@ -11,6 +11,9 @@ interface EntityListProps {
 
 const EntityList: React.FC<EntityListProps> = ({ className = '' }) => {
   const navigate = useNavigate();
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editValue, setEditValue] = useState('');
+  
   const {
     selectedEntityType,
     entities,
@@ -29,8 +32,35 @@ const EntityList: React.FC<EntityListProps> = ({ className = '' }) => {
     handleDeleteEntity,
     handleBulkDelete,
     isDeleting,
-    activeFilters
+    activeFilters,
+    handleUpdateEntity
   } = useSportsDatabase();
+
+  const startEdit = (entity: any) => {
+    setEditingId(entity.id);
+    setEditValue(entity.name);
+  };
+
+  const cancelEdit = () => {
+    setEditingId(null);
+    setEditValue('');
+  };
+
+  const saveEdit = async (id: string) => {
+    if (editValue.trim()) {
+      await handleUpdateEntity(id, { name: editValue.trim() });
+      setEditingId(null);
+      setEditValue('');
+    }
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent, id: string) => {
+    if (e.key === 'Enter') {
+      saveEdit(id);
+    } else if (e.key === 'Escape') {
+      cancelEdit();
+    }
+  };
 
   // Get entity type name for display
   const getEntityTypeName = () => {
@@ -178,7 +208,43 @@ const EntityList: React.FC<EntityListProps> = ({ className = '' }) => {
                 </div>
               </td>
               <td className="px-6 py-4 whitespace-nowrap">
-                <div className="text-sm font-medium text-gray-900">{entity.name}</div>
+                {editingId === entity.id ? (
+                  <div className="flex items-center space-x-2">
+                    <input
+                      type="text"
+                      value={editValue}
+                      onChange={(e) => setEditValue(e.target.value)}
+                      onKeyDown={(e) => handleKeyDown(e, entity.id)}
+                      className="flex-1 px-2 py-1 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      autoFocus
+                    />
+                    <button
+                      onClick={() => saveEdit(entity.id)}
+                      className="text-green-600 hover:text-green-800"
+                      title="Save"
+                    >
+                      <FaCheck className="w-4 h-4" />
+                    </button>
+                    <button
+                      onClick={cancelEdit}
+                      className="text-red-600 hover:text-red-800"
+                      title="Cancel"
+                    >
+                      <FaTimes className="w-4 h-4" />
+                    </button>
+                  </div>
+                ) : (
+                  <div className="flex items-center space-x-2">
+                    <div className="text-sm font-medium text-gray-900">{entity.name}</div>
+                    <button
+                      onClick={() => startEdit(entity)}
+                      className="text-gray-400 hover:text-gray-600"
+                      title="Edit name"
+                    >
+                      <FaPencilAlt className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                )}
               </td>
               <td className="px-6 py-4 whitespace-nowrap">
                 <div className="text-sm text-gray-500">

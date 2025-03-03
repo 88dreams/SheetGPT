@@ -56,12 +56,14 @@ export interface Game extends BaseEntity {
 
 // Stadium entity
 export interface Stadium extends BaseEntity {
+  name: string;
   city: string;
   state?: string;
   country: string;
   capacity?: number;
   owner?: string;
   naming_rights_holder?: string;
+  host_broadcaster?: string;
   host_broadcaster_id?: string;
 }
 
@@ -229,6 +231,19 @@ export interface GetEntitiesParams {
 }
 
 class SportsDatabaseService {
+  private baseUrl: string;
+
+  constructor() {
+    this.baseUrl = 'http://localhost:8000';
+  }
+
+  private getAuthHeaders(): Record<string, string> {
+    const token = localStorage.getItem('auth_token');
+    return {
+      'Authorization': `Bearer ${token}`
+    };
+  }
+
   /**
    * Get the prompt template for a specific entity type
    */
@@ -668,6 +683,41 @@ class SportsDatabaseService {
       return { entities };
     } catch (error) {
       console.error(`Error validating ${entityType} entities:`, error);
+      throw error;
+    }
+  }
+
+  /**
+   * Update an entity
+   */
+  async updateEntity(entityType: EntityType, entityId: string, updates: Record<string, any>): Promise<any> {
+    try {
+      switch (entityType) {
+        case 'league':
+          return await api.sports.updateLeague(entityId, updates);
+        case 'team':
+          return await api.sports.updateTeam(entityId, updates);
+        case 'player':
+          return await api.sports.updatePlayer(entityId, updates);
+        case 'game':
+          return await api.sports.updateGame(entityId, updates);
+        case 'stadium':
+          return await api.sports.updateStadium(entityId, updates);
+        case 'broadcast':
+          return await api.sports.updateBroadcastRights(entityId, updates);
+        case 'production':
+          return await api.sports.updateProductionService(entityId, updates);
+        case 'brand':
+          return await api.sports.updateBrand(entityId, updates);
+        case 'game_broadcast':
+          return await api.sports.updateGameBroadcast(entityId, updates);
+        case 'league_executive':
+          return await api.sports.updateLeagueExecutive(entityId, updates);
+        default:
+          throw new Error(`Unsupported entity type for update: ${entityType}`);
+      }
+    } catch (error) {
+      console.error(`Error updating ${entityType}:`, error);
       throw error;
     }
   }

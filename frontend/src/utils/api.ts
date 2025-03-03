@@ -20,7 +20,7 @@ console.log('API configuration:', {
 
 // Create an Axios instance with default configuration
 const apiClient = axios.create({
-    baseURL: API_URL,
+    baseURL: `${API_URL}${API_PREFIX}`,
     withCredentials: true,
     timeout: 15000,
     headers: {
@@ -40,6 +40,13 @@ export interface User {
   is_active: boolean
   is_superuser: boolean
   is_admin: boolean
+}
+
+export interface PaginatedResponse<T> {
+  items: T[]
+  total: number
+  skip: number
+  limit: number
 }
 
 export interface Conversation {
@@ -129,135 +136,33 @@ export class APIError extends Error {
 async function request<T>(endpoint: string, options: RequestOptions = {}): Promise<T> {
   const requestHeaders: Record<string, string> = {
     'Content-Type': 'application/json',
+    'Accept': 'application/json',
     ...(options.headers || {})
   }
 
-  // Add authorization header if required
-  if (options.requiresAuth || endpoint === `${API_PREFIX}/auth/me`) {
+  if (options.requiresAuth || endpoint === '/auth/me') {
     const token = getToken()
-    console.log(`Request to ${endpoint}, token exists:`, !!token)
     if (token) {
       requestHeaders['Authorization'] = `Bearer ${token}`
     }
   }
 
-  const { headers, ...restOptions } = options
-  const url = `${API_URL}${API_PREFIX}${endpoint}`
-  
-  console.log(`Making request to: ${url}`, {
-    method: options.method || 'GET',
-    requiresAuth: options.requiresAuth,
-    hasToken: !!requestHeaders['Authorization'],
-    body: options.body ? JSON.parse(options.body as string) : undefined,
-    headers: requestHeaders
-  })
-
   try {
-    // Add retry logic for network errors
-    let attempts = 0;
-    const maxAttempts = 3;
-    let lastError: any = null;
-    
-    while (attempts < maxAttempts) {
-      try {
-        console.log(`API request attempt ${attempts + 1} to ${endpoint}`);
-        
-        const response = await fetch(url, {
-          ...restOptions,
-          headers: requestHeaders,
-          credentials: 'include',
-          mode: 'cors' // Explicitly set CORS mode
-        });
-
-        console.log(`Response from ${endpoint}:`, {
-          status: response.status,
-          ok: response.ok,
-          statusText: response.statusText,
-          headers: Object.fromEntries(response.headers.entries())
-        });
-
-        if (!response.ok) {
-          let errorDetail
-          try {
-            const errorData = await response.json()
-            console.error(`API Error Details:`, {
-              endpoint,
-              status: response.status,
-              errorData,
-              headers: Object.fromEntries(response.headers.entries())
-            })
-            
-            // Handle different error formats
-            if (errorData.detail) {
-              errorDetail = errorData.detail
-            } else if (errorData.message) {
-              errorDetail = errorData.message
-            } else if (typeof errorData === 'string') {
-              errorDetail = errorData
-            } else if (Array.isArray(errorData)) {
-              errorDetail = errorData.map(err => 
-                typeof err === 'object' ? JSON.stringify(err) : err
-              ).join(', ')
-            } else {
-              errorDetail = JSON.stringify(errorData)
-            }
-          } catch (parseError) {
-            console.error(`Failed to parse error response:`, {
-              endpoint,
-              status: response.status,
-              parseError,
-              responseText: await response.text()
-            })
-            errorDetail = `HTTP error! status: ${response.status}`
-          }
-          throw new APIError(errorDetail, response.status)
-        }
-
-        // Handle successful response
-        // Handle 204 No Content responses
-        if (response.status === 204) {
-          return undefined as T;
-        }
-
-        const data = await response.json();
-        console.log(`Successful response from ${endpoint}:`, {
-          dataType: typeof data,
-          isArray: Array.isArray(data),
-          length: Array.isArray(data) ? data.length : undefined,
-          data: data
-        });
-        return data;
-      } catch (error) {
-        console.error(`API request attempt ${attempts + 1} failed:`, error);
-        lastError = error;
-        attempts++;
-        
-        if (attempts < maxAttempts) {
-          // Wait before retrying (exponential backoff)
-          const delay = Math.pow(2, attempts) * 500;
-          console.log(`Retrying in ${delay}ms...`);
-          await new Promise(resolve => setTimeout(resolve, delay));
-        }
-      }
-    }
-    
-    // If we get here, all attempts failed
-    throw lastError || new Error('API request failed after multiple attempts');
-  } catch (error) {
-    console.error(`Request failed for ${endpoint}:`, {
-      error,
-      url,
+    const response = await apiClient.request({
+      url: endpoint,
       method: options.method || 'GET',
       headers: requestHeaders,
-      body: options.body ? JSON.parse(options.body as string) : undefined
+      data: options.body ? JSON.parse(options.body as string) : undefined,
+      withCredentials: true
     })
-    if (error instanceof APIError) {
-      throw error
+
+    return response.status === 204 ? undefined as T : response.data as T
+  } catch (error) {
+    if (error instanceof AxiosError) {
+      const errorDetail = error.response?.data?.detail || error.message
+      throw new APIError(errorDetail, error.response?.status || 500)
     }
-    if (error instanceof Error) {
-      throw new APIError(`API request failed: ${error.message}`, 500)
-    }
-    throw new APIError('Unknown error occurred', 500)
+    throw error
   }
 }
 
@@ -272,7 +177,11 @@ export const api = {
     login: async (data: { email: string; password: string }): Promise<TokenResponse> => {
       const response = await request<TokenResponse>('/auth/login', {
         method: 'POST',
-        body: JSON.stringify(data)
+        body: JSON.stringify(data),
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        }
       })
       setToken(response.access_token)
       return response
@@ -288,8 +197,10 @@ export const api = {
   },
 
   chat: {
-    getConversations: (): Promise<Conversation[]> =>
-      request('/chat/conversations', { requiresAuth: true }),
+    getConversations: async (skip = 0, limit = 10): Promise<PaginatedResponse<Conversation>> => {
+      const response = await request<PaginatedResponse<Conversation>>(`/chat/conversations?skip=${skip}&limit=${limit}`, { requiresAuth: true })
+      return response
+    },
 
     createConversation: (data: { title: string; description?: string }): Promise<Conversation> =>
       request('/chat/conversations', {
@@ -304,7 +215,10 @@ export const api = {
     deleteConversation: (id: string): Promise<void> =>
       request(`/chat/conversations/${id}`, {
         method: 'DELETE',
-        requiresAuth: true
+        requiresAuth: true,
+        headers: {
+          'Accept': '*/*'  // Accept any response type since we expect 204
+        }
       }),
 
     updateConversation: (id: string, data: { title: string; description?: string }): Promise<Conversation> =>

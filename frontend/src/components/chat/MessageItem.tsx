@@ -13,14 +13,18 @@ import { api } from '../../utils/api'
 import DataPreviewModal from './DataPreviewModal'
 import SportDataMapper from '../data/SportDataMapper'
 import '../../styles/dataPreviewModal.css'
+import { StandardDataFormat } from '../../utils/dataTransformer'
+import { Dialog } from '@headlessui/react'
+import { XMarkIcon } from '@heroicons/react/24/outline'
 
 interface DataExtractionModalProps {
-  message: Message
-  onClose: () => void
-  onExtract: (data: any) => void
+  isOpen: boolean;
+  onClose: () => void;
+  data: any;
+  onConfirm: (data: any) => void;
 }
 
-const DataExtractionModal: React.FC<DataExtractionModalProps> = ({ message, onClose, onExtract }) => {
+const DataExtractionModal: React.FC<DataExtractionModalProps> = ({ isOpen, onClose, data, onConfirm }) => {
   const [extractedData, setExtractedData] = useState<any>(null)
   const [targetDataId, setTargetDataId] = useState<string>('')
   const [loading, setLoading] = useState(false)
@@ -31,8 +35,8 @@ const DataExtractionModal: React.FC<DataExtractionModalProps> = ({ message, onCl
     setError(null)
     
     try {
-      const jsonMatches = message.content.match(/\{[\s\S]*?\}/g) || []
-      const jsonArrayMatches = message.content.match(/\[[\s\S]*?\]/g) || []
+      const jsonMatches = data.content.match(/\{[\s\S]*?\}/g) || []
+      const jsonArrayMatches = data.content.match(/\[[\s\S]*?\]/g) || []
       
       const allMatches = [...jsonMatches, ...jsonArrayMatches]
       
@@ -68,7 +72,7 @@ const DataExtractionModal: React.FC<DataExtractionModalProps> = ({ message, onCl
   
   React.useEffect(() => {
     extractData()
-  }, [message])
+  }, [data])
   
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
@@ -112,7 +116,7 @@ const DataExtractionModal: React.FC<DataExtractionModalProps> = ({ message, onCl
                 Cancel
               </button>
               <button
-                onClick={() => onExtract({ dataId: targetDataId, data: extractedData })}
+                onClick={() => onConfirm({ dataId: targetDataId, data: extractedData })}
                 disabled={!targetDataId}
                 className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded hover:bg-blue-700 disabled:opacity-50"
               >
@@ -128,12 +132,13 @@ const DataExtractionModal: React.FC<DataExtractionModalProps> = ({ message, onCl
   )
 }
 
-interface MessageItemProps {
-  message: Message
-  isLastMessage?: boolean
+export interface MessageItemProps {
+  message: Message;
+  isLastMessage?: boolean;
+  onDataPreview?: (data: any) => Promise<StandardDataFormat>;
 }
 
-export const MessageItem: React.FC<MessageItemProps> = ({ message, isLastMessage }) => {
+const MessageItem: React.FC<MessageItemProps> = ({ message, isLastMessage, onDataPreview }) => {
   const navigate = useNavigate()
   const dataManagement = useDataManagement()
   const [showDataPreview, setShowDataPreview] = useState(false)
@@ -262,64 +267,95 @@ export const MessageItem: React.FC<MessageItemProps> = ({ message, isLastMessage
     }
   }, [message.id, message.role]);
 
+  useEffect(() => {
+    if (message.role === 'assistant' && isLastMessage) {
+      const element = document.getElementById(`message-${message.id}`)
+      if (element) {
+        element.scrollIntoView({ behavior: 'smooth' })
+      }
+    }
+  }, [message.id, message.role, isLastMessage])
+
+  const handleDataPreview = async () => {
+    if (onDataPreview) {
+      try {
+        const contentParts = message.content.split('---DATA---')
+        if (contentParts.length < 2) {
+          console.error('No data marker found in message')
+          return
+        }
+
+        const dataText = contentParts[1].trim()
+        const parsedData = JSON.parse(dataText)
+        const standardData = await onDataPreview(parsedData)
+        setExtractedData(standardData)
+        setShowDataPreview(true)
+      } catch (error) {
+        console.error('Error previewing data:', error)
+      }
+    }
+  }
+
+  const handleDataConfirm = async (data: any) => {
+    try {
+      const result = await dataManagement.saveData(data, message.id)
+      if (result) {
+        navigate('/data')
+      }
+    } catch (error) {
+      console.error('Error saving data:', error)
+    }
+  }
+
   return (
-    <div className={`p-4 ${message.role === 'user' ? 'bg-blue-50' : 'bg-white'}`}>
-      <div className="flex items-start">
-        <div className="flex-shrink-0 mr-3">
-          <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
-            message.role === 'user' ? 'bg-blue-500 text-white' : 'bg-purple-500 text-white'
-          }`}>
-            {message.role === 'user' ? 'U' : 'A'}
-          </div>
-        </div>
-        <div className="flex-1 min-w-0">
-          <div className="text-sm text-gray-500 mb-1">
-            {message.role === 'user' ? 'You' : 'Assistant'} • {
-              formatDistanceToNow(new Date(message.created_at), { addSuffix: true })
-            }
-          </div>
-          <div className="prose max-w-none">
-            <ReactMarkdown>{message.content}</ReactMarkdown>
-          </div>
-          
-          {message.role === 'assistant' && (
-            <div className="mt-2 flex flex-wrap gap-2">
-              <button
-                onClick={() => setShowDataPreview(true)}
-                className="inline-flex items-center px-2 py-1 border border-blue-500 text-xs font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 shadow-sm"
-              >
-                <FaTable className="mr-1" />
-                Send to Data
-              </button>
-              
-              <button
-                onClick={extractAndOpenSportDataMapper}
-                disabled={isExtracting}
-                className="inline-flex items-center px-2 py-1 border border-green-500 text-xs font-medium rounded-md text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 shadow-sm"
-              >
-                <FaMapMarkedAlt className="mr-1" />
-                {isExtracting ? 'Extracting...' : 'Map Sports Data'}
-              </button>
-            </div>
-          )}
-        </div>
+    <div
+      id={`message-${message.id}`}
+      className={`p-4 rounded-lg ${message.role === 'assistant' ? 'bg-blue-50' : 'bg-gray-50'}`}
+    >
+      <div className="font-bold text-sm text-gray-600 mb-2">
+        {message.role === 'assistant' ? 'Assistant' : 'You'}
       </div>
-      
-      {/* Data Preview Modal */}
-      <DataPreviewModal
-        isOpen={showDataPreview}
-        onClose={() => setShowDataPreview(false)}
-        messageContent={message.content}
-        onConfirm={handleDataExtraction}
-      />
-      
-      {/* Sport Data Mapper Modal */}
-      <SportDataMapper
-        key={mapperKey}
-        isOpen={showSportDataMapper}
-        onClose={() => setShowSportDataMapper(false)}
-        structuredData={sportMapperData}
-      />
+      <div className="whitespace-pre-wrap text-gray-800">{message.content}</div>
+      {message.role === 'assistant' && (
+        <div className="mt-2 flex space-x-2">
+          <button
+            onClick={() => {
+              const extractedData = DataExtractionService.extractStructuredData(message.content);
+              if (extractedData) {
+                setExtractedData(extractedData);
+                setShowDataPreview(true);
+              } else {
+                alert('No structured data found in this message');
+              }
+            }}
+            className="px-3 py-1 text-sm bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors flex items-center"
+          >
+            <FaTable className="mr-1" />
+            Send to Data
+          </button>
+          <button
+            onClick={extractAndOpenSportDataMapper}
+            className="px-3 py-1 text-sm bg-green-500 text-white rounded hover:bg-green-600 transition-colors flex items-center"
+          >
+            <FaMapMarkedAlt className="mr-1" />
+            Map to Sports
+          </button>
+        </div>
+      )}
+      {showDataPreview && (
+        <DataPreviewModal
+          isOpen={showDataPreview}
+          onClose={() => setShowDataPreview(false)}
+          messageContent={message.content}
+          onConfirm={handleDataConfirm}
+        />
+      )}
+      {showSportDataMapper && sportMapperData && (
+        <SportDataMapper
+          data={sportMapperData}
+          onConfirm={handleDataConfirm}
+        />
+      )}
     </div>
   )
 }

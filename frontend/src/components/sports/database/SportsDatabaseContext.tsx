@@ -78,6 +78,9 @@ interface SportsDatabaseContextType {
   
   // Entity fields
   getEntityFields: (entityType: EntityType) => EntityField[];
+  
+  // Entity update
+  handleUpdateEntity: (entityId: string, updates: Record<string, any>) => Promise<void>;
 }
 
 // Create the context with a default undefined value
@@ -321,74 +324,52 @@ export const SportsDatabaseProvider: React.FC<SportsDatabaseProviderProps> = ({ 
 
   // Handle sorting
   const handleSort = (field: string) => {
+    console.log('Handling sort:', { field, currentField: sortField, currentDirection: sortDirection });
+    
     if (sortField === field) {
-      // Toggle direction if same field
-      const newDirection = sortDirection === 'asc' ? 'desc' : 'asc';
-      setSortDirection(newDirection);
-      console.log(`Sorting by ${field} in ${newDirection} order`);
+      // If clicking the same field, cycle through: asc -> desc -> none
+      if (sortDirection === 'asc') {
+        setSortDirection('desc');
+      } else if (sortDirection === 'desc') {
+        setSortField('');
+        setSortDirection('asc');
+      } else {
+        setSortDirection('asc');
+      }
     } else {
-      // Set new field and default to ascending
+      // If clicking a new field, start with ascending
       setSortField(field);
       setSortDirection('asc');
-      console.log(`Sorting by ${field} in asc order`);
     }
-    
-    // Force refetch with a slight delay to ensure state is updated
-    setTimeout(() => {
-      console.log('Triggering refetch after sort change');
-      refetch();
-    }, 100);
   };
 
   // Get sorted entities
   const getSortedEntities = () => {
-    console.log('Getting sorted entities, current entities:', entities?.length || 0);
-    if (!entities || entities.length === 0) return [];
+    if (!entities || entities.length === 0 || !sortField) return entities || [];
     
-    // Apply client-side filtering if there are active filters
-    if (activeFilters && activeFilters.length > 0) {
-      console.log('Applying client-side filtering for', activeFilters.length, 'filters');
+    return [...entities].sort((a, b) => {
+      const aValue = a[sortField] ?? '';
+      const bValue = b[sortField] ?? '';
       
-      // Apply each filter
-      const filteredEntities = entities.filter(entity => {
-        // Entity must match all filters (AND logic)
-        return activeFilters.every(filter => {
-          const { field, operator, value } = filter;
-          const entityValue = entity[field];
-          
-          console.log(`Checking if entity[${field}]=${entityValue} ${operator} ${value}`);
-          
-          // Skip if the field doesn't exist on the entity
-          if (entityValue === undefined) return false;
-          
-          // Apply the operator
-          switch (operator) {
-            case 'eq':
-              return entityValue === value;
-            case 'neq':
-              return entityValue !== value;
-            case 'gt':
-              return entityValue > value;
-            case 'lt':
-              return entityValue < value;
-            case 'contains':
-              return String(entityValue).toLowerCase().includes(String(value).toLowerCase());
-            case 'startswith':
-              return String(entityValue).toLowerCase().startsWith(String(value).toLowerCase());
-            case 'endswith':
-              return String(entityValue).toLowerCase().endsWith(String(value).toLowerCase());
-            default:
-              return false;
-          }
-        });
-      });
+      // Handle dates
+      if (sortField.includes('date') || sortField === 'created_at' || sortField === 'updated_at') {
+        const aDate = new Date(aValue).getTime();
+        const bDate = new Date(bValue).getTime();
+        return sortDirection === 'asc' ? aDate - bDate : bDate - aDate;
+      }
       
-      console.log(`Filtered ${entities.length} entities down to ${filteredEntities.length}`);
-      return filteredEntities;
-    }
-    
-    // Return the entities directly if no filters are active
-    return entities;
+      // Handle numbers
+      if (typeof aValue === 'number' && typeof bValue === 'number') {
+        return sortDirection === 'asc' ? aValue - bValue : bValue - aValue;
+      }
+      
+      // Handle strings
+      const aStr = String(aValue).toLowerCase();
+      const bStr = String(bValue).toLowerCase();
+      return sortDirection === 'asc' ? 
+        aStr.localeCompare(bStr) : 
+        bStr.localeCompare(aStr);
+    });
   };
 
   // Render sort icon
@@ -488,7 +469,7 @@ export const SportsDatabaseProvider: React.FC<SportsDatabaseProviderProps> = ({ 
             { name: 'broadcast_end_date', required: false, type: 'date', description: 'End date of broadcast rights' }
           );
           break;
-
+          
         case 'team':
           fields.push(
             { name: 'league_id', required: true, type: 'string', description: 'ID of the league this team belongs to' },
@@ -533,6 +514,7 @@ export const SportsDatabaseProvider: React.FC<SportsDatabaseProviderProps> = ({ 
             { name: 'capacity', required: false, type: 'number', description: 'Stadium seating capacity' },
             { name: 'owner', required: false, type: 'string', description: 'Stadium owner' },
             { name: 'naming_rights_holder', required: false, type: 'string', description: 'Entity holding naming rights' },
+            { name: 'host_broadcaster', required: false, type: 'string', description: 'Name of the host broadcaster' },
             { name: 'host_broadcaster_id', required: false, type: 'string', description: 'ID of the host broadcaster' }
           );
           break;
@@ -605,6 +587,19 @@ export const SportsDatabaseProvider: React.FC<SportsDatabaseProviderProps> = ({ 
     }));
   };
 
+  // Handle entity update
+  const handleUpdateEntity = async (entityId: string, updates: Record<string, any>) => {
+    try {
+      await SportsDatabaseService.updateEntity(selectedEntityType, entityId, updates);
+      showNotification('success', 'Entity updated successfully');
+      refetch();
+    } catch (error) {
+      console.error('Error updating entity:', error);
+      const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
+      showNotification('error', `Error updating entity: ${errorMessage}`);
+    }
+  };
+
   // Create the context value object
   const contextValue: SportsDatabaseContextType = {
     selectedEntityType,
@@ -638,7 +633,8 @@ export const SportsDatabaseProvider: React.FC<SportsDatabaseProviderProps> = ({ 
     activeFilters,
     handleApplyFilters,
     handleClearFilters,
-    getEntityFields
+    getEntityFields,
+    handleUpdateEntity
   };
 
   return (

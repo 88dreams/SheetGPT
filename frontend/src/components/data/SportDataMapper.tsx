@@ -1,16 +1,15 @@
 import React from 'react';
+import { StandardDataFormat } from '../../utils/dataTransformer';
 import SportDataMapperContainer from './SportDataMapper/SportDataMapperContainer';
 
 /**
  * Interface for the SportDataMapper component props
  */
-interface SportDataMapperProps {
-  /** Whether the modal is open */
-  isOpen: boolean;
-  /** Function to close the modal */
-  onClose: () => void;
+export interface SportDataMapperProps {
   /** Structured data to be mapped to sports database entities */
-  structuredData: any;
+  data: StandardDataFormat;
+  /** Function to confirm the mapping */
+  onConfirm: (data: StandardDataFormat) => void;
 }
 
 /**
@@ -25,8 +24,14 @@ interface SportDataMapperProps {
  * - Saving mapped data to the database
  * - Batch importing multiple records
  */
-const SportDataMapper: React.FC<SportDataMapperProps> = (props) => {
-  return <SportDataMapperContainer {...props} />;
+const SportDataMapper: React.FC<SportDataMapperProps> = ({ data, onConfirm }) => {
+  return (
+    <SportDataMapperContainer
+      isOpen={true}
+      onClose={() => onConfirm(data)}
+      structuredData={data}
+    />
+  );
 };
 
 export default SportDataMapper; 

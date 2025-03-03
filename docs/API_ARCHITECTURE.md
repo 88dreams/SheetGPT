@@ -95,6 +95,7 @@ During batch imports, the system resolves entity relationships:
 1. **Entity Lookup**: Finds entities by name or creates them if they don't exist
 2. **Enhanced Field Mapping**: Processes entity references based on entity type
 3. **Entity Creation**: Creates missing entities automatically when needed
+4. **Referential Integrity**: Maintains database constraints during operations
 
 ### Entity Relationship Flow
 
@@ -105,6 +106,53 @@ During batch imports, the system resolves entity relationships:
    - Resolves relationships by UUID or name lookup
    - Creates missing entities when appropriate
    - Validates final mapped data before saving
+
+### Data Management Scripts
+
+The system includes scripts for managing test data and maintaining database integrity:
+
+1. **Sample Data Creation**:
+   ```python
+   async def create_sample_data():
+       """Create sample data for the sports database."""
+       async with engine.begin() as conn:
+           # Insert in correct order to maintain relationships
+           await conn.execute(text("INSERT INTO broadcast_companies ..."))
+           await conn.execute(text("INSERT INTO leagues ..."))
+           # ... more inserts in dependency order
+   ```
+
+2. **Data Cleanup**:
+   ```python
+   async def delete_sample_data():
+       """Delete sample data in reverse dependency order."""
+       async with engine.begin() as conn:
+           # Delete in reverse order to maintain constraints
+           await conn.execute(text("DELETE FROM brand_relationships"))
+           await conn.execute(text("DELETE FROM game_broadcasts"))
+           # ... more deletes in reverse dependency order
+   ```
+
+### Entity Dependencies
+
+The system maintains strict entity dependencies:
+
+1. **Primary Entities**:
+   - Leagues
+   - Broadcast Companies
+   - Production Companies
+   - Brands
+
+2. **Secondary Entities**:
+   - Teams (depends on leagues)
+   - Stadiums (depends on broadcast companies)
+   - Players (depends on teams)
+
+3. **Relationship Entities**:
+   - Games (depends on teams, stadiums)
+   - Broadcast Rights (depends on broadcast companies)
+   - Production Services (depends on production companies)
+   - Brand Relationships (depends on brands)
 
 ## Export Service
 

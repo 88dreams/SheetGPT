@@ -2,6 +2,88 @@
 
 This document provides a technical description of the major code sections in the SheetGPT project.
 
+## Database Structure
+
+### Core Tables
+1. `leagues`
+   - Primary sports organization entities
+   - Contains broadcast date ranges and basic info
+   - Key fields: name, sport, country, broadcast dates
+
+2. `teams`
+   - Member organizations of leagues
+   - References: league_id, stadium_id
+   - Key fields: name, city, state, founded_year
+
+3. `stadiums`
+   - Venues for games
+   - Contains broadcast infrastructure info
+   - Key fields: name, capacity, host_broadcaster_id
+
+4. `players`
+   - Team members
+   - References: team_id
+   - Key fields: name, position, jersey_number
+
+### Relationship Tables
+1. `games`
+   - Event records
+   - References: league_id, home_team_id, away_team_id, stadium_id
+   - Key fields: date, time, status, season info
+
+2. `broadcast_rights`
+   - Media distribution permissions
+   - References: broadcast_company_id, entity_id
+   - Key fields: territory, dates, exclusivity
+
+3. `production_services`
+   - Technical service arrangements
+   - References: production_company_id, entity_id
+   - Key fields: service_type, dates
+
+4. `brand_relationships`
+   - Sponsorship and partnership records
+   - References: brand_id, entity_id
+   - Key fields: relationship_type, dates
+
+## Data Management Scripts
+
+### Sample Data Creation (`create_sample_sports_data.py`)
+- Creates comprehensive test data set
+- Maintains referential integrity
+- Handles all required fields and relationships
+- Includes error handling and validation
+- Supports idempotent execution
+
+### Data Cleanup (`delete_sample_sports_data.py`)
+- Removes test data in correct dependency order
+- Preserves database constraints
+- Safe execution with error handling
+- Verifies deletion completion
+
+## Database Constraints
+- Foreign key relationships enforced
+- Non-null constraints on required fields
+- Date range validations
+- Unique constraints where applicable
+
+## Data Flow
+1. Entity Creation Order:
+   - Primary entities (leagues, broadcast companies)
+   - Dependent entities (teams, stadiums)
+   - Relationship records (games, rights, services)
+
+2. Deletion Order:
+   - Relationship records first
+   - Dependent entities
+   - Primary entities last
+
+## Validation Rules
+- Entity references must exist
+- Dates must be valid and in correct order
+- Required fields must be provided
+- Types must match schema definitions
+
 ## Backend Architecture
 
 ### FastAPI Application Structure
@@ -85,6 +167,11 @@ frontend/
 - **PageHeader**: Standardized header with title, description, and actions
 
 #### Chat Components
+- **ConversationList**: Manages conversation display and interactions
+  - Uses React Query for data fetching and cache management
+  - Implements optimistic updates for conversation creation, deletion, and updates
+  - Handles paginated data structure with proper cache updates
+  - Maintains consistent UI state across all conversation operations
 - **MessageThread**: Displays chat messages with "Send to Data" functionality
 - **ChatInput**: Allows users to send messages
 - **DataPreviewModal**: Previews extracted data before sending to Data Management

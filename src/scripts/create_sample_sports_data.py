@@ -54,18 +54,18 @@ TEAMS = [
 ]
 
 BROADCAST_COMPANIES = [
-    {"name": "ESPN", "parent_company": "Disney"},
-    {"name": "Fox Sports", "parent_company": "Fox Corporation"},
-    {"name": "NBC Sports", "parent_company": "NBCUniversal"},
-    {"name": "CBS Sports", "parent_company": "ViacomCBS"},
-    {"name": "Turner Sports", "parent_company": "WarnerMedia"}
+    {"name": "ESPN", "type": "Television", "country": "USA"},
+    {"name": "Fox Sports", "type": "Television", "country": "USA"},
+    {"name": "NBC Sports", "type": "Television", "country": "USA"},
+    {"name": "CBS Sports", "type": "Television", "country": "USA"},
+    {"name": "Turner Sports", "type": "Television", "country": "USA"}
 ]
 
 PRODUCTION_COMPANIES = [
-    {"name": "NEP Group", "headquarters": "Pittsburgh, PA"},
-    {"name": "Game Creek Video", "headquarters": "Hudson, NH"},
-    {"name": "F&F Productions", "headquarters": "Clearwater, FL"},
-    {"name": "Mobile TV Group", "headquarters": "Denver, CO"}
+    {"name": "NEP Group"},
+    {"name": "Game Creek Video"},
+    {"name": "F&F Productions"},
+    {"name": "Mobile TV Group"}
 ]
 
 BRANDS = [
@@ -79,6 +79,26 @@ BRANDS = [
     {"name": "Verizon", "industry": "Telecommunications"}
 ]
 
+# Add sample players data
+PLAYERS = [
+    # NFL Players
+    {"name": "Matthew Stafford", "position": "Quarterback", "jersey_number": 9, "team_index": 0},
+    {"name": "Cooper Kupp", "position": "Wide Receiver", "jersey_number": 10, "team_index": 0},
+    {"name": "Dak Prescott", "position": "Quarterback", "jersey_number": 4, "team_index": 1},
+    {"name": "Geno Smith", "position": "Quarterback", "jersey_number": 7, "team_index": 2},
+    
+    # MLB Players
+    {"name": "Aaron Judge", "position": "Right Fielder", "jersey_number": 99, "team_index": 3},
+    {"name": "Rafael Devers", "position": "Third Baseman", "jersey_number": 11, "team_index": 4},
+    {"name": "Marcus Stroman", "position": "Pitcher", "jersey_number": 0, "team_index": 5},
+    {"name": "Jose Altuve", "position": "Second Baseman", "jersey_number": 27, "team_index": 6},
+    
+    # NBA Players
+    {"name": "LeBron James", "position": "Forward", "jersey_number": 23, "team_index": 7},
+    {"name": "Jalen Brunson", "position": "Guard", "jersey_number": 11, "team_index": 8},
+    {"name": "Stephen Curry", "position": "Guard", "jersey_number": 30, "team_index": 9}
+]
+
 async def create_sample_data():
     """Create sample data for the sports database."""
     # Get database URL from settings
@@ -87,8 +107,10 @@ async def create_sample_data():
     
     # Override with local database URL for direct execution
     if 'db:5432' in database_url:
-        database_url = database_url.replace('db:5432', 'localhost:5432')
-        print(f"Using local database URL: {database_url}")
+        print(f"Using database URL with Docker container: {database_url}")
+    else:
+        database_url = database_url.replace('localhost:5432', 'db:5432')
+        print(f"Using database URL: {database_url}")
     
     # Create async engine
     engine = create_async_engine(database_url)
@@ -138,14 +160,15 @@ async def create_sample_data():
                 now = date.today()
                 await conn.execute(
                     text("""
-                        INSERT INTO broadcast_companies (id, name, parent_company, created_at, updated_at)
-                        VALUES (:id, :name, :parent_company, :created_at, :updated_at)
+                        INSERT INTO broadcast_companies (id, name, type, country, created_at, updated_at)
+                        VALUES (:id, :name, :type, :country, :created_at, :updated_at)
                         ON CONFLICT (id) DO NOTHING
                     """),
                     {
                         "id": company_id,
                         "name": company["name"],
-                        "parent_company": company["parent_company"],
+                        "type": company["type"],
+                        "country": company["country"],
                         "created_at": now,
                         "updated_at": now
                     }
@@ -243,14 +266,13 @@ async def create_sample_data():
                 now = date.today()
                 await conn.execute(
                     text("""
-                        INSERT INTO production_companies (id, name, headquarters, created_at, updated_at)
-                        VALUES (:id, :name, :headquarters, :created_at, :updated_at)
+                        INSERT INTO production_companies (id, name, created_at, updated_at)
+                        VALUES (:id, :name, :created_at, :updated_at)
                         ON CONFLICT (id) DO NOTHING
                     """),
                     {
                         "id": company_id,
                         "name": company["name"],
-                        "headquarters": company["headquarters"],
                         "created_at": now,
                         "updated_at": now
                     }
@@ -279,180 +301,141 @@ async def create_sample_data():
                 )
             print(f"Inserted {len(BRANDS)} brands.")
             
-            # Insert broadcast rights for leagues
-            for i, league_id in enumerate(league_ids):
-                company_id = broadcast_company_ids[i % len(broadcast_company_ids)]
+            # Insert players
+            for player in PLAYERS:
+                player_id = str(uuid.uuid4())
                 now = date.today()
-                start_date = now - timedelta(days=365)
-                end_date = now + timedelta(days=365 * 5)
                 await conn.execute(
                     text("""
-                        INSERT INTO broadcast_rights (id, broadcast_company_id, entity_type, entity_id, 
-                                                     start_date, end_date, created_at, updated_at)
-                        VALUES (:id, :broadcast_company_id, :entity_type, :entity_id, 
-                                :start_date, :end_date, :created_at, :updated_at)
+                        INSERT INTO players (id, team_id, name, position, jersey_number, created_at, updated_at)
+                        VALUES (:id, :team_id, :name, :position, :jersey_number, :created_at, :updated_at)
                         ON CONFLICT (id) DO NOTHING
                     """),
                     {
-                        "id": str(uuid.uuid4()),
-                        "broadcast_company_id": company_id,
-                        "entity_type": "league",
-                        "entity_id": league_id,
-                        "start_date": start_date,
-                        "end_date": end_date,
+                        "id": player_id,
+                        "team_id": team_ids[player["team_index"]],
+                        "name": player["name"],
+                        "position": player["position"],
+                        "jersey_number": player["jersey_number"],
                         "created_at": now,
                         "updated_at": now
                     }
                 )
-            print(f"Inserted broadcast rights for {len(league_ids)} leagues.")
+            print(f"Inserted {len(PLAYERS)} players.")
             
-            # Insert production services for leagues
-            for i, league_id in enumerate(league_ids):
-                company_id = production_company_ids[i % len(production_company_ids)]
-                now = date.today()
-                start_date = now - timedelta(days=180)
-                end_date = now + timedelta(days=365 * 3)
-                await conn.execute(
-                    text("""
-                        INSERT INTO production_services (id, production_company_id, entity_type, entity_id, 
-                                                       start_date, end_date, created_at, updated_at)
-                        VALUES (:id, :production_company_id, :entity_type, :entity_id, 
-                                :start_date, :end_date, :created_at, :updated_at)
-                        ON CONFLICT (id) DO NOTHING
-                    """),
-                    {
-                        "id": str(uuid.uuid4()),
-                        "production_company_id": company_id,
-                        "entity_type": "league",
-                        "entity_id": league_id,
-                        "start_date": start_date,
-                        "end_date": end_date,
-                        "created_at": now,
-                        "updated_at": now
-                    }
-                )
-            print(f"Inserted production services for {len(league_ids)} leagues.")
-            
-            # Insert brand relationships for teams
-            for i, team_id in enumerate(team_ids):
-                brand_id = brand_ids[i % len(brand_ids)]
-                now = date.today()
-                start_date = now - timedelta(days=90)
-                end_date = now + timedelta(days=365 * 2)
-                await conn.execute(
-                    text("""
-                        INSERT INTO brand_relationships (id, brand_id, entity_type, entity_id, 
-                                                       relationship_type, start_date, end_date, 
-                                                       created_at, updated_at)
-                        VALUES (:id, :brand_id, :entity_type, :entity_id, 
-                                :relationship_type, :start_date, :end_date, 
-                                :created_at, :updated_at)
-                        ON CONFLICT (id) DO NOTHING
-                    """),
-                    {
-                        "id": str(uuid.uuid4()),
-                        "brand_id": brand_id,
-                        "entity_type": "team",
-                        "entity_id": team_id,
-                        "relationship_type": "sponsor",
-                        "start_date": start_date,
-                        "end_date": end_date,
-                        "created_at": now,
-                        "updated_at": now
-                    }
-                )
-            print(f"Inserted brand relationships for {len(team_ids)} teams.")
-            
-            # Create some games
-            for i in range(20):
-                # Get random teams from the same league
-                league_index = i % len(LEAGUES)
-                teams_in_league = [idx for idx, team in enumerate(TEAMS) if team["league_index"] == league_index]
-                
-                if len(teams_in_league) < 2:
-                    continue
-                
-                home_team_idx = teams_in_league[i % len(teams_in_league)]
-                away_team_idx = teams_in_league[(i + 1) % len(teams_in_league)]
-                
-                if home_team_idx == away_team_idx:
-                    continue
-                
-                home_team_id = team_ids[home_team_idx]
-                away_team_id = team_ids[away_team_idx]
-                stadium_id = stadium_ids[TEAMS[home_team_idx]["stadium_index"]]
-                
-                # Game date (some in past, some in future)
-                days_offset = (i - 10) * 7  # Some games in past, some in future
-                game_date = datetime.utcnow() + timedelta(days=days_offset)
-                
-                # Scores for past games
-                home_score = None
-                away_score = None
-                status = "scheduled"
-                
-                if days_offset < 0:
-                    home_score = 70 + (i * 3) % 30
-                    away_score = 65 + (i * 7) % 35
-                    status = "completed"
-                
-                now = datetime.utcnow()
-                await conn.execute(
-                    text("""
-                        INSERT INTO games (id, date, home_team_id, away_team_id, stadium_id,
-                                         home_score, away_score, status, created_at, updated_at)
-                        VALUES (:id, :date, :home_team_id, :away_team_id, :stadium_id,
-                                :home_score, :away_score, :status, :created_at, :updated_at)
-                        ON CONFLICT (id) DO NOTHING
-                    """),
-                    {
-                        "id": str(uuid.uuid4()),
-                        "date": game_date,
-                        "home_team_id": home_team_id,
-                        "away_team_id": away_team_id,
-                        "stadium_id": stadium_id,
-                        "home_score": home_score,
-                        "away_score": away_score,
-                        "status": status,
-                        "created_at": now,
-                        "updated_at": now
-                    }
-                )
-            print("Inserted games successfully.")
-            
-            # Create some players
-            positions = ["QB", "RB", "WR", "TE", "OL", "DL", "LB", "CB", "S", "K", "P"]
-            first_names = ["James", "John", "Robert", "Michael", "William", "David", "Richard", "Joseph", "Thomas", "Charles"]
-            last_names = ["Smith", "Johnson", "Williams", "Jones", "Brown", "Davis", "Miller", "Wilson", "Moore", "Taylor"]
-            
-            for team_id in team_ids:
-                # Add 5 players per team
-                for i in range(5):
-                    player_id = str(uuid.uuid4())
-                    first_name = first_names[i % len(first_names)]
-                    last_name = last_names[(i + team_ids.index(team_id)) % len(last_names)]
-                    name = f"{first_name} {last_name}"
-                    position = positions[i % len(positions)]
-                    number = 10 + i * 5
-                    
-                    now = datetime.utcnow()
+            # Insert broadcast rights
+            for league_id in league_ids:
+                for broadcast_company_id in broadcast_company_ids[:2]:  # Assign rights to first two broadcasters
+                    now = date.today()
+                    broadcast_right_id = str(uuid.uuid4())
                     await conn.execute(
                         text("""
-                            INSERT INTO players (id, name, position, number, team_id, created_at, updated_at)
-                            VALUES (:id, :name, :position, :number, :team_id, :created_at, :updated_at)
+                            INSERT INTO broadcast_rights 
+                            (id, entity_type, entity_id, broadcast_company_id, territory, start_date, end_date, is_exclusive, created_at, updated_at)
+                            VALUES (:id, :entity_type, :entity_id, :broadcast_company_id, :territory, :start_date, :end_date, :is_exclusive, :created_at, :updated_at)
                             ON CONFLICT (id) DO NOTHING
                         """),
                         {
-                            "id": player_id,
-                            "name": name,
-                            "position": position,
-                            "number": number,
-                            "team_id": team_id,
+                            "id": broadcast_right_id,
+                            "entity_type": "League",
+                            "entity_id": league_id,
+                            "broadcast_company_id": broadcast_company_id,
+                            "territory": "United States",
+                            "start_date": now,
+                            "end_date": now + timedelta(days=365),
+                            "is_exclusive": False,
                             "created_at": now,
                             "updated_at": now
                         }
                     )
-            print("Inserted players successfully.")
+            print("Inserted broadcast rights for leagues.")
+            
+            # Insert production services
+            for league_id in league_ids:
+                for production_company_id in production_company_ids[:2]:  # Assign services to first two production companies
+                    now = date.today()
+                    production_service_id = str(uuid.uuid4())
+                    await conn.execute(
+                        text("""
+                            INSERT INTO production_services 
+                            (id, entity_type, entity_id, production_company_id, service_type, start_date, end_date, created_at, updated_at)
+                            VALUES (:id, :entity_type, :entity_id, :production_company_id, :service_type, :start_date, :end_date, :created_at, :updated_at)
+                            ON CONFLICT (id) DO NOTHING
+                        """),
+                        {
+                            "id": production_service_id,
+                            "entity_type": "League",
+                            "entity_id": league_id,
+                            "production_company_id": production_company_id,
+                            "service_type": "Live Production",
+                            "start_date": now,
+                            "end_date": now + timedelta(days=365),
+                            "created_at": now,
+                            "updated_at": now
+                        }
+                    )
+            print("Inserted production services for leagues.")
+            
+            # Insert games (one game for each team as home team)
+            for team_index, team_id in enumerate(team_ids):
+                # Find another team from the same league to be the away team
+                league_index = TEAMS[team_index]["league_index"]
+                away_team_indices = [i for i, t in enumerate(TEAMS) if t["league_index"] == league_index and i != team_index]
+                if away_team_indices:
+                    away_team_index = away_team_indices[0]
+                    game_id = str(uuid.uuid4())
+                    now = date.today()
+                    game_date = now + timedelta(days=30)  # Schedule game 30 days from now
+                    await conn.execute(
+                        text("""
+                            INSERT INTO games 
+                            (id, league_id, home_team_id, away_team_id, stadium_id, date, time, status, season_year, season_type, created_at, updated_at)
+                            VALUES (:id, :league_id, :home_team_id, :away_team_id, :stadium_id, :date, :time, :status, :season_year, :season_type, :created_at, :updated_at)
+                            ON CONFLICT (id) DO NOTHING
+                        """),
+                        {
+                            "id": game_id,
+                            "league_id": league_ids[league_index],
+                            "home_team_id": team_id,
+                            "away_team_id": team_ids[away_team_index],
+                            "stadium_id": stadium_ids[TEAMS[team_index]["stadium_index"]],
+                            "date": game_date,
+                            "time": "19:00",
+                            "status": "Scheduled",
+                            "season_year": game_date.year,
+                            "season_type": "Regular Season",
+                            "created_at": now,
+                            "updated_at": now
+                        }
+                    )
+            print(f"Inserted games for {len(team_ids)} teams.")
+            
+            # Insert brand relationships
+            for team_index, team_id in enumerate(team_ids):
+                # Assign two random brands to each team
+                for brand_id in brand_ids[:2]:
+                    now = date.today()
+                    brand_relationship_id = str(uuid.uuid4())
+                    await conn.execute(
+                        text("""
+                            INSERT INTO brand_relationships 
+                            (id, brand_id, entity_type, entity_id, relationship_type, start_date, end_date, created_at, updated_at)
+                            VALUES (:id, :brand_id, :entity_type, :entity_id, :relationship_type, :start_date, :end_date, :created_at, :updated_at)
+                            ON CONFLICT (id) DO NOTHING
+                        """),
+                        {
+                            "id": brand_relationship_id,
+                            "brand_id": brand_id,
+                            "entity_type": "Team",
+                            "entity_id": team_id,
+                            "relationship_type": "Official Sponsor",
+                            "start_date": now,
+                            "end_date": now + timedelta(days=365),
+                            "created_at": now,
+                            "updated_at": now
+                        }
+                    )
+            print(f"Inserted brand relationships for teams.")
             
             print("Sample data created successfully!")
     except Exception as e:

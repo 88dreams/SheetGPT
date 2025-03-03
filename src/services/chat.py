@@ -251,15 +251,30 @@ class ChatService:
         limit: int = 10
     ) -> List[Conversation]:
         """Get all conversations for a user with pagination."""
-        query = (
+        stmt = (
             select(Conversation)
-            .where(
-                Conversation.user_id == user_id,
-                Conversation.deleted_at.is_(None)
-            )
-            .options(selectinload(Conversation.messages))
-            .order_by(Conversation.created_at.desc())
+            .where(Conversation.user_id == user_id)
+            .order_by(Conversation.updated_at.desc())
+            .offset(skip)
+            .limit(limit)
         )
+        result = await self.db.execute(stmt)
+        return list(result.scalars().all())
+
+    async def delete_conversation(self, conversation_id: UUID) -> None:
+        """Delete a conversation and all its associated messages."""
+        # Get conversation with a single query
+        stmt = (
+            select(Conversation)
+            .where(Conversation.id == conversation_id)
+        )
+        result = await self.db.execute(stmt)
+        conversation = result.scalar_one_or_none()
         
-        result = await self.db.execute(query.offset(skip).limit(limit))
-        return result.scalars().all() 
+        if not conversation:
+            raise ValueError("Conversation not found")
+        
+        # Delete the conversation - this will cascade delete all related records
+        # due to the cascade="all, delete-orphan" setting in the model
+        await self.db.delete(conversation)
+        await self.db.commit() 

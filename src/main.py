@@ -18,17 +18,14 @@ app = FastAPI(
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
-        "http://localhost:5173",  # Local development frontend
-        "http://localhost:8000",  # Local API
-        "http://frontend:5173",   # Docker container frontend
-        "http://127.0.0.1:5173",  # Alternative local frontend
-        "http://localhost",       # Base localhost
-        f"http://{settings.PROJECT_NAME.lower()}.localhost", # Project-specific localhost
+        "http://localhost:5173",  # Vite dev server
+        "http://127.0.0.1:5173",
     ],
     allow_credentials=True,
-    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-    allow_headers=["Content-Type", "Authorization", "Accept"],
-    expose_headers=["Content-Type", "Authorization"]
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
+    allow_headers=["*"],  # Allow all headers
+    expose_headers=["*"],  # Expose all headers
+    max_age=3600,
 )
 
 # Include API Router

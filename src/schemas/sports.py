@@ -44,6 +44,7 @@ class StadiumBase(BaseModel):
     capacity: Optional[int] = None
     owner: Optional[str] = None
     naming_rights_holder: Optional[str] = None
+    host_broadcaster: Optional[str] = None
     host_broadcaster_id: Optional[UUID] = None
 
 class StadiumCreate(StadiumBase):
@@ -57,6 +58,7 @@ class StadiumUpdate(BaseModel):
     capacity: Optional[int] = None
     owner: Optional[str] = None
     naming_rights_holder: Optional[str] = None
+    host_broadcaster: Optional[str] = None
     host_broadcaster_id: Optional[UUID] = None
 
 class StadiumResponse(StadiumBase):

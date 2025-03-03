@@ -11,7 +11,32 @@ SheetGPT is a full-stack application that combines AI-powered chat capabilities 
 3. Create and manage sports-related entities (leagues, teams, players, etc.)
 4. Export data to Google Sheets for further analysis and sharing
 
-## Current Status (May 2024)
+## Current Status (March 2025)
+
+### Data Management
+- Created and tested sample data creation script for sports database
+- Implemented proper data deletion script with correct dependency order
+- Verified database schema integrity and relationships
+- Added support for all required fields in data models
+
+### UI Components
+- Fixed SportDataMapper component issues
+  - Added host_broadcaster field support
+  - Improved dialog functionality using Headless UI pattern
+  - Fixed close button behavior
+- Enhanced data validation and error handling
+
+### Recent Changes (Latest First)
+1. 2025-03-03:
+   - Created and tested delete_sample_sports_data.py script
+   - Successfully cleaned database of test data
+   - Verified data integrity and referential constraints
+
+2. Previous Updates:
+   - Implemented create_sample_sports_data.py with proper field handling
+   - Fixed UI dialog implementation
+   - Added host_broadcaster support to stadiums
+   - Enhanced data validation
 
 ### Completed Features
 
@@ -214,6 +239,12 @@ SheetGPT is a full-stack application that combines AI-powered chat capabilities 
   - Enabled scrolling for the entire window to improve usability with large datasets
   - Enhanced the field help tooltip with a close button and better positioning
   - Improved the overall visual hierarchy and information architecture
+- ✅ Fixed Conversation List Update Issue
+  - Resolved issue where new conversations weren't appearing in the sidebar immediately after creation
+  - Updated the React Query cache handling to properly manage paginated conversation data
+  - Improved the createConversationMutation to handle the paginated data structure correctly
+  - Enhanced the cache update logic to maintain proper total counts and page structure
+  - Ensured consistent UI updates across all conversation management operations
 
 #### Sports Database
 - ✅ Database models for all sports entities

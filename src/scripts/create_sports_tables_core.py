@@ -42,6 +42,7 @@ stadiums = Table(
     Column('capacity', Integer, nullable=True),
     Column('owner', String(100), nullable=True),
     Column('naming_rights_holder', String(100), nullable=True),
+    Column('host_broadcaster', String(100), nullable=True),
     Column('host_broadcaster_id', UUID, ForeignKey('broadcast_companies.id'), nullable=True),
     Column('created_at', Date, nullable=True),
     Column('updated_at', Date, nullable=True)

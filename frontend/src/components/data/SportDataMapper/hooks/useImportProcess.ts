@@ -164,34 +164,62 @@ export default function useImportProcess() {
           `Processing records ${start + 1} to ${end} (${progressPercent}% complete)`
         );
         
-        // Process each record in the batch
+        // Process each record in the batch with retries
         const batchPromises = batch.map(async (record) => {
-          try {
-            // Create mapped data using the provided mappings
-            const mappedData: Record<string, any> = {};
-            
-            // Apply mappings: mappings is { databaseField: sourceField }
-            for (const [dbField, sourceField] of Object.entries(mappings)) {
-              mappedData[dbField] = record[sourceField];
+          let retries = 3;
+          while (retries > 0) {
+            try {
+              // Create mapped data using the provided mappings
+              const mappedData: Record<string, any> = {};
+              
+              // Apply mappings: mappings is { databaseField: sourceField }
+              for (const [dbField, sourceField] of Object.entries(mappings)) {
+                mappedData[dbField] = record[sourceField];
+              }
+              
+              // Validate the data
+              const validationResult = validateEntityData(entityType, mappedData);
+              
+              if (!validationResult.isValid) {
+                console.error(`Validation failed for record:`, validationResult.errors);
+                results.failed++;
+                return;
+              }
+              
+              // Map UI field names back to database field names
+              const databaseMappedData = await enhancedMapToDatabaseFieldNames(
+                entityType, 
+                mappedData,
+                api,
+                record
+              );
+              
+              // Save to database
+              const dbEntityType = entityType.toLowerCase() as DbEntityType;
+              await sportsDatabaseService.createEntity(dbEntityType, databaseMappedData);
+              
+              results.success++;
+              break; // Success, exit retry loop
+            } catch (error) {
+              console.error(`Error importing record (attempt ${4 - retries}/3):`, error);
+              retries--;
+              
+              if (retries === 0) {
+                results.failed++;
+                // If it's an authentication error, show a specific message
+                if (error instanceof Error && error.message.includes('401')) {
+                  showNotification(
+                    'error',
+                    'Authentication error',
+                    'Please ensure you are logged in and try again.'
+                  );
+                  return;
+                }
+              } else {
+                // Wait before retrying (exponential backoff)
+                await new Promise(resolve => setTimeout(resolve, (4 - retries) * 1000));
+              }
             }
-            
-            // Validate the data
-            const validationResult = validateEntityData(entityType, mappedData);
-            
-            if (!validationResult.isValid) {
-              console.error(`Validation failed for record:`, validationResult.errors);
-              results.failed++;
-              return;
-            }
-            
-            // Save to database
-            const dbEntityType = entityType.toLowerCase() as DbEntityType;
-            await sportsDatabaseService.createEntity(dbEntityType, mappedData);
-            
-            results.success++;
-          } catch (error) {
-            console.error(`Error importing record:`, error);
-            results.failed++;
           }
         });
         

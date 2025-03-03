@@ -1,5 +1,5 @@
 import React, { useState, useEffect, Suspense, useRef, useLayoutEffect } from 'react'
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useQuery, useMutation, useQueryClient, useInfiniteQuery, InfiniteData } from '@tanstack/react-query'
 import { useNavigate, useSearchParams, useLocation } from 'react-router-dom'
 import ConversationList from '../components/chat/ConversationList'
 import MessageThread from '../components/chat/MessageThread'
@@ -7,12 +7,22 @@ import ChatInput from '../components/chat/ChatInput'
 import LoadingSpinner from '../components/common/LoadingSpinner'
 import { useNotification } from '../contexts/NotificationContext'
 import { useAuth } from '../hooks/useAuth'
-import { api, type Conversation, type Message } from '../utils/api'
+import { api, type Conversation, type Message, PaginatedResponse } from '../utils/api'
 import DataPreviewModal from '../components/chat/DataPreviewModal'
 
 type QueryError = {
   message: string;
 } | Error | null;
+
+interface MessageThreadProps {
+  messages: Message[];
+  isLoading?: boolean;
+  error?: Error | null;
+}
+
+interface ConversationPage extends PaginatedResponse<Conversation> {}
+
+const CONVERSATIONS_PER_PAGE = 20
 
 const Chat: React.FC = () => {
   const { isAuthenticated, isReady, user } = useAuth()
@@ -26,6 +36,7 @@ const Chat: React.FC = () => {
   const [isInitialLoad, setIsInitialLoad] = useState(true)
   const [isDataPreviewModalOpen, setIsDataPreviewModalOpen] = useState(false)
   const [previewMessageContent, setPreviewMessageContent] = useState('')
+  const [page, setPage] = useState(0)
   
   // Add state for sidebar width
   const [sidebarWidth, setSidebarWidth] = useState(25) // Default 25% width
@@ -219,103 +230,55 @@ const Chat: React.FC = () => {
     }
   }, [isAuthenticated])
 
-  // Conversations query
+  // Conversations query with pagination
   const { 
-    data: conversations,
+    data: conversationsData,
     isLoading: isLoadingConversations,
     error: conversationsError,
     isError: isConversationsError,
-    refetch: refetchConversations
-  } = useQuery<Conversation[], QueryError>({
+    refetch: refetchConversations,
+    hasNextPage,
+    fetchNextPage,
+    isFetchingNextPage
+  } = useInfiniteQuery<ConversationPage, Error, InfiniteData<ConversationPage>, string[], number>({
     queryKey: ['conversations'],
-    queryFn: async () => {
-      console.log('Fetching conversations...', {
-        isAuthenticated,
-        isReady,
-        hasToken: !!localStorage.getItem('auth_token'),
-        timestamp: new Date().toISOString()
-      })
+    queryFn: async ({ pageParam }) => {
+      console.log('Fetching conversations page:', pageParam)
       try {
-        // Add retry logic for fetching conversations
-        let attempts = 0;
-        const maxAttempts = 3;
-        let lastError: any = null;
-        
-        while (attempts < maxAttempts) {
-          try {
-            console.log(`Attempt ${attempts + 1} to fetch conversations`);
-            const result = await api.chat.getConversations();
-            
-            // Ensure result is an array
-            const conversationsArray = Array.isArray(result) ? result : [];
-            
-            console.log('Conversations fetched successfully:', {
-              count: conversationsArray.length,
-              isArray: Array.isArray(conversationsArray),
-              timestamp: new Date().toISOString(),
-              sampleIds: conversationsArray.slice(0, 3).map(c => c.id)
-            });
-            
-            // Only set initial load to false if we have data or explicitly got an empty array
-            if (result !== undefined) {
-              setIsInitialLoad(false);
-            }
-            
-            // Store conversation IDs in localStorage for debugging
-            try {
-              localStorage.setItem('last_conversation_ids', 
-                JSON.stringify(conversationsArray.map(c => ({ id: c.id, title: c.title })))
-              );
-              localStorage.setItem('last_conversation_fetch', new Date().toISOString());
-            } catch (e) {
-              console.error('Failed to store conversation IDs in localStorage:', e);
-            }
-            
-            return conversationsArray;
-          } catch (error) {
-            console.error(`Attempt ${attempts + 1} failed:`, error);
-            lastError = error;
-            attempts++;
-            
-            if (attempts < maxAttempts) {
-              // Wait before retrying (exponential backoff)
-              await new Promise(resolve => setTimeout(resolve, 1000 * attempts));
-            }
-          }
-        }
-        
-        // If we get here, all attempts failed
-        throw lastError || new Error('Failed to fetch conversations after multiple attempts');
+        const response = await api.chat.getConversations(
+          pageParam * CONVERSATIONS_PER_PAGE,
+          CONVERSATIONS_PER_PAGE
+        )
+        return response
       } catch (error) {
-        console.error('Error fetching conversations:', {
-          error,
-          timestamp: new Date().toISOString()
-        });
-        
-        // Check if there are any cached conversation IDs in localStorage
-        try {
-          const cachedIds = localStorage.getItem('last_conversation_ids');
-          if (cachedIds) {
-            console.log('Found cached conversation IDs:', cachedIds);
-          }
-        } catch (e) {
-          console.error('Failed to check cached conversation IDs:', e);
-        }
-        
-        throw error;
+        console.error('Error fetching conversations:', error)
+        throw error
       }
     },
-    retry: 2, // Increase retry attempts
-    retryDelay: attempt => Math.min(1000 * 2 ** attempt, 30000), // Exponential backoff with max 30s
-    staleTime: 1000 * 60 * 15, // Increase stale time to 15 minutes
-    gcTime: 1000 * 60 * 60, // Cache for 60 minutes
+    getNextPageParam: (lastPage: ConversationPage, allPages: ConversationPage[]) => {
+      if (lastPage.items.length < CONVERSATIONS_PER_PAGE) return undefined
+      return allPages.length
+    },
+    initialPageParam: 0,
     enabled: isAuthenticated && isReady,
-    refetchOnMount: 'always', // Always refetch on mount
-    refetchOnWindowFocus: false, // Disable refetch on window focus to prevent data loss
-    refetchOnReconnect: true, // Refetch when reconnecting
-    // Ensure we always return an array even if the query fails
-    placeholderData: []
+    staleTime: 1000 * 60 * 5, // 5 minutes
+    gcTime: 1000 * 60 * 30, // 30 minutes
+    refetchOnMount: true,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: true
   })
+
+  // Flatten conversations from all pages
+  const conversations = conversationsData?.pages.flatMap(page => page.items) || []
+  const totalConversations = conversationsData?.pages[0]?.total || 0
+
+  // Load more conversations
+  const handleLoadMore = () => {
+    if (hasNextPage && !isFetchingNextPage) {
+      setPage(prev => prev + 1)
+      fetchNextPage()
+    }
+  }
 
   // Track render states with more detail
   useEffect(() => {
@@ -583,10 +546,13 @@ const Chat: React.FC = () => {
         ref={sidebarRef}
       >
         <ConversationList
-          conversations={conversations || []}
+          conversations={conversations}
           selectedId={selectedConversation}
           onSelect={handleSelectConversation}
           isLoading={isLoadingConversations}
+          hasMore={!!hasNextPage}
+          onLoadMore={handleLoadMore}
+          total={totalConversations}
         />
       </div>
 
@@ -606,6 +572,8 @@ const Chat: React.FC = () => {
             <div className="flex-1 overflow-y-auto p-4 pb-32">
               <MessageThread
                 messages={messages || []}
+                isLoading={isLoadingMessages}
+                error={messagesError}
               />
             </div>
             

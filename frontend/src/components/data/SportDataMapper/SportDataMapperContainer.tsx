@@ -265,33 +265,35 @@ const SportDataMapperContainer: React.FC<SportDataMapperProps> = ({ isOpen, onCl
       }
     }
   }, [dataToImport, sourceFields]);
-  
+
+  if (!isOpen) return null;
+
   return (
     <Dialog
       open={isOpen}
       onClose={onClose}
-      className="fixed inset-0 z-50 overflow-y-auto"
+      className="fixed inset-0 z-10 overflow-y-auto"
     >
-      <div className="flex items-center justify-center min-h-screen">
+      <div className="flex min-h-screen items-center justify-center">
         <Dialog.Overlay className="fixed inset-0 bg-black opacity-30" />
-        
-        <Dialog.Panel className="relative bg-white rounded-lg shadow-xl max-w-7xl w-full max-h-[90vh] overflow-y-auto">
+
+        <div className="relative bg-white rounded-lg w-full max-w-7xl mx-4 max-h-[90vh] overflow-y-auto">
           <div className="flex flex-col h-full">
             {/* Header */}
-            <div className="flex justify-between items-center px-6 py-2 border-b">
+            <div className="flex justify-between items-center px-6 py-2 border-b sticky top-0 bg-white z-10">
               <Dialog.Title className="text-base font-medium text-gray-900">
                 Data Mapper
               </Dialog.Title>
               <button
                 onClick={onClose}
-                className="text-gray-400 hover:text-gray-500"
+                className="text-gray-400 hover:text-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 rounded-md"
               >
                 <XMarkIcon className="h-5 w-5" />
               </button>
             </div>
             
             {/* Content */}
-            <div className="flex-1 overflow-y-auto p-6">
+            <div className="flex-1 p-6">
               {!validStructuredData ? (
                 <div className="bg-red-50 border border-red-300 rounded-md p-4 mb-4">
                   <div className="flex">
@@ -414,7 +416,7 @@ const SportDataMapperContainer: React.FC<SportDataMapperProps> = ({ isOpen, onCl
               setGuidedStep={setGuidedStep}
             />
           </div>
-        </Dialog.Panel>
+        </div>
       </div>
     </Dialog>
   );

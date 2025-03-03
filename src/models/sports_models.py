@@ -92,14 +92,18 @@ class Stadium(TimestampedBase):
         String(100),
         nullable=True
     )
+    host_broadcaster: Mapped[Optional[str]] = mapped_column(
+        String(100),
+        nullable=True
+    )
     host_broadcaster_id: Mapped[Optional[UUID]] = mapped_column(
+        SQLUUID,
         ForeignKey("broadcast_companies.id"),
         nullable=True
     )
 
     # Relationships
-    host_broadcaster: Mapped[Optional["BroadcastCompany"]] = relationship(
-        "BroadcastCompany",
+    host_broadcaster_company: Mapped[Optional["BroadcastCompany"]] = relationship(
         foreign_keys=[host_broadcaster_id]
     )
     teams: Mapped[List["Team"]] = relationship(

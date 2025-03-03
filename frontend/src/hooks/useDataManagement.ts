@@ -124,6 +124,36 @@ export function useDataManagement(dataId?: string) {
     }
   })
 
+  const saveDataMutation = useMutation({
+    mutationFn: async ({ data, messageId }: { data: any; messageId: string }) => {
+      const response = await api.data.createStructuredData({
+        data_type: 'chat_extraction',
+        schema_version: '1.0',
+        data,
+        meta_data: {
+          message_id: messageId,
+          source: 'message',
+          created_from: 'preview_data_button',
+          created_at: new Date().toISOString()
+        }
+      })
+      return response
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['structured-data'] })
+    }
+  })
+
+  const saveData = async (data: any, messageId: string) => {
+    try {
+      const result = await saveDataMutation.mutateAsync({ data, messageId })
+      return result
+    } catch (error) {
+      console.error('Error saving data:', error)
+      throw error
+    }
+  }
+
   return {
     selectedData,
     columns,
@@ -138,6 +168,7 @@ export function useDataManagement(dataId?: string) {
     updateCell: updateCellMutation.mutate,
     deleteData: deleteMutation.mutate,
     addRow: addRowMutation.mutate,
-    deleteRow: deleteRowMutation.mutate
+    deleteRow: deleteRowMutation.mutate,
+    saveData
   }
 } 

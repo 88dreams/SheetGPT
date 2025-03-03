@@ -16,31 +16,31 @@ Welcome to the SheetGPT project! This document provides essential information fo
    - Development Environment: Docker-based with hot reloading
 
 3. **Current Development Focus**:
-   - Field mapping improvements for sports data
-   - Advanced filtering system for sports database
-   - Data visualization enhancements
-   - Google Sheets export integration
-   - Performance optimization for large datasets
+   - Sample data management and validation
+   - Entity relationship handling
+   - Data cleanup and maintenance scripts
+   - Enhanced error handling and validation
+   - Test coverage expansion
 
 4. **Critical Components**:
    - SportDataMapper: Maps structured data to sports entities
-   - SportsDatabase: Manages sports-related entities
-   - DataTable: Displays and manages structured data
-   - EntityFilter: Handles advanced filtering
+   - SportsDatabase: Manages sports-related entities with comprehensive validation
+   - DataManagementScripts: Handles sample data creation and cleanup
+   - EntityRelationshipHandler: Manages entity dependencies and relationships
 
 5. **Recent Major Changes**:
-   - Enhanced field mapping visualization
-   - Implemented hybrid filtering system
-   - Fixed mapping direction issues
-   - Added bulk delete functionality
-   - Improved field view system
+   - Implemented comprehensive sample data management
+   - Enhanced entity relationship handling
+   - Added data cleanup scripts with proper dependency order
+   - Improved field validation and error handling
+   - Updated documentation for new components
 
 ## SYSTEM_STATE
 ```json
 {
   "project_name": "SheetGPT",
-  "version": "0.3.6",
-  "last_updated": "2024-06-01",
+  "version": "0.3.8",
+  "last_updated": "2025-03-03",
   "environment": {
     "development": "Docker-based",
     "services": ["frontend", "backend", "db"],
@@ -49,7 +49,7 @@ Welcome to the SheetGPT project! This document provides essential information fo
   "key_components": {
     "frontend": {
       "SportDataMapper": "Maps structured data to sports entities",
-      "SportsDatabase": "Manages sports entities",
+      "SportsDatabase": "Manages sports entities with validation",
       "DataTable": "Displays structured data",
       "EntityFilter": "Advanced filtering system"
     },
@@ -68,35 +68,35 @@ Welcome to the SheetGPT project! This document provides essential information fo
 {
   "high_priority": [
     {
-      "task": "Field Mapping Improvements",
+      "task": "Data Management",
       "focus": [
-        "Mapping direction consistency",
-        "Value display in mappings",
-        "Error handling during mapping"
+        "Sample data validation",
+        "Entity relationship handling",
+        "Data cleanup procedures"
       ]
     },
     {
-      "task": "Advanced Filtering",
+      "task": "Testing Coverage",
       "focus": [
-        "Hybrid filtering implementation",
-        "Filter persistence",
-        "Performance optimization"
+        "Data management scripts",
+        "Entity relationship handling",
+        "Validation procedures"
       ]
     },
     {
-      "task": "Data Visualization",
+      "task": "Error Handling",
       "focus": [
-        "Sports statistics visualization",
-        "Interactive charts",
-        "Performance metrics"
+        "Field validation",
+        "Relationship constraints",
+        "User-friendly error messages"
       ]
     }
   ],
   "ongoing_maintenance": [
     "Documentation updates",
-    "Test coverage expansion",
     "Performance optimization",
-    "Error handling improvements"
+    "Data integrity checks",
+    "UI/UX enhancements"
   ]
 }
 ```
@@ -115,7 +115,7 @@ Welcome to the SheetGPT project! This document provides essential information fo
         ]
       },
       "SportsDatabase": {
-        "purpose": "Manage sports entities",
+        "purpose": "Manage sports entities with validation",
         "key_files": [
           "pages/SportsDatabase.tsx",
           "components/sports/EntityFilter.tsx",
@@ -130,8 +130,9 @@ Welcome to the SheetGPT project! This document provides essential information fo
         "purpose": "Handle sports entity operations",
         "key_files": [
           "services/sports_service.py",
-          "models/sports.py",
-          "api/routes/sports.py"
+          "models/sports_models.py",
+          "scripts/create_sample_sports_data.py",
+          "scripts/delete_sample_sports_data.py"
         ]
       },
       "data_service": {
@@ -152,27 +153,27 @@ Welcome to the SheetGPT project! This document provides essential information fo
 {
   "critical": [
     {
-      "issue": "Mapping direction inconsistency",
+      "issue": "Entity relationship validation",
       "status": "In progress",
       "files": [
-        "SportDataMapper/hooks/useFieldMapping.ts",
-        "SportDataMapper/components/DroppableField.tsx"
+        "scripts/create_sample_sports_data.py",
+        "models/sports_models.py"
       ]
     },
     {
-      "issue": "Performance with large datasets",
-      "status": "Investigating",
-      "components": ["DataTable", "SportsDatabase"]
+      "issue": "Test coverage gaps",
+      "status": "Addressing",
+      "components": ["DataManagementScripts", "EntityRelationshipHandler"]
     }
   ],
   "monitoring": [
     {
-      "issue": "Memory usage in data transformation",
-      "component": "SportDataMapper"
+      "issue": "Data cleanup procedures",
+      "component": "DataManagementScripts"
     },
     {
-      "issue": "Filter query optimization",
-      "component": "SportsDatabase"
+      "issue": "Field validation performance",
+      "component": "SportDataMapper"
     }
   ]
 }
@@ -184,7 +185,7 @@ Welcome to the SheetGPT project! This document provides essential information fo
   "setup": {
     "initial": "docker-compose up --build -d",
     "database": "python src/scripts/alembic_wrapper.py upgrade",
-    "frontend_deps": "docker-compose exec frontend npm install"
+    "sample_data": "docker-compose exec backend python src/scripts/create_sample_sports_data.py"
   },
   "development": {
     "branch_strategy": "feature/{component-name}/{feature-description}",
@@ -204,19 +205,20 @@ For any new agent continuing development:
 1. Review recent changes in PROGRESS.md
 2. Understand current architecture in TECHNICAL_DESCRIPTION.md
 3. Focus on high-priority tasks:
-   - Field mapping improvements
-   - Advanced filtering implementation
-   - Data visualization enhancements
+   - Entity relationship handling
+   - Data management scripts
+   - Field validation improvements
 
 4. Key areas requiring attention:
-   - Mapping direction consistency
-   - Filter performance optimization
-   - Data transformation efficiency
+   - Sample data management
+   - Entity relationship validation
    - Documentation maintenance
+   - Test coverage expansion
 
 5. Development guidelines:
-   - Maintain modular architecture
+   - Maintain data integrity
    - Update documentation
    - Add comprehensive tests
-   - Consider performance implications
+   - Follow dependency order
+   - Implement proper validation
 

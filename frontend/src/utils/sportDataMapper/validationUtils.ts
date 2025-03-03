@@ -72,6 +72,7 @@ export const validateEntityData = (entityType: EntityType, data: Record<string, 
         capacity: data.capacity ? 'Present' : 'N/A',
         owner: data.owner ? 'Present' : 'N/A',
         naming_rights_holder: data.naming_rights_holder ? 'Present' : 'N/A',
+        host_broadcaster: data.host_broadcaster ? 'Present' : 'N/A',
         host_broadcaster_id: data.host_broadcaster_id ? 'Present' : 'N/A'
       });
       

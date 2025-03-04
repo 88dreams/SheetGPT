@@ -28,6 +28,12 @@ SheetGPT is a full-stack application that combines AI-powered chat capabilities 
 
 ### Recent Changes (Latest First)
 1. 2025-03-03:
+   - Enhanced Teams Advanced Edit functionality
+     - Added proper display of all team fields including league and stadium relationships
+     - Improved field selection UI with dropdowns for league and stadium selection
+     - Fixed field validation and error handling
+     - Enhanced the edit modal with better field organization
+     - Added proper type handling for all fields
    - Created and tested delete_sample_sports_data.py script
    - Successfully cleaned database of test data
    - Verified data integrity and referential constraints

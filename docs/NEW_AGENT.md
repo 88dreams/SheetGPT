@@ -44,6 +44,14 @@ SheetGPT is a full-stack application combining AI-powered chat with structured d
    - Filter persistence
    - Dynamic query building
 
+4. **Entity Edit System**
+   - Modular form components per entity type
+   - Smart field type detection and rendering
+   - Relationship field handling with dropdowns
+   - Real-time validation and error handling
+   - Change history tracking
+   - Related entities display
+
 ### Current Status (March 2025)
 
 #### Completed Features
@@ -56,6 +64,8 @@ SheetGPT is a full-stack application combining AI-powered chat with structured d
 - ✅ Enhanced field mapping visualization
 - ✅ Hybrid filtering implementation
 - ✅ Bulk operations for entities
+- ✅ Advanced entity editing with relationship management
+- ✅ Smart dropdowns for entity relationships
 
 #### In Progress
 - 🔄 Google Sheets API backend integration
@@ -79,7 +89,7 @@ SheetGPT is a full-stack application combining AI-powered chat with structured d
    - Brands
    
    Secondary:
-   - Teams (requires leagues)
+   - Teams (requires leagues, stadiums)
    - Stadiums (requires broadcast companies)
    - Players (requires teams)
    
@@ -90,9 +100,12 @@ SheetGPT is a full-stack application combining AI-powered chat with structured d
    - Brand Relationships
 
 3. **Recent Changes**
+   - Enhanced Teams Advanced Edit functionality
+   - Improved relationship field handling with smart dropdowns
+   - Added comprehensive field validation
+   - Enhanced edit modal organization
+   - Improved type handling for all fields
    - Enhanced name-based entity references
-   - Improved validation order
-   - Fixed bulk operations
    - Updated field mapping visualization
 
 ### Common Issues and Solutions
@@ -106,11 +119,18 @@ SheetGPT is a full-stack application combining AI-powered chat with structured d
    - Validation occurs before mapping
    - Support for both UUID and name fields
    - Clear error messages for debugging
+   - Real-time field validation in forms
 
 3. **Data Import**
    - Batch import with progress tracking
    - Automatic relationship resolution
    - Error aggregation and reporting
+
+4. **Entity Editing**
+   - Use AdvancedEditForm for complex entities
+   - Handle relationships through dropdowns
+   - Implement optimistic updates
+   - Provide fallback error handling
 
 ### Required Reading
 1. TECHNICAL_DESCRIPTION.md - Detailed component documentation
@@ -144,7 +164,7 @@ This document should be updated with each significant change to maintain accurac
 ```json
 {
   "project_name": "SheetGPT",
-  "version": "0.3.8",
+  "version": "0.3.9",
   "last_updated": "2025-03-03",
   "environment": {
     "development": "Docker-based",
@@ -156,7 +176,8 @@ This document should be updated with each significant change to maintain accurac
       "SportDataMapper": "Maps structured data to sports entities",
       "SportsDatabase": "Manages sports entities with validation",
       "DataTable": "Displays structured data",
-      "EntityFilter": "Advanced filtering system"
+      "EntityFilter": "Advanced filtering system",
+      "AdvancedEditForm": "Smart entity editing with relationship handling"
     },
     "backend": {
       "FastAPI": "REST API framework",
@@ -177,7 +198,8 @@ This document should be updated with each significant change to maintain accurac
       "focus": [
         "Sample data validation",
         "Entity relationship handling",
-        "Data cleanup procedures"
+        "Data cleanup procedures",
+        "Advanced entity editing improvements"
       ]
     },
     {
@@ -185,7 +207,8 @@ This document should be updated with each significant change to maintain accurac
       "focus": [
         "Data management scripts",
         "Entity relationship handling",
-        "Validation procedures"
+        "Validation procedures",
+        "Entity edit components"
       ]
     },
     {
@@ -193,7 +216,8 @@ This document should be updated with each significant change to maintain accurac
       "focus": [
         "Field validation",
         "Relationship constraints",
-        "User-friendly error messages"
+        "User-friendly error messages",
+        "Edit form validation"
       ]
     }
   ],
@@ -201,7 +225,8 @@ This document should be updated with each significant change to maintain accurac
     "Documentation updates",
     "Performance optimization",
     "Data integrity checks",
-    "UI/UX enhancements"
+    "UI/UX enhancements",
+    "Entity edit improvements"
   ]
 }
 ```
@@ -224,7 +249,8 @@ This document should be updated with each significant change to maintain accurac
         "key_files": [
           "pages/SportsDatabase.tsx",
           "components/sports/EntityFilter.tsx",
-          "components/sports/EntityList.tsx"
+          "components/sports/EntityList.tsx",
+          "components/data/EntityUpdate/AdvancedEditForm.tsx"
         ]
       }
     }

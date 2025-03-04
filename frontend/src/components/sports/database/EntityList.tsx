@@ -3,7 +3,12 @@ import { useNavigate } from 'react-router-dom';
 import { useSportsDatabase } from './SportsDatabaseContext';
 import LoadingSpinner from '../../common/LoadingSpinner';
 // @ts-ignore
-import { FaTrash, FaEye, FaSortUp, FaSortDown, FaSort, FaPencilAlt, FaCheck, FaTimes } from 'react-icons/fa';
+import { FaTrash, FaEye, FaSortUp, FaSortDown, FaSort, FaPencilAlt, FaCheck, FaTimes, FaEdit } from 'react-icons/fa';
+import SmartEntitySearch from '../../data/EntityUpdate/SmartEntitySearch';
+import { EntityCard } from '../../data/EntityUpdate/EntityCard';
+// @ts-ignore
+import { Modal } from 'antd';
+import { Entity, EntityType, BaseEntity } from '../../../types/sports';
 
 interface EntityListProps {
   className?: string;
@@ -13,6 +18,9 @@ const EntityList: React.FC<EntityListProps> = ({ className = '' }) => {
   const navigate = useNavigate();
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editValue, setEditValue] = useState('');
+  const [selectedEntity, setSelectedEntity] = useState<BaseEntity | null>(null);
+  const [isEditModalVisible, setIsEditModalVisible] = useState(false);
+  const [includeRelationships, setIncludeRelationships] = useState(false);
   
   const {
     selectedEntityType,
@@ -80,15 +88,59 @@ const EntityList: React.FC<EntityListProps> = ({ className = '' }) => {
       { id: 'production', name: 'Production Services' },
       { id: 'brand', name: 'Brand Relationships' }
     ];
-    return entityTypes.find(e => e.id === selectedEntityType)?.name || 'Entities';
+    return entityTypes.find(e => e.id === selectedEntityType)?.name || selectedEntityType;
   };
 
   // Get filtered entities
-  const filteredEntities = getSortedEntities();
+  const filteredEntities = getSortedEntities().map(entity => ({
+    id: String(entity.id),
+    name: String(entity.name),
+    created_at: entity.created_at,
+    updated_at: entity.updated_at
+  })) as BaseEntity[];
+
   const hasActiveFilters = activeFilters && activeFilters.length > 0;
 
   // Get selected count
   const selectedCount = Object.values(selectedEntities).filter(Boolean).length;
+
+  // Add a function to get the complete entity data
+  const getCompleteEntity = (entityId: string) => {
+    return entities.find(e => e.id === entityId);
+  };
+
+  // Update the edit click handler
+  const handleEditClick = (entity: BaseEntity) => {
+    const completeEntity = getCompleteEntity(entity.id);
+    if (completeEntity) {
+      setSelectedEntity(completeEntity as Entity);
+      setIsEditModalVisible(true);
+    }
+  };
+
+  // Update the search handler
+  const handleSearchSelect = (entity: Entity) => {
+    const completeEntity = getCompleteEntity(entity.id);
+    if (completeEntity) {
+      setSelectedEntity(completeEntity as Entity);
+      setIsEditModalVisible(true);
+    }
+  };
+
+  const handleEditModalClose = () => {
+    setSelectedEntity(null);
+    setIsEditModalVisible(false);
+  };
+
+  const handleEntityUpdate = (updatedEntity: Entity) => {
+    const { id, created_at, updated_at, ...updates } = updatedEntity;
+    handleUpdateEntity(id, updates as Record<string, unknown>);
+    setIsEditModalVisible(false);
+  };
+
+  const handleExportToSheets = (entities: BaseEntity[]) => {
+    // Implementation of handleExportToSheets function
+  };
 
   if (isLoading) {
     return (
@@ -112,6 +164,21 @@ const EntityList: React.FC<EntityListProps> = ({ className = '' }) => {
 
   return (
     <div className={`bg-white rounded-lg shadow ${className}`}>
+      {/* Add search bar in the header */}
+      <div className="p-4 border-b border-gray-200">
+        <div className="flex justify-between items-center">
+          <h2 className="text-lg font-medium text-gray-900">{getEntityTypeName()}</h2>
+          <div className="w-80">
+            <SmartEntitySearch
+              entityTypes={[selectedEntityType as EntityType]}
+              onEntitySelect={handleSearchSelect}
+              placeholder="Update Stadium, League, or Team"
+              entities={entities as Entity[]}
+            />
+          </div>
+        </div>
+      </div>
+
       {/* Add bulk actions bar when items are selected */}
       {selectedCount > 0 && (
         <div className="bg-gray-50 px-6 py-3 border-b border-gray-200 flex items-center justify-between">
@@ -187,16 +254,6 @@ const EntityList: React.FC<EntityListProps> = ({ className = '' }) => {
                   {renderSortIcon('created_at')}
                 </div>
               </th>
-              <th 
-                scope="col" 
-                className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
-                onClick={() => handleSort('relationships')}
-              >
-                <div className="flex items-center">
-                  Relationships
-                  {renderSortIcon('relationships')}
-                </div>
-              </th>
               <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Actions
               </th>
@@ -255,34 +312,18 @@ const EntityList: React.FC<EntityListProps> = ({ className = '' }) => {
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap">
                   <div className="text-sm text-gray-500">
-                    {new Date(entity.created_at).toLocaleDateString()}
-                  </div>
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <div className="text-sm text-gray-500">
-                    {entity.relationships && (
-                      <div className="flex flex-wrap gap-1">
-                        {entity.relationships.teams && entity.relationships.teams.length > 0 && (
-                          <span className="px-2 py-1 text-xs rounded-full bg-blue-100 text-blue-800">
-                            {entity.relationships.teams.length} Teams
-                          </span>
-                        )}
-                        {entity.relationships.players && entity.relationships.players.length > 0 && (
-                          <span className="px-2 py-1 text-xs rounded-full bg-green-100 text-green-800">
-                            {entity.relationships.players.length} Players
-                          </span>
-                        )}
-                        {entity.relationships.games && entity.relationships.games.length > 0 && (
-                          <span className="px-2 py-1 text-xs rounded-full bg-purple-100 text-purple-800">
-                            {entity.relationships.games.length} Games
-                          </span>
-                        )}
-                      </div>
-                    )}
+                    {entity.created_at ? new Date(entity.created_at).toLocaleDateString() : 'N/A'}
                   </div>
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap">
                   <div className="flex space-x-2">
+                    <button
+                      onClick={() => handleEditClick(entity)}
+                      className="text-blue-500 hover:text-blue-700"
+                      title="Edit"
+                    >
+                      <FaEdit />
+                    </button>
                     <button
                       onClick={() => setShowDeleteConfirm(entity.id)}
                       className="text-red-500 hover:text-red-700"
@@ -292,7 +333,6 @@ const EntityList: React.FC<EntityListProps> = ({ className = '' }) => {
                     </button>
                     <button
                       onClick={() => {
-                        // Navigate to entity detail view
                         navigate(`/sports/${selectedEntityType}/${entity.id}`);
                       }}
                       className="text-blue-500 hover:text-blue-700"
@@ -382,6 +422,24 @@ const EntityList: React.FC<EntityListProps> = ({ className = '' }) => {
           </div>
         </div>
       </div>
+
+      {/* Add the edit modal */}
+      <Modal
+        title="Entity Edit"
+        open={isEditModalVisible}
+        onCancel={handleEditModalClose}
+        footer={null}
+        width={800}
+      >
+        {selectedEntity && (
+          <EntityCard
+            key={selectedEntity.id}
+            entity={selectedEntity as Entity}
+            entityType={selectedEntityType as EntityType}
+            onUpdate={handleEntityUpdate}
+          />
+        )}
+      </Modal>
     </div>
   );
 };

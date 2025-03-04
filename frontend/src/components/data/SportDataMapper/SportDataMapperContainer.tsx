@@ -115,18 +115,20 @@ const SportDataMapperContainer: React.FC<SportDataMapperProps> = ({ isOpen, onCl
       try {
         // Fetch league and stadium counts
         const leagueResponse = await sportsDatabaseService.getEntities({ 
-          entityType: 'league' as unknown as DbEntityType 
+          entityType: 'league' as unknown as DbEntityType,
+          limit: 1
         });
         const stadiumResponse = await sportsDatabaseService.getEntities({ 
-          entityType: 'stadium' as unknown as DbEntityType 
+          entityType: 'stadium' as unknown as DbEntityType,
+          limit: 1
         });
         
-        // If both have at least one entry, set to true
-        const hasLeagues = leagueResponse && leagueResponse.length > 0;
-        const hasStadiums = stadiumResponse && stadiumResponse.length > 0;
+        // Check total counts from paginated responses
+        const hasLeagues = leagueResponse && leagueResponse.total > 0;
+        const hasStadiums = stadiumResponse && stadiumResponse.total > 0;
         
         setLeagueAndStadiumExist(hasLeagues && hasStadiums);
-        console.log(`League and Stadium data exist: ${hasLeagues && hasStadiums}`);
+        console.log(`League and Stadium data exist: ${hasLeagues && hasStadiums} (Leagues: ${leagueResponse.total}, Stadiums: ${stadiumResponse.total})`);
       } catch (error) {
         console.error('Error checking League and Stadium data:', error);
         setLeagueAndStadiumExist(false);

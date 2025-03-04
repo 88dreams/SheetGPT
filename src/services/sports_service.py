@@ -8,6 +8,9 @@ from sqlalchemy import select, delete, update, or_
 from sqlalchemy.future import select
 from sqlalchemy import func
 import math
+from sqlalchemy import text
+from datetime import date
+from uuid import uuid4
 
 from src.models.sports_models import (
     League, Team, Player, Game, Stadium, 
@@ -1155,3 +1158,48 @@ class SportsService:
         await db.delete(db_league_executive)
         await db.commit()
         return True
+
+    async def create_entity(self, entity_type: str, data: dict) -> Optional[UUID]:
+        """Create a new entity in the database."""
+        try:
+            # Check for existing entity with the same name for stadium, league, and team
+            if entity_type in ['stadium', 'league', 'team'] and 'name' in data:
+                existing_entity = await self.db.execute(
+                    text(f"""
+                        SELECT id FROM {entity_type}s 
+                        WHERE LOWER(name) = LOWER(:name)
+                    """),
+                    {"name": data["name"]}
+                )
+                result = existing_entity.first()
+                if result:
+                    # Return existing entity ID instead of creating a duplicate
+                    return result[0]
+
+            # If no existing entity found, proceed with creation
+            entity_id = str(uuid4())
+            now = date.today()
+            data.update({
+                "id": entity_id,
+                "created_at": now,
+                "updated_at": now
+            })
+
+            columns = ", ".join(data.keys())
+            values = ", ".join(f":{key}" for key in data.keys())
+            
+            await self.db.execute(
+                text(f"""
+                    INSERT INTO {entity_type}s ({columns})
+                    VALUES ({values})
+                    ON CONFLICT (name) DO UPDATE 
+                    SET updated_at = :updated_at
+                    RETURNING id
+                """),
+                data
+            )
+            
+            return UUID(entity_id)
+        except Exception as e:
+            logger.error(f"Error creating {entity_type}: {str(e)}")
+            raise

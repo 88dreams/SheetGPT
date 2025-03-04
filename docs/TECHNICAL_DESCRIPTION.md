@@ -256,6 +256,49 @@ A modular component for mapping structured data to sports database entities:
    - Navigate through records and exclude unwanted ones
    - Save mapped data to database (single record or batch)
 
+### Entity Edit Components
+
+#### AdvancedEditForm Component
+
+A comprehensive form component for editing entity details with the following features:
+
+1. **Architecture**:
+   - Modular design with entity-specific field rendering
+   - Dynamic field loading based on entity type
+   - Integrated relationship management
+   - Real-time validation and error handling
+
+2. **Key Features**:
+   - Smart field type detection and rendering
+   - Relationship field handling with dropdowns
+   - Required field validation
+   - Change history tracking
+   - Related entities display
+
+3. **Field Types Support**:
+   - Text fields with validation
+   - Numeric fields with type conversion
+   - Select fields for relationships
+   - Date fields with proper formatting
+   - Boolean fields with toggle support
+
+4. **Team Entity Editing**:
+   - Complete field coverage including:
+     - Basic information (name, city, state, country)
+     - Relationship fields (league, stadium)
+     - Optional fields (founded_year)
+   - Smart dropdowns for relationship selection
+     - League selection with name display
+     - Stadium selection with location context
+   - Proper type handling and validation
+   - Real-time updates with optimistic UI
+
+5. **Data Flow**:
+   - Initial data loading with relationship resolution
+   - Change tracking and validation
+   - Optimistic updates with rollback capability
+   - Error handling with user feedback
+
 ### DataTable Component
 
 A versatile grid for displaying structured data:

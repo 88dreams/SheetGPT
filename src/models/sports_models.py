@@ -1,5 +1,5 @@
 from datetime import datetime, date
-from sqlalchemy import String, Boolean, ForeignKey, JSON, Text, Integer, Date, Time, Numeric, Float, Enum
+from sqlalchemy import String, Boolean, ForeignKey, JSON, Text, Integer, Date, Time, Numeric, Float, Enum, UniqueConstraint, Index
 from sqlalchemy.dialects.postgresql import UUID as SQLUUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from typing import Optional, List
@@ -12,6 +12,10 @@ class League(TimestampedBase):
     """Model for sports leagues."""
     
     __tablename__ = "leagues"
+    __table_args__ = (
+        UniqueConstraint('name', name='uq_leagues_name'),
+        Index('ix_leagues_name', 'name'),
+    )
 
     id: Mapped[UUID] = mapped_column(
         SQLUUID,
@@ -20,7 +24,9 @@ class League(TimestampedBase):
     )
     name: Mapped[str] = mapped_column(
         String(100),
-        nullable=False
+        nullable=False,
+        unique=True,
+        index=True
     )
     sport: Mapped[str] = mapped_column(
         String(50),
@@ -58,6 +64,10 @@ class Stadium(TimestampedBase):
     """Model for sports stadiums."""
     
     __tablename__ = "stadiums"
+    __table_args__ = (
+        UniqueConstraint('name', name='uq_stadiums_name'),
+        Index('ix_stadiums_name', 'name'),
+    )
 
     id: Mapped[UUID] = mapped_column(
         SQLUUID,
@@ -66,7 +76,9 @@ class Stadium(TimestampedBase):
     )
     name: Mapped[str] = mapped_column(
         String(100),
-        nullable=False
+        nullable=False,
+        unique=True,
+        index=True
     )
     city: Mapped[str] = mapped_column(
         String(100),
@@ -118,6 +130,10 @@ class Team(TimestampedBase):
     """Model for sports teams."""
     
     __tablename__ = "teams"
+    __table_args__ = (
+        UniqueConstraint('name', name='uq_teams_name'),
+        Index('ix_teams_name', 'name'),
+    )
 
     id: Mapped[UUID] = mapped_column(
         SQLUUID,
@@ -134,7 +150,9 @@ class Team(TimestampedBase):
     )
     name: Mapped[str] = mapped_column(
         String(100),
-        nullable=False
+        nullable=False,
+        unique=True,
+        index=True
     )
     city: Mapped[str] = mapped_column(
         String(100),

@@ -4,6 +4,9 @@ FROM node:20-slim
 # Set working directory
 WORKDIR /app
 
+# Install Claude Code globally
+RUN npm install -g @anthropic-ai/claude-code@0.2.35
+
 # Copy package files
 COPY package*.json ./
 

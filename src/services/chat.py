@@ -427,6 +427,47 @@ class ChatService:
         limit: int = 10
     ) -> List[Conversation]:
         """Get all conversations for a user with pagination."""
+        # First, check if we have ordered conversations
+        stmt = (
+            select(Conversation)
+            .where(Conversation.user_id == user_id)
+            .where(Conversation.order != None)
+            .order_by(Conversation.order)
+            .offset(skip)
+            .limit(limit)
+        )
+        result = await self.db.execute(stmt)
+        ordered_conversations = list(result.scalars().all())
+        
+        # If we have ordered conversations and they match our limit, return them
+        if ordered_conversations and len(ordered_conversations) == limit:
+            return ordered_conversations
+        
+        # If we have some ordered conversations but not enough to meet the limit,
+        # fetch additional unordered conversations
+        if ordered_conversations:
+            # Calculate how many more we need
+            additional_needed = limit - len(ordered_conversations)
+            
+            # Get ids of conversations we already have
+            existing_ids = [c.id for c in ordered_conversations]
+            
+            # Fetch additional conversations that don't have order set
+            stmt = (
+                select(Conversation)
+                .where(Conversation.user_id == user_id)
+                .where(Conversation.id.not_in(existing_ids))
+                .where(Conversation.order == None)
+                .order_by(Conversation.updated_at.desc())
+                .limit(additional_needed)
+            )
+            result = await self.db.execute(stmt)
+            unordered_conversations = list(result.scalars().all())
+            
+            # Combine both sets
+            return ordered_conversations + unordered_conversations
+        
+        # If no ordered conversations, fall back to original ordering by updated_at
         stmt = (
             select(Conversation)
             .where(Conversation.user_id == user_id)
@@ -470,4 +511,44 @@ class ChatService:
         
         # Delete the message
         await self.db.delete(message)
-        await self.db.commit() 
+        await self.db.commit()
+        
+    async def update_conversation_order(self, conversation_id: UUID, new_order: int) -> Conversation:
+        """Update the order of a conversation."""
+        conversation = await self.db.get(Conversation, conversation_id)
+        if not conversation:
+            raise ValueError("Conversation not found")
+        
+        conversation.order = new_order
+        await self.db.commit()
+        await self.db.refresh(conversation)
+        return conversation
+        
+    async def update_multiple_conversation_orders(self, user_id: UUID, conversation_orders: List[Dict[UUID, int]]) -> List[Conversation]:
+        """Update the order of multiple conversations at once."""
+        conversations = []
+        
+        for order_data in conversation_orders:
+            conversation_id = order_data["id"]
+            new_order = order_data["order"]
+            
+            # Verify the conversation belongs to the user
+            conversation = await self.db.get(Conversation, conversation_id)
+            if not conversation:
+                raise ValueError(f"Conversation {conversation_id} not found")
+                
+            if conversation.user_id != user_id:
+                raise ValueError(f"Conversation {conversation_id} does not belong to this user")
+                
+            # Update the order
+            conversation.order = new_order
+            conversations.append(conversation)
+        
+        # Commit all changes at once
+        await self.db.commit()
+        
+        # Refresh all conversations
+        for conversation in conversations:
+            await self.db.refresh(conversation)
+            
+        return conversations 

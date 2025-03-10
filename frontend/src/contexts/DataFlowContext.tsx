@@ -38,9 +38,15 @@ export const DataFlowProvider: React.FC<{children: ReactNode}> = ({ children }) 
     setDataFlow(prev => ({ ...prev, currentData: data }));
   };
 
-  const setDestination = (destination: 'data' | 'sportsdb' | 'export') => {
-    setDataFlow(prev => ({ ...prev, currentDestination: destination }));
-  };
+  const setDestination = React.useCallback((destination: 'data' | 'sportsdb' | 'export') => {
+    setDataFlow(prev => {
+      // Don't update if the destination is already set to reduce unnecessary renders
+      if (prev.currentDestination === destination) {
+        return prev;
+      }
+      return { ...prev, currentDestination: destination };
+    });
+  }, []);
 
   const resetFlow = () => {
     setDataFlow({ dataJourney: [] });

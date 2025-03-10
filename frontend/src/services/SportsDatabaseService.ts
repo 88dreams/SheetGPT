@@ -303,10 +303,9 @@ class SportsDatabaseService {
         break;
         
       case 'stadium':
+        if (!data.name) errors.name = ['Name is required'];
         if (!data.city) errors.city = ['City is required'];
         if (!data.country) errors.country = ['Country is required'];
-        if (!data.capacity) errors.capacity = ['Capacity is required'];
-        if (!data.owner) errors.owner = ['Owner is required'];
         break;
         
       case 'broadcast':

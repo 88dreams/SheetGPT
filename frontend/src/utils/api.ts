@@ -6,8 +6,8 @@ import { FilterConfig } from '../components/sports/EntityFilter';
 // Determine if we're running in Docker by checking the hostname
 const isDocker = window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1';
 
-// For browser access, always use localhost or the environment variable
-// This ensures the browser can resolve the hostname
+// For browser access, we need to use localhost even when running in Docker
+// This is because the browser can't resolve Docker container names
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 const API_PREFIX = '/api/v1'
 
@@ -25,8 +25,48 @@ const apiClient = axios.create({
     timeout: 15000,
     headers: {
         'Content-Type': 'application/json',
-    },
+        'Accept': 'application/json'
+    }
 });
+
+// Add request interceptor for logging
+apiClient.interceptors.request.use(
+    (config) => {
+        // Add auth token if available
+        const token = localStorage.getItem('auth_token');
+        if (token) {
+            config.headers.Authorization = `Bearer ${token}`;
+        }
+        
+        // Log request details
+        console.log('Request:', {
+            url: config.url,
+            method: config.method,
+            baseURL: config.baseURL,
+            headers: config.headers
+        });
+        return config;
+    },
+    (error) => {
+        console.error('Request error:', error);
+        return Promise.reject(error);
+    }
+);
+
+// Add response interceptor for error handling
+apiClient.interceptors.response.use(
+    (response) => {
+        console.log('Response:', {
+            status: response.status,
+            data: response.data
+        });
+        return response;
+    },
+    (error) => {
+        console.error('Response error:', error.response || error);
+        return Promise.reject(error);
+    }
+);
 
 // Types
 export interface TokenResponse {
@@ -55,6 +95,7 @@ export interface Conversation {
   description?: string
   created_at: string
   updated_at: string
+  order?: number
   messages: Message[]
   meta_data: Record<string, any>
 }
@@ -148,21 +189,43 @@ async function request<T>(endpoint: string, options: RequestOptions = {}): Promi
   }
 
   try {
+    console.log(`API Request: ${options.method || 'GET'} ${endpoint}`, {
+      hasBody: !!options.body,
+      headers: {
+        contentType: requestHeaders['Content-Type'],
+        accept: requestHeaders['Accept'],
+        hasAuth: !!requestHeaders['Authorization']
+      }
+    });
+    
     const response = await apiClient.request({
       url: endpoint,
       method: options.method || 'GET',
       headers: requestHeaders,
       data: options.body ? JSON.parse(options.body as string) : undefined,
       withCredentials: true
-    })
+    });
 
+    console.log(`API Response: ${response.status} ${endpoint}`, {
+      dataSize: JSON.stringify(response.data).length,
+      status: response.status
+    });
+    
     return response.status === 204 ? undefined as T : response.data as T
   } catch (error) {
     if (error instanceof AxiosError) {
-      const errorDetail = error.response?.data?.detail || error.message
-      throw new APIError(errorDetail, error.response?.status || 500)
+      console.error(`API Error: ${options.method || 'GET'} ${endpoint}`, {
+        status: error.response?.status,
+        statusText: error.response?.statusText,
+        data: error.response?.data,
+        message: error.message
+      });
+      
+      const errorDetail = error.response?.data?.detail || error.message;
+      throw new APIError(errorDetail, error.response?.status || 500);
     }
-    throw error
+    console.error(`Non-Axios API Error: ${endpoint}`, error);
+    throw error;
   }
 }
 
@@ -236,6 +299,13 @@ export const api = {
         body: JSON.stringify(data),
         requiresAuth: true
       }),
+      
+    updateConversationOrder: (orderUpdates: { id: string, order: number }[]): Promise<Conversation[]> =>
+      request(`/chat/conversations/order`, {
+        method: 'POST',
+        body: JSON.stringify(orderUpdates),
+        requiresAuth: true
+      }),
 
     sendMessage: async (
       conversationId: string,
@@ -289,8 +359,16 @@ export const api = {
               if (jsonStr) {
                 const data = JSON.parse(jsonStr)
                 if (data.text) {
-                  fullResponse += data.text
-                  if (onChunk) onChunk(data.text)
+                  // Check for special completion marker
+                  if (data.text === '__STREAM_COMPLETE__') {
+                    console.log('Stream completion marker received from server')
+                    if (onChunk) {
+                      onChunk('__STREAM_COMPLETE__')
+                    }
+                  } else {
+                    fullResponse += data.text
+                    if (onChunk) onChunk(data.text)
+                  }
                 }
               }
             } catch (error) {
@@ -308,8 +386,16 @@ export const api = {
           if (jsonStr) {
             const data = JSON.parse(jsonStr)
             if (data.text) {
-              fullResponse += data.text
-              if (onChunk) onChunk(data.text)
+              // Check for special completion marker in final chunk
+              if (data.text === '__STREAM_COMPLETE__') {
+                console.log('Stream completion marker received from server in final chunk')
+                if (onChunk) {
+                  onChunk('__STREAM_COMPLETE__')
+                }
+              } else {
+                fullResponse += data.text
+                if (onChunk) onChunk(data.text)
+              }
             }
           }
         } catch (error) {
@@ -902,6 +988,35 @@ export const api = {
   admin: {
     cleanDatabase: (): Promise<{ message: string; details: string }> =>
       request('/admin/clean-database', {
+        method: 'POST',
+        requiresAuth: true
+      }),
+  },
+  
+  dbManagement: {
+    // Get database statistics
+    getStatistics: (): Promise<any> =>
+      request('/db-management/stats', { requiresAuth: true }),
+      
+    // Backup management
+    createBackup: (): Promise<{ success: boolean; message: string }> =>
+      request('/db-management/backups', {
+        method: 'POST',
+        requiresAuth: true
+      }),
+      
+    listBackups: (): Promise<any[]> =>
+      request('/db-management/backups', { requiresAuth: true }),
+      
+    // Conversation archiving
+    archiveConversation: (conversationId: string): Promise<{ success: boolean; message: string }> =>
+      request(`/db-management/conversations/${conversationId}/archive`, {
+        method: 'POST',
+        requiresAuth: true
+      }),
+      
+    restoreConversation: (conversationId: string): Promise<{ success: boolean; message: string }> =>
+      request(`/db-management/conversations/${conversationId}/restore`, {
         method: 'POST',
         requiresAuth: true
       }),

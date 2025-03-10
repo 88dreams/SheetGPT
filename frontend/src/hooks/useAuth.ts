@@ -174,10 +174,17 @@ export function useAuth() {
   }
 
   useEffect(() => {
-    // Only run the initial auth check once
-    if (!initialAuthCheckDone.current) {
-      checkAuthStatus(true)
-    }
+    // Always run the auth check on mount
+    // This ensures the auth state is correctly initialized after page refresh
+    console.log('Running initial auth check on component mount');
+    
+    // Set loading state immediately
+    setAuthState(prev => ({ ...prev, isLoading: true }));
+    
+    // Run auth check with slight delay to ensure UI shows loading state
+    setTimeout(() => {
+      checkAuthStatus(true);
+    }, 100);
   }, [])
 
   const login = async (email: string, password: string) => {
@@ -185,43 +192,54 @@ export function useAuth() {
     setAuthState(prev => ({ ...prev, isLoading: true }))
     
     try {
-      const response = await api.auth.login({ email, password })
+      console.log('Sending login request to API...');
+      const response = await api.auth.login({ email, password });
       console.log('Login successful, token received:', {
         tokenLength: response.access_token.length,
         expiresIn: response.expires_in,
         timestamp: new Date().toISOString()
-      })
+      });
       
       // Set the token in localStorage
-      localStorage.setItem('auth_token', response.access_token)
+      localStorage.setItem('auth_token', response.access_token);
       
       // Update auth state directly here
-      const user = await api.auth.me()
-      if (isMounted.current) {
-        setAuthState({
-          user,
-          isAuthenticated: true,
-          isLoading: false,
-          isReady: true
-        })
-        lastAuthCheck.current = Date.now()
+      try {
+        console.log('Fetching user data...');
+        const user = await api.auth.me();
+        console.log('User data received:', { email: user.email, timestamp: new Date().toISOString() });
+        
+        if (isMounted.current) {
+          setAuthState({
+            user,
+            isAuthenticated: true,
+            isLoading: false,
+            isReady: true
+          });
+          lastAuthCheck.current = Date.now();
+        }
+      } catch (userError) {
+        console.error('Error fetching user data after login:', userError);
+        // Still return true since login was successful even if getting user data failed
       }
       
-      return true
+      return true;
     } catch (error) {
       console.error('Login failed:', {
         error,
+        errorMessage: error instanceof Error ? error.message : 'Unknown error',
+        errorType: error instanceof Error ? error.constructor.name : typeof error,
         timestamp: new Date().toISOString()
-      })
+      });
       
       if (isMounted.current) {
-        localStorage.removeItem('auth_token')
+        localStorage.removeItem('auth_token');
         setAuthState(prev => ({ 
           ...prev, 
           isLoading: false,
           isAuthenticated: false,
           user: null
-        }))
+        }));
       }
       return false
     }

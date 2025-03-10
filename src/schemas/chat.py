@@ -48,6 +48,7 @@ class ConversationResponse(BaseModel):
     user_id: UUID
     created_at: datetime
     updated_at: datetime
+    order: Optional[int] = None
     messages: List[MessageResponse]
     meta_data: Dict
 
@@ -73,6 +74,7 @@ class ConversationListItem(BaseModel):
     user_id: UUID
     created_at: datetime
     updated_at: datetime
+    order: Optional[int] = None
     meta_data: Dict
 
     class Config:
@@ -89,4 +91,9 @@ class ConversationList(BaseModel):
     items: List[ConversationListItem]
     total: int
     skip: int
-    limit: int 
+    limit: int
+
+class ConversationOrderUpdate(BaseModel):
+    """Schema for updating conversation order."""
+    id: UUID
+    order: int 

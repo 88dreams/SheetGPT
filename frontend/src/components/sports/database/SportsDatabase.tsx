@@ -14,22 +14,11 @@ import EntityActions from './EntityActions';
 // @ts-ignore
 import { FaFileExport } from 'react-icons/fa';
 import { useSportsDatabase } from './SportsDatabaseContext';
+import { ArrowDownTrayIcon } from '@heroicons/react/24/outline';
 
 const SportsDatabase: React.FC = () => {
   const { isAuthenticated, isReady } = useAuth();
   const navigate = useNavigate();
-
-  // Create page actions
-  const pageActions = (
-    <div className="flex gap-2">
-      <button
-        className="px-3 py-1 text-sm font-medium bg-indigo-600 text-white rounded hover:bg-indigo-700 flex items-center"
-        onClick={() => navigate('/export')}
-      >
-        <FaFileExport className="mr-2" /> Export
-      </button>
-    </div>
-  );
 
   if (!isReady) {
     return (
@@ -41,29 +30,22 @@ const SportsDatabase: React.FC = () => {
   }
 
   return (
-    <SportsDatabaseProvider>
-      <PageContainer
-        title="Sports Database"
-        description="Manage and explore sports entities and relationships"
-        actions={pageActions}
-      >
-        <EntityTypeSelector />
-
+    <div className="container mx-auto px-4 py-6">
+      <SportsDatabaseProvider>
         <div className="content-card">
-          <div className="content-card-title grid grid-cols-3 items-center">
-            <div className="text-left">Entity List</div>
-            <ViewModeSelector />
-            <div className="text-right"></div> {/* Empty div for grid spacing */}
+          <EntityTypeSelector />
+          
+          <div className="mt-8">
+            <div className="flex justify-center items-center mb-4">
+              <ViewModeSelector />
+            </div>
+            <SportsDatabaseContent />
           </div>
-          
-          <EntityActions />
-          
-          <SportsDatabaseContent />
           
           <EntityFilterWrapper />
         </div>
-      </PageContainer>
-    </SportsDatabaseProvider>
+      </SportsDatabaseProvider>
+    </div>
   );
 };
 

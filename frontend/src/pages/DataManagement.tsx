@@ -14,6 +14,8 @@ import { FaTrash, FaFileExport } from 'react-icons/fa'
 const DataManagement: React.FC = () => {
   const [searchParams] = useSearchParams()
   const messageId = searchParams.get('message')
+  const isExtracted = searchParams.get('extracted') === 'true'
+  const [extractedData, setExtractedData] = useState<any>(null)
   const [selectedDataId, setSelectedDataId] = useState<string | null>(null)
   const [isVerifyingData, setIsVerifyingData] = useState(false)
   const [verificationAttempts, setVerificationAttempts] = useState(0)
@@ -37,10 +39,49 @@ const DataManagement: React.FC = () => {
     retryDelay: attemptIndex => Math.min(1000 * 2 ** attemptIndex, 30000)
   })
 
-  // Update data flow when component mounts
+  // Update data flow when component mounts - with useCallback this should be stable
+  // Only run once on mount
   useEffect(() => {
     setDestination('data')
-  }, [setDestination])
+  }, [])
+  
+  // Handle extracted data from session storage - separate effect to avoid loops
+  useEffect(() => {
+    // Check for preview data first (higher priority)
+    try {
+      const previewData = sessionStorage.getItem('preview_data')
+      if (previewData) {
+        console.log('Found preview data in storage, loading...')
+        const parsedData = JSON.parse(previewData)
+        setExtractedData(parsedData)
+        setTimeout(() => {
+          showNotification('success', 'Showing extracted data preview')
+        }, 100)
+        
+        // Clear it after loading to prevent showing on refresh
+        sessionStorage.removeItem('preview_data')
+        return
+      }
+      
+      // Fall back to checking for extraction params
+      if (isExtracted && messageId) {
+        const storedData = sessionStorage.getItem('latest_extracted_data')
+        if (storedData) {
+          const parsedData = JSON.parse(storedData)
+          setExtractedData(parsedData)
+          setTimeout(() => {
+            showNotification('success', 'Data loaded from extraction')
+          }, 100)
+          
+          // Clear it after loading
+          // sessionStorage.removeItem('latest_extracted_data')
+        }
+      }
+    } catch (error) {
+      console.error('Error loading data from session storage:', error)
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []) // Empty dependency array - only run once on mount
 
   // Query for specific message data when messageId is present
   const {
@@ -257,6 +298,49 @@ const DataManagement: React.FC = () => {
         <LoadingSpinner />
       ) : allDataError ? (
         <div className="text-red-500">Error loading data</div>
+      ) : extractedData ? (
+        <div className="p-4">
+          <div className="bg-blue-50 border-l-4 border-blue-500 p-4 mb-4">
+            <h3 className="font-medium text-blue-800">Extracted Data Preview</h3>
+            <p className="text-sm text-blue-600 mt-1">
+              This data is not stored in the database due to a backend issue. You can view it here, but it won't be permanently saved.
+            </p>
+          </div>
+          
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gray-50">
+                <tr>
+                  {extractedData.headers && extractedData.headers.map((header: string) => (
+                    <th key={header} scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      {header}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {extractedData.rows && extractedData.rows.map((row: any, index: number) => (
+                  <tr key={index}>
+                    {extractedData.headers && extractedData.headers.map((header: string) => (
+                      <td key={`${index}-${header}`} className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        {typeof row === 'object' ? row[header] : row[extractedData.headers.indexOf(header)]}
+                      </td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          
+          <div className="flex justify-end mt-4">
+            <button 
+              className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 shadow"
+              onClick={() => setExtractedData(null)}
+            >
+              Close Preview
+            </button>
+          </div>
+        </div>
       ) : structuredData && structuredData.length > 0 && selectedDataId ? (
         <DataTable dataId={selectedDataId} />
       ) : (

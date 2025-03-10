@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
 import { useNotification } from '../contexts/NotificationContext'
@@ -6,12 +6,25 @@ import LoadingSpinner from '../components/common/LoadingSpinner'
 
 export default function Register() {
   const navigate = useNavigate()
-  const { register } = useAuth()
+  const { register, isAuthenticated, isLoading: authLoading } = useAuth()
   const { showNotification } = useNotification()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
   const [isLoading, setIsLoading] = useState(false)
+  const [rendered, setRendered] = useState(false)
+  
+  // Set rendered to true after component mounts to ensure hydration is complete
+  useEffect(() => {
+    setRendered(true)
+  }, [])
+  
+  // Redirect to chat if already authenticated
+  useEffect(() => {
+    if (isAuthenticated && rendered) {
+      navigate('/chat')
+    }
+  }, [isAuthenticated, navigate, rendered])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -42,6 +55,15 @@ export default function Register() {
     } finally {
       setIsLoading(false)
     }
+  }
+
+  // Show loading screen if authentication is being checked
+  if (authLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <LoadingSpinner size="large" />
+      </div>
+    );
   }
 
   return (

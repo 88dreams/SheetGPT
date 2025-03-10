@@ -37,6 +37,7 @@ const ExportDialog: React.FC<ExportDialogProps> = ({ isOpen, onClose, dataId }) 
   const [spreadsheetName, setSpreadsheetName] = useState<string>('')
   const [exportMode, setExportMode] = useState<'new' | 'existing'>('new')
   const [selectedSpreadsheetId, setSelectedSpreadsheetId] = useState<string>('')
+  const [includeRelationships, setIncludeRelationships] = useState(false)
   const { showNotification } = useNotification()
   const [authStatus, setAuthStatus] = useState<'checking' | 'authenticated' | 'unauthenticated'>('checking')
 
@@ -310,6 +311,22 @@ const ExportDialog: React.FC<ExportDialogProps> = ({ isOpen, onClose, dataId }) 
                   ))}
                 </select>
               )}
+            </div>
+
+            {/* Add relationship option */}
+            <div className="mb-6">
+              <h3 className="text-sm font-medium text-gray-700 mb-2">
+                Export Options
+              </h3>
+              <label className="flex items-center text-sm text-gray-600">
+                <input
+                  type="checkbox"
+                  checked={includeRelationships}
+                  onChange={(e) => setIncludeRelationships(e.target.checked)}
+                  className="mr-2"
+                />
+                Include relationships in export
+              </label>
             </div>
 
             {/* Preview */}

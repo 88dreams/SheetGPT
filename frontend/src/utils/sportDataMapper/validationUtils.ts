@@ -86,11 +86,17 @@ export const validateEntityData = (entityType: EntityType, data: Record<string, 
         host_broadcaster_id: data.host_broadcaster_id ? 'Present' : 'N/A'
       });
       
-      // Check if capacity is a valid number if present
+      // Clean and validate capacity if present
       if (data.capacity !== undefined && data.capacity !== null) {
-        if (isNaN(Number(data.capacity))) {
+        // Remove non-numeric characters before validation
+        const cleanedCapacity = String(data.capacity).replace(/[^\d]/g, '');
+        const capacityNum = parseInt(cleanedCapacity);
+        if (isNaN(capacityNum)) {
           errors.push('Capacity must be a number');
           console.warn(`Stadium validation error: Capacity must be a number, got: ${data.capacity}`);
+        } else {
+          // Update the data with the cleaned capacity
+          data.capacity = capacityNum;
         }
       }
       

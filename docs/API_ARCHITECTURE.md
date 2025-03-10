@@ -363,4 +363,101 @@ The API implements a flexible entity reference system that balances user experie
 3. **Error Handling**
    - Clear error messages for validation issues
    - Graceful handling of missing references
-   - Detailed logging for debugging 
+   - Detailed logging for debugging
+
+## Chat System Architecture
+
+### Chat Service Implementation
+
+The chat service is implemented with the following key features:
+
+```python
+class ChatService:
+    def __init__(self, db: AsyncSession):
+        self.db = db
+        self.client = AsyncOpenAI()  # GPT-4 Turbo integration
+        self.model = "gpt-4-turbo-preview"
+```
+
+#### Key Components:
+
+1. **Message Streaming**
+   - Real-time response streaming
+   - Chunked message processing
+   - Search integration
+   - Buffer management
+
+2. **Web Search Integration**
+   - DuckDuckGo API integration
+   - Multiple retry attempts
+   - Error handling
+   - Result formatting
+
+3. **Structured Data Processing**
+   - Schema validation
+   - Data extraction
+   - JSON formatting
+   - Database persistence
+
+4. **Conversation Management**
+   - Message history tracking
+   - Context maintenance
+   - User session management
+   - Metadata handling
+
+### API Endpoints
+
+#### Chat Routes
+```python
+@router.post("/conversations/{conversation_id}/messages")
+async def create_message(
+    conversation_id: UUID,
+    message: MessageCreate,
+    current_user: User = Depends(get_current_user),
+    chat_service: ChatService = Depends(get_chat_service)
+) -> StreamingResponse:
+    return StreamingResponse(
+        chat_service.get_chat_response(conversation_id, message.content),
+        media_type="text/event-stream"
+    )
+```
+
+### Error Handling
+
+1. **Search Errors**
+   - Retry mechanism
+   - Timeout handling
+   - Clear error messages
+   - Fallback options
+
+2. **Stream Processing**
+   - Buffer management
+   - Connection handling
+   - State preservation
+   - Error recovery
+
+3. **Data Validation**
+   - Schema verification
+   - Type checking
+   - Required fields
+   - Relationship validation
+
+### Performance Considerations
+
+1. **Streaming Optimization**
+   - Chunked processing
+   - Buffer size management
+   - Memory efficiency
+   - Connection pooling
+
+2. **Search Performance**
+   - Retry limits
+   - Timeout configuration
+   - Result caching
+   - Query optimization
+
+3. **Database Operations**
+   - Async processing
+   - Transaction management
+   - Connection pooling
+   - Query optimization 

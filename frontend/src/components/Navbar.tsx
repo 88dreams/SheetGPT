@@ -10,13 +10,35 @@ export default function Navbar() {
     return location.pathname === path ? 'text-blue-600' : 'text-gray-700'
   }
 
+  const getPageTitle = () => {
+    const path = location.pathname
+    switch (path) {
+      case '/chat':
+        return 'Chat'
+      case '/data':
+        return 'Data Management'
+      case '/sports':
+        return 'Sports DB'
+      case '/export':
+        return 'Export'
+      case '/settings':
+        return 'Settings'
+      default:
+        return ''
+    }
+  }
+
+  const pageTitle = getPageTitle()
+
   return (
     <nav className="bg-white shadow">
       <div className="container mx-auto px-4">
         <div className="flex justify-between h-16">
           <div className="flex">
             <Link to="/" className="flex items-center">
-              <span className="text-xl font-bold text-gray-800">SheetGPT</span>
+              <span className="text-xl font-bold text-gray-800">
+                SheetGPT{pageTitle && <span className="text-gray-500"> - {pageTitle}</span>}
+              </span>
             </Link>
           </div>
 

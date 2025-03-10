@@ -1,18 +1,34 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { useSportsDatabase } from './SportsDatabaseContext';
 import LoadingSpinner from '../../common/LoadingSpinner';
 import { EntitySummary } from './SportsDatabaseContext';
+import { EyeIcon } from '@heroicons/react/24/outline';
+import SportsDatabaseService, { EntityType } from '../../../services/SportsDatabaseService';
+
+interface Entity {
+  id: string;
+  name: string;
+  updated_at: string;
+  [key: string]: unknown;
+}
+
+interface EntityMetadata {
+  count: number;
+  lastUpdated: string | null;
+}
 
 // Define the entity types with their descriptions
-const ENTITY_TYPES = [
+const ENTITY_TYPES: Array<{ id: EntityType; name: string; description: string }> = [
   { id: 'league', name: 'Leagues', description: 'Sports leagues' },
   { id: 'team', name: 'Teams', description: 'Sports teams' },
   { id: 'player', name: 'Players', description: 'Team players' },
   { id: 'game', name: 'Games', description: 'Scheduled games' },
   { id: 'stadium', name: 'Stadiums', description: 'Venues and stadiums' },
   { id: 'broadcast', name: 'Broadcast Rights', description: 'Media broadcast rights' },
-  { id: 'production', name: 'Production Services', description: 'Production services' },
-  { id: 'brand', name: 'Brand Relationships', description: 'Sponsorships and partnerships' }
+  { name: 'Production Services', id: 'production', description: 'Production services' },
+  { id: 'brand', name: 'Brands', description: 'Brand information' },
+  { id: 'game_broadcast', name: 'Game Broadcasts', description: 'Game broadcast details' },
+  { id: 'league_executive', name: 'League Executives', description: 'League executive personnel' }
 ];
 
 interface GlobalEntityViewProps {
@@ -20,46 +36,82 @@ interface GlobalEntityViewProps {
 }
 
 const GlobalEntityView: React.FC<GlobalEntityViewProps> = ({ className = '' }) => {
+  const [entityMetadata, setEntityMetadata] = useState<Record<string, EntityMetadata>>({});
   const { 
     selectedEntityType, 
     setSelectedEntityType, 
-    entities, 
     isLoading, 
     handleSort, 
     sortField, 
     sortDirection, 
-    renderSortIcon 
+    renderSortIcon,
+    entityCounts,
+    fetchEntityCounts,
+    setViewMode
   } = useSportsDatabase();
+
+  // Fetch entity counts and last updated timestamps when component mounts
+  useEffect(() => {
+    const fetchAllEntityMetadata = async () => {
+      try {
+        const metadata: Record<string, EntityMetadata> = {};
+        
+        for (const entityType of ENTITY_TYPES) {
+          const result = await SportsDatabaseService.getEntities({
+            entityType: entityType.id,
+            page: 1,
+            limit: 1,
+            sortBy: 'updated_at',
+            sortDirection: 'desc'
+          });
+          
+          metadata[entityType.id] = {
+            count: entityCounts[entityType.id as keyof typeof entityCounts] || 0,
+            lastUpdated: result.items?.[0]?.updated_at || null
+          };
+        }
+        
+        setEntityMetadata(metadata);
+      } catch (error) {
+        console.error('Error fetching entity metadata:', error);
+      }
+    };
+
+    fetchEntityCounts();
+    fetchAllEntityMetadata();
+  }, [entityCounts]);
+
+  // Handle view change
+  const handleViewEntity = (entityId: EntityType) => {
+    setSelectedEntityType(entityId);
+    setViewMode('entity');
+  };
 
   // Generate summary data for all entity types
   const generateEntitySummaries = () => {
     return ENTITY_TYPES.map(entityType => {
-      // Get entities of this type
-      const entitiesOfType = entities && selectedEntityType === entityType.id ? entities : [];
-      const count = entitiesOfType?.length || 0;
-      
-      // Get the most recently updated entity
-      const mostRecentEntity = entitiesOfType?.length > 0 
-        ? entitiesOfType.reduce((latest, current) => {
-            return new Date(current.updated_at) > new Date(latest.updated_at) ? current : latest;
-          }, entitiesOfType[0])
-        : null;
+      const metadata = entityMetadata[entityType.id] || { count: 0, lastUpdated: null };
       
       return {
-        id: entityType.id,
+        id: entityType.id as EntityType,
         name: entityType.name,
-        count: count,
-        lastUpdated: mostRecentEntity ? new Date(mostRecentEntity.updated_at).getTime() : 0,
-        entityType: entityType.name,
-        mostRecentEntity
+        count: entityCounts[entityType.id as keyof typeof entityCounts] || 0,
+        lastUpdated: metadata.lastUpdated,
+        entityType: entityType.name
       };
     });
   };
 
   // Sort entity summaries
-  const sortedSummaries = generateEntitySummaries().sort((a: EntitySummary, b: EntitySummary) => {
-    const aValue = a[sortField as keyof EntitySummary] ?? '';
-    const bValue = b[sortField as keyof EntitySummary] ?? '';
+  const sortedSummaries = generateEntitySummaries().sort((a, b) => {
+    const aValue = a[sortField as keyof typeof a] ?? '';
+    const bValue = b[sortField as keyof typeof b] ?? '';
+    
+    if (sortField === 'lastUpdated') {
+      const aDate = aValue ? new Date(aValue).getTime() : 0;
+      const bDate = bValue ? new Date(bValue).getTime() : 0;
+      return sortDirection === 'asc' ? aDate - bDate : bDate - aDate;
+    }
     
     if (aValue < bValue) return sortDirection === 'asc' ? -1 : 1;
     if (aValue > bValue) return sortDirection === 'asc' ? 1 : -1;
@@ -125,17 +177,18 @@ const GlobalEntityView: React.FC<GlobalEntityViewProps> = ({ className = '' }) =
                     {item.name}
                   </td>
                   <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-600">
-                    {selectedEntityType === item.id ? item.count : '—'}
+                    {item.count}
                   </td>
                   <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-600">
-                    {item.mostRecentEntity ? new Date(item.mostRecentEntity.updated_at).toLocaleString() : '—'}
+                    {item.lastUpdated ? new Date(item.lastUpdated).toLocaleString() : '—'}
                   </td>
                   <td className="px-3 py-2 whitespace-nowrap text-sm">
                     <button
-                      className="text-indigo-600 hover:text-indigo-800"
-                      onClick={() => setSelectedEntityType(item.id as any)}
+                      className="text-indigo-600 hover:text-indigo-800 p-1 rounded-full hover:bg-indigo-50"
+                      onClick={() => handleViewEntity(item.id as EntityType)}
+                      title="View details"
                     >
-                      View
+                      <EyeIcon className="h-5 w-5" />
                     </button>
                   </td>
                 </tr>

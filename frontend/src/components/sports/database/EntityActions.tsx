@@ -12,8 +12,6 @@ const EntityActions: React.FC<EntityActionsProps> = ({ className = '' }) => {
     selectedEntityType,
     entities,
     getSelectedEntityCount,
-    includeRelationships,
-    setIncludeRelationships,
     isExporting,
     handleExportToSheets
   } = useSportsDatabase();
@@ -38,29 +36,6 @@ const EntityActions: React.FC<EntityActionsProps> = ({ className = '' }) => {
       <h2 className="text-lg font-semibold">
         {getEntityTypeName()}
       </h2>
-      <div className="flex items-center">
-        <label className="flex items-center text-sm text-gray-600 mr-4">
-          <input
-            type="checkbox"
-            checked={includeRelationships}
-            onChange={(e) => setIncludeRelationships(e.target.checked)}
-            className="mr-2"
-          />
-          Include relationships in export
-        </label>
-        <button
-          onClick={() => handleExportToSheets(entities as any[])}
-          disabled={getSelectedEntityCount() === 0 || isExporting}
-          className={`px-4 py-2 rounded text-sm font-medium flex items-center ${
-            getSelectedEntityCount() > 0 && !isExporting
-              ? 'bg-indigo-600 hover:bg-indigo-700 text-white'
-              : 'bg-gray-200 text-gray-500 cursor-not-allowed'
-          }`}
-        >
-          <FaFileExport className="mr-2" />
-          {isExporting ? 'Exporting...' : 'Export to Sheets'}
-        </button>
-      </div>
     </div>
   );
 };

@@ -89,6 +89,10 @@ interface SportsDatabaseContextType {
   pageSize: number;
   setPageSize: (size: number) => void;
   totalItems: number;
+  
+  // Entity counts
+  entityCounts: Record<EntityType, number>;
+  fetchEntityCounts: () => Promise<void>;
 }
 
 // Create the context with a default undefined value
@@ -120,6 +124,18 @@ export const SportsDatabaseProvider: React.FC<SportsDatabaseProviderProps> = ({ 
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
   const [totalItems, setTotalItems] = useState(0);
+  const [entityCounts, setEntityCounts] = useState<Record<EntityType, number>>({
+    league: 0,
+    team: 0,
+    player: 0,
+    game: 0,
+    stadium: 0,
+    broadcast: 0,
+    production: 0,
+    brand: 0,
+    game_broadcast: 0,
+    league_executive: 0
+  });
 
   // Update data flow when component mounts
   useEffect(() => {
@@ -620,6 +636,45 @@ export const SportsDatabaseProvider: React.FC<SportsDatabaseProviderProps> = ({ 
     }
   };
 
+  // Function to fetch counts for all entity types
+  const fetchEntityCounts = async () => {
+    try {
+      const counts: Record<EntityType, number> = {
+        league: 0,
+        team: 0,
+        player: 0,
+        game: 0,
+        stadium: 0,
+        broadcast: 0,
+        production: 0,
+        brand: 0,
+        game_broadcast: 0,
+        league_executive: 0
+      };
+
+      // Fetch counts for each entity type
+      for (const entityType of Object.keys(counts) as EntityType[]) {
+        const result = await SportsDatabaseService.getEntities({
+          entityType,
+          page: 1,
+          limit: 1
+        });
+        counts[entityType] = result.total || 0;
+      }
+
+      setEntityCounts(counts);
+    } catch (error) {
+      console.error('Error fetching entity counts:', error);
+    }
+  };
+
+  // Fetch counts when component mounts and when view mode changes to global
+  useEffect(() => {
+    if (viewMode === 'global') {
+      fetchEntityCounts();
+    }
+  }, [viewMode]);
+
   // Create the context value object
   const contextValue: SportsDatabaseContextType = {
     selectedEntityType,
@@ -661,6 +716,8 @@ export const SportsDatabaseProvider: React.FC<SportsDatabaseProviderProps> = ({ 
     pageSize,
     setPageSize,
     totalItems,
+    entityCounts,
+    fetchEntityCounts,
   };
 
   return (

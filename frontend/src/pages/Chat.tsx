@@ -580,12 +580,40 @@ const Chat: React.FC = () => {
           onLoadMore={handleLoadMore}
           total={totalConversations}
           onReorder={(dragIndex, hoverIndex) => {
-            // This would typically trigger a backend update to save the order
-            // For now, we'll just log the reordering
-            console.log(`Reordered conversation from position ${dragIndex} to ${hoverIndex}`);
+            // Create an array of all conversations with their updated order values
+            const updatedConversations = [...conversations];
+            const [removed] = updatedConversations.splice(dragIndex, 1);
+            updatedConversations.splice(hoverIndex, 0, removed);
             
-            // In a full implementation, we would make an API call here to update the order in the database
-            // api.chat.updateConversationOrder(dragIndex, hoverIndex);
+            // Map to the format expected by the API, assigning order based on new position
+            const orderUpdates = updatedConversations.map((conv, index) => ({
+              id: conv.id,
+              order: index
+            }));
+            
+            // Call the API to update orders in the database
+            console.log(`Updating conversation order from position ${dragIndex} to ${hoverIndex}`);
+            
+            // Use mutation to update the orders in the database
+            const updateMutation = api.chat.updateConversationOrder(orderUpdates);
+            
+            // Update the local cache directly to avoid having to refetch
+            updateMutation.then(() => {
+              queryClient.setQueryData(['conversations'], (old: any) => {
+                if (!old?.pages) return old;
+                
+                return {
+                  ...old,
+                  pages: old.pages.map((page: any) => ({
+                    ...page,
+                    items: page.items.map((c: Conversation) => {
+                      const orderUpdate = orderUpdates.find(u => u.id === c.id);
+                      return orderUpdate ? { ...c, order: orderUpdate.order } : c;
+                    })
+                  }))
+                };
+              });
+            });
           }}
         />
       </div>

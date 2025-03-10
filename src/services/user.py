@@ -44,15 +44,26 @@ class UserService:
 
     async def authenticate_user(self, user_data: UserLogin) -> TokenResponse:
         """Authenticate user and return token."""
+        import logging
+        logger = logging.getLogger("auth")
+        
+        logger.info(f"Authentication attempt for email: {user_data.email}")
+        
         user = await self.get_user_by_email(user_data.email)
         
         if not user:
+            logger.warning(f"User not found: {user_data.email}")
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Incorrect email or password"
             )
         
-        if not verify_password(user_data.password, user.hashed_password):
+        logger.info(f"User found, verifying password for: {user_data.email}")
+        password_verification = verify_password(user_data.password, user.hashed_password)
+        logger.info(f"Password verification result: {password_verification}")
+        
+        if not password_verification:
+            logger.warning(f"Invalid password for user: {user_data.email}")
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Incorrect email or password"

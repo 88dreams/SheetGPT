@@ -134,32 +134,71 @@ export const enhancedMapToDatabaseFieldNames = async (
   if (entityType === 'stadium') {
     console.log(`Processing stadium entity with required fields: name=${basicMapped.name}, city=${basicMapped.city}, country=${basicMapped.country}`);
     
-    // Ensure required fields are present with default values if needed
-    if (!basicMapped.name) basicMapped.name = 'Unnamed Stadium';
-    if (!basicMapped.city) basicMapped.city = 'Unknown City';
-    if (!basicMapped.country) basicMapped.country = 'Unknown Country';
-    
     // Ensure capacity is a number if present
     if (basicMapped.capacity !== undefined && basicMapped.capacity !== null) {
-      // Remove non-numeric characters (except for decimal points) before parsing
-      const cleanedCapacity = String(basicMapped.capacity).replace(/[^\d.]/g, '');
+      // Remove non-numeric characters before parsing
+      const cleanedCapacity = String(basicMapped.capacity).replace(/[^\d]/g, '');
       const capacityNum = parseInt(cleanedCapacity);
       if (!isNaN(capacityNum)) {
         basicMapped.capacity = capacityNum;
+        console.log(`Cleaned stadium capacity from ${basicMapped.capacity} to ${capacityNum}`);
       } else {
         // If capacity can't be parsed as a number, set it to null
+        console.warn(`Invalid stadium capacity value: ${basicMapped.capacity}, setting to null`);
         basicMapped.capacity = null;
       }
     }
-    
+
     // Remove any unexpected fields that might cause validation errors
-    const validStadiumFields = ['name', 'city', 'state', 'country', 'capacity', 'owner', 'naming_rights_holder', 'host_broadcaster_id'];
+    const validStadiumFields = [
+      'name', 
+      'city', 
+      'state', 
+      'country', 
+      'capacity', 
+      'owner', 
+      'naming_rights_holder', 
+      'host_broadcaster_id',
+      'host_broadcaster'
+    ];
     Object.keys(basicMapped).forEach(key => {
       if (!validStadiumFields.includes(key)) {
         console.warn(`Removing unexpected stadium field: ${key}`);
         delete basicMapped[key];
       }
     });
+
+    // Check if stadium already exists
+    try {
+      console.log(`Checking if stadium "${basicMapped.name}" already exists`);
+      const existingStadiums = await apiClient.sports.getStadiums();
+      const existingStadium = existingStadiums.find((s: { name: string; id: string }) => s.name === basicMapped.name);
+      
+      if (existingStadium) {
+        console.log(`Found existing stadium with name "${basicMapped.name}", updating instead of creating`);
+        // Create update payload with only changed fields
+        const updatePayload = {
+          city: basicMapped.city,
+          state: basicMapped.state,
+          country: basicMapped.country,
+          capacity: basicMapped.capacity,
+          owner: basicMapped.owner,
+          naming_rights_holder: basicMapped.naming_rights_holder,
+          host_broadcaster: basicMapped.host_broadcaster,
+          host_broadcaster_id: basicMapped.host_broadcaster_id
+        };
+        // Update the existing stadium with new data
+        const updatedStadium = await apiClient.sports.updateStadium(existingStadium.id, updatePayload);
+        return updatedStadium;
+      }
+    } catch (error) {
+      console.error('Error checking for existing stadium:', error);
+    }
+    
+    // Ensure required fields are present with default values if needed
+    if (!basicMapped.name) basicMapped.name = 'Unnamed Stadium';
+    if (!basicMapped.city) basicMapped.city = 'Unknown City';
+    if (!basicMapped.country) basicMapped.country = 'Unknown Country';
   }
   
   // For league entity, ensure data is properly formatted

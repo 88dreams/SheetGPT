@@ -72,6 +72,50 @@
   background-color: #fee2e2;
   border-radius: 6px;
   color: #b91c1c;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.data-preview-error-details {
+  margin-top: 8px;
+  font-size: 0.875rem;
+}
+
+.data-preview-error-details-header {
+  margin-bottom: 8px;
+}
+
+.data-preview-error-details-toggle {
+  background: none;
+  border: none;
+  color: #b91c1c;
+  text-decoration: underline;
+  cursor: pointer;
+  padding: 0;
+  font-size: 0.875rem;
+}
+
+.data-preview-error-details-content {
+  background-color: #ffffff;
+  border: 1px solid #fca5a5;
+  border-radius: 4px;
+  padding: 8px;
+  max-height: 200px;
+  overflow-y: auto;
+  font-family: monospace;
+  font-size: 0.8125rem;
+  white-space: pre-wrap;
+}
+
+.data-preview-success {
+  padding: 16px;
+  margin-bottom: 16px;
+  background-color: #dcfce7;
+  border-radius: 6px;
+  color: #166534;
+  display: flex;
+  align-items: center;
 }
 
 .data-preview-table-container {

@@ -275,7 +275,20 @@ const ConversationList: React.FC<ConversationListProps> = ({
   
   // Initialize local conversations from props
   React.useEffect(() => {
-    setLocalConversations(conversations)
+    // Sort conversations by order if available, otherwise keep as is
+    const sortedConversations = [...conversations].sort((a, b) => {
+      // If both have order, sort by order
+      if (a.order !== undefined && b.order !== undefined) {
+        return a.order - b.order
+      }
+      // If only one has order, the one with order comes first
+      if (a.order !== undefined) return -1
+      if (b.order !== undefined) return 1
+      // If neither has order, maintain original order
+      return 0
+    })
+    
+    setLocalConversations(sortedConversations)
   }, [conversations])
   
   // Function to move a conversation from one position to another

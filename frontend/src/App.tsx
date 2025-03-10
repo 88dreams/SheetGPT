@@ -3,6 +3,7 @@ import { Routes, Route, Navigate } from 'react-router-dom'
 import { useAuth } from './hooks/useAuth'
 import { NotificationProvider } from './contexts/NotificationContext'
 import { DataFlowProvider } from './contexts/DataFlowContext'
+import { ChatProvider } from './contexts/ChatContext'
 import Layout from './components/Layout'
 import Login from './pages/Login'
 import Register from './pages/Register'
@@ -22,10 +23,8 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, isLoading, isReady } = useAuth()
   const [showContent, setShowContent] = useState(false)
 
-  // Use an effect to handle the transition
   useEffect(() => {
     if (isReady && isAuthenticated) {
-      // Small delay to ensure smooth transition
       const timer = setTimeout(() => {
         setShowContent(true)
       }, 100)
@@ -35,7 +34,6 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
     }
   }, [isReady, isAuthenticated])
 
-  // Always render a container to prevent remounting
   return (
     <div className="min-h-screen">
       {!isReady || isLoading ? (
@@ -55,35 +53,39 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   )
 }
 
-export default function App() {
+const App: React.FC = () => {
   return (
     <NotificationProvider>
       <DataFlowProvider>
-        <Routes>
-          {/* Public routes */}
-          <Route path="/login" element={<Login />} />
-          <Route path="/register" element={<Register />} />
+        <ChatProvider>
+          <Routes>
+            {/* Public routes */}
+            <Route path="/login" element={<Login />} />
+            <Route path="/register" element={<Register />} />
 
-          {/* Protected routes */}
-          <Route
-            path="/"
-            element={
-              <ProtectedRoute>
-                <Layout />
-              </ProtectedRoute>
-            }
-          >
-            {/* Add nested routes here later */}
-            <Route index element={<Navigate to="/chat" />} />
-            <Route path="chat" element={<Chat />} />
-            <Route path="data" element={<DataManagement />} />
-            <Route path="sports" element={<SportsDatabase />} />
-            <Route path="sports/:entityType/:id" element={<EntityDetail />} />
-            <Route path="export" element={<Export />} />
-            <Route path="settings" element={<Settings />} />
-          </Route>
-        </Routes>
+            {/* Protected routes */}
+            <Route
+              path="/"
+              element={
+                <ProtectedRoute>
+                  <Layout />
+                </ProtectedRoute>
+              }
+            >
+              {/* Add nested routes here later */}
+              <Route index element={<Navigate to="/chat" />} />
+              <Route path="chat" element={<Chat />} />
+              <Route path="data" element={<DataManagement />} />
+              <Route path="sports" element={<SportsDatabase />} />
+              <Route path="sports/:entityType/:id" element={<EntityDetail />} />
+              <Route path="export" element={<Export />} />
+              <Route path="settings" element={<Settings />} />
+            </Route>
+          </Routes>
+        </ChatProvider>
       </DataFlowProvider>
     </NotificationProvider>
   )
-} 
+}
+
+export default App 

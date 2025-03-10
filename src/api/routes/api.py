@@ -1,7 +1,7 @@
 from fastapi import APIRouter
 from typing import Dict
 
-from src.api.routes import auth, chat, export, data_management, sports, admin
+from src.api.routes import auth, chat, export, data_management, sports, admin, db_management
 
 router = APIRouter()
 
@@ -45,6 +45,13 @@ router.include_router(
     admin.router,
     prefix="/admin",
     tags=["Admin"]
+)
+
+# Include database management routes
+router.include_router(
+    db_management.router,
+    prefix="/db-management",
+    tags=["Database Management"]
 )
 
 @router.get("/status")

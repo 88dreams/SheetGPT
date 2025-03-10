@@ -12,7 +12,8 @@ from src.schemas.chat import (
     MessageCreate,
     ChatResponse,
     ConversationList,
-    ConversationListItem
+    ConversationListItem,
+    ConversationOrderUpdate
 )
 from src.services.chat import ChatService
 from src.utils.database import get_db
@@ -103,18 +104,67 @@ async def create_message(
 
         # Create async generator for streaming response
         async def event_generator():
+            import asyncio
+            search_detected = False
+            
             try:
+                # Buffer for collecting chunks during search operations
+                buffer = []
+                is_complete = False
+                
+                # Log the request message details
+                print(f"Processing message from user: {message.content[:100]}...")
+                print(f"Structured format requested: {message.structured_format is not None}")
+                
+                # Process the streaming response
                 async for chunk in chat_service.get_chat_response(
                     conversation_id=conversation_id,
                     user_message=message.content,
                     structured_format=message.structured_format
                 ):
-                    # Ensure chunk is properly escaped for JSON
-                    escaped_chunk = chunk.replace('"', '\\"').replace('\n', '\\n')
-                    yield f'data: {{"text": "{escaped_chunk}"}}\n\n'
+                    # Detect search activity
+                    if "[SEARCH]" in chunk:
+                        search_detected = True
+                        print(f"Search detected in stream: {chunk}")
+                    
+                    # Check for stream end marker
+                    if "[STREAM_END]" in chunk:
+                        # Mark stream as complete
+                        is_complete = True
+                        # Clean the marker from the chunk
+                        chunk = chunk.replace("[STREAM_END]", "")
+                    
+                    # Only send non-empty chunks
+                    if chunk.strip():
+                        # Ensure chunk is properly escaped for JSON
+                        escaped_chunk = chunk.replace('"', '\\"').replace('\n', '\\n')
+                        yield f'data: {{"text": "{escaped_chunk}"}}\n\n'
+                        
+                        # Ensure processing time for the client
+                        if search_detected:
+                            await asyncio.sleep(0.1)
+                    
+                    # If we've found the end marker, send the completion signal and exit
+                    if is_complete:
+                        # Add delay to ensure prior chunks are processed
+                        await asyncio.sleep(1.0)
+                        print(f"Sending stream completion marker")
+                        yield f'data: {{"text": "__STREAM_COMPLETE__"}}\n\n'
+                        # Another delay to ensure completion marker is processed
+                        await asyncio.sleep(1.0)
+                        break
+                        
+                # If we somehow exit the loop without sending completion marker, send it now
+                if not is_complete:
+                    print(f"Loop ended without completion marker, sending completion")
+                    await asyncio.sleep(1.0)
+                    yield f'data: {{"text": "__STREAM_COMPLETE__"}}\n\n'
+                    
             except Exception as e:
                 print(f"Error in event generator: {str(e)}")
                 yield f'data: {{"error": "{str(e)}"}}\n\n'
+                # Also send completion marker in case of error
+                yield f'data: {{"text": "__STREAM_COMPLETE__"}}\n\n'
 
         return StreamingResponse(
             event_generator(),
@@ -240,4 +290,34 @@ async def delete_message(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to delete message: {str(e)}"
+        )
+
+@router.post("/conversations/order", response_model=List[ConversationListItem])
+async def update_conversation_orders(
+    conversation_orders: List[ConversationOrderUpdate],
+    current_user_id: UUID = Depends(get_current_user_id),
+    db: AsyncSession = Depends(get_db)
+) -> List[ConversationListItem]:
+    """Update the order of multiple conversations."""
+    chat_service = ChatService(db)
+    try:
+        # Convert to the format expected by the service
+        order_data = [{"id": item.id, "order": item.order} for item in conversation_orders]
+        
+        # Update the orders
+        updated_conversations = await chat_service.update_multiple_conversation_orders(
+            user_id=current_user_id,
+            conversation_orders=order_data
+        )
+        
+        return [ConversationListItem.model_validate(conv) for conv in updated_conversations]
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=str(e)
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to update conversation orders: {str(e)}"
         ) 

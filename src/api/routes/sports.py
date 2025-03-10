@@ -74,7 +74,12 @@ async def create_league(
     db: AsyncSession = Depends(get_db),
     current_user: Dict = Depends(get_current_user)
 ):
-    """Create a new league."""
+    """Create a new league or update if one with the same name already exists.
+    
+    If a league with the provided name already exists, its information will be updated
+    with any non-null values from the request. This prevents duplicate leagues while
+    allowing updates to existing ones.
+    """
     return await sports_service.create_league(db, league)
 
 @router.get("/leagues/{league_id}", response_model=LeagueResponse)
@@ -130,7 +135,12 @@ async def create_team(
     db: AsyncSession = Depends(get_db),
     current_user: Dict = Depends(get_current_user)
 ):
-    """Create a new team."""
+    """Create a new team or update if one with the same name already exists.
+    
+    If a team with the provided name already exists, its information will be updated
+    with any non-null values from the request. This prevents duplicate teams while
+    allowing updates to existing ones.
+    """
     return await sports_service.create_team(db, team)
 
 @router.get("/teams/{team_id}", response_model=TeamResponse)
@@ -186,7 +196,12 @@ async def create_player(
     db: AsyncSession = Depends(get_db),
     current_user: Dict = Depends(get_current_user)
 ):
-    """Create a new player."""
+    """Create a new player or update if one with the same name already exists.
+    
+    If a player with the provided name already exists, their information will be updated
+    with any non-null values from the request. This prevents duplicate players while
+    allowing updates to existing ones.
+    """
     return await sports_service.create_player(db, player)
 
 @router.get("/players/{player_id}", response_model=PlayerResponse)
@@ -299,7 +314,12 @@ async def create_stadium(
     db: AsyncSession = Depends(get_db),
     current_user: Dict = Depends(get_current_user)
 ):
-    """Create a new stadium."""
+    """Create a new stadium or update if one with the same name already exists.
+    
+    If a stadium with the provided name already exists, its information will be updated
+    with any non-null values from the request. This prevents duplicate stadiums while
+    allowing updates to existing ones.
+    """
     return await sports_service.create_stadium(db, stadium)
 
 @router.get("/stadiums/{stadium_id}", response_model=StadiumResponse)

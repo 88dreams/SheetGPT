@@ -108,8 +108,8 @@ class SportsService:
             "items": [self._model_to_dict(entity) for entity in entities],
             "total": total_count,
             "page": page,
-            "page_size": limit,
-            "total_pages": math.ceil(total_count / limit)
+            "size": limit,
+            "pages": math.ceil(total_count / limit)
         }
 
     def _model_to_dict(self, model: Any) -> Dict[str, Any]:
@@ -126,12 +126,31 @@ class SportsService:
         return result.scalars().all()
 
     async def create_league(self, db: AsyncSession, league: LeagueCreate) -> League:
-        """Create a new league."""
-        db_league = League(**league.dict())
-        db.add(db_league)
-        await db.commit()
-        await db.refresh(db_league)
-        return db_league
+        """Create a new league or update if it already exists."""
+        # Check if a league with the same name already exists
+        existing_league = await db.execute(
+            select(League).where(League.name == league.name)
+        )
+        db_league = existing_league.scalars().first()
+
+        if db_league:
+            # Update existing league
+            for key, value in league.dict().items():
+                if value is not None:  # Only update non-None values
+                    setattr(db_league, key, value)
+        else:
+            # Create new league
+            db_league = League(**league.dict())
+            db.add(db_league)
+        
+        try:
+            await db.commit()
+            await db.refresh(db_league)
+            return db_league
+        except SQLAlchemyError as e:
+            await db.rollback()
+            logger.error(f"Error creating/updating league: {str(e)}")
+            raise
 
     async def get_league(self, db: AsyncSession, league_id: UUID) -> Optional[League]:
         """Get a league by ID."""
@@ -184,20 +203,37 @@ class SportsService:
         return result.scalars().all()
 
     async def create_team(self, db: AsyncSession, team: TeamCreate) -> Team:
-        """Create a new team."""
+        """Create a new team or update if it already exists."""
         # First check if the league exists
         result = await db.execute(select(League).where(League.id == team.league_id))
         league = result.scalars().first()
-        
         if not league:
             raise ValueError(f"League with ID {team.league_id} not found")
         
-        # Create the team
-        db_team = Team(**team.dict())
-        db.add(db_team)
-        await db.commit()
-        await db.refresh(db_team)
-        return db_team
+        # Check if a team with the same name already exists
+        existing_team = await db.execute(
+            select(Team).where(Team.name == team.name)
+        )
+        db_team = existing_team.scalars().first()
+
+        if db_team:
+            # Update existing team
+            for key, value in team.dict().items():
+                if value is not None:  # Only update non-None values
+                    setattr(db_team, key, value)
+        else:
+            # Create new team
+            db_team = Team(**team.dict())
+            db.add(db_team)
+        
+        try:
+            await db.commit()
+            await db.refresh(db_team)
+            return db_team
+        except SQLAlchemyError as e:
+            await db.rollback()
+            logger.error(f"Error creating/updating team: {str(e)}")
+            raise
 
     async def get_team(self, db: AsyncSession, team_id: UUID) -> Optional[Team]:
         """Get a team by ID."""
@@ -266,20 +302,37 @@ class SportsService:
         return result.scalars().all()
 
     async def create_player(self, db: AsyncSession, player: PlayerCreate) -> Player:
-        """Create a new player."""
+        """Create a new player or update if one with the same name already exists."""
         # First check if the team exists
         result = await db.execute(select(Team).where(Team.id == player.team_id))
         team = result.scalars().first()
-        
         if not team:
             raise ValueError(f"Team with ID {player.team_id} not found")
         
-        # Create the player
-        db_player = Player(**player.dict())
-        db.add(db_player)
-        await db.commit()
-        await db.refresh(db_player)
-        return db_player
+        # Check if a player with the same name already exists
+        existing_player = await db.execute(
+            select(Player).where(Player.name == player.name)
+        )
+        db_player = existing_player.scalars().first()
+
+        if db_player:
+            # Update existing player
+            for key, value in player.dict().items():
+                if value is not None:  # Only update non-None values
+                    setattr(db_player, key, value)
+        else:
+            # Create new player
+            db_player = Player(**player.dict())
+            db.add(db_player)
+        
+        try:
+            await db.commit()
+            await db.refresh(db_player)
+            return db_player
+        except SQLAlchemyError as e:
+            await db.rollback()
+            logger.error(f"Error creating/updating player: {str(e)}")
+            raise
 
     async def get_player(self, db: AsyncSession, player_id: UUID) -> Optional[Player]:
         """Get a player by ID."""
@@ -450,26 +503,39 @@ class SportsService:
         return result.scalars().all()
 
     async def create_stadium(self, db: AsyncSession, stadium: StadiumCreate) -> Stadium:
-        """Create a new stadium."""
-        db_stadium = Stadium(
-            name=stadium.name,
-            city=stadium.city,
-            state=stadium.state,
-            country=stadium.country,
-            capacity=stadium.capacity,
-            owner=stadium.owner,
-            naming_rights_holder=stadium.naming_rights_holder,
-            host_broadcaster_id=stadium.host_broadcaster_id
+        """Create a new stadium or update if it already exists."""
+        # Check if a stadium with the same name already exists
+        existing_stadium = await db.execute(
+            select(Stadium).where(Stadium.name == stadium.name)
         )
+        db_stadium = existing_stadium.scalars().first()
+
+        if db_stadium:
+            # Update existing stadium
+            for key, value in stadium.dict().items():
+                if value is not None:  # Only update non-None values
+                    setattr(db_stadium, key, value)
+        else:
+            # Create new stadium
+            db_stadium = Stadium(
+                name=stadium.name,
+                city=stadium.city,
+                state=stadium.state,
+                country=stadium.country,
+                capacity=stadium.capacity,
+                owner=stadium.owner,
+                naming_rights_holder=stadium.naming_rights_holder,
+                host_broadcaster_id=stadium.host_broadcaster_id
+            )
+            db.add(db_stadium)
         
         try:
-            db.add(db_stadium)
             await db.commit()
             await db.refresh(db_stadium)
             return db_stadium
         except SQLAlchemyError as e:
             await db.rollback()
-            logger.error(f"Error creating stadium: {str(e)}")
+            logger.error(f"Error creating/updating stadium: {str(e)}")
             raise
 
     async def get_stadium(self, db: AsyncSession, stadium_id: UUID) -> Optional[Stadium]:

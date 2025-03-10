@@ -68,6 +68,11 @@ class Conversation(TimestampedBase):
         Text,
         nullable=True
     )
+    order: Mapped[Optional[int]] = mapped_column(
+        Integer,
+        nullable=True,
+        default=None
+    )
     meta_data: Mapped[dict] = mapped_column(
         JSON,
         nullable=False,

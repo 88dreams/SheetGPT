@@ -27,7 +27,7 @@ class LeagueResponse(LeagueBase):
     updated_at: str
 
     class Config:
-        orm_mode = True
+        from_attributes = True
         
     @validator('created_at', 'updated_at', pre=True)
     def parse_datetime(cls, value):
@@ -67,7 +67,7 @@ class StadiumResponse(StadiumBase):
     updated_at: str
 
     class Config:
-        orm_mode = True
+        from_attributes = True
         
     @validator('created_at', 'updated_at', pre=True)
     def parse_datetime(cls, value):
@@ -103,7 +103,7 @@ class TeamResponse(TeamBase):
     updated_at: str
 
     class Config:
-        orm_mode = True
+        from_attributes = True
         
     @validator('created_at', 'updated_at', pre=True)
     def parse_datetime(cls, value):
@@ -135,7 +135,7 @@ class PlayerResponse(PlayerBase):
     updated_at: str
 
     class Config:
-        orm_mode = True
+        from_attributes = True
         
     @validator('created_at', 'updated_at', pre=True)
     def parse_datetime(cls, value):
@@ -179,7 +179,7 @@ class GameResponse(GameBase):
     updated_at: str
 
     class Config:
-        orm_mode = True
+        from_attributes = True
         
     @validator('created_at', 'updated_at', pre=True)
     def parse_datetime(cls, value):
@@ -207,7 +207,7 @@ class BroadcastCompanyResponse(BroadcastCompanyBase):
     updated_at: str
 
     class Config:
-        orm_mode = True
+        from_attributes = True
         
     @validator('created_at', 'updated_at', pre=True)
     def parse_datetime(cls, value):
@@ -243,7 +243,7 @@ class BroadcastRightsResponse(BroadcastRightsBase):
     updated_at: str
 
     class Config:
-        orm_mode = True
+        from_attributes = True
         
     @validator('created_at', 'updated_at', pre=True)
     def parse_datetime(cls, value):
@@ -267,7 +267,7 @@ class ProductionCompanyResponse(ProductionCompanyBase):
     updated_at: str
 
     class Config:
-        orm_mode = True
+        from_attributes = True
         
     @validator('created_at', 'updated_at', pre=True)
     def parse_datetime(cls, value):
@@ -301,7 +301,7 @@ class ProductionServiceResponse(ProductionServiceBase):
     updated_at: str
 
     class Config:
-        orm_mode = True
+        from_attributes = True
         
     @validator('created_at', 'updated_at', pre=True)
     def parse_datetime(cls, value):
@@ -327,7 +327,7 @@ class BrandResponse(BrandBase):
     updated_at: str
 
     class Config:
-        orm_mode = True
+        from_attributes = True
         
     @validator('created_at', 'updated_at', pre=True)
     def parse_datetime(cls, value):
@@ -361,7 +361,7 @@ class BrandRelationshipResponse(BrandRelationshipBase):
     updated_at: str
 
     class Config:
-        orm_mode = True
+        from_attributes = True
         
     @validator('created_at', 'updated_at', pre=True)
     def parse_datetime(cls, value):
@@ -397,7 +397,7 @@ class GameBroadcastResponse(GameBroadcastBase):
     updated_at: str
 
     class Config:
-        orm_mode = True
+        from_attributes = True
         
     @validator('created_at', 'updated_at', pre=True)
     def parse_datetime(cls, value):
@@ -429,7 +429,7 @@ class LeagueExecutiveResponse(LeagueExecutiveBase):
     updated_at: str
 
     class Config:
-        orm_mode = True
+        from_attributes = True
         
     @validator('created_at', 'updated_at', pre=True)
     def parse_datetime(cls, value):

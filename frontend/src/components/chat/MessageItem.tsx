@@ -4,7 +4,6 @@ import { useQueryClient, useMutation } from '@tanstack/react-query'
 import { Message, api } from '../../utils/api'
 import { useNotification } from '../../contexts/NotificationContext'
 import { useDataManagement } from '../../hooks/useDataManagement'
-import { DataExtractionService } from '../../services/DataExtractionService'
 import { FaTable, FaMapMarkedAlt, FaEye, FaEyeSlash } from 'react-icons/fa'
 import DataPreviewModal from './DataPreviewModal'
 import SportDataMapper from '../data/SportDataMapper'
@@ -12,6 +11,7 @@ import '../../styles/dataPreviewModal.css'
 import { Dialog } from '@headlessui/react'
 import { XMarkIcon } from '@heroicons/react/24/outline'
 import { useChatContext } from '../../contexts/ChatContext'
+// Note: Extraction service is now imported dynamically when needed
 
 interface DataExtractionModalProps {
   isOpen: boolean;
@@ -550,38 +550,92 @@ const MessageItem: React.FC<MessageItemProps> = ({
     }
 
     try {
-      const newData = await api.data.createStructuredData({
-        data: parsedData,
+      // Import DataExtractionService from the new location
+      const { DataExtractionService } = await import('../../services/extraction');
+      
+      // Pre-process the data before sending it to the database
+      const processedData = await DataExtractionService.preprocessData(parsedData);
+      
+      // Add metadata to the processed data
+      const dataWithMetadata = {
+        ...processedData,
         meta_data: {
+          source: 'message-extracted-data',
           message_id: message.id,
           conversation_id: message.conversation_id,
           extracted_at: new Date().toISOString(),
           name: `Data from ${new Date().toLocaleString()}`
         }
-      })
+      };
       
-      navigate(`/data/${newData.id}`)
+      // Create the structured data in the database
+      try {
+        const newData = await api.data.createStructuredData({
+          data: processedData,
+          data_type: "structured-data",
+          schema_version: "1.0",
+          conversation_id: message.conversation_id,
+          meta_data: {
+            message_id: message.id,
+            extracted_at: new Date().toISOString(),
+            name: `Data from ${new Date().toLocaleString()}`
+          }
+        });
+        
+        // Show success notification
+        showNotification('success', 'Data successfully sent to Data Management');
+        
+        // Navigate to the data view
+        navigate(`/data/${newData.id}`);
+      } catch (apiError) {
+        console.error('API Error creating structured data:', apiError);
+        showNotification('error', `API Error: ${(apiError as Error).message}`);
+        
+        // Fallback to preview if API fails
+        showNotification('info', 'Showing data preview instead');
+        setSportMapperData(dataWithMetadata);
+        setShowDataPreview(true);
+      }
+      
     } catch (error) {
-      showNotification('error', `Failed to extract data: ${(error as Error).message}`)
+      console.error('Error processing data for extraction:', error);
+      
+      // Import error types
+      const { isDataExtractionError, isDataValidationError } = await import('../../utils/errors');
+      
+      // Show appropriate error message
+      if (isDataExtractionError(error)) {
+        showNotification('error', `Failed to extract data: ${error.getUserMessage()}`)
+      } else if (isDataValidationError(error)) {
+        showNotification('error', `Data validation failed: ${error.getFormattedErrors()}`)
+      } else {
+        showNotification('error', `Failed to extract data: ${(error as Error).message}`)
+      }
     }
   }
 
-  const extractAndOpenSportDataMapper = () => {
+  const extractAndOpenSportDataMapper = async () => {
     setIsExtracting(true)
     setExtractionError(null)
     
     try {
-      const extractedData = DataExtractionService.extractStructuredData(message.content)
+      // Import extraction utilities from the new location
+      const { extractDataFromMessage, DataExtractionService } = await import('../../services/extraction');
+      const { isDataExtractionError, isDataValidationError } = await import('../../utils/errors');
       
-      if (!extractedData) {
+      // Extract data using the new service
+      const extractedData = await extractDataFromMessage(message);
+      
+      if (!extractedData || (!extractedData.headers && !extractedData.rows)) {
         setExtractionError('No structured data found in this message')
         setIsExtracting(false)
-        alert('No structured data found in this message. Please make sure the message contains tables or structured data.')
+        showNotification('error', 'No structured data found in this message. Please make sure the message contains tables or structured data.')
         return
       }
       
       console.log('MessageItem: Extracted real data from message', extractedData)
       
+      // Add message metadata
       const dataWithMetadata = {
         ...extractedData,
         meta_data: {
@@ -595,14 +649,31 @@ const MessageItem: React.FC<MessageItemProps> = ({
         }
       }
       
-      let validData = dataWithMetadata
+      // Check for sports data type
+      const sportsDetection = DataExtractionService.detectSportsDataType(dataWithMetadata);
+      if (sportsDetection.isSportsData) {
+        console.log('MessageItem: Sports data detected', {
+          entityType: sportsDetection.entityType,
+          confidence: sportsDetection.confidence
+        });
+        
+        // Add sports data metadata
+        dataWithMetadata.meta_data.data_type = 'sports-data';
+        dataWithMetadata.meta_data.entity_type = sportsDetection.entityType;
+        dataWithMetadata.meta_data.suggested_mappings = sportsDetection.suggestedFields;
+      }
       
+      // Ensure data has headers and rows
+      let validData = dataWithMetadata;
+      
+      // If we have rows but no headers, try to extract headers from first row
       if (validData.rows && Array.isArray(validData.rows) && validData.rows.length > 0 && !validData.headers) {
         if (typeof validData.rows[0] === 'object' && validData.rows[0] !== null) {
-          validData.headers = Object.keys(validData.rows[0])
+          validData.headers = Object.keys(validData.rows[0]);
         }
       }
       
+      // If we still don't have headers and rows, create a default structure
       if (!validData.rows && !validData.headers) {
         console.warn('MessageItem: Creating default structure for SportDataMapper')
         validData = {
@@ -619,18 +690,34 @@ const MessageItem: React.FC<MessageItemProps> = ({
         }
       }
       
+      // Update state with the validated data
       setSportMapperData(validData)
       
+      // Increment key to force component remount
       setMapperKey(prevKey => prevKey + 1)
       
+      // Show the SportDataMapper with a small delay to ensure state is updated
       setTimeout(() => {
         setShowSportDataMapper(true)
         console.log('MessageItem: Opening SportDataMapper with extracted data', validData)
       }, 100)
     } catch (error) {
       console.error('MessageItem: Error extracting data', error)
-      setExtractionError(`Error extracting data: ${(error as Error).message}`)
-      alert(`Error extracting data: ${(error as Error).message}`)
+      
+      // Import error types
+      const { isDataExtractionError, isDataValidationError } = await import('../../utils/errors');
+      
+      // Show appropriate error message
+      if (isDataExtractionError(error)) {
+        setExtractionError(error.getUserMessage())
+        showNotification('error', `Failed to extract sports data: ${error.getUserMessage()}`)
+      } else if (isDataValidationError(error)) {
+        setExtractionError(error.getFormattedErrors())
+        showNotification('error', `Sports data validation failed: ${error.getFormattedErrors()}`)
+      } else {
+        setExtractionError(`Error extracting data: ${(error as Error).message}`)
+        showNotification('error', `Error extracting sports data: ${(error as Error).message}`)
+      }
     } finally {
       setIsExtracting(false)
     }
@@ -673,9 +760,10 @@ const MessageItem: React.FC<MessageItemProps> = ({
 
   const handleDataConfirm = async (data: any) => {
     try {
+      // Navigate to data management page
       navigate('/data')
     } catch (error) {
-      console.error('Error saving data:', error)
+      console.error('Error navigating to data page:', error)
     }
   }
 
@@ -824,11 +912,12 @@ const MessageItem: React.FC<MessageItemProps> = ({
         </div>
       )}
 
-      {showDataPreview && extractedData && (
+      {showDataPreview && sportMapperData && (
         <DataPreviewModal
           isOpen={showDataPreview}
           onClose={() => setShowDataPreview(false)}
-          messageContent={extractedData}
+          messageContent="Data preview"
+          extractedData={sportMapperData}
           onConfirm={handleDataConfirm}
         />
       )}

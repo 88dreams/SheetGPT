@@ -1,13 +1,18 @@
-from typing import TypeVar, Generic, List
+from typing import TypeVar, Generic, Optional, List
 from pydantic import BaseModel
-from pydantic.generics import GenericModel
+from uuid import UUID
 
-T = TypeVar("T")
+T = TypeVar('T')
 
-class PaginatedResponse(GenericModel, Generic[T]):
+class PaginatedResponse(BaseModel, Generic[T]):
     """Generic paginated response model."""
     items: List[T]
     total: int
     page: int
-    page_size: int
-    total_pages: int 
+    size: int
+    pages: int
+    
+class ApiSuccess(BaseModel):
+    """Standard API success response."""
+    success: bool
+    message: str 

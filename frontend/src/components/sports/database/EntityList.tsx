@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useSportsDatabase } from './SportsDatabaseContext';
 import LoadingSpinner from '../../common/LoadingSpinner';
 // @ts-ignore
-import { FaTrash, FaEye, FaSortUp, FaSortDown, FaSort, FaPencilAlt, FaCheck, FaTimes, FaEdit } from 'react-icons/fa';
+import { FaTrash, FaEye, FaSortUp, FaSortDown, FaSort, FaPencilAlt, FaCheck, FaTimes, FaEdit, FaFileExport } from 'react-icons/fa';
 import SmartEntitySearch from '../../data/EntityUpdate/SmartEntitySearch';
 import { EntityCard } from '../../data/EntityUpdate/EntityCard';
 // @ts-ignore
@@ -164,11 +164,13 @@ const EntityList: React.FC<EntityListProps> = ({ className = '' }) => {
 
   return (
     <div className={`bg-white rounded-lg shadow ${className}`}>
-      {/* Add search bar in the header */}
+      {/* Search bar and export button row */}
       <div className="p-4 border-b border-gray-200">
-        <div className="flex justify-between items-center">
-          <h2 className="text-lg font-medium text-gray-900">{getEntityTypeName()}</h2>
-          <div className="w-80">
+        <div className="flex justify-between items-center space-x-4">
+          <h2 className="text-lg font-semibold min-w-[100px]">
+            {getEntityTypeName()}
+          </h2>
+          <div className="flex-grow max-w-xl">
             <SmartEntitySearch
               entityTypes={[selectedEntityType as EntityType]}
               onEntitySelect={handleSearchSelect}
@@ -176,6 +178,18 @@ const EntityList: React.FC<EntityListProps> = ({ className = '' }) => {
               entities={entities as Entity[]}
             />
           </div>
+          <button
+            onClick={() => handleExportToSheets(entities as any[])}
+            disabled={selectedCount === 0 || isDeleting}
+            className={`px-4 py-2 rounded text-sm font-medium flex items-center whitespace-nowrap ${
+              selectedCount > 0 && !isDeleting
+                ? 'bg-indigo-600 hover:bg-indigo-700 text-white'
+                : 'bg-gray-200 text-gray-500 cursor-not-allowed'
+            }`}
+          >
+            <FaFileExport className="mr-2" />
+            {isDeleting ? 'Exporting...' : 'Export to Sheets'}
+          </button>
         </div>
       </div>
 

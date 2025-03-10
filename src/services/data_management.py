@@ -127,6 +127,7 @@ class DataManagementService:
         user_id: UUID
     ) -> StructuredData:
         """Create new structured data."""
+        # Create the structured data object
         structured_data = StructuredData(
             conversation_id=data.conversation_id,
             data_type=data.data_type,
@@ -134,16 +135,27 @@ class DataManagementService:
             data=data.data,
             meta_data=data.meta_data
         )
-        self.db.add(structured_data)
-        await self.db.commit()
-        await self.db.refresh(structured_data)
         
-        await self._record_change(
+        # Add it to the session
+        self.db.add(structured_data)
+        
+        # Flush to get the ID without committing the transaction
+        await self.db.flush()
+        
+        # Create the change record in the same transaction
+        change = DataChangeHistory(
             structured_data_id=structured_data.id,
             user_id=user_id,
             change_type="CREATE_DATA",
             meta_data={"initial_data": data.data}
         )
+        self.db.add(change)
+        
+        # Now commit both operations in a single transaction
+        await self.db.commit()
+        
+        # Refresh to get the latest data
+        await self.db.refresh(structured_data)
         
         return structured_data
 

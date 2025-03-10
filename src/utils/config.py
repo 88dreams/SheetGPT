@@ -17,8 +17,11 @@ class Settings(BaseSettings):
     # Database
     DATABASE_URL: str
     
-    # OpenAI
-    OPENAI_API_KEY: str
+    # OpenAI (kept for compatibility with other parts of the system)
+    OPENAI_API_KEY: Optional[str] = None
+    
+    # Anthropic (primary LLM provider)
+    ANTHROPIC_API_KEY: str
     
     # Google Sheets
     GOOGLE_SHEETS_CREDENTIALS: Optional[str] = None

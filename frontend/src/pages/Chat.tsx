@@ -436,17 +436,20 @@ const Chat: React.FC = () => {
           (chunk) => {
             queryClient.setQueryData(['messages', selectedConversation], (old: Message[] | undefined) => {
               const messages = old || []
-              return messages.map(msg => 
-                msg.id === assistantMessageId
-                  ? { ...msg, content: (msg.content || '') + chunk }
-                  : msg
-              )
+              return messages.map(msg => {
+                if (msg.id === assistantMessageId) {
+                  // Append the new chunk to the existing content
+                  return { ...msg, content: (msg.content || '') + chunk }
+                }
+                return msg
+              })
             })
           }
         )
         
-        // After streaming is complete, fetch fresh messages once
-        await refetchMessages()
+        // We'll skip the automatic refetch after streaming is complete
+        // This prevents the screen from jumping around after the message is complete
+        // The data we have in cache from streaming is sufficient
         
         return response
       } catch (error) {
@@ -496,6 +499,10 @@ const Chat: React.FC = () => {
 
   const handleSendMessage = async (content: string, structuredFormat?: Record<string, any>) => {
     await sendMessageMutation.mutateAsync({ content, structuredFormat })
+  }
+
+  const handleRepeatMessage = async (content: string) => {
+    await handleSendMessage(content)
   }
 
   // Combined loading state - only show loading on initial load
@@ -593,6 +600,8 @@ const Chat: React.FC = () => {
                 messages={messages || []}
                 isLoading={isLoadingMessages}
                 error={messagesError}
+                onRepeat={handleRepeatMessage}
+                isWaitingResponse={sendMessageMutation.isPending}
               />
             </div>
             

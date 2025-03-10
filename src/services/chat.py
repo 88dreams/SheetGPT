@@ -1,21 +1,134 @@
-from typing import Dict, List, Optional, Any
+from typing import Dict, List, Optional, Any, AsyncGenerator
 from uuid import UUID
-
-from openai import AsyncOpenAI
+import aiohttp
+import anthropic
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
+import asyncio
+import json
+from datetime import datetime
 
 from src.models.models import Conversation, Message, StructuredData, DataColumn
 from src.utils.config import get_settings
+from src.config.logging_config import chat_logger
 
 settings = get_settings()
 
 class ChatService:
     def __init__(self, db: AsyncSession):
         self.db = db
-        self.client = AsyncOpenAI(api_key=settings.OPENAI_API_KEY)
-        self.model = "gpt-4-turbo-preview"  # Using the latest GPT-4 model
+        self.client = anthropic.AsyncClient(api_key=settings.ANTHROPIC_API_KEY)
+        self.model = "claude-3-7-sonnet-20250219"  # Using Claude 3.7 Sonnet
+        self.logger = chat_logger
+
+    async def perform_search(self, query: str) -> str:
+        """Perform a single web search with basic error handling."""
+        self.logger.info(f"Starting web search for query: {query}")
+        headers = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+        }
+        
+        async with aiohttp.ClientSession() as session:
+            try:
+                encoded_query = query.replace(' ', '+')
+                search_url = f"https://api.duckduckgo.com/?q={encoded_query}&format=json&no_redirect=1&no_html=1"
+                self.logger.debug(f"Search URL: {search_url}")
+                
+                async with session.get(search_url, headers=headers, timeout=10) as response:
+                    if response.status != 200:
+                        error_msg = f"Search failed with status {response.status}"
+                        self.logger.error(error_msg)
+                        return error_msg
+                    
+                    response_text = await response.text()
+                    if response_text.startswith('(') and response_text.endswith(')'):
+                        response_text = response_text[1:-1]
+                    
+                    data = json.loads(response_text)
+                    topics = data.get('RelatedTopics', [])
+                    
+                    if not topics:
+                        self.logger.warning("No search results found")
+                        return "No results found"
+                    
+                    results = "\nSearch Results (source URLs only):\n"
+                    for idx, topic in enumerate(topics[:10], 1):
+                        if 'FirstURL' in topic:
+                            results += f"{idx}. {topic['FirstURL']}\n"
+                    
+                    self.logger.info(f"Found {len(topics[:10])} search results")
+                    return results
+                    
+            except Exception as e:
+                error_msg = f"Search error: {str(e)}"
+                self.logger.error(error_msg, exc_info=True)
+                return error_msg
+
+    async def handle_search(self, query: str) -> AsyncGenerator[str, None]:
+        """Handle a single search operation with retries and timeouts."""
+        self.logger.info(f"Starting search handling for query: {query}")
+        try:
+            search_state = {
+                'attempts': 0,
+                'max_attempts': 2
+            }
+            
+            self.logger.debug("Yielding SEARCHING phase")
+            yield "[PHASE:SEARCHING]\n"
+            
+            result = None
+            while search_state['attempts'] < search_state['max_attempts']:
+                try:
+                    self.logger.debug(f"Search attempt {search_state['attempts'] + 1} of {search_state['max_attempts']}")
+                    self.logger.info(f"Searching for: {query}")
+                    
+                    # Set a timeout for the search operation
+                    try:
+                        # Create a task with timeout
+                        search_task = asyncio.create_task(self.perform_search(query))
+                        result = await asyncio.wait_for(search_task, timeout=10.0)  # 10 second timeout
+                        
+                        if result:
+                            self.logger.info(f"Search successful on attempt {search_state['attempts'] + 1}")
+                            yield result
+                            break
+                        
+                        search_state['attempts'] += 1
+                        self.logger.warning(f"No results on attempt {search_state['attempts']}, trying again...")
+                    
+                    except asyncio.TimeoutError:
+                        search_state['attempts'] += 1
+                        self.logger.error(f"Search timed out on attempt {search_state['attempts']}")
+                        if search_state['attempts'] >= search_state['max_attempts']:
+                            error_msg = f"\nSearch timed out after {search_state['attempts']} attempts\n"
+                            self.logger.error("Search timed out on all attempts")
+                            yield error_msg
+                            break
+                        self.logger.info("Will retry search after timeout...")
+                        await asyncio.sleep(0.5)
+                        
+                except Exception as e:
+                    search_state['attempts'] += 1
+                    self.logger.error(f"Search attempt {search_state['attempts']} failed: {str(e)}", exc_info=True)
+                    if search_state['attempts'] >= search_state['max_attempts']:
+                        error_msg = f"\nSearch failed after {search_state['attempts']} attempts: {str(e)}\n"
+                        self.logger.error("Search failed all attempts", exc_info=True)
+                        yield error_msg
+                        break
+                    self.logger.info("Will retry in 1 second...")
+                    await asyncio.sleep(1)
+            
+            if search_state['attempts'] >= search_state['max_attempts'] and not result:
+                self.logger.warning("No results found after all attempts")
+                yield "\nNo results found after all attempts.\n"
+                
+        except Exception as e:
+            self.logger.error(f"Unexpected error in handle_search: {str(e)}", exc_info=True)
+            yield f"\nAn unexpected error occurred: {str(e)}\n"
+        finally:
+            self.logger.debug("Search completed, yielding PROCESSING phase")
+            yield "[PHASE:PROCESSING]\n"
 
     async def create_conversation(
         self, user_id: UUID, title: str, description: Optional[str] = None
@@ -93,168 +206,198 @@ class ChatService:
         user_message: str,
         structured_format: Optional[Dict] = None
     ):
-        """Get streaming response from ChatGPT."""
+        """Get streaming response from Claude."""
         try:
+            self.logger.info(f"\n=== New Chat Request ===")
+            self.logger.info(f"User message: {user_message}")
+            self.logger.info(f"Structured format requested: {structured_format is not None}")
+            
             # Add user message to conversation
-            user_msg = await self.add_message(conversation_id, "user", user_message)
-
+            await self.add_message(conversation_id, "user", user_message)
+            
             # Get conversation history
             messages = await self.get_conversation_messages(conversation_id)
             
-            # Prepare conversation history for ChatGPT
-            chat_messages = [
-                {"role": msg.role, "content": msg.content}
-                for msg in messages[-15:]  # Last 15 messages for context
-            ]
-
-            # Add base system message
-            base_system_message = {
-                "role": "system",
-                "content": """You are a helpful assistant that provides accurate and thorough responses.
-                When you need real-time or up-to-date information:
-                1. Indicate that you need to search the web
-                2. Use the phrase '[SEARCH]query[/SEARCH]' to perform web searches
-                3. Incorporate the search results into your response
-                4. Always cite your sources with URLs when using web information
-
-                When asked for structured data, you will:
-                1. First provide a natural language response
-                2. Then provide the structured data exactly as requested
-                3. Always separate the two parts with '---DATA---'
-                4. For data requests, verify information is accurate and complete
-                5. Include all relevant fields in the structured data
-                6. Format numbers and dates consistently"""
-            }
-            chat_messages.insert(0, base_system_message)
-
-            # If structured format is requested, add it as an additional system message
+            # Create system prompt for Claude
+            system_prompt = """You are a researcher for sports, and esports-related data and metadata.
+                1. Use [SEARCH]query[/SEARCH] tags for web searches
+                2. Wait for search results before continuing
+                3. Cite sources by just mentioning the URL - do not include large quotes or text passages from URLs
+                4. Be concise and focus on facts, not verbose explanations from sources
+                
+                For structured data requests:
+                1. Provide a brief natural language response (1-2 paragraphs maximum)
+                2. Add '---DATA---' on a new line
+                3. Provide structured data in JSON format
+                4. Ensure all required fields are included
+                5. Format numbers and dates consistently"""
+            
+            # Add format instructions if needed
             if structured_format:
-                import json
-                format_str = json.dumps(structured_format, ensure_ascii=False)
-                format_system_message = {
-                    "role": "system",
-                    "content": f"""For this response, you MUST:
-                    1. Provide a natural conversation response
-                    2. Then provide structured data in this EXACT format: {format_str}
-                    3. Separate the two parts with '---DATA---'
-                    4. Ensure ALL required fields are included
-                    5. Format the data as valid JSON"""
-                }
-                chat_messages.insert(1, format_system_message)
-
-            print(f"Sending request to OpenAI with {len(chat_messages)} messages")
-
-            # Get response from ChatGPT with streaming
-            response = await self.client.chat.completions.create(
-                model=self.model,
-                messages=chat_messages,
-                temperature=0.3,  # Set to 0.3 for more focused, data-oriented responses
-                max_tokens=4000,
-                stream=True  # Enable streaming
-            )
-
+                system_prompt += f"""\n\nThis request requires structured data output.
+                    After your natural language response, you MUST:
+                    1. Add a line containing only '---DATA---'
+                    2. Then provide data in this exact format: {json.dumps(structured_format)}
+                    3. Ensure all required fields are present and properly formatted"""
+            
+            # Log the system prompt
+            self.logger.info(f"System instructions: {system_prompt}")
+            
+            # Convert messages to Claude format (user/assistant alternating)
+            anthropic_messages = []
+            
+            # Claude's API expects a simpler format than OpenAI
+            # We'll take the most recent messages (up to 15)
+            recent_messages = messages[-15:]
+            
+            for msg in recent_messages:
+                if msg.role in ["user", "assistant"]:
+                    anthropic_messages.append({
+                        "role": msg.role, 
+                        "content": msg.content
+                    })
+            
+            # Initialize response
             full_response = ""
             buffer = ""
-            search_query = None
-
-            async for chunk in response:
-                if chunk.choices[0].delta.content is not None:
-                    content = chunk.choices[0].delta.content
+            
+            # Log the exact messages we're sending to the API
+            self.logger.info(f"Sending request to Claude API with {len(anthropic_messages)} messages")
+            if anthropic_messages:
+                self.logger.info(f"Last message: {anthropic_messages[-1]['content'][:100]}...")
+            
+            # Start streaming response
+            self.logger.info("Starting response stream with Claude")
+            yield "[RESPONSE_START]\n"
+            
+            # Create a message with Claude
+            message_stream = await self.client.messages.create(
+                model=self.model,
+                max_tokens=15000,  # Increased limit to handle large structured data responses
+                system=system_prompt,
+                messages=anthropic_messages,
+                temperature=0.3,
+                stream=True
+            )
+            
+            async for chunk in message_stream:
+                if chunk.type == "content_block_delta" and chunk.delta.text:
+                    content = chunk.delta.text
+                    self.logger.debug(f"Received chunk from Claude: {len(content)} chars")
                     buffer += content
-
-                    # Check for complete search tags
+                    
+                    # Handle search requests
                     while '[SEARCH]' in buffer and '[/SEARCH]' in buffer:
                         start = buffer.find('[SEARCH]')
                         end = buffer.find('[/SEARCH]')
-                        if start < end:
-                            # Extract search query
+                        
+                        if start > -1 and end > start:
+                            self.logger.debug("Search tag detected")  # Debug log
+                            # Extract search parts
+                            pre_search = buffer[:start]
                             search_query = buffer[start + 8:end].strip()
+                            post_search = buffer[end + 9:]
                             
-                            # Remove the search tags from buffer
-                            buffer = buffer[:start] + buffer[end + 9:]
+                            # Handle pre-search content
+                            if pre_search:
+                                self.logger.debug(f"Yielding pre-search content: {len(pre_search)} chars")  # Debug log
+                                full_response += pre_search
+                                yield pre_search
                             
+                            self.logger.info(f"Starting search for: {search_query}")  # Debug log
+                            # Perform search
                             try:
-                                # Perform web search
-                                import aiohttp
-                                async with aiohttp.ClientSession() as session:
-                                    search_url = f"https://api.duckduckgo.com/?q={search_query}&format=json"
-                                    async with session.get(search_url) as search_response:
-                                        search_data = await search_response.json()
-                                        
-                                        # Format search results
-                                        search_results = "\n\nSearch Results:\n"
-                                        for result in search_data.get('RelatedTopics', [])[:3]:
-                                            if 'Text' in result:
-                                                search_results += f"- {result['Text']}\n"
-                                        
-                                        # Add search results to buffer
-                                        buffer += search_results
+                                search_result = await self.perform_search(search_query)
+                                # Format search results with clear markers - more concise format
+                                result_block = f"\n=== Sources ===\n{search_result}\n================\n"
+                                self.logger.debug(f"Search completed, yielding {len(result_block)} chars")  # Debug log
+                                full_response += result_block
+                                yield result_block
+                                
+                                # Add a small delay to ensure frontend processes the results
+                                await asyncio.sleep(0.5)
                             except Exception as e:
-                                print(f"Error performing web search: {str(e)}")
-                                buffer += f"\n\nError performing web search: {str(e)}\n"
-
-                    # Yield any complete sentences from buffer
+                                error_msg = f"\nSearch failed: {str(e)}\n"
+                                self.logger.error(f"Search error: {str(e)}")  # Debug log
+                                full_response += error_msg
+                                yield error_msg
+                            
+                            # Continue with post-search content
+                            buffer = post_search
+                            self.logger.info("Search processing complete")  # Debug log
+                        else:
+                            break
+                    
+                    # Process complete sentences
                     while '. ' in buffer:
-                        period_idx = buffer.find('. ') + 2
-                        sentence = buffer[:period_idx]
-                        buffer = buffer[period_idx:]
+                        idx = buffer.find('. ') + 2
+                        sentence = buffer[:idx]
+                        buffer = buffer[idx:]
+                        self.logger.debug(f"Yielding sentence: {len(sentence)} chars")  # Debug log
                         full_response += sentence
                         yield sentence
-
-                    # If we have a long enough chunk without a period, yield it
+                        # Small delay between sentences
+                        await asyncio.sleep(0.1)
+                    
+                    # Handle large chunks
                     if len(buffer) > 100:
-                        full_response += buffer
-                        yield buffer
+                        self.logger.debug(f"Yielding large chunk: {len(buffer)} chars")  # Debug log
+                        chunk_to_send = buffer
+                        full_response += chunk_to_send
+                        yield chunk_to_send
                         buffer = ""
-
-            # Yield any remaining content in buffer
+                        # Small delay after large chunks
+                        await asyncio.sleep(0.1)
+            
+            # Handle remaining content
             if buffer:
+                self.logger.debug(f"Yielding final buffer: {len(buffer)} chars")  # Debug log
                 full_response += buffer
                 yield buffer
-
-            print(f"Full response received, length: {len(full_response)}")
-
-            # Save the complete response
-            assistant_msg = await self.add_message(conversation_id, "assistant", full_response)
-
-            # Handle structured data if requested
-            if structured_format and "---DATA---" in full_response:
+            
+            self.logger.info("Stream complete, saving response")  # Debug log
+            # Save response
+            await self.add_message(conversation_id, "assistant", full_response)
+            
+            # Handle structured data if present
+            if "---DATA---" in full_response:
+                self.logger.info("Processing structured data")  # Debug log
                 try:
-                    conversation_part, data_part = full_response.split("---DATA---")
-                    data_str = data_part.strip()
+                    _, data_part = full_response.split("---DATA---")
+                    data = json.loads(data_part.strip())
                     
-                    # Try to parse the data as JSON
-                    try:
-                        parsed_data = json.loads(data_str)
-                    except json.JSONDecodeError:
-                        print(f"Failed to parse JSON data: {data_str}")
-                        parsed_data = {"raw_text": data_str}
-                    
-                    # Get conversation for the title
-                    conversation = await self.get_conversation(conversation_id)
-                    
-                    # Store structured data
                     structured_data = StructuredData(
                         conversation_id=conversation_id,
                         data_type="chat_extraction",
                         schema_version="1.0",
-                        data=parsed_data,
-                        meta_data={
-                            "format": structured_format,
-                            "message_id": str(assistant_msg.id),
-                            "title": conversation.title
-                        }
+                        data=data,
+                        meta_data={"format": structured_format} if structured_format else {}
                     )
                     self.db.add(structured_data)
                     await self.db.commit()
+                    self.logger.info("Structured data saved")  # Debug log
                     
                 except Exception as e:
-                    print(f"Error processing structured data: {str(e)}")
-                    # Continue even if structured data processing fails
-
+                    error_msg = f"\nError processing structured data: {str(e)}\n"
+                    self.logger.error(f"Structured data error: {str(e)}")  # Debug log
+                    yield error_msg
+            
+            self.logger.info("Response complete - sending finalization marker")
+            # Send final phase marker and wait to ensure it's processed
+            yield "[PHASE:COMPLETE]\n"
+            await asyncio.sleep(0.5)
+            
+            # Send the stream end marker with a delay to ensure it's processed separately
+            self.logger.info("Sending final stream end marker")
+            yield "[STREAM_END]\n"
+            await asyncio.sleep(0.5)
+            
+            # Send the completion marker that the frontend is looking for
+            self.logger.info("Sending stream complete marker")
+            yield "__STREAM_COMPLETE__"
+            
         except Exception as e:
-            print(f"Error in get_chat_response: {str(e)}")
-            # Add error message to conversation
+            self.logger.error(f"Error in chat response: {str(e)}")
             await self.add_message(
                 conversation_id,
                 "assistant",

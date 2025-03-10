@@ -8,17 +8,20 @@ SheetGPT's API is built using FastAPI with a modular architecture:
 2. **Services**: Business logic and database operations
 3. **Models**: Database schema using SQLAlchemy ORM
 4. **Schemas**: Request/response validation using Pydantic
+5. **Core**: Configuration and shared functionality
+6. **Config**: Environment-specific settings
 
 ## API Structure
 
 The API is organized into modules:
 
 - **Authentication**: User registration, login, and token management
-- **Chat**: Conversation and message management
-- **Data Management**: Structured data operations
-- **Sports Database**: Sports entity management
+- **Chat**: Conversation and message management with Claude API integration
+- **Data Management**: Structured data operations with extraction services
+- **Sports Database**: Sports entity management with relationship handling
 - **Export**: Data export to Google Sheets
 - **Admin**: Administrative functions
+- **DB Management**: Database maintenance and administration tools
 
 ## Authentication System
 
@@ -375,35 +378,50 @@ The chat service is implemented with the following key features:
 class ChatService:
     def __init__(self, db: AsyncSession):
         self.db = db
-        self.client = AsyncOpenAI()  # GPT-4 Turbo integration
-        self.model = "gpt-4-turbo-preview"
+        self.anthropic_service = AnthropicService()  # Claude API integration
+        self.model = "claude-3-sonnet-20240229"
+```
+
+```python
+class AnthropicService:
+    def __init__(self):
+        self.client = anthropic.Anthropic(
+            api_key=config.API_KEY_ANTHROPIC
+        )
+        self.default_model = "claude-3-sonnet-20240229"
+        self.logger = logging.getLogger("anthropic_service")
 ```
 
 #### Key Components:
 
-1. **Message Streaming**
+1. **Claude API Integration**
+   - AnthropicService for API management
+   - Model selection and configuration
+   - Streaming response handling
+   - Buffer management for efficient streaming
+   - Structured error handling
+
+2. **Message Streaming**
    - Real-time response streaming
    - Chunked message processing
-   - Search integration
-   - Buffer management
-
-2. **Web Search Integration**
-   - DuckDuckGo API integration
-   - Multiple retry attempts
-   - Error handling
-   - Result formatting
+   - Custom buffer management
+   - Rate limit handling
+   - Connection error recovery
 
 3. **Structured Data Processing**
-   - Schema validation
-   - Data extraction
-   - JSON formatting
-   - Database persistence
+   - Enhanced schema validation
+   - Modular extraction services
+   - JSON parsing and validation
+   - Database persistence with session fallbacks
+   - Error recovery mechanisms
 
 4. **Conversation Management**
    - Message history tracking
+   - Conversation reordering
    - Context maintenance
    - User session management
    - Metadata handling
+   - Order-based conversation sorting
 
 ### API Endpoints
 
@@ -424,40 +442,48 @@ async def create_message(
 
 ### Error Handling
 
-1. **Search Errors**
-   - Retry mechanism
-   - Timeout handling
-   - Clear error messages
-   - Fallback options
+1. **API Errors**
+   - Standardized error utilities
+   - Retry mechanism with backoff
+   - Timeout handling with configurable limits
+   - Clear error messages with context
+   - Session storage fallbacks
+   - User-friendly error states
 
 2. **Stream Processing**
-   - Buffer management
-   - Connection handling
-   - State preservation
-   - Error recovery
+   - Enhanced buffer management
+   - Connection monitoring and recovery
+   - State preservation with optimistic UI
+   - Error recovery with fallback mechanisms
+   - Graceful degradation of features
 
 3. **Data Validation**
-   - Schema verification
-   - Type checking
-   - Required fields
-   - Relationship validation
+   - Schema verification with strict typing
+   - Type checking with coercion rules
+   - Required fields validation
+   - Relationship validation with entity resolution
+   - Comprehensive extraction validation
 
 ### Performance Considerations
 
 1. **Streaming Optimization**
-   - Chunked processing
-   - Buffer size management
-   - Memory efficiency
-   - Connection pooling
+   - Chunked processing with variable buffer sizes
+   - Memory-efficient buffer management
+   - Connection pooling with health checks
+   - Progressive rendering patterns
+   - Background processing for extraction tasks
 
-2. **Search Performance**
-   - Retry limits
-   - Timeout configuration
-   - Result caching
-   - Query optimization
+2. **API Performance**
+   - Configurable retry strategies
+   - Dynamic timeout management
+   - Response caching where appropriate
+   - Request batching and prioritization
+   - Rate limit awareness and backoff strategies
 
 3. **Database Operations**
-   - Async processing
-   - Transaction management
-   - Connection pooling
-   - Query optimization 
+   - Optimized async processing
+   - Enhanced transaction management
+   - Connection pooling with connection verification
+   - Query optimization with PostgreSQL-specific features
+   - Specialized JSONB handling for conversation data
+   - Order-based query optimizations

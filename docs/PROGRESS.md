@@ -13,7 +13,22 @@ SheetGPT is a full-stack application that combines AI-powered chat capabilities 
 ## Current Status (March 2025)
 
 ### Latest Features
-1. Database Management System
+1. Claude API Integration
+   - Implemented Anthropic Claude 3 API integration
+   - Enhanced chat streaming capabilities
+   - Created robust error handling with fallbacks
+   - Built conversation state management with context optimization
+   - Added message status indicators and improved UI/UX
+   - Structured logging with improved error tracking
+
+2. Enhanced Data Extraction Services
+   - Created modular extraction service architecture
+   - Implemented specialized detection, parsing, and extraction services
+   - Built robust error handling with graceful failure modes
+   - Added session storage fallback for API failures
+   - Improved type validation and schema handling
+
+3. Database Management System
    - Implemented comprehensive database maintenance tools
    - Added conversation archiving instead of permanent deletion
    - Created scheduled backup infrastructure
@@ -22,36 +37,44 @@ SheetGPT is a full-stack application that combines AI-powered chat capabilities 
    - Implemented restore functionality for conversations
    - Added backup management with retention policies
 
-2. Enhanced Chat System
-   - Implemented GPT-4 Turbo integration
-   - Added real-time web search capabilities
-   - Enhanced streaming response handling
-   - Improved structured data extraction
-   - Added retry mechanisms for search operations
-   - Enhanced error handling and recovery
-   - Implemented buffer management for streaming
-   - Added conversation context management
-   - Improved message persistence
-   - Enhanced search result formatting
+4. Conversation Experience Improvements
+   - Implemented conversation reordering with drag-and-drop
+   - Added "Repeat" button to user messages with improved error handling
+   - Enhanced message persistence with order tracking
+   - Implemented optimistic UI updates with error recovery
+   - Improved conversation list management and navigation
 
-3. Message Repeat Functionality
-   - Added "Repeat" button to user messages
-   - Implemented message resend capability
-   - Enhanced error handling and UI feedback
-
-4. Entity List Pagination
+5. Entity List Pagination
    - Configurable page sizes (10, 25, 50, 100)
    - First/last page navigation
    - Total count display
    - Optimized performance for large datasets
 
-5. Bulk Operations
+6. Bulk Operations
    - Multi-select entity deletion
    - Progress tracking
    - Error aggregation
    - Optimistic updates
 
 ### Recent Improvements
+
+#### AI Integration
+- Integrated Anthropic Claude 3 API with robust error handling
+- Enhanced chat streaming capabilities with buffer management
+- Implemented comprehensive error utilities for standardized error handling
+- Created structured logging configuration for improved debugging
+- Built conversation state management with ChatContext
+- Enhanced message persistence with conversation order tracking
+- Improved real-time updates with optimistic UI and fallbacks
+
+#### Data Extraction Architecture
+- Created modular extraction service architecture
+- Implemented DataDetectionService for entity recognition
+- Built DataParserService for schema-based parsing
+- Added DataExtractionService for coordinating extraction workflow
+- Implemented session storage fallback mechanism for API failures
+- Enhanced data preview modal with improved error states
+- Added comprehensive error handling for extraction process
 
 #### Database Maintenance
 - Added `DatabaseManagementService` for comprehensive DB operations
@@ -60,6 +83,7 @@ SheetGPT is a full-stack application that combines AI-powered chat capabilities 
 - Added database statistics dashboard for administrators
 - Built CLI tools for database management tasks
 - Integrated with frontend for user-friendly management
+- Added conversation order migration and management
 
 #### Data Management
 - Enhanced Teams Advanced Edit functionality
@@ -69,9 +93,13 @@ SheetGPT is a full-stack application that combines AI-powered chat capabilities 
 - Implemented proper data cleanup scripts
 - Added support for name-based entity references
 - Verified database schema integrity
+- Improved error handling in data operations
 
 #### UI/UX Enhancements
+- Added drag-and-drop conversation reordering
+- Enhanced message status indicators with improved feedback
 - Added database statistics dashboard in settings page
+- Improved data preview modal with better error handling
 - Improved SportDataMapper layout and usability
   - 3-column design with clear visual hierarchy
   - Enhanced field mapping visualization
@@ -89,6 +117,7 @@ SheetGPT is a full-stack application that combines AI-powered chat capabilities 
 - Enhanced test coverage and infrastructure
 - Improved error handling and logging
 - Optimized database operations
+- Added structured logging for improved error tracking
 
 ### Core Features Status
 
@@ -104,12 +133,16 @@ SheetGPT is a full-stack application that combines AI-powered chat capabilities 
 - ✅ Entity list pagination
 - ✅ Database maintenance and backup system
 - ✅ Conversation archiving
+- ✅ Claude API integration
+- ✅ Enhanced error handling framework
+- ✅ Conversation reordering
+- ✅ Extraction services architecture
 
 #### In Progress
 - 🔄 Google Sheets API integration
 - 🔄 API endpoint testing
-- 🔄 Error handling improvements
 - 🔄 Test coverage expansion
+- 🔄 Mobile responsive design
 
 ### Current Focus
 

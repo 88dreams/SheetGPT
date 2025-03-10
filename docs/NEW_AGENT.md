@@ -87,13 +87,17 @@ SheetGPT is a full-stack application combining AI-powered chat with structured d
 - ✅ Conversation archiving functionality
 - ✅ Database backup and restore
 - ✅ Admin statistics dashboard
+- ✅ Claude API integration
+- ✅ Conversation reordering
+- ✅ Enhanced error handling framework
+- ✅ Extraction services architecture
 
 #### In Progress
 - 🔄 Google Sheets API backend integration
 - 🔄 Sports database API endpoint testing
-- 🔄 Error handling improvements
 - 🔄 Frontend component test coverage
 - 🔄 Automated database maintenance schedules
+- 🔄 Mobile responsive design
 
 ### Critical Information
 
@@ -128,6 +132,10 @@ SheetGPT is a full-stack application combining AI-powered chat with structured d
    - Database Statistics
 
 3. **Recent Changes**
+   - Integrated Claude API with robust error handling
+   - Implemented conversation reordering with drag-and-drop
+   - Created enhanced extraction services architecture 
+   - Added structured error handling with error utilities
    - Implemented database management system with backup/restore
    - Added conversation archiving with restore capability
    - Created database statistics dashboard for administrators
@@ -206,8 +214,8 @@ This document should be updated with each significant change to maintain accurac
 ```json
 {
   "project_name": "SheetGPT",
-  "version": "0.5.0",
-  "last_updated": "2025-03-09",
+  "version": "0.6.0",
+  "last_updated": "2025-03-10",
   "environment": {
     "development": "Docker-based",
     "services": ["frontend", "backend", "db"],
@@ -221,7 +229,9 @@ This document should be updated with each significant change to maintain accurac
       "EntityFilter": "Advanced filtering system",
       "AdvancedEditForm": "Smart entity editing with relationship handling",
       "MessageRepeat": "Allows resending of previous messages",
-      "DatabaseStats": "Admin dashboard for database statistics"
+      "DatabaseStats": "Admin dashboard for database statistics",
+      "ChatContext": "Manages chat state with optimized streaming",
+      "DataExtraction": "Enhanced extraction services architecture"
     },
     "backend": {
       "FastAPI": "REST API framework",
@@ -229,7 +239,9 @@ This document should be updated with each significant change to maintain accurac
       "PostgreSQL": "Primary database",
       "Alembic": "Database migrations",
       "DatabaseManagementService": "Backup, archiving, and statistics",
-      "CLITools": "Command-line tools for database management"
+      "CLITools": "Command-line tools for database management",
+      "AnthropicService": "Claude API integration service",
+      "LoggingConfig": "Enhanced structured logging system"
     }
   }
 }

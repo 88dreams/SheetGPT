@@ -23,6 +23,7 @@ src/
    - Role-based access control
    - Secure token management
    - Admin privilege verification
+   - Robust error handling
 
 2. **Database Management**
    - SQLAlchemy ORM with UUID primary keys
@@ -31,12 +32,15 @@ src/
    - Automated backup and restore
    - Conversation archiving
    - Database statistics and monitoring
+   - Order-based conversation management
 
 3. **API Organization**
    - Domain-driven design
    - Modular routing structure
    - Standardized response formats
    - Role-based API access
+   - Structured error handling
+   - Enhanced logging system
 
 ### Frontend (React + TypeScript)
 
@@ -54,14 +58,18 @@ frontend/
 #### Key Features
 1. **State Management**
    - React Query for server state
-   - Context for global state
-   - Local state for UI
+   - Context API for global state
+   - Local state for UI elements
+   - ChatContext for optimized streaming
+   - DataFlowContext for extraction pipeline
 
 2. **Component Architecture**
    - Modular design
    - Shared components
-   - Custom hooks for logic
+   - Custom hooks for business logic
    - Admin dashboard components
+   - Extraction services architecture
+   - Error handling utilities
 
 ## Data Architecture
 
@@ -122,6 +130,12 @@ frontend/
    ├── timestamp, entity_counts
    ├── storage_metrics
    └── performance_indicators
+   
+   conversations
+   ├── id, title, created_at
+   ├── user_id (foreign key)
+   ├── order_index (for sorting)
+   └── metadata
    ```
 
 ### Data Flow Patterns
@@ -177,38 +191,53 @@ frontend/
 ### Chat System
 - Purpose: AI interaction and data extraction
 - Features:
-  - Message streaming with real-time search integration
+  - Message streaming with real-time processing
   - Structured data extraction and validation
-  - Conversation management with history
-  - Web search capabilities
-  - Error handling and recovery
+  - Conversation management with history and reordering
+  - Error handling and recovery with fallbacks
   - Background task processing
   - Rate limiting and timeout handling
   - Automatic message persistence
-  - Search result formatting
   - Structured data schema validation
   - Message repeat functionality
+  - Enhanced extraction services architecture
+  - Claude API integration
 
 Components:
 1. **ChatService**
    - Handles conversation and message management
-   - Integrates with OpenAI's GPT-4 Turbo
-   - Manages web search functionality
-   - Handles streaming responses
+   - Integrates with Claude API via AnthropicService
+   - Handles streaming responses with buffer management
    - Processes structured data extraction
-   - Manages conversation archiving
+   - Manages conversation archiving and reordering
+   - Handles error recovery and fallbacks
 
-2. **Message Processing**
+2. **AnthropicService**
+   - Manages Claude API connections
+   - Handles API key management
+   - Processes streaming responses
+   - Implements retry mechanisms
+   - Handles rate limits and timeouts
+   - Provides structured error responses
+
+3. **Extraction Services**
+   - DataDetectionService for entity identification
+   - DataParserService for schema validation
+   - DataExtractionService for workflow coordination
+   - Session storage fallback mechanism
+
+4. **Message Processing**
    ```
-   User Message → Search Detection → Web Search →
-   AI Processing → Structured Data Extraction →
+   User Message → Chat Context → Claude API →
+   Structured Data Extraction → Session Storage →
    Response Streaming → Message Persistence
    ```
 
-3. **Error Recovery**
-   - Multiple search attempt retries
-   - Graceful error handling
-   - Clear error messaging
+5. **Error Recovery**
+   - Session storage fallbacks
+   - Graceful error handling with user feedback
+   - Standardized error utilities
+   - Structured logging with error tracking
    - Transaction management
    - Session state preservation
 

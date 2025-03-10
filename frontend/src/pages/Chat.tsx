@@ -579,6 +579,14 @@ const Chat: React.FC = () => {
           hasMore={!!hasNextPage}
           onLoadMore={handleLoadMore}
           total={totalConversations}
+          onReorder={(dragIndex, hoverIndex) => {
+            // This would typically trigger a backend update to save the order
+            // For now, we'll just log the reordering
+            console.log(`Reordered conversation from position ${dragIndex} to ${hoverIndex}`);
+            
+            // In a full implementation, we would make an API call here to update the order in the database
+            // api.chat.updateConversationOrder(dragIndex, hoverIndex);
+          }}
         />
       </div>
 

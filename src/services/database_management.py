@@ -165,9 +165,10 @@ class DatabaseManagementService:
         cutoff_date = datetime.utcnow() - timedelta(days=older_than_days)
         
         # Build the query to find eligible conversations
+        json_condition = cast('{"archived": true}', JSONB)
         query = select(Conversation).where(
             and_(
-                cast(Conversation.meta_data, JSONB).op('@>')('{"archived": true}'),
+                cast(Conversation.meta_data, JSONB).op('@>')(json_condition),
                 # This assumes archived_at is in ISO format in the metadata
                 # We'll need to do a more complex check in the loop
             )
@@ -216,8 +217,9 @@ class DatabaseManagementService:
         If user_id is provided, only return conversations for that user.
         """
         # Build the query
+        json_condition = cast('{"archived": true}', JSONB)
         query = select(Conversation).where(
-            cast(Conversation.meta_data, JSONB).op('@>')('{"archived": true}')
+            cast(Conversation.meta_data, JSONB).op('@>')(json_condition)
         )
         
         # Add user filter if specified
@@ -255,10 +257,11 @@ class DatabaseManagementService:
         
         # Get archived conversation count separately
         # Using proper PostgreSQL JSON operator @> for JSON containment
+        json_condition = cast('{"archived": true}', JSONB)
         archived_query = select(
             func.count()
         ).select_from(Conversation).where(
-            cast(Conversation.meta_data, JSONB).op('@>')('{"archived": true}')
+            cast(Conversation.meta_data, JSONB).op('@>')(json_condition)
         )
         archived_result = await self.db.execute(archived_query)
         archived_count = archived_result.scalar() or 0

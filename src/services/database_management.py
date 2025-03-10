@@ -7,9 +7,10 @@ import asyncio
 import json
 from pathlib import Path
 import subprocess
-from sqlalchemy import select, update, func, desc, and_, or_, not_, String
+from sqlalchemy import select, update, func, desc, and_, or_, not_, String, cast, text
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
+from sqlalchemy.dialects.postgresql import JSONB
 
 from src.models.models import Conversation, Message, StructuredData, DataChangeHistory, User
 from src.utils.database import get_db_session
@@ -166,7 +167,7 @@ class DatabaseManagementService:
         # Build the query to find eligible conversations
         query = select(Conversation).where(
             and_(
-                Conversation.meta_data.contains({"archived": True}),
+                cast(Conversation.meta_data, JSONB).op('@>')('{"archived": true}'),
                 # This assumes archived_at is in ISO format in the metadata
                 # We'll need to do a more complex check in the loop
             )
@@ -216,7 +217,7 @@ class DatabaseManagementService:
         """
         # Build the query
         query = select(Conversation).where(
-            Conversation.meta_data.contains({"archived": True})
+            cast(Conversation.meta_data, JSONB).op('@>')('{"archived": true}')
         )
         
         # Add user filter if specified
@@ -253,10 +254,11 @@ class DatabaseManagementService:
         convo_count = convo_result.scalar() or 0
         
         # Get archived conversation count separately
+        # Using proper PostgreSQL JSON operator @> for JSON containment
         archived_query = select(
             func.count()
         ).select_from(Conversation).where(
-            Conversation.meta_data.contains({"archived": True})
+            cast(Conversation.meta_data, JSONB).op('@>')('{"archived": true}')
         )
         archived_result = await self.db.execute(archived_query)
         archived_count = archived_result.scalar() or 0

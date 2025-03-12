@@ -59,17 +59,34 @@
   - `ComponentName/`
     - `index.tsx` (main component with minimal logic)
     - `components/` (sub-components)
+      - `SubComponentA.tsx`
+      - `SubComponentB.tsx`
+      - `index.ts` (exports all components)
     - `hooks/` (component-specific hooks)
+      - `useFeatureState.ts`
+      - `useFeatureActions.ts`
+      - `index.ts` (exports all hooks)  
     - `utils/` (component-specific utilities)
+      - `featureUtils.ts`
+      - `validation.ts`
+      - `index.ts` (exports all utilities)
     - `types.ts` (component-specific types)
-- Extract reusable logic into custom hooks
-- Create a dedicated hook for each distinct responsibility (e.g. data fetching, UI state)
+- Extract reusable logic into custom hooks with clear boundaries
+- Create a dedicated hook for each distinct responsibility (e.g. data fetching, UI state, form management)
+- Split complex components into sub-components of 100-200 lines maximum
+- Refactor monolithic pages and components using the above patterns
 - Follow naming conventions:
   - Hooks start with "use" (`useDataFetching`)
   - Components use PascalCase (`DataTable`)
   - Helper functions use camelCase (`formatData`)
-- Implement index files to simplify imports
+- Implement index files to simplify imports and provide a clean API
 - Keep components focused on UI, delegating business logic to hooks
+- For backend services, follow similar organization:
+  - `service_area/`
+    - `specific_service1.py` (focused on one responsibility)
+    - `specific_service2.py` (focused on one responsibility)
+    - `__init__.py` (exports all services)
+- Use Facade pattern for coordinating multiple services without exposing complexity
 
 ## React DnD Implementation Notes
 

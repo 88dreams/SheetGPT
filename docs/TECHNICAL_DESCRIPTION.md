@@ -65,27 +65,45 @@ frontend/
 
 2. **Component Architecture**
    - Modular feature-based organization
-   - Shared components
-   - Custom hooks for business logic
+   - Shared components for UI consistency
+   - Custom hooks for business logic with separation of concerns
    - Admin dashboard components
-   - Extraction services architecture
-   - Error handling utilities
+   - Extraction services architecture with specialized service modules
+   - Error handling utilities with standardized patterns
    - Fixed navigation bar with consistent layout
    - Table-based components for structured data
    - Sorting mechanisms for data organization
    - Contextual action buttons for improved UX
    - Responsive layout adapting to screen dimensions
-   - Domain-specific API clients
+   - Domain-specific API clients with targeted functionality
    - Feature-focused folder structure:
      ```
      FeatureName/
      ├── components/      # UI components
+     │   ├── SubComponentA.tsx
+     │   ├── SubComponentB.tsx
+     │   └── index.ts     # Exports all components
      ├── hooks/           # Custom hooks
+     │   ├── useFeatureState.ts
+     │   ├── useFeatureActions.ts
+     │   └── index.ts     # Exports all hooks
      ├── utils/           # Helper functions
-     └── index.tsx        # Main component
+     │   ├── featureUtils.ts
+     │   └── index.ts     # Exports all utilities
+     ├── types.ts         # Feature-specific type definitions
+     └── index.tsx        # Main component with minimal logic
      ```
-   - Single responsibility components
-   - Dedicated hooks for specific logic concerns
+   - Single responsibility components focused on UI presentation
+   - Dedicated hooks for specific logic concerns (data fetching, state management, etc.)
+   - Backend services follow similar pattern:
+     ```
+     service_area/
+     ├── specific_service1.py
+     ├── specific_service2.py
+     ├── specific_service3.py
+     └── __init__.py      # Exports all services
+     ```
+   - Coordinating service modules using Facade pattern for API simplicity
 
 ## Data Architecture
 

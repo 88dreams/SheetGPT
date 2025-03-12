@@ -26,8 +26,11 @@ SheetGPT is a full-stack application combining AI-powered chat with structured d
 - React with TypeScript
 - React Query for data management
 - Advanced DataTable component
+- Fixed navigation bar with consistent layout
 - Sports database interface with relationship visualization
 - Admin dashboard for database management
+- Table-based list components with sorting capabilities
+- Contextual action buttons for improved UX
 
 ### Key Components
 
@@ -132,8 +135,18 @@ SheetGPT is a full-stack application combining AI-powered chat with structured d
    - Database Statistics
 
 3. **Recent Changes**
+   - Refactored large components into modular, focused components
+   - Implemented feature-based folder structure for complex features
+   - Extracted business logic into specialized custom hooks
+   - Reorganized API client code into domain-specific services
+   - Created advanced component organization patterns
+   - Improved type safety with dedicated type files 
+   - Reduced file sizes for better maintainability
    - Integrated Claude API with robust error handling
-   - Implemented conversation reordering with drag-and-drop
+   - Implemented fixed navigation bar across the entire application
+   - Added conversation sorting by name, date, and manual order
+   - Redesigned conversation list with table-based layout
+   - Implemented contextual action buttons for selected conversations
    - Created enhanced extraction services architecture 
    - Added structured error handling with error utilities
    - Implemented database management system with backup/restore
@@ -298,6 +311,9 @@ This document should be updated with each significant change to maintain accurac
     "Performance optimization",
     "Data integrity checks",
     "UI/UX enhancements",
+    "Fixed navigation improvements",
+    "Table-based component refinements",
+    "Conversation list sorting optimizations",
     "Entity edit improvements",
     "Pagination refinement",
     "Database growth monitoring",
@@ -311,6 +327,20 @@ This document should be updated with each significant change to maintain accurac
 {
   "frontend": {
     "core_components": {
+      "Layout": {
+        "purpose": "Provides consistent application structure with fixed navigation",
+        "key_files": [
+          "components/Layout.tsx",
+          "components/Navbar.tsx",
+          "App.tsx"
+        ],
+        "features": [
+          "Fixed top navigation bar",
+          "Consistent padding for content",
+          "Responsive layout handling",
+          "Route management"
+        ]
+      },
       "SportDataMapper": {
         "purpose": "Map structured data to sports entities",
         "key_files": [
@@ -328,18 +358,42 @@ This document should be updated with each significant change to maintain accurac
           "components/sports/Pagination.tsx"
         ]
       },
+      "DataTable": {
+        "purpose": "Display and manage structured data",
+        "key_files": [
+          "components/data/DataTable/index.tsx",
+          "components/data/DataTable/components/DataGridTable.tsx",
+          "components/data/DataTable/components/Pagination.tsx",
+          "components/data/DataTable/hooks/useColumnResize.ts",
+          "components/data/DataTable/hooks/useDragAndDrop.ts"
+        ],
+        "features": [
+          "Column resizing",
+          "Row reordering",
+          "Pagination controls",
+          "Raw data viewing",
+          "Grid expansion",
+          "Export capabilities"
+        ]
+      },
       "Chat": {
         "purpose": "AI-powered chat interface with data extraction",
         "key_files": [
-          "components/chat/MessageThread.tsx",
-          "components/chat/MessageItem.tsx",
-          "components/chat/ChatInput.tsx"
+          "pages/ChatPage/index.tsx",
+          "pages/ChatPage/components/SidebarWithResizer.tsx",
+          "pages/ChatPage/components/ChatContainer.tsx",
+          "pages/ChatPage/hooks/useMessages.ts",
+          "pages/ChatPage/hooks/useSendMessage.ts"
         ],
         "features": [
           "Message streaming",
           "Data extraction",
           "Message repeat functionality",
-          "Delete/Archive messages"
+          "Delete/Archive messages",
+          "Conversation sorting",
+          "Contextual actions",
+          "Table-based conversation list",
+          "Resizable sidebar"
         ]
       },
       "EntityManagement": {

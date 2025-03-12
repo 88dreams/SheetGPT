@@ -171,16 +171,44 @@ const DataPreviewModal: React.FC<DataPreviewModalProps> = ({
     setProcessingState('processing');
     try {
       // Pre-process the data to ensure it's in the correct format
-      const processedData = await DataExtractionService.preprocessData(extractedData);
-      console.log('Data pre-processed successfully:', processedData);
+      let processedData;
+      try {
+        processedData = await DataExtractionService.preprocessData(extractedData);
+        console.log('Data pre-processed successfully:', processedData);
+      } catch (processingError) {
+        console.warn('Error in preprocessing, using original data:', processingError);
+        // Fallback to original data if preprocessing fails
+        processedData = typeof extractedData === 'string' ? JSON.parse(extractedData) : extractedData;
+      }
+      
+      // Ensure data has the required structure
+      if (!processedData.headers && processedData.rows && processedData.rows.length > 0) {
+        // Try to infer headers from the first row if available
+        if (typeof processedData.rows[0] === 'object') {
+          processedData.headers = Object.keys(processedData.rows[0]);
+        }
+      }
+      
+      // Ensure meta_data exists
+      if (!processedData.meta_data) {
+        processedData.meta_data = {};
+      }
       
       // Store the data in session storage for the data management page
       try {
-        sessionStorage.setItem('preview_data', JSON.stringify({
-          headers: processedData.headers,
-          rows: processedData.rows,
-          meta_data: processedData.meta_data || {}
-        }));
+        // Enhanced storage format for better fallback
+        const storageData = {
+          headers: processedData.headers || [],
+          rows: processedData.rows || [],
+          meta_data: {
+            ...processedData.meta_data,
+            stored_at: new Date().toISOString(),
+            is_fallback: true
+          }
+        };
+        
+        sessionStorage.setItem('preview_data', JSON.stringify(storageData));
+        console.log('Stored data in preview_data session storage:', storageData);
       } catch (storageError) {
         console.warn('Could not store data in session storage:', storageError);
       }
@@ -191,11 +219,12 @@ const DataPreviewModal: React.FC<DataPreviewModalProps> = ({
         
         // Give the success state a moment to show
         setTimeout(() => {
+          // Call onConfirm with the processed data
           onConfirm(processedData);
-        }, 500);
+        }, 800);
       }, 500);
     } catch (error) {
-      console.error('Error pre-processing data:', error);
+      console.error('Error handling data confirmation:', error);
       
       if (isDataExtractionError(error)) {
         setError(error.message);

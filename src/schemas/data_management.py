@@ -32,8 +32,9 @@ class ColumnResponse(ColumnBase):
     id: UUID
     structured_data_id: UUID
 
-    class Config:
-        from_attributes = True
+    model_config = {
+        "from_attributes": True
+    }
 
 class DataUpdate(BaseModel):
     """Schema for updating cell values."""
@@ -71,12 +72,13 @@ class StructuredDataResponse(BaseModel):
     updated_at: datetime
     columns: List[ColumnResponse]
 
-    class Config:
-        from_attributes = True
-        json_encoders = {
+    model_config = {
+        "from_attributes": True,
+        "json_encoders": {
             datetime: lambda v: v.isoformat(),
             UUID: lambda v: str(v)
         }
+    }
         
     @validator('created_at', 'updated_at', pre=True)
     def parse_datetime(cls, value):
@@ -97,8 +99,9 @@ class DataChangeHistoryResponse(BaseModel):
     created_at: str
     meta_data: Dict[str, Any]
 
-    class Config:
-        from_attributes = True
+    model_config = {
+        "from_attributes": True
+    }
         
     @validator('created_at', pre=True)
     def parse_datetime(cls, value):

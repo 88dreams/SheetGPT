@@ -53,6 +53,24 @@
 - Never trust third-party API data without validation
 - Always handle edge cases gracefully
 
+## Component Organization Guidelines
+
+- Follow a modular approach with folder structure: 
+  - `ComponentName/`
+    - `index.tsx` (main component with minimal logic)
+    - `components/` (sub-components)
+    - `hooks/` (component-specific hooks)
+    - `utils/` (component-specific utilities)
+    - `types.ts` (component-specific types)
+- Extract reusable logic into custom hooks
+- Create a dedicated hook for each distinct responsibility (e.g. data fetching, UI state)
+- Follow naming conventions:
+  - Hooks start with "use" (`useDataFetching`)
+  - Components use PascalCase (`DataTable`)
+  - Helper functions use camelCase (`formatData`)
+- Implement index files to simplify imports
+- Keep components focused on UI, delegating business logic to hooks
+
 ## React DnD Implementation Notes
 
 - For drag and drop functionality, prefer react-beautiful-dnd over react-dnd 
@@ -91,6 +109,19 @@
 - Use try/catch blocks with specific error handling
 - Provide alternative formats for data export when APIs fail
 - Always validate input/output data structure before processing
+
+## UI Implementation Guidelines
+
+- Use fixed navigation bar for consistent application structure
+- Implement table-based layouts for data-heavy components
+- Add sorting capabilities with clear visual indicators
+- Use contextual actions that appear only when relevant
+- Optimize vertical space with collapsible sections
+- Ensure proper padding for fixed elements (navbar requires pt-16)
+- Implement responsive designs that adjust to screen size
+- Use a consistent color scheme for actions (blue for edit, red for delete, etc.)
+- Provide clear visual feedback for interactive elements
+- Calculate proper heights for scrollable containers (h-[calc(100vh-5rem)])
 
 ## Claude API Integration
 

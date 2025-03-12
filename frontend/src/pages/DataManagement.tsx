@@ -15,6 +15,7 @@ const DataManagement: React.FC = () => {
   const [searchParams] = useSearchParams()
   const messageId = searchParams.get('message')
   const isExtracted = searchParams.get('extracted') === 'true'
+  const selectedFromParams = searchParams.get('selected')
   const [extractedData, setExtractedData] = useState<any>(null)
   const [selectedDataId, setSelectedDataId] = useState<string | null>(null)
   const [isVerifyingData, setIsVerifyingData] = useState(false)
@@ -34,7 +35,8 @@ const DataManagement: React.FC = () => {
     queryFn: () => api.data.getStructuredData(),
     staleTime: 1000 * 60 * 15, // 15 minutes
     gcTime: 1000 * 60 * 60, // 60 minutes
-    refetchOnWindowFocus: false,
+    refetchOnWindowFocus: true, // Keep data fresh when window gets focus
+    refetchOnMount: true,      // Fetch data when component mounts
     retry: 2,
     retryDelay: attemptIndex => Math.min(1000 * 2 ** attemptIndex, 30000)
   })
@@ -44,6 +46,14 @@ const DataManagement: React.FC = () => {
   useEffect(() => {
     setDestination('data')
   }, [])
+  
+  // Handle selection from URL params
+  useEffect(() => {
+    if (selectedFromParams) {
+      console.log('DataManagement: Setting selected data ID from URL parameter:', selectedFromParams);
+      setSelectedDataId(selectedFromParams);
+    }
+  }, [selectedFromParams])
   
   // Handle extracted data from session storage - separate effect to avoid loops
   useEffect(() => {
@@ -97,14 +107,28 @@ const DataManagement: React.FC = () => {
     retryDelay: attemptIndex => Math.min(1000 * 2 ** attemptIndex, 30000),
     staleTime: 1000 * 60 * 15, // 15 minutes
     gcTime: 1000 * 60 * 60, // 60 minutes
-    refetchOnWindowFocus: false
+    refetchOnWindowFocus: true,
+    refetchOnMount: true
   })
 
-  // Refetch all data when the component mounts or when messageId changes
+  // Store the selected data ID in session storage when it changes
   useEffect(() => {
-    console.log('DataManagement: Refetching all structured data');
-    refetchAllData();
-  }, [refetchAllData, messageId]);
+    if (selectedDataId) {
+      console.log('DataManagement: Storing selected data ID in session storage:', selectedDataId);
+      sessionStorage.setItem('last_selected_data_id', selectedDataId);
+    }
+  }, [selectedDataId]);
+  
+  // Restore the selected data ID from session storage on mount
+  useEffect(() => {
+    if (!selectedDataId && !selectedFromParams) {
+      const storedDataId = sessionStorage.getItem('last_selected_data_id');
+      if (storedDataId) {
+        console.log('DataManagement: Restoring selected data ID from session storage:', storedDataId);
+        setSelectedDataId(storedDataId);
+      }
+    }
+  }, []);
 
   // Enhanced verification for message data
   useEffect(() => {
@@ -206,7 +230,10 @@ const DataManagement: React.FC = () => {
     enabled: !!selectedDataId,
     retry: 3, // Retry up to 3 times if the query fails
     retryDelay: 1000, // Wait 1 second between retries
-    staleTime: 0 // Consider data immediately stale to ensure fresh data
+    staleTime: 0, // Consider data immediately stale to ensure fresh data
+    refetchOnWindowFocus: true,
+    refetchOnMount: true,
+    cacheTime: 1000 * 60 * 60 // Cache for 60 minutes 
   })
 
   // Refetch data when selectedDataId changes
@@ -303,8 +330,51 @@ const DataManagement: React.FC = () => {
           <div className="bg-blue-50 border-l-4 border-blue-500 p-4 mb-4">
             <h3 className="font-medium text-blue-800">Extracted Data Preview</h3>
             <p className="text-sm text-blue-600 mt-1">
-              This data is not stored in the database due to a backend issue. You can view it here, but it won't be permanently saved.
+              Preview mode: This data is temporarily available. Click the button below to save it to the database.
             </p>
+            <div className="flex gap-2 mt-2">
+              <button 
+                className="px-3 py-1 text-sm bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors"
+                onClick={() => {
+                  if (extractedData && extractedData.headers && extractedData.rows) {
+                    // Show saving state
+                    showNotification('info', 'Saving data to database...');
+                    try {
+                      api.data.createStructuredData({
+                        conversation_id: extractedData.meta_data?.conversation_id || 'unknown',
+                        data_type: 'tabular',
+                        schema_version: '1.0',
+                        data: {
+                          rows: extractedData.rows || [],
+                          column_order: extractedData.headers || []
+                        },
+                        meta_data: extractedData.meta_data || {}
+                      }).then((response) => {
+                        showNotification('success', 'Data saved to database successfully');
+                        // Refresh the data list
+                        refetchAllData();
+                        
+                        // Instead of clearing data, set the selected data to show the saved item
+                        if (response && response.id) {
+                          console.log('Setting selected data to newly created item:', response.id);
+                          setSelectedDataId(response.id);
+                          // Don't clear the preview until we've selected the saved data
+                          setTimeout(() => {
+                            setExtractedData(null);
+                          }, 1000);
+                        }
+                      }).catch(err => {
+                        showNotification('error', 'Failed to save data: ' + (err.message || 'Unknown error'));
+                      });
+                    } catch (error) {
+                      showNotification('error', 'Failed to process data for saving');
+                    }
+                  }
+                }}
+              >
+                Save to Database
+              </button>
+            </div>
           </div>
           
           <div className="overflow-x-auto">

@@ -31,7 +31,7 @@ export default function Navbar() {
   const pageTitle = getPageTitle()
 
   return (
-    <nav className="bg-white shadow">
+    <nav className="bg-white shadow fixed top-0 left-0 right-0 z-50">
       <div className="container mx-auto px-4">
         <div className="flex justify-between h-16">
           <div className="flex">

@@ -20,55 +20,195 @@ from src.schemas.data_management import (
 
 router = APIRouter()
 
-@router.get("/by-message/{message_id}", response_model=StructuredDataResponse)
+@router.get("/by-message/{message_id}", response_model=Dict[str, Any])
 async def get_structured_data_by_message(
     message_id: UUID,
     current_user_id: UUID = Depends(get_current_user_id),
     db: AsyncSession = Depends(get_db)
-) -> StructuredDataResponse:
+) -> Dict[str, Any]:
     """Get structured data by message ID."""
     service = DataManagementService(db)
-    return await service.get_data_by_message_id(message_id, current_user_id)
+    data = await service.get_data_by_message_id(message_id, current_user_id)
+    
+    # Convert to dictionary and ensure proper format
+    response = data.model_dump()
+    
+    # Ensure UUID fields are strings for JSON serialization
+    response["id"] = str(response["id"])
+    response["conversation_id"] = str(response["conversation_id"])
+    
+    # Ensure columns are properly formatted
+    for col in response.get("columns", []):
+        if "id" in col:
+            col["id"] = str(col["id"])
+        if "structured_data_id" in col:
+            col["structured_data_id"] = str(col["structured_data_id"])
+    
+    # Ensure data has expected structure
+    if "data" in response and isinstance(response["data"], dict) and "rows" in response["data"]:
+        if "column_order" not in response["data"]:
+            # Add column_order if missing (frontend expects this)
+            headers = []
+            if response["data"]["rows"] and isinstance(response["data"]["rows"][0], dict):
+                headers = list(response["data"]["rows"][0].keys())
+            response["data"]["column_order"] = headers
+    
+    return response
 
-@router.get("", response_model=List[StructuredDataResponse])
+@router.get("", response_model=List[Dict[str, Any]])
 async def list_structured_data(
     current_user_id: UUID = Depends(get_current_user_id),
     db: AsyncSession = Depends(get_db)
-) -> List[StructuredDataResponse]:
+) -> List[Dict[str, Any]]:
     """Get all structured data for the current user."""
     service = DataManagementService(db)
-    return await service.get_all_data(current_user_id)
+    data_list = await service.get_all_data(current_user_id)
+    
+    # Convert each item to dictionary and ensure proper format
+    response_list = []
+    for item in data_list:
+        response = item.model_dump()
+        
+        # Ensure UUID fields are strings
+        response["id"] = str(response["id"])
+        response["conversation_id"] = str(response["conversation_id"])
+        
+        # Ensure columns are properly formatted
+        for col in response.get("columns", []):
+            if "id" in col:
+                col["id"] = str(col["id"])
+            if "structured_data_id" in col:
+                col["structured_data_id"] = str(col["structured_data_id"])
+        
+        # Ensure data has expected structure
+        if "data" in response and isinstance(response["data"], dict) and "rows" in response["data"]:
+            if "column_order" not in response["data"]:
+                headers = []
+                if response["data"]["rows"] and isinstance(response["data"]["rows"][0], dict):
+                    headers = list(response["data"]["rows"][0].keys())
+                response["data"]["column_order"] = headers
+        
+        response_list.append(response)
+    
+    return response_list
 
-@router.post("", response_model=StructuredDataResponse, status_code=status.HTTP_201_CREATED)
+@router.post("", response_model=Dict[str, Any], status_code=status.HTTP_201_CREATED)
 async def create_structured_data(
     data: StructuredDataCreate,
     current_user_id: UUID = Depends(get_current_user_id),
     db: AsyncSession = Depends(get_db)
-) -> StructuredDataResponse:
+) -> Dict[str, Any]:
     """Create new structured data."""
     service = DataManagementService(db)
-    return await service.create_structured_data(data, current_user_id)
+    result = await service.create_structured_data(data, current_user_id)
+    
+    # Extract relevant fields to dictionary
+    response = {
+        "id": str(result.id),
+        "conversation_id": str(result.conversation_id),
+        "data_type": result.data_type,
+        "schema_version": result.schema_version,
+        "data": result.data,
+        "meta_data": result.meta_data,
+        "created_at": result.created_at.isoformat() if result.created_at else None,
+        "updated_at": result.updated_at.isoformat() if result.updated_at else None,
+        "columns": []  # Initially empty, columns will be added later
+    }
+    
+    # Ensure the data field has the expected structure for frontend
+    if "rows" in result.data and isinstance(result.data["rows"], list):
+        data_with_columns = {
+            "column_order": result.data.get("column_order", []),
+            "rows": result.data["rows"]
+        }
+        response["data"] = data_with_columns
+    
+    return response
 
-@router.get("/{data_id}", response_model=StructuredDataResponse)
+@router.get("/{data_id}", response_model=Dict[str, Any])
 async def get_structured_data(
     data_id: UUID,
     current_user_id: UUID = Depends(get_current_user_id),
     db: AsyncSession = Depends(get_db)
-) -> StructuredDataResponse:
+) -> Dict[str, Any]:
     """Get structured data by ID."""
     service = DataManagementService(db)
-    return await service.get_data_by_id(data_id, current_user_id)
+    data = await service.get_data_by_id(data_id, current_user_id)
+    
+    # Convert to dictionary and ensure proper format
+    response = data.model_dump()
+    
+    # Ensure UUID fields are strings
+    response["id"] = str(response["id"])
+    response["conversation_id"] = str(response["conversation_id"])
+    
+    # Ensure columns are properly formatted
+    for col in response.get("columns", []):
+        if "id" in col:
+            col["id"] = str(col["id"])
+        if "structured_data_id" in col:
+            col["structured_data_id"] = str(col["structured_data_id"])
+    
+    # Ensure data has expected structure
+    if "data" in response and isinstance(response["data"], dict) and "rows" in response["data"]:
+        if "column_order" not in response["data"]:
+            headers = []
+            if response["data"]["rows"] and isinstance(response["data"]["rows"][0], dict):
+                headers = list(response["data"]["rows"][0].keys())
+            response["data"]["column_order"] = headers
+    
+    return response
 
-@router.put("/{data_id}", response_model=StructuredDataResponse)
+@router.put("/{data_id}", response_model=Dict[str, Any])
 async def update_structured_data(
     data_id: UUID,
     data: StructuredDataUpdate,
     current_user_id: UUID = Depends(get_current_user_id),
     db: AsyncSession = Depends(get_db)
-) -> StructuredDataResponse:
+) -> Dict[str, Any]:
     """Update structured data."""
     service = DataManagementService(db)
-    return await service.update_structured_data(data_id, current_user_id, data)
+    updated_data = await service.update_structured_data(data_id, current_user_id, data)
+    
+    # Build response dictionary manually to avoid SQLAlchemy relationship serialization issues
+    response = {
+        "id": str(updated_data.id),
+        "conversation_id": str(updated_data.conversation_id),
+        "data_type": updated_data.data_type,
+        "schema_version": updated_data.schema_version,
+        "data": updated_data.data,
+        "meta_data": updated_data.meta_data,
+        "created_at": updated_data.created_at.isoformat() if updated_data.created_at else None,
+        "updated_at": updated_data.updated_at.isoformat() if updated_data.updated_at else None,
+        "columns": []
+    }
+    
+    # Add columns if available
+    if hasattr(updated_data, 'columns'):
+        response["columns"] = [
+            {
+                "id": str(col.id),
+                "structured_data_id": str(col.structured_data_id),
+                "name": col.name,
+                "data_type": col.data_type,
+                "format": col.format,
+                "formula": col.formula,
+                "order": col.order,
+                "is_active": col.is_active,
+                "meta_data": col.meta_data
+            }
+            for col in updated_data.columns
+        ]
+    
+    # Ensure data has expected structure
+    if "data" in response and isinstance(response["data"], dict) and "rows" in response["data"]:
+        if "column_order" not in response["data"]:
+            headers = []
+            if response["data"]["rows"] and isinstance(response["data"]["rows"][0], dict):
+                headers = list(response["data"]["rows"][0].keys())
+            response["data"]["column_order"] = headers
+    
+    return response
 
 @router.delete("/{data_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_structured_data(

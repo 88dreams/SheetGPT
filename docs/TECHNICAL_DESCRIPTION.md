@@ -64,12 +64,28 @@ frontend/
    - DataFlowContext for extraction pipeline
 
 2. **Component Architecture**
-   - Modular design
+   - Modular feature-based organization
    - Shared components
    - Custom hooks for business logic
    - Admin dashboard components
    - Extraction services architecture
    - Error handling utilities
+   - Fixed navigation bar with consistent layout
+   - Table-based components for structured data
+   - Sorting mechanisms for data organization
+   - Contextual action buttons for improved UX
+   - Responsive layout adapting to screen dimensions
+   - Domain-specific API clients
+   - Feature-focused folder structure:
+     ```
+     FeatureName/
+     ├── components/      # UI components
+     ├── hooks/           # Custom hooks
+     ├── utils/           # Helper functions
+     └── index.tsx        # Main component
+     ```
+   - Single responsibility components
+   - Dedicated hooks for specific logic concerns
 
 ## Data Architecture
 

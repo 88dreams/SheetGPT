@@ -39,6 +39,15 @@ class DataManagementService:
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Structured data not found"
             )
+        
+        # Explicitly access columns to ensure they're loaded within the session
+        if data.columns:
+            for col in data.columns:
+                # Access column attributes to ensure they're loaded
+                _ = col.id
+                _ = col.name
+                _ = col.data_type
+        
         return data
 
     async def _record_change(
@@ -71,7 +80,10 @@ class DataManagementService:
         query = (
             select(StructuredData)
             .join(StructuredData.conversation)
-            .options(selectinload(StructuredData.columns))
+            .options(
+                selectinload(StructuredData.conversation),
+                selectinload(StructuredData.columns)
+            )
             .where(
                 StructuredData.conversation.has(user_id=user_id),
                 StructuredData.deleted_at.is_(None)
@@ -82,7 +94,42 @@ class DataManagementService:
         result = await self.db.execute(query)
         data_list = result.scalars().all()
         
-        return [StructuredDataResponse.from_orm(data) for data in data_list]
+        # Process the data within the database session context
+        response_data = []
+        for data in data_list:
+            # Explicitly access columns to ensure they're loaded
+            columns_data = []
+            if data.columns:
+                for col in data.columns:
+                    columns_data.append({
+                        "id": col.id,
+                        "structured_data_id": col.structured_data_id,
+                        "name": col.name,
+                        "data_type": col.data_type,
+                        "format": col.format,
+                        "formula": col.formula,
+                        "order": col.order,
+                        "is_active": col.is_active,
+                        "meta_data": col.meta_data
+                    })
+            
+            # Create a dictionary with all the needed data
+            data_dict = {
+                "id": data.id,
+                "conversation_id": data.conversation_id,
+                "data_type": data.data_type,
+                "schema_version": data.schema_version,
+                "data": data.data,
+                "meta_data": data.meta_data,
+                "created_at": data.created_at,
+                "updated_at": data.updated_at,
+                "columns": columns_data
+            }
+            
+            # Validate and convert to Pydantic model
+            response_data.append(StructuredDataResponse.model_validate(data_dict))
+        
+        return response_data
 
     async def get_data_by_id(self, data_id: UUID, user_id: UUID) -> StructuredDataResponse:
         """Get structured data by ID with user verification."""
@@ -93,7 +140,24 @@ class DataManagementService:
                 detail="Not authorized to access this data"
             )
         
-        # Convert SQLAlchemy model to dict with relationships
+        # Process columns within the database session
+        columns_list = []
+        # Explicitly access each column and its attributes
+        for col in data.columns:
+            column_dict = {
+                "id": col.id,
+                "structured_data_id": col.structured_data_id,
+                "name": col.name,
+                "data_type": col.data_type,
+                "format": col.format,
+                "formula": col.formula,
+                "order": col.order,
+                "is_active": col.is_active,
+                "meta_data": col.meta_data
+            }
+            columns_list.append(column_dict)
+        
+        # Create complete data dictionary 
         data_dict = {
             "id": data.id,
             "conversation_id": data.conversation_id,
@@ -103,22 +167,10 @@ class DataManagementService:
             "meta_data": data.meta_data,
             "created_at": data.created_at,
             "updated_at": data.updated_at,
-            "columns": [
-                {
-                    "id": col.id,
-                    "structured_data_id": col.structured_data_id,
-                    "name": col.name,
-                    "data_type": col.data_type,
-                    "format": col.format,
-                    "formula": col.formula,
-                    "order": col.order,
-                    "is_active": col.is_active,
-                    "meta_data": col.meta_data
-                }
-                for col in data.columns
-            ]
+            "columns": columns_list
         }
         
+        # Convert to Pydantic model
         return StructuredDataResponse.model_validate(data_dict)
 
     async def create_structured_data(
@@ -553,7 +605,24 @@ class DataManagementService:
                 detail="Structured data not found for this message"
             )
         
-        # Convert SQLAlchemy model to dict with relationships
+        # Process columns within the database session
+        columns_list = []
+        # Explicitly access each column and its attributes
+        for col in data.columns:
+            column_dict = {
+                "id": col.id,
+                "structured_data_id": col.structured_data_id,
+                "name": col.name,
+                "data_type": col.data_type,
+                "format": col.format,
+                "formula": col.formula,
+                "order": col.order,
+                "is_active": col.is_active,
+                "meta_data": col.meta_data
+            }
+            columns_list.append(column_dict)
+        
+        # Create data dictionary with all fields populated
         data_dict = {
             "id": data.id,
             "conversation_id": data.conversation_id,
@@ -563,20 +632,8 @@ class DataManagementService:
             "meta_data": data.meta_data,
             "created_at": data.created_at,
             "updated_at": data.updated_at,
-            "columns": [
-                {
-                    "id": col.id,
-                    "structured_data_id": col.structured_data_id,
-                    "name": col.name,
-                    "data_type": col.data_type,
-                    "format": col.format,
-                    "formula": col.formula,
-                    "order": col.order,
-                    "is_active": col.is_active,
-                    "meta_data": col.meta_data
-                }
-                for col in data.columns
-            ]
+            "columns": columns_list
         }
         
+        # Convert to Pydantic model
         return StructuredDataResponse.model_validate(data_dict) 

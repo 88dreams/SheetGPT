@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react'
-import { Routes, Route, Navigate } from 'react-router-dom'
+import { Routes, Route, Navigate, Outlet } from 'react-router-dom'
 import { useAuth } from './hooks/useAuth'
 import { NotificationProvider } from './contexts/NotificationContext'
 import { DataFlowProvider } from './contexts/DataFlowContext'
 import { ChatProvider } from './contexts/ChatContext'
 import Layout from './components/Layout'
+import Navbar from './components/Navbar'
 import Login from './pages/Login'
 import Register from './pages/Register'
 import Chat from './pages/Chat'
@@ -59,9 +60,18 @@ const App: React.FC = () => {
       <DataFlowProvider>
         <ChatProvider>
           <Routes>
-            {/* Public routes */}
-            <Route path="/login" element={<Login />} />
-            <Route path="/register" element={<Register />} />
+            {/* Public routes with navbar */}
+            <Route element={
+              <div className="min-h-screen bg-gray-50">
+                <Navbar />
+                <div className="pt-16">{/* Add padding for fixed navbar */}
+                  <Outlet />
+                </div>
+              </div>
+            }>
+              <Route path="/login" element={<Login />} />
+              <Route path="/register" element={<Register />} />
+            </Route>
 
             {/* Protected routes */}
             <Route
@@ -76,6 +86,8 @@ const App: React.FC = () => {
               <Route index element={<Navigate to="/chat" />} />
               <Route path="chat" element={<Chat />} />
               <Route path="data" element={<DataManagement />} />
+              {/* Add a redirect for any data/:id pattern to the main data page */}
+              <Route path="data/:id" element={<Navigate to="/data" replace />} />
               <Route path="sports" element={<SportsDatabase />} />
               <Route path="sports/:entityType/:id" element={<EntityDetail />} />
               <Route path="export" element={<Export />} />

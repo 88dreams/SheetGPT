@@ -568,34 +568,20 @@ const MessageItem: React.FC<MessageItemProps> = ({
         }
       };
       
-      // Create the structured data in the database
+      // Store an unprocessed version in session storage as fallback
       try {
-        const newData = await api.data.createStructuredData({
-          data: processedData,
-          data_type: "structured-data",
-          schema_version: "1.0",
-          conversation_id: message.conversation_id,
-          meta_data: {
-            message_id: message.id,
-            extracted_at: new Date().toISOString(),
-            name: `Data from ${new Date().toLocaleString()}`
-          }
-        });
-        
-        // Show success notification
-        showNotification('success', 'Data successfully sent to Data Management');
-        
-        // Navigate to the data view
-        navigate(`/data/${newData.id}`);
-      } catch (apiError) {
-        console.error('API Error creating structured data:', apiError);
-        showNotification('error', `API Error: ${(apiError as Error).message}`);
-        
-        // Fallback to preview if API fails
-        showNotification('info', 'Showing data preview instead');
-        setSportMapperData(dataWithMetadata);
-        setShowDataPreview(true);
+        sessionStorage.setItem('latest_extracted_data', JSON.stringify(dataWithMetadata));
+      } catch (storageError) {
+        console.warn('Could not store data in session storage:', storageError);
       }
+      
+      // Update state with processed data
+      console.log('MessageItem: Showing data preview modal with processed data', dataWithMetadata);
+      setExtractedData(JSON.stringify(dataWithMetadata, null, 2));
+      setSportMapperData(dataWithMetadata);
+      
+      // Show the data preview modal
+      setShowDataPreview(true);
       
     } catch (error) {
       console.error('Error processing data for extraction:', error);
@@ -750,8 +736,13 @@ const MessageItem: React.FC<MessageItemProps> = ({
         const dataText = contentParts[1].trim()
         const parsedData = JSON.parse(dataText)
         const standardData = await onDataPreview(parsedData)
+        
+        // Set both extractedData for backwards compatibility and sportMapperData for the modal
         setExtractedData(JSON.stringify(standardData, null, 2))
+        setSportMapperData(standardData)
         setShowDataPreview(true)
+        
+        console.log('MessageItem: Showing data preview', standardData)
       } catch (error) {
         console.error('Error previewing data:', error)
       }
@@ -759,11 +750,60 @@ const MessageItem: React.FC<MessageItemProps> = ({
   }
 
   const handleDataConfirm = async (data: any) => {
+    showNotification('info', 'Sending data to database...');
+    
     try {
-      // Navigate to data management page
-      navigate('/data')
+      console.log('MessageItem: Creating structured data in the database', data)
+      
+      // Ensure data has consistent format
+      const formattedData = {
+        conversation_id: message.conversation_id,
+        data_type: 'tabular',
+        schema_version: '1.0',
+        data: {
+          rows: data.rows || [],
+          column_order: data.headers || []
+        },
+        meta_data: {
+          ...data.meta_data,
+          message_id: message.id,
+          extracted_at: new Date().toISOString(),
+          source: 'chat-extraction'
+        }
+      };
+      
+      // Store in session storage as a fallback (in case API fails)
+      try {
+        console.log('MessageItem: Storing data in session storage as fallback');
+        sessionStorage.setItem('preview_data', JSON.stringify({
+          headers: data.headers,
+          rows: data.rows,
+          meta_data: formattedData.meta_data
+        }));
+      } catch (storageError) {
+        console.warn('Could not store data in session storage:', storageError);
+      }
+      
+      // Create structured data entry in the database
+      const response = await api.data.createStructuredData(formattedData);
+      
+      console.log('MessageItem: Structured data created successfully', response);
+      showNotification('success', 'Data successfully sent to Data Management');
+      
+      // Pass the data ID through search params to select it automatically 
+      if (response && response.id) {
+        // Navigate to the data management page with ID to select
+        navigate(`/data?selected=${response.id}`);
+      } else {
+        // Navigate to the base data path if no ID
+        navigate('/data');
+      }
     } catch (error) {
-      console.error('Error navigating to data page:', error)
+      console.error('MessageItem: Error creating structured data', error);
+      showNotification('error', 'Failed to save data to database. You can still view the preview.');
+      
+      // Navigate to data page for preview even if API fails
+      navigate('/data');
     }
   }
 

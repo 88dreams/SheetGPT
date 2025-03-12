@@ -46,6 +46,22 @@
 - Implement session storage fallbacks for API failures
 - Structure components with clean separation of concerns
 - Modularize functionality into composable hooks
+- Implement exhaustive input validation before processing
+- Use helper functions for repeated operations 
+- Add debug logging for complex operations
+- Store complex logic in dedicated services
+- Never trust third-party API data without validation
+- Always handle edge cases gracefully
+
+## React DnD Implementation Notes
+
+- For drag and drop functionality, prefer react-beautiful-dnd over react-dnd 
+- The conversation reordering feature has unresolved issues with state updates
+- Future implementation should handle optimistic UI updates consistently
+- Keep drag-drop interactions simple, with minimal state changes during hover events
+- Update local state immediately on drop, then send API request as side effect
+- For list reordering, use index-based API (instead of order field) where possible
+- Always provide visual feedback during drag operations
 
 ## Database Guidelines
 
@@ -70,6 +86,11 @@
 - Handle network failures gracefully
 - Use optimistic UI updates with recovery patterns
 - Validate data at multiple levels (client, API, database)
+- Implement CSV fallbacks for export functionality
+- Add debug logging for complex operations 
+- Use try/catch blocks with specific error handling
+- Provide alternative formats for data export when APIs fail
+- Always validate input/output data structure before processing
 
 ## Claude API Integration
 

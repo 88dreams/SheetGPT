@@ -28,6 +28,14 @@ SheetGPT is a full-stack application that combines AI-powered chat capabilities 
    - Added session storage fallback for API failures
    - Improved type validation and schema handling
 
+### Known Issues
+1. Conversation Reordering
+   - Drag and drop reordering in conversation list is not functioning reliably
+   - Initial implementation with React DnD has UI interactions but state updates inconsistently
+   - Temporary solution uses the up/down arrow buttons for reordering
+   - Planning to revisit with simplified implementation using react-beautiful-dnd library
+   - Current priority: Low (core functionality unaffected)
+
 3. Database Management System
    - Implemented comprehensive database maintenance tools
    - Added conversation archiving instead of permanent deletion
@@ -58,7 +66,7 @@ SheetGPT is a full-stack application that combines AI-powered chat capabilities 
 
 ### Recent Improvements
 
-#### AI Integration
+#### AI Integration & Data Flow
 - Integrated Anthropic Claude 3 API with robust error handling
 - Enhanced chat streaming capabilities with buffer management
 - Implemented comprehensive error utilities for standardized error handling
@@ -66,6 +74,9 @@ SheetGPT is a full-stack application that combines AI-powered chat capabilities 
 - Built conversation state management with ChatContext
 - Enhanced message persistence with conversation order tracking
 - Improved real-time updates with optimistic UI and fallbacks
+- Fixed data flow from chat to data management interface
+- Added reliable CSV export fallback for Google Sheets API issues
+- Implemented preview mode for data before saving
 
 #### Data Extraction Architecture
 - Created modular extraction service architecture
@@ -139,10 +150,12 @@ SheetGPT is a full-stack application that combines AI-powered chat capabilities 
 - ✅ Extraction services architecture
 
 #### In Progress
-- 🔄 Google Sheets API integration
+- 🔄 Google Sheets API integration reliability improvements
 - 🔄 API endpoint testing
 - 🔄 Test coverage expansion
 - 🔄 Mobile responsive design
+- 🔄 CSV export fallback mechanism
+- 🔄 Data flow debugging and optimization
 
 ### Current Focus
 
@@ -152,6 +165,7 @@ SheetGPT is a full-stack application that combines AI-powered chat capabilities 
    - Data cleanup procedures
    - Advanced editing improvements
    - Pagination optimization
+   - Google Sheets export reliability
 
 2. Testing
    - Database management functionality
@@ -159,12 +173,16 @@ SheetGPT is a full-stack application that combines AI-powered chat capabilities 
    - Pagination implementation
    - Bulk operations
    - Entity edit components
+   - Export functionality
 
 3. Error Handling
    - Field validation
    - Relationship constraints
    - User-friendly messages
    - Bulk operation failures
+   - Improved error recovery with fallbacks
+   - Multiple export format options
+   - Session storage for export data preservation
 
 #### Ongoing Maintenance
 - Documentation updates
@@ -177,11 +195,13 @@ SheetGPT is a full-stack application that combines AI-powered chat capabilities 
 ### Next Steps
 
 #### Short-term (1-2 weeks)
-1. Complete Google Sheets integration
-2. Expand test coverage
-3. Optimize bulk operations
-4. Enhance error handling
-5. Monitor database growth patterns
+1. Improve Google Sheets API integration reliability
+2. Complete CSV export fallback mechanism
+3. Expand test coverage for export functionality
+4. Optimize bulk operations
+5. Enhance error handling with better fallbacks
+6. Monitor database growth patterns
+7. Implement direct pre-population in spreadsheet creation
 
 #### Medium-term (1-2 months)
 1. Mobile responsiveness

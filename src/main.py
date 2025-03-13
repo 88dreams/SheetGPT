@@ -1,7 +1,10 @@
+import os
+from pathlib import Path
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.exceptions import RequestValidationError
+from fastapi.staticfiles import StaticFiles
 from starlette.exceptions import HTTPException
 from typing import Dict
 
@@ -86,6 +89,15 @@ app.include_router(
     api_router.router,
     prefix=settings.API_V1_PREFIX
 )
+
+# Mount the exports directory to serve static files
+exports_dir = Path("data/exports")
+if not exports_dir.exists():
+    os.makedirs(exports_dir, exist_ok=True)
+    app_logger.info(f"Created exports directory: {exports_dir.absolute()}")
+
+app.mount("/api/v1/exports", StaticFiles(directory=exports_dir), name="exports")
+app_logger.info(f"Mounted exports directory: {exports_dir.absolute()}")
 
 @app.get("/")
 async def root() -> Dict[str, str]:

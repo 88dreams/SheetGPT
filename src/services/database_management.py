@@ -5,8 +5,11 @@ import logging
 import os
 import asyncio
 import json
+import csv
+from io import StringIO
 from pathlib import Path
 import subprocess
+import re
 from sqlalchemy import select, update, func, desc, and_, or_, not_, String, cast, text
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -15,6 +18,8 @@ from sqlalchemy.dialects.postgresql import JSONB
 from src.models.models import Conversation, Message, StructuredData, DataChangeHistory, User
 from src.utils.database import get_db_session
 from src.utils.config import get_settings
+from src.services.anthropic_service import AnthropicService
+from src.services.export.sheets_service import GoogleSheetsService
 
 settings = get_settings()
 logger = logging.getLogger("database_management")
@@ -30,8 +35,18 @@ class DatabaseManagementService:
     def __init__(self, db: AsyncSession):
         self.db = db
         self.backup_dir = Path(os.environ.get("DB_BACKUP_DIR", "data/backups"))
-        # Create backup directory if it doesn't exist
+        self.export_dir = Path(os.environ.get("EXPORT_DIR", "data/exports"))
+        # Create directories if they don't exist
         os.makedirs(self.backup_dir, exist_ok=True)
+        os.makedirs(self.export_dir, exist_ok=True)
+        
+        # Initialize other services
+        self.anthropic_service = AnthropicService()
+        try:
+            self.sheets_service = GoogleSheetsService()
+        except Exception as e:
+            logger.warning(f"Failed to initialize Google Sheets service: {str(e)}")
+            self.sheets_service = None
 
     async def mark_conversation_archived(self, conversation_id: UUID) -> Conversation:
         """
@@ -531,3 +546,331 @@ class DatabaseManagementService:
                 logger.error(f"Failed to delete backup {backup['path']}: {str(e)}")
                 
         return deleted_count
+        
+    # ---------- Database Query Functions ----------
+    
+    async def execute_safe_query(self, query_str: str) -> List[Dict[str, Any]]:
+        """
+        Execute a SQL query with safety checks to prevent dangerous operations.
+        Only allows SELECT statements by default for safety.
+        
+        Args:
+            query_str: SQL query string to execute
+            
+        Returns:
+            List of dictionaries representing rows of results
+        """
+        # Strip comments and normalize whitespace
+        query_str = re.sub(r'--.*$', '', query_str, flags=re.MULTILINE)
+        query_str = re.sub(r'/\*.*?\*/', '', query_str, flags=re.DOTALL)
+        query_str = query_str.strip()
+        
+        # Basic safety check - only allow SELECT statements
+        if not query_str.lower().startswith('select'):
+            raise ValueError("Only SELECT queries are allowed for security reasons")
+        
+        # Check for problematic patterns
+        danger_patterns = [
+            r'\bDROP\b',
+            r'\bDELETE\b',
+            r'\bTRUNCATE\b',
+            r'\bALTER\b',
+            r'\bCREATE\b',
+            r'\bINSERT\b',
+            r'\bUPDATE\b',
+            r'\bGRANT\b',
+            r'\bREVOKE\b',
+        ]
+        
+        for pattern in danger_patterns:
+            if re.search(pattern, query_str, re.IGNORECASE):
+                raise ValueError(f"Query contains prohibited operation: {pattern}")
+                
+        try:
+            # Create a raw SQLAlchemy TextClause object to execute the query
+            query = text(query_str)
+            
+            # Execute the query
+            result = await self.db.execute(query)
+            
+            # Convert to list of dictionaries
+            rows = []
+            for row in result:
+                # Handle Row objects by converting to dict
+                if hasattr(row, '_asdict'):
+                    # Named tuple-like results
+                    rows.append(row._asdict())
+                elif hasattr(row, 'keys'):
+                    # Dict-like results
+                    rows.append({key: row[key] for key in row.keys()})
+                else:
+                    # Raw tuple results - convert to dict with column indices
+                    rows.append({f"col{i}": val for i, val in enumerate(row)})
+            
+            return rows
+            
+        except Exception as e:
+            logger.error(f"Error executing query: {str(e)}")
+            raise ValueError(f"Query execution failed: {str(e)}")
+            
+    async def translate_natural_language_to_sql(self, nl_query: str) -> str:
+        """
+        Convert a natural language query to SQL without executing it.
+        
+        Args:
+            nl_query: Natural language query string
+            
+        Returns:
+            Generated SQL query string
+        """
+        # Get the database schema information
+        schema_info = await self._get_schema_info()
+        
+        # Build a prompt for Claude to convert natural language to SQL
+        prompt = f"""You are an expert SQL developer. Convert the following natural language query to a PostgreSQL SQL query.
+
+Database Schema:
+{schema_info}
+
+Natural Language Query:
+{nl_query}
+
+Rules:
+1. Only generate a SELECT query - other operations are not allowed
+2. Use proper SQL syntax for PostgreSQL
+3. Return ONLY the final SQL query with no other text or explanation
+4. Do not use DROP, DELETE, TRUNCATE, ALTER, CREATE, INSERT, UPDATE, GRANT, or REVOKE commands
+5. Limit results to 100 rows unless otherwise specified
+
+SQL Query:"""
+
+        try:
+            # Get the SQL query from Claude (no longer streaming)
+            sql_query = await self.anthropic_service.generate_code(prompt)
+                
+            # Clean up the response - extract just the SQL if Claude wrapped it in markdown
+            sql_query = re.sub(r'^```sql\s*', '', sql_query, flags=re.MULTILINE)
+            sql_query = re.sub(r'\s*```$', '', sql_query, flags=re.MULTILINE)
+            sql_query = sql_query.strip()
+            
+            # Log the generated SQL
+            logger.info(f"Generated SQL from natural language (translate only): {sql_query}")
+            
+            return sql_query
+            
+        except Exception as e:
+            logger.error(f"Error in natural language translation: {str(e)}")
+            raise ValueError(f"Failed to translate natural language query: {str(e)}")
+    
+    async def execute_natural_language_query(self, nl_query: str) -> Tuple[List[Dict[str, Any]], str]:
+        """
+        Convert a natural language query to SQL and execute it.
+        
+        Args:
+            nl_query: Natural language query string
+            
+        Returns:
+            Tuple containing:
+              - List of dictionaries representing rows of results
+              - Generated SQL query string
+        """
+        try:
+            # Generate the SQL query
+            sql_query = await self.translate_natural_language_to_sql(nl_query)
+            
+            # Execute the generated SQL query
+            results = await self.execute_safe_query(sql_query)
+            
+            # Return both the results and the generated SQL
+            return results, sql_query
+            
+        except Exception as e:
+            logger.error(f"Error in natural language query: {str(e)}")
+            raise ValueError(f"Failed to process natural language query: {str(e)}")
+            
+    async def _get_schema_info(self) -> str:
+        """
+        Get information about the database schema for natural language to SQL conversion.
+        
+        Returns:
+            String describing database tables and their columns
+        """
+        # Query PostgreSQL information schema to get table and column data
+        schema_query = text("""
+            SELECT 
+                t.table_name, 
+                c.column_name, 
+                c.data_type,
+                pg_catalog.obj_description(
+                    (quote_ident(t.table_schema) || '.' || quote_ident(t.table_name))::regclass::oid, 
+                    'pg_class'
+                ) as table_description
+            FROM 
+                information_schema.tables t
+            JOIN 
+                information_schema.columns c 
+                ON t.table_schema = c.table_schema AND t.table_name = c.table_name
+            WHERE 
+                t.table_schema = 'public'
+                AND t.table_type = 'BASE TABLE'
+            ORDER BY 
+                t.table_name, 
+                c.ordinal_position
+        """)
+        
+        # Execute the schema query
+        result = await self.db.execute(schema_query)
+        rows = result.fetchall()
+        
+        # Group by table
+        tables = {}
+        for row in rows:
+            table_name = row[0]
+            column_name = row[1]
+            data_type = row[2]
+            table_description = row[3] or ""
+            
+            if table_name not in tables:
+                tables[table_name] = {
+                    "columns": [],
+                    "description": table_description
+                }
+                
+            tables[table_name]["columns"].append(f"{column_name} ({data_type})")
+            
+        # Format schema info
+        schema_info = []
+        for table_name, table_data in tables.items():
+            schema_info.append(f"Table: {table_name}")
+            if table_data["description"]:
+                schema_info.append(f"Description: {table_data['description']}")
+            schema_info.append("Columns:")
+            for column in table_data["columns"]:
+                schema_info.append(f"  - {column}")
+            schema_info.append("")
+            
+        return "\n".join(schema_info)
+    
+    async def export_query_results_to_csv(self, results: List[Dict[str, Any]]) -> str:
+        """
+        Export query results to a CSV file.
+        
+        Args:
+            results: Query results as a list of dictionaries
+            
+        Returns:
+            URL path to the generated CSV file
+        """
+        if not results:
+            raise ValueError("No results to export")
+            
+        try:
+            # Generate a unique filename
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            filename = f"query_results_{timestamp}.csv"
+            
+            # Ensure the exports directory exists
+            os.makedirs(self.export_dir, exist_ok=True)
+            
+            # Create the full file path
+            file_path = self.export_dir / filename
+            
+            logger.info(f"Exporting CSV to: {file_path} (absolute path)")
+            
+            # Get column headers from first result
+            headers = list(results[0].keys())
+            logger.info(f"CSV headers: {headers}")
+            
+            # Write to CSV
+            with open(file_path, 'w', newline='') as csvfile:
+                writer = csv.DictWriter(csvfile, fieldnames=headers)
+                writer.writeheader()
+                for row in results:
+                    writer.writerow(row)
+                    
+            # Return the relative URL path
+            url_path = f"/exports/{filename}"
+            logger.info(f"CSV export complete, relative URL: {url_path}")
+            return url_path
+            
+        except Exception as e:
+            logger.error(f"Error exporting to CSV: {str(e)}")
+            raise ValueError(f"Failed to export results to CSV: {str(e)}")
+            
+    async def export_query_results_to_sheets(
+        self, 
+        results: List[Dict[str, Any]], 
+        title: str = "Query Results"
+    ) -> Dict[str, Any]:
+        """
+        Export query results to Google Sheets.
+        
+        Args:
+            results: Query results as a list of dictionaries
+            title: Title for the Google Sheet
+            
+        Returns:
+            Dictionary with spreadsheet info
+        """
+        if not results:
+            raise ValueError("No results to export")
+            
+        if not self.sheets_service:
+            logger.warning("Google Sheets service is not available, falling back to CSV export")
+            # Fall back to CSV export
+            csv_url = await self.export_query_results_to_csv(results)
+            return {
+                "url": f"/api/v1{csv_url}",
+                "title": title,
+                "fallback": "csv"
+            }
+            
+        try:
+            # Initialize the service from token
+            token_path = os.environ.get("GOOGLE_TOKEN_PATH", "credentials/token.json")
+            logger.info(f"Initializing Google Sheets service with token path: {token_path}")
+            
+            if not os.path.exists(token_path):
+                logger.warning(f"Token file not found: {token_path}, falling back to CSV export")
+                csv_url = await self.export_query_results_to_csv(results)
+                return {
+                    "url": f"/api/v1{csv_url}",
+                    "title": title,
+                    "fallback": "csv"
+                }
+                
+            initialized = await self.sheets_service.initialize_from_token(token_path)
+            
+            if not initialized:
+                logger.warning("Failed to initialize Google Sheets service, falling back to CSV export")
+                csv_url = await self.export_query_results_to_csv(results)
+                return {
+                    "url": f"/api/v1{csv_url}",
+                    "title": title,
+                    "fallback": "csv"
+                }
+                
+            # Convert results to row format for Sheets
+            # First row is headers
+            headers = list(results[0].keys())
+            
+            # Data rows
+            data_rows = []
+            for row in results:
+                data_rows.append([row.get(header, "") for header in headers])
+                
+            # All rows (headers + data)
+            all_rows = [headers] + data_rows
+            
+            # Create spreadsheet with data
+            sheet_info = await self.sheets_service.create_spreadsheet_with_template(
+                title=title,
+                template_name="default",
+                data=all_rows
+            )
+            
+            return sheet_info
+            
+        except Exception as e:
+            logger.error(f"Error exporting to Google Sheets: {str(e)}")
+            raise ValueError(f"Failed to export results to Google Sheets: {str(e)}")

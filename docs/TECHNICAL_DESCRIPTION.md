@@ -28,6 +28,9 @@ src/
 2. **Database Management**
    - SQLAlchemy ORM with UUID primary keys
    - Isolated transaction handling
+   - Direct SQL query execution with safety checks
+   - Natural language to SQL conversion via Claude API
+   - Query results export to CSV and Google Sheets
    - Comprehensive validation layer
    - Automated backup and restore
    - Conversation archiving
@@ -186,7 +189,13 @@ frontend/
    Validation → Batch Import → Progress Tracking
    ```
 
-3. **Database Maintenance**
+3. **Natural Language Database Query**
+   ```
+   User Question → Schema Analysis → Claude AI Processing →
+   SQL Generation → Query Execution → Result Display → Export Options
+   ```
+   
+4. **Database Maintenance**
    ```
    Scheduled Job → Transaction Audit → Database Backup →
    Statistics Collection → Admin Dashboard Update
@@ -204,6 +213,9 @@ frontend/
   - Admin dashboard integration
   - CLI tools for maintenance
   - Scheduled task management
+  - SQL query execution with safety checks
+  - Natural language to SQL conversion
+  - Query result export capabilities
 
 ### SportDataMapper
 - Purpose: Map structured data to sports entities
@@ -217,10 +229,24 @@ frontend/
 ### Entity Management
 - Purpose: CRUD operations for sports entities
 - Features:
-  - Advanced filtering
-  - Bulk operations
-  - Relationship handling
-  - Pagination
+
+### DatabaseQuery
+- Purpose: Enable users to query the database directly or using natural language
+- Architecture: Frontend component with backend API integration
+- Features:
+  - Direct SQL query execution with safety filtering
+  - Natural language to SQL conversion using Claude AI
+  - Interactive side-by-side view of natural language query and SQL
+  - Syntax-highlighted, editable SQL with one-click execution
+  - Query translation without execution through "Translate" button
+  - Query saving and management with localStorage persistence
+  - Session-based state persistence when navigating away from the page
+  - Results display with sorting, column visibility, and row selection
+  - Direct client-side CSV export with proper file formatting
+  - Google Sheets export with authentication flow and template selection
+  - Query results manipulation including bulk row deletion
+  - Schema-aware query generation with PostgreSQL syntax
+  - Interactive results grid with status indicators and row counts
 
 ### Chat System
 - Purpose: AI interaction and data extraction

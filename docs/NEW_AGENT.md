@@ -7,7 +7,11 @@ SheetGPT is a full-stack application combining AI-powered chat with structured d
 - AI chat for data extraction and structuring
 - Tabular data management with column controls
 - Sports entity management (leagues, teams, players, etc.)
-- Google Sheets export integration
+- Advanced database query system with SQL and natural language support
+- Interactive query interface with side-by-side natural language and SQL
+- Client-side CSV export and Google Sheets integration
+- Query translation capability with editable SQL results
+- Query results manipulation with sorting and filtering
 - Message repeat functionality for alternative responses
 - Database maintenance and backup system
 - Conversation archiving functionality
@@ -94,6 +98,9 @@ SheetGPT is a full-stack application combining AI-powered chat with structured d
 - ✅ Conversation reordering
 - ✅ Enhanced error handling framework
 - ✅ Extraction services architecture
+- ✅ Database Query system with direct SQL and natural language support
+- ✅ Query saving and management
+- ✅ CSV and Google Sheets export from query results
 
 #### In Progress
 - 🔄 Google Sheets API backend integration
@@ -270,7 +277,8 @@ This document should be updated with each significant change to maintain accurac
       "DatabaseManagementService": "Backup, archiving, and statistics",
       "CLITools": "Command-line tools for database management",
       "AnthropicService": "Claude API integration service",
-      "LoggingConfig": "Enhanced structured logging system"
+      "LoggingConfig": "Enhanced structured logging system",
+      "DatabaseQuerySystem": "SQL and natural language query processing"
     }
   }
 }
@@ -439,6 +447,19 @@ This document should be updated with each significant change to maintain accurac
           "Archiving controls",
           "Performance metrics"
         ]
+      },
+      "DatabaseQuery": {
+        "purpose": "Execute and manage database queries",
+        "key_files": [
+          "pages/DatabaseQuery.tsx"
+        ],
+        "features": [
+          "Direct SQL execution",
+          "Natural language to SQL conversion",
+          "Query saving and management",
+          "CSV and Google Sheets export",
+          "Mode switching between SQL and natural language"
+        ]
       }
     },
     "shared_components": {
@@ -478,7 +499,8 @@ This document should be updated with each significant change to maintain accurac
         "endpoints": [
           "/api/v1/db-management/stats",
           "/api/v1/db-management/backups",
-          "/api/v1/db-management/archive"
+          "/api/v1/db-management/archive",
+          "/api/v1/db-management/query"
         ]
       }
     },
@@ -508,7 +530,10 @@ This document should be updated with each significant change to maintain accurac
           "Conversation archiving",
           "Statistics collection",
           "Growth monitoring",
-          "Performance metrics"
+          "Performance metrics",
+          "SQL query execution",
+          "Natural language to SQL conversion",
+          "Query result export"
         ]
       }
     }

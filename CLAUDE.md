@@ -139,6 +139,13 @@
 - Use a consistent color scheme for actions (blue for edit, red for delete, etc.)
 - Provide clear visual feedback for interactive elements
 - Calculate proper heights for scrollable containers (h-[calc(100vh-5rem)])
+- For query interfaces, use side-by-side layout for question and SQL
+- Display query results with sorting, column visibility controls, and row selection
+- Implement both localStorage (for saved queries) and sessionStorage (for state persistence)
+- Provide multi-format export with CSV (client-side) and Google Sheets options
+- Use direct Blob API for client-side file generation
+- Preserve component state when navigating between pages
+- Implement loading states and clear error handling for async operations
 
 ## Claude API Integration
 
@@ -150,3 +157,10 @@
 - Include appropriate model parameters
 - Structure prompts for optimal response quality
 - Implement robust error handling
+- Use Claude for natural language database queries
+- Provide schema context for database question answering
+- Support translation-only mode without execution
+- Format prompts with clear instructions and examples
+- Implement safety checks on generated SQL
+- Allow editing of generated SQL before execution
+- Use separate services for translation and execution

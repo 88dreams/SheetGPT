@@ -13,15 +13,28 @@ SheetGPT is a full-stack application that combines AI-powered chat capabilities 
 ## Current Status (March 2025)
 
 ### Latest Features
-1. Claude API Integration
+1. Database Query System
+   - Implemented direct SQL query execution with safety checks
+   - Added natural language to SQL conversion using Claude AI
+   - Built query saving and management functionality
+   - Enhanced UI with side-by-side view of natural language query and SQL
+   - Added "Translate" button to generate SQL without executing queries
+   - Integrated robust CSV export with client-side file generation
+   - Implemented Google Sheets export with authentication flow and template selection
+   - Added persistent state to maintain query content when navigating away
+   - Created interactive results display with sorting, column visibility, and row selection
+   - Added bulk row deletion functionality for query results
+
+2. Claude API Integration
    - Implemented Anthropic Claude 3 API integration
    - Enhanced chat streaming capabilities
    - Created robust error handling with fallbacks
    - Built conversation state management with context optimization
    - Added message status indicators and improved UI/UX
    - Structured logging with improved error tracking
+   - Leveraged Claude for natural language query processing
 
-2. Enhanced Data Extraction Services
+3. Enhanced Data Extraction Services
    - Created modular extraction service architecture
    - Implemented specialized detection, parsing, and extraction services
    - Built robust error handling with graceful failure modes

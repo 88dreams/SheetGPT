@@ -11,37 +11,37 @@ const ViewModeSelector: React.FC<ViewModeSelectorProps> = ({ className = '' }) =
   const { viewMode, setViewMode } = useSportsDatabase();
 
   return (
-    <div className={`flex justify-center ${className}`}>
-      <div className="flex space-x-2">
+    <div className={`flex ${className}`}>
+      <div className="flex space-x-1">
         <button
-          className={`px-3 py-1 text-sm font-medium rounded flex items-center ${
+          className={`px-2 py-1 text-sm font-medium rounded flex items-center ${
             viewMode === 'entity'
               ? 'bg-indigo-600 text-white'
               : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
           }`}
           onClick={() => setViewMode('entity')}
         >
-          <FaList className="mr-2" /> Entities
+          <FaList className="mr-1" /> Entities
         </button>
         <button
-          className={`px-3 py-1 text-sm font-medium rounded flex items-center ${
+          className={`px-2 py-1 text-sm font-medium rounded flex items-center ${
             viewMode === 'global'
               ? 'bg-indigo-600 text-white'
               : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
           }`}
           onClick={() => setViewMode('global')}
         >
-          <FaGlobe className="mr-2" /> Global
+          <FaGlobe className="mr-1" /> Global
         </button>
         <button
-          className={`px-3 py-1 text-sm font-medium rounded flex items-center ${
+          className={`px-2 py-1 text-sm font-medium rounded flex items-center ${
             viewMode === 'fields'
               ? 'bg-indigo-600 text-white'
               : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
           }`}
           onClick={() => setViewMode('fields')}
         >
-          <FaTable className="mr-2" /> Fields
+          <FaTable className="mr-1" /> Fields
         </button>
       </div>
     </div>

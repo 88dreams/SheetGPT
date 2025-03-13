@@ -197,6 +197,20 @@ frontend/
 
 ## Key Components
 
+### Bulk Update System
+- Purpose: Enable mass updates of entity fields across multiple records
+- Architecture: Modal component with field detection and batch processing
+- Features:
+  - Works with all entity types through a unified interface
+  - Field categorization for logical organization (Basic Information, Relationships, etc.)
+  - Smart field input detection based on data type
+  - Foreign key resolution with dropdown selection
+  - Special empty field handling to preserve or clear values as needed
+  - Batch processing with real-time progress tracking
+  - Detailed success/failure reporting
+  - Performance optimization with request batching
+  - Clear visual instructions and feedback
+
 ### DatabaseManagementSystem
 - Purpose: Maintain database health and provide backup/restore capabilities
 - Architecture: Service/CLI pattern
@@ -320,12 +334,19 @@ Components:
    - API error display
    - Loading states
    - Optimistic updates
+   - Type definition consistency checks
+   - Graceful rendering fallbacks for invalid data
+   - Defensive programming for undefined values
+   - Clear visual feedback for error states
 
 2. **Data Errors**
    - Field validation
    - Type checking
    - Relationship verification
    - Import validation
+   - EntityType standardization across the codebase
+   - Context access pattern optimization
+   - Order-of-operations safeguards for component rendering
 
 ### Backend
 1. **API Errors**

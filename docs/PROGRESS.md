@@ -14,7 +14,18 @@ SheetGPT is a full-stack application that combines AI-powered chat capabilities 
 
 ### Latest Features
 
-1. Division/Conference Model Addition (March 13, 2025)
+1. Global Bulk Update Feature (March 14, 2025)
+   - Implemented comprehensive bulk update system for all entity types
+   - Created modal-based interface for selecting and updating fields across multiple entities
+   - Added intelligent field organization by category (Basic Information, Relationships, etc.)
+   - Built field type detection for appropriate input controls (dropdowns, date pickers, etc.)
+   - Implemented empty field handling that preserves existing values when appropriate
+   - Added clear visual indicators for fields that will be cleared
+   - Created batch processing with progress tracking
+   - Added success/failure reporting with detailed results
+   - Optimized performance with batched update requests
+
+2. Division/Conference Model Addition (March 13, 2025)
    - Added DivisionConference model as sub-unit of Leagues 
    - Created hierarchical relationship: League → Division/Conference → Team
    - Modified Team model to require division/conference assignment
@@ -51,6 +62,13 @@ SheetGPT is a full-stack application that combines AI-powered chat capabilities 
    - Temporary solution uses the up/down arrow buttons for reordering
    - Planning to revisit with simplified implementation using react-beautiful-dnd library
    - Current priority: Low (core functionality unaffected)
+
+2. Entity Type Definition Inconsistencies
+   - Fixed inconsistency between EntityType definitions in different files
+   - Standardized EntityType across the codebase to include all entity types
+   - Previous mismatch caused blank screens in the entity view
+   - Added proper error handling for entity type validation
+   - Current priority: Resolved (fix implemented)
 
 ### Recent Improvements
 

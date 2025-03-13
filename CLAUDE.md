@@ -117,6 +117,12 @@
 - Implement CSV fallbacks for export functionality
 - Provide alternative formats for data export when APIs fail
 - Always validate input/output data structure before processing
+- Ensure type definitions are consistent across the codebase
+- Access context data at the beginning of components
+- Add null/undefined checks before accessing properties
+- Provide graceful fallbacks for rendering when data is missing
+- Use conditional rendering for potentially undefined values
+- Standardize error display components
 
 ## UI Implementation Guidelines
 
@@ -129,6 +135,12 @@
 - Calculate proper heights for scrollable containers (h-[calc(100vh-5rem)])
 - Use consistent color scheme for actions (blue for edit, red for delete, etc.)
 - Provide clear visual feedback for interactive elements
+- For bulk operations:
+  - Categorize fields logically (Basic Info, Relationships, Dates, etc.)
+  - Provide clear instructions for empty field handling
+  - Show warning indicators for fields that will be cleared
+  - Use progress indicators for batch operations
+  - Report detailed success/failure statistics
 - For query interfaces, use side-by-side layout for question and SQL
 - Implement both localStorage (for saved queries) and sessionStorage (for state persistence)
 - Use direct Blob API for client-side file generation

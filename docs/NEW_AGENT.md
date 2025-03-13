@@ -66,7 +66,17 @@ SheetGPT is a full-stack application combining AI-powered chat with structured d
    - Real-time validation and error handling
    - Related entities display
 
-6. **Database Query System**
+6. **Bulk Update System**
+   - Comprehensive interface for updating multiple entity records at once
+   - Works across all entity types (teams, leagues, players, etc.)
+   - Smart field organization by category
+   - Intelligent field type detection with appropriate inputs
+   - Empty field handling with preservation of existing values
+   - Batch processing with progress indication
+   - Performance optimization with request batching
+   - Success/failure reporting with detailed results
+
+7. **Database Query System**
    - Natural language to SQL conversion using Claude AI
    - Direct SQL query execution with safety checks
    - Side-by-side view of natural language and SQL
@@ -166,23 +176,36 @@ SheetGPT is a full-stack application combining AI-powered chat with structured d
    - Use name-based references when possible
    - System handles UUID conversion
    - Automatic entity creation for missing references
+   - Ensure EntityType definitions are consistent across the codebase
 
 3. **Validation**
    - Validation occurs before mapping
    - Support for both UUID and name fields
    - Clear error messages for debugging
    - Real-time field validation in forms
+   - Add proper error handling for undefined values
+   - Use null checks before accessing properties
 
 4. **Data Import**
    - Batch import with progress tracking
    - Automatic relationship resolution
    - Error aggregation and reporting
+   - Ensure context data is available before use
 
 5. **Entity Editing**
    - Use AdvancedEditForm for complex entities
    - Handle relationships through dropdowns
    - Implement optimistic updates
    - Provide fallback error handling
+   - Structure components to fetch context data before rendering
+   - Add defensive programming for potential undefined values
+
+6. **Component Rendering**
+   - Access context data at the beginning of components
+   - Provide safe fallbacks for missing or undefined values
+   - Add conditional rendering for potentially missing data
+   - Handle loading states explicitly
+   - Create consistent error displays for data issues
 
 ## Required Reading
 1. TECHNICAL_DESCRIPTION.md - Detailed component documentation

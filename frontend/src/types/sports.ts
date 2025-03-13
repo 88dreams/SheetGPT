@@ -1,4 +1,4 @@
-export type EntityType = 'stadium' | 'league' | 'team';
+export type EntityType = 'league' | 'division_conference' | 'team' | 'player' | 'game' | 'stadium' | 'broadcast' | 'production' | 'brand' | 'game_broadcast' | 'league_executive';
 
 export interface BaseEntity {
   id: string;
@@ -25,17 +25,88 @@ export interface League extends BaseEntity {
   broadcast_end_date?: string;
 }
 
+export interface DivisionConference extends BaseEntity {
+  league_id: string;
+  type: string;
+  region?: string;
+  description?: string;
+  league_name?: string; // For display purposes
+}
+
 export interface Team extends BaseEntity {
   league_id: string;
+  division_conference_id: string;
   stadium_id: string;
   city: string;
   state?: string;
   country: string;
   founded_year?: number;
   league_name?: string; // For display purposes
+  division_conference_name?: string; // For display purposes
 }
 
-export type Entity = Stadium | League | Team;
+export interface Player extends BaseEntity {
+  team_id: string;
+  position: string;
+  jersey_number?: number;
+  college?: string;
+}
+
+export interface Game extends BaseEntity {
+  league_id: string;
+  home_team_id: string;
+  away_team_id: string;
+  stadium_id: string;
+  date: string;
+  time?: string;
+  home_score?: number;
+  away_score?: number;
+  status: string;
+  season_year: number;
+  season_type: string;
+}
+
+export interface BroadcastRights extends BaseEntity {
+  broadcast_company_id: string;
+  entity_type: string;
+  entity_id: string;
+  territory: string;
+  start_date: string;
+  end_date: string;
+  is_exclusive?: boolean;
+}
+
+export interface ProductionService extends BaseEntity {
+  production_company_id: string;
+  entity_type: string;
+  entity_id: string;
+  service_type: string;
+  start_date: string;
+  end_date: string;
+}
+
+export interface Brand extends BaseEntity {
+  industry: string;
+}
+
+export interface GameBroadcast extends BaseEntity {
+  game_id: string;
+  broadcast_company_id: string;
+  production_company_id?: string;
+  broadcast_type: string;
+  territory: string;
+  start_time?: string;
+  end_time?: string;
+}
+
+export interface LeagueExecutive extends BaseEntity {
+  league_id: string;
+  position: string;
+  start_date: string;
+  end_date?: string;
+}
+
+export type Entity = Stadium | League | DivisionConference | Team | Player | Game | BroadcastRights | ProductionService | Brand | GameBroadcast | LeagueExecutive;
 
 export interface EntityChange {
   field: string;

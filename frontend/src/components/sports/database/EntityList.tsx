@@ -142,21 +142,22 @@ const EntityList: React.FC<EntityListProps> = ({ className = '' }) => {
       const defaultVisibility: Record<string, boolean> = {
         id: true,
         name: true,
-        created_at: true
+        created_at: true,
+        updated_at: false // Default off
       };
       
-      // Entity specific defaults
-      if (selectedEntityType === 'team') {
-        defaultVisibility.city = true;
-        defaultVisibility.state = true;
-        defaultVisibility.division_conference_id = true;
-      } else if (selectedEntityType === 'league') {
-        defaultVisibility.sport = true;
-        defaultVisibility.nickname = true;
-      } else if (selectedEntityType === 'division_conference') {
-        defaultVisibility.league_name = true;
-        defaultVisibility.type = true;
-      }
+      // Get all available fields for this entity type and set defaults
+      const { getEntityFields } = useSportsDatabase();
+      const fields = getEntityFields(selectedEntityType);
+      
+      // Set most fields visible by default
+      fields.forEach(field => {
+        // Skip id, name, created_at since we already set them
+        if (!['id', 'name', 'created_at', 'updated_at'].includes(field.fieldName)) {
+          // Set all regular fields to visible, but keep relationships as not visible by default
+          defaultVisibility[field.fieldName] = !field.fieldName.endsWith('_id');
+        }
+      });
       
       setVisibleColumns(defaultVisibility);
     }
@@ -199,9 +200,22 @@ const EntityList: React.FC<EntityListProps> = ({ className = '' }) => {
       { id: 'stadium', name: 'Stadiums' },
       { id: 'broadcast', name: 'Broadcast Rights' },
       { id: 'production', name: 'Production Services' },
-      { id: 'brand', name: 'Brand Relationships' }
+      { id: 'brand', name: 'Brand Relationships' },
+      { id: 'game_broadcast', name: 'Game Broadcasts' },
+      { id: 'league_executive', name: 'League Executives' }
     ];
     return entityTypes.find(e => e.id === selectedEntityType)?.name || selectedEntityType;
+  };
+  
+  // Get all available fields for the current entity type
+  const getAvailableFields = (): string[] => {
+    if (!selectedEntityType) return [];
+    
+    // Use getEntityFields from context directly to get all fields
+    const fields = getEntityFields(selectedEntityType);
+    
+    // Extract field names
+    return fields.map(field => field.fieldName);
   };
 
   // Get filtered entities - using the complete entities directly instead of limiting to a few fields
@@ -372,27 +386,21 @@ const EntityList: React.FC<EntityListProps> = ({ className = '' }) => {
             <button 
               className="text-xs text-blue-600 hover:text-blue-800"
               onClick={() => {
-                // Show all columns
+                // Show all columns using dynamic field list from entity schema
                 const allColumns: {[key: string]: boolean} = {};
-                // Base columns
-                ['id', 'name', 'created_at'].forEach(col => {
+                
+                // Get all available fields for this entity type
+                const availableFields = getAvailableFields();
+                
+                // Set all fields to visible
+                availableFields.forEach(col => {
                   allColumns[col] = true;
                 });
                 
-                // Entity-specific columns
-                if (selectedEntityType === 'team') {
-                  ['city', 'state', 'division_conference_id'].forEach(col => {
-                    allColumns[col] = true;
-                  });
-                } else if (selectedEntityType === 'league') {
-                  ['sport', 'nickname'].forEach(col => {
-                    allColumns[col] = true;
-                  });
-                } else if (selectedEntityType === 'division_conference') {
-                  ['league_name', 'type'].forEach(col => {
-                    allColumns[col] = true;
-                  });
-                }
+                // Always include base columns
+                ['id', 'name', 'created_at', 'updated_at'].forEach(col => {
+                  allColumns[col] = true;
+                });
                 
                 setVisibleColumns(allColumns);
               }}
@@ -401,7 +409,7 @@ const EntityList: React.FC<EntityListProps> = ({ className = '' }) => {
             </button>
           </div>
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
-            {/* Base columns */}
+            {/* Common base columns */}
             <div className="flex items-center">
               <input
                 type="checkbox"
@@ -432,92 +440,36 @@ const EntityList: React.FC<EntityListProps> = ({ className = '' }) => {
               />
               <label htmlFor="col-created_at" className="text-sm text-gray-700 truncate">Created</label>
             </div>
+            <div className="flex items-center">
+              <input
+                type="checkbox"
+                id="col-updated_at"
+                checked={visibleColumns['updated_at'] !== false}
+                onChange={() => setVisibleColumns(prev => ({...prev, updated_at: !prev['updated_at']}))}
+                className="mr-2"
+              />
+              <label htmlFor="col-updated_at" className="text-sm text-gray-700 truncate">Updated</label>
+            </div>
             
-            {/* Entity-specific columns */}
-            {selectedEntityType === 'team' && (
-              <>
-                <div className="flex items-center">
+            {/* Dynamically generated entity-specific columns */}
+            {getAvailableFields()
+              .filter(field => !['id', 'name', 'created_at', 'updated_at'].includes(field))
+              .map(field => (
+                <div key={field} className="flex items-center">
                   <input
                     type="checkbox"
-                    id="col-city"
-                    checked={visibleColumns['city'] !== false}
-                    onChange={() => setVisibleColumns(prev => ({...prev, city: !prev['city']}))}
+                    id={`col-${field}`}
+                    checked={visibleColumns[field] !== false}
+                    onChange={() => setVisibleColumns(prev => ({...prev, [field]: !prev[field]}))}
                     className="mr-2"
                   />
-                  <label htmlFor="col-city" className="text-sm text-gray-700 truncate">City</label>
+                  <label htmlFor={`col-${field}`} className="text-sm text-gray-700 truncate">
+                    {/* Display proper labels for fields */}
+                    {field.replace(/_/g, ' ').replace(/\b\w/g, char => char.toUpperCase())}
+                  </label>
                 </div>
-                <div className="flex items-center">
-                  <input
-                    type="checkbox"
-                    id="col-state"
-                    checked={visibleColumns['state'] !== false}
-                    onChange={() => setVisibleColumns(prev => ({...prev, state: !prev['state']}))}
-                    className="mr-2"
-                  />
-                  <label htmlFor="col-state" className="text-sm text-gray-700 truncate">State</label>
-                </div>
-                <div className="flex items-center">
-                  <input
-                    type="checkbox"
-                    id="col-division_conference_id"
-                    checked={visibleColumns['division_conference_id'] !== false}
-                    onChange={() => setVisibleColumns(prev => ({...prev, division_conference_id: !prev['division_conference_id']}))}
-                    className="mr-2"
-                  />
-                  <label htmlFor="col-division_conference_id" className="text-sm text-gray-700 truncate">Division/Conference</label>
-                </div>
-              </>
-            )}
-            
-            {selectedEntityType === 'league' && (
-              <>
-                <div className="flex items-center">
-                  <input
-                    type="checkbox"
-                    id="col-sport"
-                    checked={visibleColumns['sport'] !== false}
-                    onChange={() => setVisibleColumns(prev => ({...prev, sport: !prev['sport']}))}
-                    className="mr-2"
-                  />
-                  <label htmlFor="col-sport" className="text-sm text-gray-700 truncate">Sport</label>
-                </div>
-                <div className="flex items-center">
-                  <input
-                    type="checkbox"
-                    id="col-nickname"
-                    checked={visibleColumns['nickname'] !== false}
-                    onChange={() => setVisibleColumns(prev => ({...prev, nickname: !prev['nickname']}))}
-                    className="mr-2"
-                  />
-                  <label htmlFor="col-nickname" className="text-sm text-gray-700 truncate">Nickname</label>
-                </div>
-              </>
-            )}
-            
-            {selectedEntityType === 'division_conference' && (
-              <>
-                <div className="flex items-center">
-                  <input
-                    type="checkbox"
-                    id="col-league_name"
-                    checked={visibleColumns['league_name'] !== false}
-                    onChange={() => setVisibleColumns(prev => ({...prev, league_name: !prev['league_name']}))}
-                    className="mr-2"
-                  />
-                  <label htmlFor="col-league_name" className="text-sm text-gray-700 truncate">League</label>
-                </div>
-                <div className="flex items-center">
-                  <input
-                    type="checkbox"
-                    id="col-type"
-                    checked={visibleColumns['type'] !== false}
-                    onChange={() => setVisibleColumns(prev => ({...prev, type: !prev['type']}))}
-                    className="mr-2"
-                  />
-                  <label htmlFor="col-type" className="text-sm text-gray-700 truncate">Type</label>
-                </div>
-              </>
-            )}
+              ))
+            }
           </div>
         </div>
       )}
@@ -595,207 +547,33 @@ const EntityList: React.FC<EntityListProps> = ({ className = '' }) => {
                 </div>
               </th>
               
-              {/* ID column */}
-              {(visibleColumns['id'] !== false) && (
-                <th 
-                  scope="col" 
-                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer relative"
-                  onClick={() => handleSort('id')}
-                  style={{ width: columnWidths.id || 100, minWidth: '100px' }}
-                >
-                  <div className="flex items-center">
-                    ID
-                    {renderSortIcon('id')}
-                    <div 
-                      className={`absolute right-0 top-0 h-full w-2 cursor-col-resize bg-gray-300 hover:bg-gray-400 ${resizingColumn === 'id' ? 'bg-blue-400' : ''}`}
-                      onMouseDown={(e) => handleResizeStart(e, 'id')}
-                      onClick={(e) => e.stopPropagation()}
-                    />
-                  </div>
-                </th>
-              )}
-              
-              {/* Name column */}
-              {(visibleColumns['name'] !== false) && (
-                <th 
-                  scope="col" 
-                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer relative"
-                  onClick={() => handleSort('name')}
-                  style={{ width: `${columnWidths.name}px`, minWidth: '150px' }}
-                >
-                  <div className="flex items-center">
-                    Name
-                    {renderSortIcon('name')}
-                    <div 
-                      className={`absolute right-0 top-0 h-full w-2 cursor-col-resize bg-gray-300 hover:bg-gray-400 ${resizingColumn === 'name' ? 'bg-blue-400' : ''}`}
-                      onMouseDown={(e) => handleResizeStart(e, 'name')}
-                      onClick={(e) => e.stopPropagation()}
-                    />
-                  </div>
-                </th>
-              )}
-              
-              {/* Entity-specific fields */}
-              {selectedEntityType === 'team' && (
-                <>
-                  {visibleColumns['city'] !== false && (
-                    <th 
-                      scope="col" 
-                      className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer relative"
-                      onClick={() => handleSort('city')}
-                      style={{ width: columnWidths.city || 120, minWidth: '100px' }}
-                    >
-                      <div className="flex items-center">
-                        City
-                        {renderSortIcon('city')}
-                        <div 
-                          className={`absolute right-0 top-0 h-full w-2 cursor-col-resize bg-gray-300 hover:bg-gray-400 ${resizingColumn === 'city' ? 'bg-blue-400' : ''}`}
-                          onMouseDown={(e) => handleResizeStart(e, 'city')}
-                          onClick={(e) => e.stopPropagation()}
-                        />
-                      </div>
-                    </th>
-                  )}
-                  {visibleColumns['state'] !== false && (
-                    <th 
-                      scope="col" 
-                      className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer relative"
-                      onClick={() => handleSort('state')}
-                      style={{ width: columnWidths.state || 100, minWidth: '80px' }}
-                    >
-                      <div className="flex items-center">
-                        State
-                        {renderSortIcon('state')}
-                        <div 
-                          className={`absolute right-0 top-0 h-full w-2 cursor-col-resize bg-gray-300 hover:bg-gray-400 ${resizingColumn === 'state' ? 'bg-blue-400' : ''}`}
-                          onMouseDown={(e) => handleResizeStart(e, 'state')}
-                          onClick={(e) => e.stopPropagation()}
-                        />
-                      </div>
-                    </th>
-                  )}
-                  {visibleColumns['division_conference_id'] !== false && (
-                    <th 
-                      scope="col" 
-                      className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer relative"
-                      onClick={() => handleSort('division_conference_id')}
-                      style={{ width: columnWidths.division || 150, minWidth: '100px' }}
-                    >
-                      <div className="flex items-center">
-                        Division/Conference
-                        {renderSortIcon('division_conference_id')}
-                        <div 
-                          className={`absolute right-0 top-0 h-full w-2 cursor-col-resize bg-gray-300 hover:bg-gray-400 ${resizingColumn === 'division' ? 'bg-blue-400' : ''}`}
-                          onMouseDown={(e) => handleResizeStart(e, 'division')}
-                          onClick={(e) => e.stopPropagation()}
-                        />
-                      </div>
-                    </th>
-                  )}
-                </>
-              )}
-              
-              {selectedEntityType === 'league' && (
-                <>
-                  {visibleColumns['sport'] !== false && (
-                    <th 
-                      scope="col" 
-                      className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer relative"
-                      onClick={() => handleSort('sport')}
-                      style={{ width: columnWidths.sport || 120, minWidth: '100px' }}
-                    >
-                      <div className="flex items-center">
-                        Sport
-                        {renderSortIcon('sport')}
-                        <div 
-                          className={`absolute right-0 top-0 h-full w-2 cursor-col-resize bg-gray-300 hover:bg-gray-400 ${resizingColumn === 'sport' ? 'bg-blue-400' : ''}`}
-                          onMouseDown={(e) => handleResizeStart(e, 'sport')}
-                          onClick={(e) => e.stopPropagation()}
-                        />
-                      </div>
-                    </th>
-                  )}
-                  {visibleColumns['nickname'] !== false && (
-                    <th 
-                      scope="col" 
-                      className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer relative"
-                      onClick={() => handleSort('nickname')}
-                      style={{ width: columnWidths.nickname || 120, minWidth: '100px' }}
-                    >
-                      <div className="flex items-center">
-                        Nickname
-                        {renderSortIcon('nickname')}
-                        <div 
-                          className={`absolute right-0 top-0 h-full w-2 cursor-col-resize bg-gray-300 hover:bg-gray-400 ${resizingColumn === 'nickname' ? 'bg-blue-400' : ''}`}
-                          onMouseDown={(e) => handleResizeStart(e, 'nickname')}
-                          onClick={(e) => e.stopPropagation()}
-                        />
-                      </div>
-                    </th>
-                  )}
-                </>
-              )}
-              
-              {selectedEntityType === 'division_conference' && (
-                <>
-                  {visibleColumns['league_name'] !== false && (
-                    <th 
-                      scope="col" 
-                      className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer relative"
-                      onClick={() => handleSort('league_name')}
-                      style={{ width: `${columnWidths.league}px`, minWidth: '100px' }}
-                    >
-                      <div className="flex items-center">
-                        League
-                        {renderSortIcon('league_name')}
-                        <div 
-                          className={`absolute right-0 top-0 h-full w-2 cursor-col-resize bg-gray-300 hover:bg-gray-400 ${resizingColumn === 'league' ? 'bg-blue-400' : ''}`}
-                          onMouseDown={(e) => handleResizeStart(e, 'league')}
-                          onClick={(e) => e.stopPropagation()}
-                        />
-                      </div>
-                    </th>
-                  )}
-                  {visibleColumns['type'] !== false && (
-                    <th 
-                      scope="col" 
-                      className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer relative"
-                      onClick={() => handleSort('type')}
-                      style={{ width: columnWidths.type || 120, minWidth: '100px' }}
-                    >
-                      <div className="flex items-center">
-                        Type
-                        {renderSortIcon('type')}
-                        <div 
-                          className={`absolute right-0 top-0 h-full w-2 cursor-col-resize bg-gray-300 hover:bg-gray-400 ${resizingColumn === 'type' ? 'bg-blue-400' : ''}`}
-                          onMouseDown={(e) => handleResizeStart(e, 'type')}
-                          onClick={(e) => e.stopPropagation()}
-                        />
-                      </div>
-                    </th>
-                  )}
-                </>
-              )}
-              
-              {/* Created date column */}
-              {visibleColumns['created_at'] !== false && (
-                <th 
-                  scope="col" 
-                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer relative"
-                  onClick={() => handleSort('created_at')}
-                  style={{ width: `${columnWidths.created}px`, minWidth: '100px' }}
-                >
-                  <div className="flex items-center">
-                    Created
-                    {renderSortIcon('created_at')}
-                    <div 
-                      className={`absolute right-0 top-0 h-full w-2 cursor-col-resize bg-gray-300 hover:bg-gray-400 ${resizingColumn === 'created' ? 'bg-blue-400' : ''}`}
-                      onMouseDown={(e) => handleResizeStart(e, 'created')}
-                      onClick={(e) => e.stopPropagation()}
-                    />
-                  </div>
-                </th>
-              )}
+              {/* Dynamic column generation for all fields */}
+              {Object.entries(visibleColumns)
+                .filter(([field, isVisible]) => isVisible !== false && field !== 'actions')
+                .map(([field]) => (
+                  <th 
+                    key={field}
+                    scope="col" 
+                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer relative"
+                    onClick={() => handleSort(field)}
+                    style={{ 
+                      width: columnWidths[field] || 120,
+                      minWidth: field === 'name' ? '150px' : '100px'
+                    }}
+                  >
+                    <div className="flex items-center">
+                      {/* Format field name for display */}
+                      {field.replace(/_/g, ' ').replace(/\b\w/g, char => char.toUpperCase())}
+                      {renderSortIcon(field)}
+                      <div 
+                        className={`absolute right-0 top-0 h-full w-2 cursor-col-resize bg-gray-300 hover:bg-gray-400 ${resizingColumn === field ? 'bg-blue-400' : ''}`}
+                        onMouseDown={(e) => handleResizeStart(e, field)}
+                        onClick={(e) => e.stopPropagation()}
+                      />
+                    </div>
+                  </th>
+                ))
+              }
               
               {/* Actions column */}
               <th 
@@ -835,174 +613,128 @@ const EntityList: React.FC<EntityListProps> = ({ className = '' }) => {
                     </div>
                   </td>
                   
-                  {/* ID */}
-                  {visibleColumns['id'] !== false && (
-                    <td 
-                      className="px-6 py-4 whitespace-nowrap overflow-hidden text-ellipsis"
-                      style={{ width: columnWidths.id || 100, minWidth: '100px' }}
-                    >
-                      <div className="text-sm text-gray-500 overflow-hidden text-ellipsis">
-                        {entity.id}
-                      </div>
-                    </td>
-                  )}
-                  
-                  {/* Name */}
-                  {visibleColumns['name'] !== false && (
-                    <td 
-                      className="px-6 py-4 whitespace-nowrap"
-                      style={{ width: `${columnWidths.name}px`, minWidth: '150px' }}
-                    >
-                      {editingId === entity.id ? (
-                        <div className="flex items-center space-x-2">
-                          <input
-                            type="text"
-                            value={editValue}
-                            onChange={(e) => setEditValue(e.target.value)}
-                            onKeyDown={(e) => handleKeyDown(e, entity.id)}
-                            className="flex-1 px-2 py-1 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
-                            autoFocus
-                          />
-                          <button
-                            onClick={() => saveEdit(entity.id)}
-                            className="text-green-600 hover:text-green-800"
-                            title="Save"
+                  {/* Dynamically generate cells for visible columns */}
+                  {Object.entries(visibleColumns)
+                    .filter(([field, isVisible]) => isVisible !== false && field !== 'actions')
+                    .map(([field]) => {
+                      // Special case for name field with editing capability
+                      if (field === 'name') {
+                        return (
+                          <td 
+                            key={field}
+                            className="px-6 py-4 whitespace-nowrap"
+                            style={{ width: `${columnWidths[field] || 150}px`, minWidth: '150px' }}
                           >
-                            <FaCheck className="w-4 h-4" />
-                          </button>
-                          <button
-                            onClick={cancelEdit}
-                            className="text-red-600 hover:text-red-800"
-                            title="Cancel"
-                          >
-                            <FaTimes className="w-4 h-4" />
-                          </button>
-                        </div>
-                      ) : (
-                        <div className="flex items-center space-x-2 overflow-hidden text-ellipsis">
-                          <div className="text-sm font-medium text-gray-900 overflow-hidden text-ellipsis">
-                            {entity.name}
-                            {selectedEntityType === 'league' && completeEntity?.nickname && (
-                              <span className="ml-2 text-xs bg-indigo-100 text-indigo-800 px-2 py-0.5 rounded-full">
-                                {completeEntity.nickname}
-                              </span>
+                            {editingId === entity.id ? (
+                              <div className="flex items-center space-x-2">
+                                <input
+                                  type="text"
+                                  value={editValue}
+                                  onChange={(e) => setEditValue(e.target.value)}
+                                  onKeyDown={(e) => handleKeyDown(e, entity.id)}
+                                  className="flex-1 px-2 py-1 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                  autoFocus
+                                />
+                                <button
+                                  onClick={() => saveEdit(entity.id)}
+                                  className="text-green-600 hover:text-green-800"
+                                  title="Save"
+                                >
+                                  <FaCheck className="w-4 h-4" />
+                                </button>
+                                <button
+                                  onClick={cancelEdit}
+                                  className="text-red-600 hover:text-red-800"
+                                  title="Cancel"
+                                >
+                                  <FaTimes className="w-4 h-4" />
+                                </button>
+                              </div>
+                            ) : (
+                              <div className="flex items-center space-x-2 overflow-hidden text-ellipsis">
+                                <div className="text-sm font-medium text-gray-900 overflow-hidden text-ellipsis">
+                                  {entity.name}
+                                  {selectedEntityType === 'league' && completeEntity?.nickname && (
+                                    <span className="ml-2 text-xs bg-indigo-100 text-indigo-800 px-2 py-0.5 rounded-full">
+                                      {completeEntity.nickname}
+                                    </span>
+                                  )}
+                                </div>
+                                <button
+                                  onClick={() => startEdit(entity)}
+                                  className="text-gray-400 hover:text-gray-600 flex-shrink-0"
+                                  title="Edit name"
+                                >
+                                  <FaPencilAlt className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
                             )}
-                          </div>
-                          <button
-                            onClick={() => startEdit(entity)}
-                            className="text-gray-400 hover:text-gray-600 flex-shrink-0"
-                            title="Edit name"
+                          </td>
+                        );
+                      }
+                      
+                      // Handle date fields
+                      if (field === 'created_at' || field === 'updated_at' || field.includes('date')) {
+                        return (
+                          <td 
+                            key={field}
+                            className="px-6 py-4 whitespace-nowrap"
+                            style={{ width: `${columnWidths[field] || 120}px`, minWidth: '100px' }}
                           >
-                            <FaPencilAlt className="w-3.5 h-3.5" />
-                          </button>
-                        </div>
-                      )}
-                    </td>
-                  )}
-                  
-                  {/* Team-specific fields */}
-                  {selectedEntityType === 'team' && (
-                    <>
-                      {visibleColumns['city'] !== false && (
-                        <td 
-                          className="px-6 py-4 whitespace-nowrap overflow-hidden text-ellipsis"
-                          style={{ width: columnWidths.city || 120, minWidth: '100px' }}
-                        >
-                          <div className="text-sm text-gray-700 overflow-hidden text-ellipsis">
-                            {completeEntity?.city || 'N/A'}
-                          </div>
-                        </td>
-                      )}
+                            <div className="text-sm text-gray-500">
+                              {completeEntity && completeEntity[field] 
+                                ? new Date(completeEntity[field]).toLocaleDateString() 
+                                : 'N/A'}
+                            </div>
+                          </td>
+                        );
+                      }
                       
-                      {visibleColumns['state'] !== false && (
-                        <td 
-                          className="px-6 py-4 whitespace-nowrap overflow-hidden text-ellipsis"
-                          style={{ width: columnWidths.state || 100, minWidth: '80px' }}
-                        >
-                          <div className="text-sm text-gray-700 overflow-hidden text-ellipsis">
-                            {completeEntity?.state || 'N/A'}
-                          </div>
-                        </td>
-                      )}
+                      // Handle special relationship fields with display names
+                      if (field === 'division_conference_id' && completeEntity?.division_conference_name) {
+                        return (
+                          <td 
+                            key={field}
+                            className="px-6 py-4 whitespace-nowrap overflow-hidden text-ellipsis"
+                            style={{ width: `${columnWidths[field] || 120}px`, minWidth: '100px' }}
+                          >
+                            <div className="text-sm text-gray-700 overflow-hidden text-ellipsis">
+                              {completeEntity.division_conference_name || 'N/A'}
+                            </div>
+                          </td>
+                        );
+                      }
                       
-                      {visibleColumns['division_conference_id'] !== false && (
-                        <td 
-                          className="px-6 py-4 whitespace-nowrap overflow-hidden text-ellipsis"
-                          style={{ width: columnWidths.division || 150, minWidth: '100px' }}
-                        >
-                          <div className="text-sm text-gray-700 overflow-hidden text-ellipsis">
-                            {completeEntity?.division_conference_name || 'N/A'}
-                          </div>
-                        </td>
-                      )}
-                    </>
-                  )}
-                  
-                  {/* League-specific fields */}
-                  {selectedEntityType === 'league' && (
-                    <>
-                      {visibleColumns['sport'] !== false && (
-                        <td 
-                          className="px-6 py-4 whitespace-nowrap overflow-hidden text-ellipsis"
-                          style={{ width: columnWidths.sport || 120, minWidth: '100px' }}
-                        >
-                          <div className="text-sm text-gray-700 overflow-hidden text-ellipsis">
-                            {completeEntity?.sport || 'N/A'}
-                          </div>
-                        </td>
-                      )}
+                      if (field === 'league_id' && completeEntity?.league_name) {
+                        return (
+                          <td 
+                            key={field}
+                            className="px-6 py-4 whitespace-nowrap overflow-hidden text-ellipsis"
+                            style={{ width: `${columnWidths[field] || 120}px`, minWidth: '100px' }}
+                          >
+                            <div className="text-sm text-gray-700 overflow-hidden text-ellipsis">
+                              {completeEntity.league_name || 'N/A'}
+                            </div>
+                          </td>
+                        );
+                      }
                       
-                      {visibleColumns['nickname'] !== false && (
+                      // Regular field
+                      return (
                         <td 
+                          key={field}
                           className="px-6 py-4 whitespace-nowrap overflow-hidden text-ellipsis"
-                          style={{ width: columnWidths.nickname || 120, minWidth: '100px' }}
+                          style={{ width: `${columnWidths[field] || 120}px`, minWidth: '100px' }}
                         >
                           <div className="text-sm text-gray-700 overflow-hidden text-ellipsis">
-                            {completeEntity?.nickname || 'N/A'}
+                            {completeEntity && completeEntity[field] !== undefined
+                              ? String(completeEntity[field])
+                              : 'N/A'}
                           </div>
                         </td>
-                      )}
-                    </>
-                  )}
-                  
-                  {/* Division/Conference specific fields */}
-                  {selectedEntityType === 'division_conference' && (
-                    <>
-                      {visibleColumns['league_name'] !== false && (
-                        <td 
-                          className="px-6 py-4 whitespace-nowrap overflow-hidden text-ellipsis"
-                          style={{ width: `${columnWidths.league}px`, minWidth: '100px' }}
-                        >
-                          <div className="text-sm text-gray-700 overflow-hidden text-ellipsis">
-                            {(completeEntity as DivisionConference)?.league_name || 'N/A'}
-                          </div>
-                        </td>
-                      )}
-                      
-                      {visibleColumns['type'] !== false && (
-                        <td 
-                          className="px-6 py-4 whitespace-nowrap overflow-hidden text-ellipsis"
-                          style={{ width: columnWidths.type || 120, minWidth: '100px' }}
-                        >
-                          <div className="text-sm text-gray-700 overflow-hidden text-ellipsis">
-                            {(completeEntity as DivisionConference)?.type || 'N/A'}
-                          </div>
-                        </td>
-                      )}
-                    </>
-                  )}
-                  
-                  {/* Created date */}
-                  {visibleColumns['created_at'] !== false && (
-                    <td 
-                      className="px-6 py-4 whitespace-nowrap"
-                      style={{ width: `${columnWidths.created}px`, minWidth: '100px' }}
-                    >
-                      <div className="text-sm text-gray-500">
-                        {entity.created_at ? new Date(entity.created_at).toLocaleDateString() : 'N/A'}
-                      </div>
-                    </td>
-                  )}
+                      );
+                    })
+                  }
                   
                   {/* Actions */}
                   <td 

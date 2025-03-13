@@ -67,8 +67,19 @@ const EntityList: React.FC<EntityListProps> = ({ className = '' }) => {
     pageSize,
     setPageSize,
     totalItems,
-    refetch
+    refetch,
+    getEntityFields
   } = useSportsDatabase();
+  
+  // Get all available fields for the current entity type
+  const getAvailableFields = (): string[] => {
+    if (!selectedEntityType || !getEntityFields) return [];
+    
+    const fields = getEntityFields(selectedEntityType);
+    
+    // Extract field names
+    return fields.map(field => field.fieldName);
+  };
 
   // Column visibility and resizing state
   const [columnWidths, setColumnWidths] = useState<{[key: string]: number}>({
@@ -146,18 +157,19 @@ const EntityList: React.FC<EntityListProps> = ({ className = '' }) => {
         updated_at: false // Default off
       };
       
-      // Get all available fields for this entity type and set defaults
-      const { getEntityFields } = useSportsDatabase();
-      const fields = getEntityFields(selectedEntityType);
-      
-      // Set most fields visible by default
-      fields.forEach(field => {
-        // Skip id, name, created_at since we already set them
-        if (!['id', 'name', 'created_at', 'updated_at'].includes(field.fieldName)) {
-          // Set all regular fields to visible, but keep relationships as not visible by default
-          defaultVisibility[field.fieldName] = !field.fieldName.endsWith('_id');
-        }
-      });
+      // Get all available fields and set defaults
+      if (getEntityFields) {
+        const fields = getEntityFields(selectedEntityType);
+        
+        // Set most fields visible by default
+        fields.forEach(field => {
+          // Skip id, name, created_at since we already set them
+          if (!['id', 'name', 'created_at', 'updated_at'].includes(field.fieldName)) {
+            // Set all regular fields to visible, but keep relationships as not visible by default
+            defaultVisibility[field.fieldName] = !field.fieldName.endsWith('_id');
+          }
+        });
+      }
       
       setVisibleColumns(defaultVisibility);
     }
@@ -205,17 +217,6 @@ const EntityList: React.FC<EntityListProps> = ({ className = '' }) => {
       { id: 'league_executive', name: 'League Executives' }
     ];
     return entityTypes.find(e => e.id === selectedEntityType)?.name || selectedEntityType;
-  };
-  
-  // Get all available fields for the current entity type
-  const getAvailableFields = (): string[] => {
-    if (!selectedEntityType) return [];
-    
-    // Use getEntityFields from context directly to get all fields
-    const fields = getEntityFields(selectedEntityType);
-    
-    // Extract field names
-    return fields.map(field => field.fieldName);
   };
 
   // Get filtered entities - using the complete entities directly instead of limiting to a few fields

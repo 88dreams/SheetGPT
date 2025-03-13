@@ -34,58 +34,54 @@
 
 ## Code Style
 
+### General Guidelines
 - Python: Black formatter (88 char line length), strict typing with MyPy
-- TypeScript: Follow React best practices with functional components and hooks
-- Use early returns for readability and descriptive variable names with handleX prefix for event handlers
+- TypeScript: Functional components and hooks, descriptive variable names
+- Use early returns for readability
+- handleX prefix for event handlers (e.g., `handleSubmit`, `handleClick`)
 - Prefer const arrow functions over function declarations
 - Always use proper typing (avoid 'any')
 - Use TailwindCSS for styling; avoid CSS files when possible
 - Follow proper error handling patterns with try/catch blocks
 - Components should follow single responsibility principle
-- Use dedicated error utilities for standardized error handling
-- Implement session storage fallbacks for API failures
-- Structure components with clean separation of concerns
-- Modularize functionality into composable hooks
-- Implement exhaustive input validation before processing
-- Use helper functions for repeated operations 
-- Add debug logging for complex operations
-- Store complex logic in dedicated services
-- Never trust third-party API data without validation
-- Always handle edge cases gracefully
+- Use index files to simplify imports and provide a clean API
 
-## Component Organization Guidelines
-
-- Follow a modular approach with folder structure: 
-  - `ComponentName/`
-    - `index.tsx` (main component with minimal logic)
-    - `components/` (sub-components)
-      - `SubComponentA.tsx`
-      - `SubComponentB.tsx`
-      - `index.ts` (exports all components)
-    - `hooks/` (component-specific hooks)
-      - `useFeatureState.ts`
-      - `useFeatureActions.ts`
-      - `index.ts` (exports all hooks)  
-    - `utils/` (component-specific utilities)
-      - `featureUtils.ts`
-      - `validation.ts`
-      - `index.ts` (exports all utilities)
-    - `types.ts` (component-specific types)
+### Component Organization
+- Follow modular approach with folder structure: 
+  ```
+  ComponentName/
+  ├── index.tsx              # Main component with minimal logic
+  ├── components/            # Sub-components
+  │   ├── SubComponentA.tsx
+  │   ├── SubComponentB.tsx
+  │   └── index.ts           # Exports all components
+  ├── hooks/                 # Component-specific hooks
+  │   ├── useFeatureState.ts
+  │   ├── useFeatureActions.ts
+  │   └── index.ts           # Exports all hooks  
+  ├── utils/                 # Component-specific utilities
+  │   ├── featureUtils.ts
+  │   ├── validation.ts
+  │   └── index.ts           # Exports all utilities
+  └── types.ts               # Component-specific types
+  ```
 - Extract reusable logic into custom hooks with clear boundaries
-- Create a dedicated hook for each distinct responsibility (e.g. data fetching, UI state, form management)
+- Create a dedicated hook for each distinct responsibility
 - Split complex components into sub-components of 100-200 lines maximum
-- Refactor monolithic pages and components using the above patterns
 - Follow naming conventions:
   - Hooks start with "use" (`useDataFetching`)
   - Components use PascalCase (`DataTable`)
   - Helper functions use camelCase (`formatData`)
-- Implement index files to simplify imports and provide a clean API
 - Keep components focused on UI, delegating business logic to hooks
-- For backend services, follow similar organization:
-  - `service_area/`
-    - `specific_service1.py` (focused on one responsibility)
-    - `specific_service2.py` (focused on one responsibility)
-    - `__init__.py` (exports all services)
+
+### Backend Services
+- Follow similar organization pattern:
+  ```
+  service_area/
+  ├── specific_service1.py   # Focused on one responsibility
+  ├── specific_service2.py   # Focused on one responsibility
+  └── __init__.py            # Exports all services
+  ```
 - Use Facade pattern for coordinating multiple services without exposing complexity
 
 ## React DnD Implementation Notes
@@ -95,7 +91,6 @@
 - Future implementation should handle optimistic UI updates consistently
 - Keep drag-drop interactions simple, with minimal state changes during hover events
 - Update local state immediately on drop, then send API request as side effect
-- For list reordering, use index-based API (instead of order field) where possible
 - Always provide visual feedback during drag operations
 
 ## Database Guidelines
@@ -105,8 +100,6 @@
 - Handle database errors with proper try/except blocks
 - Monitor database growth patterns
 - Run scheduled backups regularly
-- Use admin tools for database maintenance tasks
-- Implement proper migration testing
 - Use order_index fields for sortable collections
 - Structure PostgreSQL queries properly for JSONB fields
 - Follow entity dependency order in operations
@@ -122,8 +115,6 @@
 - Use optimistic UI updates with recovery patterns
 - Validate data at multiple levels (client, API, database)
 - Implement CSV fallbacks for export functionality
-- Add debug logging for complex operations 
-- Use try/catch blocks with specific error handling
 - Provide alternative formats for data export when APIs fail
 - Always validate input/output data structure before processing
 
@@ -135,14 +126,11 @@
 - Use contextual actions that appear only when relevant
 - Optimize vertical space with collapsible sections
 - Ensure proper padding for fixed elements (navbar requires pt-16)
-- Implement responsive designs that adjust to screen size
-- Use a consistent color scheme for actions (blue for edit, red for delete, etc.)
-- Provide clear visual feedback for interactive elements
 - Calculate proper heights for scrollable containers (h-[calc(100vh-5rem)])
+- Use consistent color scheme for actions (blue for edit, red for delete, etc.)
+- Provide clear visual feedback for interactive elements
 - For query interfaces, use side-by-side layout for question and SQL
-- Display query results with sorting, column visibility controls, and row selection
 - Implement both localStorage (for saved queries) and sessionStorage (for state persistence)
-- Provide multi-format export with CSV (client-side) and Google Sheets options
 - Use direct Blob API for client-side file generation
 - Preserve component state when navigating between pages
 - Implement loading states and clear error handling for async operations
@@ -156,7 +144,6 @@
 - Follow Anthropic's usage guidelines
 - Include appropriate model parameters
 - Structure prompts for optimal response quality
-- Implement robust error handling
 - Use Claude for natural language database queries
 - Provide schema context for database question answering
 - Support translation-only mode without execution

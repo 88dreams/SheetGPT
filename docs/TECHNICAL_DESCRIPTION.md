@@ -23,7 +23,6 @@ src/
    - Role-based access control
    - Secure token management
    - Admin privilege verification
-   - Robust error handling
 
 2. **Database Management**
    - SQLAlchemy ORM with UUID primary keys
@@ -31,7 +30,6 @@ src/
    - Direct SQL query execution with safety checks
    - Natural language to SQL conversion via Claude API
    - Query results export to CSV and Google Sheets
-   - Comprehensive validation layer
    - Automated backup and restore
    - Conversation archiving
    - Database statistics and monitoring
@@ -62,22 +60,16 @@ frontend/
 1. **State Management**
    - React Query for server state
    - Context API for global state
-   - Local state for UI elements
    - ChatContext for optimized streaming
    - DataFlowContext for extraction pipeline
 
 2. **Component Architecture**
    - Modular feature-based organization
-   - Shared components for UI consistency
    - Custom hooks for business logic with separation of concerns
-   - Admin dashboard components
-   - Extraction services architecture with specialized service modules
-   - Error handling utilities with standardized patterns
    - Fixed navigation bar with consistent layout
    - Table-based components for structured data
    - Sorting mechanisms for data organization
    - Contextual action buttons for improved UX
-   - Responsive layout adapting to screen dimensions
    - Domain-specific API clients with targeted functionality
    - Feature-focused folder structure:
      ```
@@ -97,16 +89,13 @@ frontend/
      └── index.tsx        # Main component with minimal logic
      ```
    - Single responsibility components focused on UI presentation
-   - Dedicated hooks for specific logic concerns (data fetching, state management, etc.)
    - Backend services follow similar pattern:
      ```
      service_area/
      ├── specific_service1.py
      ├── specific_service2.py
-     ├── specific_service3.py
      └── __init__.py      # Exports all services
      ```
-   - Coordinating service modules using Facade pattern for API simplicity
 
 ## Data Architecture
 
@@ -120,9 +109,14 @@ frontend/
    ├── broadcast_dates
    └── → broadcast_companies
    
+   division_conferences
+   ├── name, type (division/conference)
+   └── → leagues
+   
    teams
    ├── name, city, state
    ├── → leagues
+   ├── → division_conferences
    └── → stadiums
    
    stadiums
@@ -212,10 +206,8 @@ frontend/
   - Database statistics collection
   - Admin dashboard integration
   - CLI tools for maintenance
-  - Scheduled task management
   - SQL query execution with safety checks
   - Natural language to SQL conversion
-  - Query result export capabilities
 
 ### SportDataMapper
 - Purpose: Map structured data to sports entities
@@ -225,10 +217,6 @@ frontend/
   - Smart field mapping
   - Batch processing
   - Progress tracking
-
-### Entity Management
-- Purpose: CRUD operations for sports entities
-- Features:
 
 ### DatabaseQuery
 - Purpose: Enable users to query the database directly or using natural language
@@ -243,10 +231,7 @@ frontend/
   - Session-based state persistence when navigating away from the page
   - Results display with sorting, column visibility, and row selection
   - Direct client-side CSV export with proper file formatting
-  - Google Sheets export with authentication flow and template selection
-  - Query results manipulation including bulk row deletion
-  - Schema-aware query generation with PostgreSQL syntax
-  - Interactive results grid with status indicators and row counts
+  - Google Sheets export with authentication flow
 
 ### Chat System
 - Purpose: AI interaction and data extraction
@@ -258,10 +243,6 @@ frontend/
   - Background task processing
   - Rate limiting and timeout handling
   - Automatic message persistence
-  - Structured data schema validation
-  - Message repeat functionality
-  - Enhanced extraction services architecture
-  - Claude API integration
 
 Components:
 1. **ChatService**
@@ -270,7 +251,6 @@ Components:
    - Handles streaming responses with buffer management
    - Processes structured data extraction
    - Manages conversation archiving and reordering
-   - Handles error recovery and fallbacks
 
 2. **AnthropicService**
    - Manages Claude API connections
@@ -278,28 +258,12 @@ Components:
    - Processes streaming responses
    - Implements retry mechanisms
    - Handles rate limits and timeouts
-   - Provides structured error responses
 
 3. **Extraction Services**
    - DataDetectionService for entity identification
    - DataParserService for schema validation
    - DataExtractionService for workflow coordination
    - Session storage fallback mechanism
-
-4. **Message Processing**
-   ```
-   User Message → Chat Context → Claude API →
-   Structured Data Extraction → Session Storage →
-   Response Streaming → Message Persistence
-   ```
-
-5. **Error Recovery**
-   - Session storage fallbacks
-   - Graceful error handling with user feedback
-   - Standardized error utilities
-   - Structured logging with error tracking
-   - Transaction management
-   - Session state preservation
 
 ## Data Management
 
@@ -308,7 +272,6 @@ Components:
    - Scheduled backups with pg_dump
    - Configurable retention policy
    - JSON metadata storage
-   - AWS S3 integration (optional)
    - Restore functionality
 
 2. **Archiving System**

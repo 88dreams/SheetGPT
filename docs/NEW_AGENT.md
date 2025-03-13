@@ -1,24 +1,18 @@
 # NEW AGENT INTRODUCTION
 
-## AGENT INTRO SECTION
-
-### Project Overview
+## Project Overview
 SheetGPT is a full-stack application combining AI-powered chat with structured data management and sports database functionality. Key capabilities:
 - AI chat for data extraction and structuring
 - Tabular data management with column controls
 - Sports entity management (leagues, teams, players, etc.)
 - Advanced database query system with SQL and natural language support
-- Interactive query interface with side-by-side natural language and SQL
-- Client-side CSV export and Google Sheets integration
-- Query translation capability with editable SQL results
-- Query results manipulation with sorting and filtering
-- Message repeat functionality for alternative responses
+- Google Sheets integration for data export
 - Database maintenance and backup system
 - Conversation archiving functionality
 
-### Technical Architecture
+## Technical Architecture
 
-#### Backend
+### Backend
 - FastAPI with SQLAlchemy ORM and PostgreSQL
 - JWT authentication with role-based access
 - Modular design with isolated services
@@ -26,7 +20,7 @@ SheetGPT is a full-stack application combining AI-powered chat with structured d
 - Database backup and management system
 - Scheduled task infrastructure
 
-#### Frontend
+### Frontend
 - React with TypeScript
 - React Query for data management
 - Advanced DataTable component
@@ -36,7 +30,7 @@ SheetGPT is a full-stack application combining AI-powered chat with structured d
 - Table-based list components with sorting capabilities
 - Contextual action buttons for improved UX
 
-### Key Components
+## Key Components
 
 1. **Database Management System**
    - Comprehensive backup and restore functionality
@@ -70,26 +64,32 @@ SheetGPT is a full-stack application combining AI-powered chat with structured d
    - Smart field type detection and rendering
    - Relationship field handling with dropdowns
    - Real-time validation and error handling
-   - Change history tracking
    - Related entities display
 
-### Current Status (March 2025)
+6. **Database Query System**
+   - Natural language to SQL conversion using Claude AI
+   - Direct SQL query execution with safety checks
+   - Side-by-side view of natural language and SQL
+   - Query translation without execution 
+   - Results display with sorting and column controls
+   - Client-side CSV export and Google Sheets export
 
-#### Completed Features
+## Current Status (March 2025)
+
+### Completed Features
 - ✅ User authentication and management
 - ✅ Chat interface with AI integration
 - ✅ Structured data extraction
 - ✅ Sports database with comprehensive models
+- ✅ Division/Conference model with hierarchical relationships
 - ✅ Frontend-backend integration
 - ✅ Admin functionality
 - ✅ Enhanced field mapping visualization
 - ✅ Hybrid filtering implementation
 - ✅ Bulk operations for entities
 - ✅ Advanced entity editing with relationship management
-- ✅ Smart dropdowns for entity relationships
 - ✅ Message repeat functionality
 - ✅ Entity list pagination
-- ✅ Bulk delete operations
 - ✅ Database management system
 - ✅ Conversation archiving functionality
 - ✅ Database backup and restore
@@ -98,18 +98,16 @@ SheetGPT is a full-stack application combining AI-powered chat with structured d
 - ✅ Conversation reordering
 - ✅ Enhanced error handling framework
 - ✅ Extraction services architecture
-- ✅ Database Query system with direct SQL and natural language support
-- ✅ Query saving and management
-- ✅ CSV and Google Sheets export from query results
+- ✅ Database Query system with natural language support
 
-#### In Progress
-- 🔄 Google Sheets API backend integration
+### In Progress
+- 🔄 Google Sheets API integration reliability
 - 🔄 Sports database API endpoint testing
 - 🔄 Frontend component test coverage
 - 🔄 Automated database maintenance schedules
 - 🔄 Mobile responsive design
 
-### Critical Information
+## Critical Information
 
 1. **Database Schema**
    - All entities use UUID primary keys
@@ -123,10 +121,10 @@ SheetGPT is a full-stack application combining AI-powered chat with structured d
    - Leagues
    - Broadcast Companies
    - Production Companies
-   - Brands
    
    Secondary:
-   - Teams (requires leagues, stadiums)
+   - Division/Conferences (requires leagues)
+   - Teams (requires leagues, division/conferences, stadiums)
    - Stadiums (requires broadcast companies)
    - Players (requires teams)
    
@@ -134,7 +132,6 @@ SheetGPT is a full-stack application combining AI-powered chat with structured d
    - Games (requires teams, stadiums)
    - Broadcast Rights
    - Production Services
-   - Brand Relationships
    
    System:
    - Archived Conversations
@@ -142,53 +139,24 @@ SheetGPT is a full-stack application combining AI-powered chat with structured d
    - Database Statistics
 
 3. **Recent Changes**
-   - Refactored large components into modular, focused components following established patterns
-   - Implemented feature-based folder structure for complex features with logical organization
-     ```
-     ComponentName/
-     ├── components/      # Child components
-     ├── hooks/           # Custom hooks
-     ├── utils/           # Helper utilities
-     ├── types.ts         # Type definitions
-     └── index.tsx        # Main component
-     ```
-   - Extracted business logic into specialized custom hooks with single responsibility principle
-   - Reorganized API client code into domain-specific services for better maintainability
-   - Created advanced component organization patterns for consistent codebase
+   - Added DivisionConference model as sub-unit of Leagues
+   - Created hierarchical relationship: League → Division/Conference → Team
+   - Refactored large components into modular, focused components
+   - Implemented feature-based folder structure for complex features
+   - Extracted business logic into specialized custom hooks
+   - Reorganized API client code into domain-specific services
    - Improved type safety with dedicated type files and interfaces
-   - Reduced file sizes for better maintainability (from 400-700 lines to under 100 lines per file)
-   - Organized backend services into domain-specific modules:
-     ```
-     service_area/
-     ├── specific_service1.py    # Focused responsibility
-     ├── specific_service2.py    # Focused responsibility
-     └── __init__.py            # Exports service API
-     ```
-   - Implemented Facade pattern for service coordination
+   - Enhanced Teams Advanced Edit functionality with proper relationship handling
    - Integrated Claude API with robust error handling
-   - Implemented fixed navigation bar across the entire application
-   - Added conversation sorting by name, date, and manual order
-   - Redesigned conversation list with table-based layout
-   - Implemented contextual action buttons for selected conversations
-   - Created enhanced extraction services architecture 
-   - Added structured error handling with error utilities
-   - Implemented database management system with backup/restore
+   - Implemented fixed navigation bar across the application
+   - Enhanced extraction services architecture
    - Added conversation archiving with restore capability
    - Created database statistics dashboard for administrators
-   - Built CLI tools for database maintenance
-   - Added message repeat functionality to chat interface
-   - Implemented entity list pagination with configurable page sizes
-   - Added bulk delete functionality for entity management
-   - Enhanced Teams Advanced Edit functionality
-   - Improved relationship field handling with smart dropdowns
-   - Added comprehensive field validation
-   - Enhanced edit modal organization
-   - Improved type handling for all fields
 
-### Common Issues and Solutions
+## Common Issues and Solutions
 
 1. **Database Management**
-   - Use CLI tools for manual database operations
+   - Use CLI tools for database operations: `python src/scripts/db_management.py [command]`
    - Schedule backups using cron jobs
    - Archive instead of delete for important data
    - Monitor database growth patterns
@@ -216,27 +184,13 @@ SheetGPT is a full-stack application combining AI-powered chat with structured d
    - Implement optimistic updates
    - Provide fallback error handling
 
-### Required Reading
+## Required Reading
 1. TECHNICAL_DESCRIPTION.md - Detailed component documentation
 2. SPORTS_API_ENDPOINTS.md - API endpoint specifications
 3. API_ARCHITECTURE.md - System architecture details
 4. PROGRESS.md - Latest updates and status
 
-### Next Actions
-1. Complete Google Sheets integration
-2. Enhance test coverage
-3. Optimize performance for large datasets
-4. Implement advanced search capabilities
-5. Add mobile responsiveness
-6. Enhance backup automation
-
-### Communication Guidelines
-1. Reference files and functions using exact paths
-2. Use line numbers for specific code references
-3. Follow TypeScript type definitions strictly
-4. Maintain documentation consistency
-
-### Error Handling Protocol
+## Error Handling Protocol
 1. Check validation layer first
 2. Verify entity relationships
 3. Review transaction logs
@@ -244,14 +198,12 @@ SheetGPT is a full-stack application combining AI-powered chat with structured d
 5. Validate API responses
 6. Check database backup status
 
-This document should be updated with each significant change to maintain accuracy for new agents.
-
-## SYSTEM_STATE
+## System State
 ```json
 {
   "project_name": "SheetGPT",
-  "version": "0.6.0",
-  "last_updated": "2025-03-10",
+  "version": "0.7.0",
+  "last_updated": "2025-03-13",
   "environment": {
     "development": "Docker-based",
     "services": ["frontend", "backend", "db"],
@@ -267,7 +219,8 @@ This document should be updated with each significant change to maintain accurac
       "MessageRepeat": "Allows resending of previous messages",
       "DatabaseStats": "Admin dashboard for database statistics",
       "ChatContext": "Manages chat state with optimized streaming",
-      "DataExtraction": "Enhanced extraction services architecture"
+      "DataExtraction": "Enhanced extraction services architecture",
+      "DatabaseQuery": "Natural language and SQL database querying"
     },
     "backend": {
       "FastAPI": "REST API framework",
@@ -284,7 +237,7 @@ This document should be updated with each significant change to maintain accurac
 }
 ```
 
-## CURRENT_PRIORITIES
+## Current Priorities
 ```json
 {
   "high_priority": [
@@ -301,11 +254,11 @@ This document should be updated with each significant change to maintain accurac
     {
       "task": "Data Management",
       "focus": [
-        "Sample data validation",
-        "Entity relationship handling",
+        "Entity relationship validation",
         "Data cleanup procedures",
-        "Advanced entity editing improvements",
-        "Pagination optimization"
+        "Advanced editing improvements",
+        "Pagination optimization",
+        "Google Sheets export reliability"
       ]
     },
     {
@@ -326,7 +279,7 @@ This document should be updated with each significant change to maintain accurac
         "User-friendly error messages",
         "Edit form validation",
         "Bulk operation failures",
-        "Backup failures"
+        "Export functionality fallbacks"
       ]
     }
   ],
@@ -335,7 +288,6 @@ This document should be updated with each significant change to maintain accurac
     "Performance optimization",
     "Data integrity checks",
     "UI/UX enhancements",
-    "Fixed navigation improvements",
     "Table-based component refinements",
     "Conversation list sorting optimizations",
     "Entity edit improvements",
@@ -346,245 +298,7 @@ This document should be updated with each significant change to maintain accurac
 }
 ```
 
-## ARCHITECTURE_OVERVIEW
-```json
-{
-  "frontend": {
-    "core_components": {
-      "Layout": {
-        "purpose": "Provides consistent application structure with fixed navigation",
-        "key_files": [
-          "components/Layout.tsx",
-          "components/Navbar.tsx",
-          "App.tsx"
-        ],
-        "features": [
-          "Fixed top navigation bar",
-          "Consistent padding for content",
-          "Responsive layout handling",
-          "Route management"
-        ]
-      },
-      "SportDataMapper": {
-        "purpose": "Map structured data to sports entities",
-        "key_files": [
-          "components/data/SportDataMapper/SportDataMapperContainer.tsx",
-          "components/data/SportDataMapper/hooks/useFieldMapping.ts",
-          "components/data/SportDataMapper/hooks/useDataManagement.ts"
-        ]
-      },
-      "SportsDatabase": {
-        "purpose": "Manage sports entities with validation",
-        "key_files": [
-          "pages/SportsDatabase.tsx",
-          "components/sports/EntityList.tsx",
-          "components/sports/EntityFilter.tsx",
-          "components/sports/Pagination.tsx"
-        ]
-      },
-      "DataTable": {
-        "purpose": "Display and manage structured data",
-        "key_files": [
-          "components/data/DataTable/index.tsx",
-          "components/data/DataTable/components/DataGridTable.tsx",
-          "components/data/DataTable/components/Pagination.tsx",
-          "components/data/DataTable/hooks/useColumnResize.ts",
-          "components/data/DataTable/hooks/useDragAndDrop.ts"
-        ],
-        "features": [
-          "Column resizing",
-          "Row reordering",
-          "Pagination controls",
-          "Raw data viewing",
-          "Grid expansion",
-          "Export capabilities"
-        ]
-      },
-      "Chat": {
-        "purpose": "AI-powered chat interface with data extraction",
-        "key_files": [
-          "pages/ChatPage/index.tsx",
-          "pages/ChatPage/components/SidebarWithResizer.tsx",
-          "pages/ChatPage/components/ChatContainer.tsx",
-          "pages/ChatPage/hooks/useMessages.ts",
-          "pages/ChatPage/hooks/useSendMessage.ts"
-        ],
-        "features": [
-          "Message streaming",
-          "Data extraction",
-          "Message repeat functionality",
-          "Delete/Archive messages",
-          "Conversation sorting",
-          "Contextual actions",
-          "Table-based conversation list",
-          "Resizable sidebar"
-        ]
-      },
-      "EntityManagement": {
-        "purpose": "Advanced entity management with bulk operations",
-        "key_files": [
-          "components/sports/EntityList.tsx",
-          "components/sports/BulkActions.tsx",
-          "components/sports/AdvancedEditForm.tsx"
-        ],
-        "features": [
-          "Bulk delete",
-          "Pagination",
-          "Advanced filtering",
-          "Smart relationship handling"
-        ]
-      },
-      "DatabaseManagement": {
-        "purpose": "Admin interface for database maintenance",
-        "key_files": [
-          "pages/Settings.tsx",
-          "components/admin/DatabaseStats.tsx",
-          "components/admin/BackupManager.tsx"
-        ],
-        "features": [
-          "Database statistics",
-          "Backup management",
-          "Archiving controls",
-          "Performance metrics"
-        ]
-      },
-      "DatabaseQuery": {
-        "purpose": "Execute and manage database queries",
-        "key_files": [
-          "pages/DatabaseQuery.tsx"
-        ],
-        "features": [
-          "Direct SQL execution",
-          "Natural language to SQL conversion",
-          "Query saving and management",
-          "CSV and Google Sheets export",
-          "Mode switching between SQL and natural language"
-        ]
-      }
-    },
-    "shared_components": {
-      "Pagination": {
-        "purpose": "Reusable pagination component",
-        "key_files": [
-          "components/common/Pagination.tsx"
-        ],
-        "features": [
-          "Configurable page sizes",
-          "First/last page navigation",
-          "Page size selection",
-          "Total count display"
-        ]
-      }
-    }
-  },
-  "backend": {
-    "api_routes": {
-      "chat": {
-        "purpose": "Handle chat operations and message management",
-        "endpoints": [
-          "/api/v1/chat/conversations",
-          "/api/v1/chat/messages",
-          "/api/v1/chat/archive"
-        ]
-      },
-      "sports": {
-        "purpose": "Manage sports entities with pagination and filtering",
-        "endpoints": [
-          "/api/v1/sports/entities/{entity_type}",
-          "/api/v1/sports/bulk-delete"
-        ]
-      },
-      "db_management": {
-        "purpose": "Database administration functionality",
-        "endpoints": [
-          "/api/v1/db-management/stats",
-          "/api/v1/db-management/backups",
-          "/api/v1/db-management/archive",
-          "/api/v1/db-management/query"
-        ]
-      }
-    },
-    "services": {
-      "chat_service": {
-        "purpose": "Chat and message handling logic",
-        "features": [
-          "Message storage",
-          "Conversation management",
-          "Message repeat handling",
-          "Archiving integration"
-        ]
-      },
-      "sports_service": {
-        "purpose": "Sports entity management",
-        "features": [
-          "Entity CRUD operations",
-          "Bulk operations",
-          "Pagination handling",
-          "Advanced filtering"
-        ]
-      },
-      "database_management_service": {
-        "purpose": "Database maintenance and administration",
-        "features": [
-          "Backup and restore",
-          "Conversation archiving",
-          "Statistics collection",
-          "Growth monitoring",
-          "Performance metrics",
-          "SQL query execution",
-          "Natural language to SQL conversion",
-          "Query result export"
-        ]
-      }
-    }
-  }
-}
-```
-
-## KNOWN_ISSUES
-```json
-{
-  "critical": [
-    {
-      "issue": "Entity relationship validation",
-      "status": "In progress",
-      "files": [
-        "scripts/create_sample_sports_data.py",
-        "models/sports_models.py"
-      ]
-    },
-    {
-      "issue": "Test coverage gaps",
-      "status": "Addressing",
-      "components": [
-        "DatabaseManagementService",
-        "DataManagementScripts", 
-        "EntityRelationshipHandler"
-      ]
-    }
-  ],
-  "monitoring": [
-    {
-      "issue": "Database growth patterns",
-      "component": "DatabaseManagementService"
-    },
-    {
-      "issue": "Backup scheduling optimization",
-      "component": "ScheduledBackupScript"
-    },
-    {
-      "issue": "Data cleanup procedures",
-      "component": "DataManagementScripts"
-    },
-    {
-      "issue": "Field validation performance",
-      "component": "SportDataMapper"
-    }
-  ]
-}
-```
-
-## DEVELOPMENT_WORKFLOW
+## Development Workflow
 ```json
 {
   "setup": {
@@ -599,40 +313,34 @@ This document should be updated with each significant change to maintain accurac
   },
   "development": {
     "branch_strategy": "feature/{component-name}/{feature-description}",
-    "testing": "npm run test",
+    "testing": "./run-tests.sh or docker-compose run --rm frontend-test",
     "documentation": "Update relevant .md files"
-  },
-  "deployment": {
-    "ci_cd": "GitHub Actions",
-    "environments": ["development", "staging", "production"]
   }
 }
 ```
 
-## IMMEDIATE_FOCUS
+## Immediate Focus
+
 For any new agent continuing development:
 
-1. Review recent changes in PROGRESS.md
-2. Understand current architecture in TECHNICAL_DESCRIPTION.md
-3. Focus on high-priority tasks:
+1. Review current architecture in TECHNICAL_DESCRIPTION.md
+2. Focus on high-priority tasks:
    - Database management system monitoring
    - Entity relationship handling
    - Data management scripts
    - Field validation improvements
 
-4. Key areas requiring attention:
+3. Key areas requiring attention:
    - Database growth patterns
    - Backup scheduling and verification
-   - Sample data management
    - Entity relationship validation
    - Documentation maintenance
    - Test coverage expansion
 
-5. Development guidelines:
+4. Development guidelines:
    - Maintain data integrity
    - Update documentation
    - Add comprehensive tests
    - Follow dependency order
    - Implement proper validation
    - Use archiving instead of deletion
-

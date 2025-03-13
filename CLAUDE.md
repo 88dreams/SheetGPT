@@ -73,6 +73,11 @@
   - Components use PascalCase (`DataTable`)
   - Helper functions use camelCase (`formatData`)
 - Keep components focused on UI, delegating business logic to hooks
+- Generate UI elements dynamically from schema where possible
+- Extract context data at the beginning of components
+- Access context functions directly instead of through nested calls
+- Use schema-driven approaches for dynamic rendering
+- Always add null checks when using context-provided functions
 
 ### Backend Services
 - Follow similar organization pattern:
@@ -146,6 +151,14 @@
 - Use direct Blob API for client-side file generation
 - Preserve component state when navigating between pages
 - Implement loading states and clear error handling for async operations
+- For dynamic data displays:
+  - Generate columns from entity schema
+  - Standardize column visibility controls across views
+  - Persist visibility preferences in localStorage
+  - Format field names consistently for display
+  - Handle relationship fields with special display logic
+  - Use enum fields with dropdown selection controls
+  - Create consistent date and time format displays
 
 ## Claude API Integration
 

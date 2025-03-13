@@ -177,6 +177,7 @@ SheetGPT is a full-stack application combining AI-powered chat with structured d
    - System handles UUID conversion
    - Automatic entity creation for missing references
    - Ensure EntityType definitions are consistent across the codebase
+   - Use dynamic field generation for consistent column handling
 
 3. **Validation**
    - Validation occurs before mapping
@@ -185,12 +186,14 @@ SheetGPT is a full-stack application combining AI-powered chat with structured d
    - Real-time field validation in forms
    - Add proper error handling for undefined values
    - Use null checks before accessing properties
+   - Extract context functions before using them
 
 4. **Data Import**
    - Batch import with progress tracking
    - Automatic relationship resolution
    - Error aggregation and reporting
    - Ensure context data is available before use
+   - Handle field mapping consistently across views
 
 5. **Entity Editing**
    - Use AdvancedEditForm for complex entities
@@ -199,6 +202,8 @@ SheetGPT is a full-stack application combining AI-powered chat with structured d
    - Provide fallback error handling
    - Structure components to fetch context data before rendering
    - Add defensive programming for potential undefined values
+   - Use unified column visibility controls
+   - Generate UI elements dynamically from schema
 
 6. **Component Rendering**
    - Access context data at the beginning of components
@@ -206,6 +211,8 @@ SheetGPT is a full-stack application combining AI-powered chat with structured d
    - Add conditional rendering for potentially missing data
    - Handle loading states explicitly
    - Create consistent error displays for data issues
+   - Standardize column visibility between entity and query views
+   - Extract reusable rendering logic for different components
 
 ## Required Reading
 1. TECHNICAL_DESCRIPTION.md - Detailed component documentation

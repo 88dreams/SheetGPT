@@ -70,6 +70,13 @@ SheetGPT is a full-stack application that combines AI-powered chat capabilities 
    - Added proper error handling for entity type validation
    - Current priority: Resolved (fix implemented)
 
+3. Entity List Column Visibility
+   - Previously hardcoded columns in EntityList resulted in inconsistent views between Entity List and Query Results
+   - Implemented dynamic column generation for all entity fields
+   - Added unified column visibility controls across the application
+   - Standardized column handling for all entity types
+   - Current priority: Resolved (fix implemented)
+
 ### Recent Improvements
 
 #### Code Refactoring and Architecture

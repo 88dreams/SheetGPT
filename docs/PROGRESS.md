@@ -21,6 +21,7 @@ SheetGPT is a full-stack application that combines AI-powered chat capabilities 
    - Added better UI labels and descriptive help text for relationship fields
    - Implemented a direct API access approach for key relationship data
    - Made all table columns visible by default for better data discoverability
+   - Fixed EntityList and DatabaseQuery to always show all columns initially
    - Added API error handling and fallbacks for relationship data loading
 
 2. Global Bulk Update Feature (March 14, 2025)

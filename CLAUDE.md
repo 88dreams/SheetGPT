@@ -145,6 +145,7 @@
 - Use consistent color scheme for actions (blue for edit, red for delete, etc.)
 - Provide clear visual feedback for interactive elements
 - Show all columns by default for entity lists and query results
+- Always initialize column visibility with all columns visible, ignoring saved preferences
 - Include UUID toggle functionality for all entity relationship displays
 - Display human-readable names for UUID fields by default
 - Organize relationship dropdowns by parent entity (e.g., divisions by league)
@@ -164,7 +165,8 @@
 - For dynamic data displays:
   - Generate columns from entity schema
   - Standardize column visibility controls across views
-  - Persist visibility preferences in localStorage
+  - Persist visibility preferences in localStorage, but only after user changes
+  - Always start with all columns visible regardless of saved preferences
   - Format field names consistently for display
   - Handle relationship fields with special display logic
   - Use enum fields with dropdown selection controls

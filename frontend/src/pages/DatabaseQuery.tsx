@@ -982,7 +982,7 @@ const DatabaseQuery: React.FC = () => {
                         className="px-2 py-1 text-xs bg-indigo-600 text-white rounded hover:bg-indigo-700"
                         onClick={() => setShowFullUuids(!showFullUuids)}
                       >
-                        <FaKey className="inline mr-1" /> {showFullUuids ? 'Show Names' : 'Show UUIDs'}
+                        <FaKey className="inline mr-1" /> {showFullUuids ? 'Names' : 'IDs'}
                       </button>
                       <button 
                         className="px-2 py-1 text-xs bg-yellow-600 text-white rounded hover:bg-yellow-700"

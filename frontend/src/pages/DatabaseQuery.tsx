@@ -1049,11 +1049,11 @@ const DatabaseQuery: React.FC = () => {
                   )}
                   
                   <div className="overflow-x-auto">
-                    <table className="min-w-full divide-y divide-gray-200 table-fixed">
+                    <table className="min-w-full divide-y divide-gray-200 table-fixed border-collapse">
                       <thead className="bg-gray-50">
                         <tr>
                           {/* Selection column */}
-                          <th className="w-10 px-3 py-2">
+                          <th className="w-10 px-3 py-2 border-r border-gray-200">
                             <input 
                               type="checkbox" 
                               checked={selectAll}
@@ -1066,7 +1066,7 @@ const DatabaseQuery: React.FC = () => {
                           {queryResults.length > 0 && getVisibleColumns.map((column, index) => (
                             <th 
                               key={index}
-                              className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                              className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 border-r border-gray-200"
                               onClick={() => handleSort(column)}
                             >
                               <div className="flex items-center">
@@ -1093,7 +1093,7 @@ const DatabaseQuery: React.FC = () => {
                             className={selectedRows.has(rowIndex) ? 'bg-blue-50' : ''}
                           >
                             {/* Selection cell */}
-                            <td className="w-10 px-3 py-2 whitespace-nowrap">
+                            <td className="w-10 px-3 py-2 whitespace-nowrap border-r border-gray-200">
                               <input 
                                 type="checkbox" 
                                 checked={selectedRows.has(rowIndex)}
@@ -1106,7 +1106,7 @@ const DatabaseQuery: React.FC = () => {
                             {getVisibleColumns.map((column, cellIndex) => (
                               <td 
                                 key={cellIndex}
-                                className="px-3 py-2 whitespace-nowrap text-sm text-gray-500"
+                                className="px-3 py-2 whitespace-nowrap text-sm text-gray-500 border-r border-gray-200"
                               >
                                 {row[column] !== null && row[column] !== undefined 
                                   ? formatCellValue(row[column], column)

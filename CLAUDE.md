@@ -137,6 +137,14 @@
 
 - Use fixed navigation bar for consistent application structure
 - Implement table-based layouts for data-heavy components 
+- Apply consistent table styling across all data views:
+  - Use border-collapse with border-r border-gray-200 for clean grid lines
+  - Apply border-b border-gray-200 to all rows for complete grid effect
+  - Set consistent cell padding (px-3 py-2) across all tables
+  - Add hover:bg-gray-50 to all table rows for consistent interaction
+  - Add hover:bg-gray-100 to all column headers for interactive feedback
+  - Make column resize handles invisible when not hovered (w-0)
+  - Use hover:bg-blue-500 hover:w-2 transition-all for resize handle hover effects
 - Add sorting capabilities with clear visual indicators
 - Use contextual actions that appear only when relevant
 - Optimize vertical space with collapsible sections
@@ -146,7 +154,7 @@
 - Provide clear visual feedback for interactive elements
 - Show all columns by default for entity lists and query results
 - Always initialize column visibility with all columns visible, ignoring saved preferences
-- Include UUID toggle functionality for all entity relationship displays
+- Include UUID toggle functionality for all entity relationship displays (use "IDs"/"Names" button text)
 - Display human-readable names for UUID fields by default
 - Organize relationship dropdowns by parent entity (e.g., divisions by league)
 - Sort dropdown options by logical organization (alphabetical within parent groups)
@@ -167,8 +175,11 @@
   - Standardize column visibility controls across views
   - Persist visibility preferences in localStorage, but only after user changes
   - Always start with all columns visible regardless of saved preferences
-  - Format field names consistently for display
-  - Handle relationship fields with special display logic
+  - Format field names consistently for display (capitalized with spaces replacing underscores)
+  - Handle relationship fields with special display logic (showing names instead of IDs)
+  - Use table-fixed with consistent cell sizing and padding
+  - Use border-collapse with visible grid lines for all tables
+  - Apply consistent hover effects for interactive elements
   - Use enum fields with dropdown selection controls
   - Create consistent date and time format displays
 

@@ -14,7 +14,11 @@ SheetGPT is a full-stack application that combines AI-powered chat capabilities 
 
 ### Latest Features
 
-1. UUID Display Toggle & Division/Conference Dropdowns (March 15, 2025)
+1. UI Standardization & UUID Toggle (March 15, 2025)
+   - Unified grid appearance across EntityList, DatabaseQuery, and DataTable components
+   - Standardized table cell padding, grid lines, and interactive behaviors
+   - Added matching hover effects for both column headers and rows across all data views
+   - Removed unnecessary visual elements for a cleaner, more professional grid style
    - Added toggle between showing full UUIDs and human-readable names across app
    - Fixed Division/Conference dropdown selection in bulk edit operations 
    - Organized Division/Conference dropdowns by league to improve selection experience

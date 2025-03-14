@@ -78,6 +78,10 @@
 - Access context functions directly instead of through nested calls
 - Use schema-driven approaches for dynamic rendering
 - Always add null checks when using context-provided functions
+- Implement common toggle functionality for displaying UUIDs vs. human-readable names
+- Use direct API endpoints for critical relationship data rather than generic endpoints
+- Pre-sort relationship data for dropdown fields in logical organization (e.g., by parent entity)
+- Provide clear descriptive labels and help text for relationship fields
 
 ### Backend Services
 - Follow similar organization pattern:
@@ -132,7 +136,7 @@
 ## UI Implementation Guidelines
 
 - Use fixed navigation bar for consistent application structure
-- Implement table-based layouts for data-heavy components
+- Implement table-based layouts for data-heavy components 
 - Add sorting capabilities with clear visual indicators
 - Use contextual actions that appear only when relevant
 - Optimize vertical space with collapsible sections
@@ -140,6 +144,12 @@
 - Calculate proper heights for scrollable containers (h-[calc(100vh-5rem)])
 - Use consistent color scheme for actions (blue for edit, red for delete, etc.)
 - Provide clear visual feedback for interactive elements
+- Show all columns by default for entity lists and query results
+- Include UUID toggle functionality for all entity relationship displays
+- Display human-readable names for UUID fields by default
+- Organize relationship dropdowns by parent entity (e.g., divisions by league)
+- Sort dropdown options by logical organization (alphabetical within parent groups)
+- Add clear descriptive labels and help text for relationship fields
 - For bulk operations:
   - Categorize fields logically (Basic Info, Relationships, Dates, etc.)
   - Provide clear instructions for empty field handling

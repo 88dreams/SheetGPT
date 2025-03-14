@@ -1,17 +1,23 @@
 import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { useDataFlow } from '../contexts/DataFlowContext';
+import { useNotification } from '../contexts/NotificationContext';
 import { apiClient } from '../utils/apiClient';
 import LoadingSpinner from '../components/common/LoadingSpinner';
 import PageContainer from '../components/common/PageContainer';
+import { Modal } from 'antd';
 import { 
   FaDatabase, FaPlay, FaDownload, FaSave, FaFileExport, FaTable, FaKeyboard, 
   FaFileCode, FaFileAlt, FaSort, FaSortUp, FaSortDown, FaEye, FaEyeSlash, 
-  FaTrash, FaCheck, FaColumns 
+  FaTrash, FaCheck, FaColumns, FaEdit, FaPencilAlt, FaKey
 } from 'react-icons/fa';
+import BulkEditModal from '../components/common/BulkEditModal';
+
+// Remove the old modal implementation since we're now using the unified BulkEditModal
 
 const DatabaseQuery: React.FC = () => {
   const { setDestination } = useDataFlow();
+  const { showNotification } = useNotification();
   const [naturalLanguageQuery, setNaturalLanguageQuery] = useState<string>('');
   const [queryName, setQueryName] = useState<string>('');
   const [isExecuting, setIsExecuting] = useState<boolean>(false);
@@ -24,13 +30,52 @@ const DatabaseQuery: React.FC = () => {
   // Sorting state
   const [sortConfig, setSortConfig] = useState<{column: string; direction: 'asc' | 'desc'} | null>(null);
   
-  // Column visibility state
+  // Column visibility state - initialize with all columns visible
   const [visibleColumns, setVisibleColumns] = useState<{[key: string]: boolean}>({});
   const [showColumnSelector, setShowColumnSelector] = useState<boolean>(false);
+  const [showFullUuids, setShowFullUuids] = useState<boolean>(false);
+  
+  // Set all columns visible by default when query results are loaded
+  useEffect(() => {
+    if (queryResults.length > 0) {
+      // Check if we have stored column visibility in sessionStorage
+      const columnsJson = sessionStorage.getItem('visibleColumns');
+      
+      if (columnsJson) {
+        try {
+          // If we have stored visibility, use it
+          const storedVisibility = JSON.parse(columnsJson);
+          setVisibleColumns(storedVisibility);
+        } catch (e) {
+          console.error('Error parsing stored column visibility:', e);
+          initializeAllColumnsVisible();
+        }
+      } else {
+        // No stored visibility, set all columns visible
+        initializeAllColumnsVisible();
+      }
+    }
+  }, [queryResults]);
+  
+  // Helper function to set all columns visible
+  const initializeAllColumnsVisible = () => {
+    if (queryResults.length === 0) return;
+    
+    const allColumns: {[key: string]: boolean} = {};
+    Object.keys(queryResults[0]).forEach(column => {
+      allColumns[column] = true;
+    });
+    
+    setVisibleColumns(allColumns);
+    
+    // Store in sessionStorage
+    sessionStorage.setItem('visibleColumns', JSON.stringify(allColumns));
+  };
   
   // Row selection state
   const [selectedRows, setSelectedRows] = useState<Set<number>>(new Set());
   const [selectAll, setSelectAll] = useState<boolean>(false);
+  const [isBulkEditModalVisible, setIsBulkEditModalVisible] = useState<boolean>(false);
   
   // State for saved queries
   const [savedQueries, setSavedQueries] = useState<any[]>([]);
@@ -120,8 +165,6 @@ const DatabaseQuery: React.FC = () => {
       // Store the generated SQL if provided (from natural language query)
       if (data.generated_sql) {
         setGeneratedSql(data.generated_sql);
-      } else {
-        setGeneratedSql(null);
       }
       
       // Handle export if present
@@ -300,19 +343,63 @@ const DatabaseQuery: React.FC = () => {
   
   // Toggle column visibility
   const toggleColumnVisibility = (column: string) => {
-    setVisibleColumns(prev => ({
-      ...prev,
-      [column]: !prev[column]
-    }));
+    const updatedVisibility = {
+      ...visibleColumns,
+      [column]: !visibleColumns[column]
+    };
+    
+    setVisibleColumns(updatedVisibility);
+    
+    // Store in sessionStorage
+    sessionStorage.setItem('visibleColumns', JSON.stringify(updatedVisibility));
   };
   
   // Reset column visibility (show all)
   const showAllColumns = () => {
+    if (queryResults.length === 0) return;
+    
     const resetVisibility: {[key: string]: boolean} = {};
-    Object.keys(visibleColumns).forEach(col => {
+    Object.keys(queryResults[0]).forEach(col => {
       resetVisibility[col] = true;
     });
+    
     setVisibleColumns(resetVisibility);
+    
+    // Store in sessionStorage
+    sessionStorage.setItem('visibleColumns', JSON.stringify(resetVisibility));
+  };
+  
+  // Format cell values, particularly for UUIDs
+  const formatCellValue = (value: any, column: string) => {
+    // Handle null/undefined
+    if (value === null || value === undefined) return 'NULL';
+    
+    // Check if it's a UUID by format
+    if (typeof value === 'string' && 
+        /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value)) {
+      
+      // For ID columns and foreign key columns (typically end with _id)
+      if (column === 'id' || column.endsWith('_id')) {
+        // Check if we have relationship information in the query results
+        const nameField = column === 'id' ? null : column.replace('_id', '_name');
+        
+        // If this is a known relationship field and we have a corresponding name field
+        if (nameField && queryResults.some(row => nameField in row)) {
+          // Find the object that has this ID to get its name
+          const relatedObject = queryResults.find(row => row[column] === value);
+          
+          if (relatedObject && relatedObject[nameField]) {
+            return showFullUuids ? value : relatedObject[nameField];
+          }
+        }
+        
+        // If it's just a regular UUID, show shortened form when toggle is off
+        return showFullUuids ? value : `${value.substring(0, 8)}...`;
+      }
+    }
+    
+    // Default string conversion for other values
+    return String(value);
   };
   
   // Handle row selection
@@ -351,6 +438,23 @@ const DatabaseQuery: React.FC = () => {
     setQueryResults(newResults);
     setSelectedRows(new Set());
     setSelectAll(false);
+  };
+  
+  // Handle bulk edit
+  const handleBulkEdit = () => {
+    if (selectedRows.size === 0) {
+      showNotification('warning', 'Please select rows to edit');
+      return;
+    }
+    setIsBulkEditModalVisible(true);
+  };
+  
+  // Handle bulk edit success
+  const handleBulkEditSuccess = (updatedResults: any[]) => {
+    setQueryResults(updatedResults);
+    setSelectedRows(new Set());
+    setSelectAll(false);
+    showNotification('success', 'Bulk edit completed successfully');
   };
   
   // Execute the SQL/natural language query
@@ -727,9 +831,18 @@ const DatabaseQuery: React.FC = () => {
               <div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Ask a question about your data
-                    </label>
+                    <div className="flex justify-between items-center mb-1">
+                      <label className="block text-sm font-medium text-gray-700">
+                        Question
+                      </label>
+                      <button 
+                        onClick={() => setNaturalLanguageQuery("")}
+                        className="text-gray-400 hover:text-gray-600 px-1 text-xs"
+                        title="Clear"
+                      >
+                        <FaTrash className="inline" /> Clear
+                      </button>
+                    </div>
                     <textarea
                       value={naturalLanguageQuery}
                       onChange={(e) => setNaturalLanguageQuery(e.target.value)}
@@ -738,9 +851,18 @@ const DatabaseQuery: React.FC = () => {
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      SQL Query
-                    </label>
+                    <div className="flex justify-between items-center mb-1">
+                      <label className="block text-sm font-medium text-gray-700">
+                        SQL Query
+                      </label>
+                      <button 
+                        onClick={() => setGeneratedSql("")}
+                        className="text-gray-400 hover:text-gray-600 px-1 text-xs"
+                        title="Clear"
+                      >
+                        <FaTrash className="inline" /> Clear
+                      </button>
+                    </div>
                     <textarea
                       value={generatedSql || ''}
                       onChange={(e) => setGeneratedSql(e.target.value)}
@@ -808,6 +930,7 @@ const DatabaseQuery: React.FC = () => {
                       setIsNaturalLanguage(true);
                       executeQuery();
                     }
+                    // Don't clear the query text - it will persist
                   }}
                   disabled={(!naturalLanguageQuery.trim() && !generatedSql?.trim()) || isExecuting || isTranslating}
                   className={`px-3 py-1 text-sm rounded flex items-center ${
@@ -870,6 +993,12 @@ const DatabaseQuery: React.FC = () => {
                         <FaColumns className="inline mr-1" /> Columns
                       </button>
                       <button 
+                        className="px-2 py-1 text-xs bg-indigo-600 text-white rounded hover:bg-indigo-700"
+                        onClick={() => setShowFullUuids(!showFullUuids)}
+                      >
+                        <FaKey className="inline mr-1" /> {showFullUuids ? 'Show Names' : 'Show UUIDs'}
+                      </button>
+                      <button 
                         className="px-2 py-1 text-xs bg-yellow-600 text-white rounded hover:bg-yellow-700"
                         onClick={() => {
                           setQueryResults([]);
@@ -884,12 +1013,20 @@ const DatabaseQuery: React.FC = () => {
                         <FaTrash className="inline mr-1" /> Clear Results
                       </button>
                       {selectedRows.size > 0 && (
-                        <button 
-                          className="px-2 py-1 text-xs bg-red-600 text-white rounded hover:bg-red-700"
-                          onClick={deleteSelectedRows}
-                        >
-                          <FaTrash className="inline mr-1" /> Delete {selectedRows.size} row(s)
-                        </button>
+                        <>
+                          <button 
+                            className="px-2 py-1 text-xs bg-blue-600 text-white rounded hover:bg-blue-700 mr-2"
+                            onClick={handleBulkEdit}
+                          >
+                            <FaEdit className="inline mr-1" /> Bulk Edit {selectedRows.size} row(s)
+                          </button>
+                          <button 
+                            className="px-2 py-1 text-xs bg-red-600 text-white rounded hover:bg-red-700"
+                            onClick={deleteSelectedRows}
+                          >
+                            <FaTrash className="inline mr-1" /> Delete {selectedRows.size} row(s)
+                          </button>
+                        </>
                       )}
                     </div>
                   </div>
@@ -986,7 +1123,7 @@ const DatabaseQuery: React.FC = () => {
                                 className="px-6 py-4 whitespace-nowrap text-sm text-gray-500"
                               >
                                 {row[column] !== null && row[column] !== undefined 
-                                  ? String(row[column]) 
+                                  ? formatCellValue(row[column], column)
                                   : <span className="text-gray-400">NULL</span>}
                               </td>
                             ))}
@@ -1071,6 +1208,15 @@ const DatabaseQuery: React.FC = () => {
           </div>
         </div>
       </div>
+      
+      {/* Use the standardized BulkEditModal component */}
+      <BulkEditModal
+        visible={isBulkEditModalVisible}
+        onCancel={() => setIsBulkEditModalVisible(false)}
+        queryResults={queryResults} 
+        selectedIndexes={selectedRows}
+        onSuccess={handleBulkEditSuccess}
+      />
     </div>
   );
 };

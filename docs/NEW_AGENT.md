@@ -228,12 +228,30 @@ SheetGPT is a full-stack application combining AI-powered chat with structured d
 5. Validate API responses
 6. Check database backup status
 
+## Recent Features
+1. **UUID Display Toggle & Division/Conference Dropdowns** (March 15, 2025)
+   - Added toggle between showing full UUIDs and human-readable names across app
+   - Fixed Division/Conference dropdown selection in bulk edit operations 
+   - Organized Division/Conference dropdowns by league for better selection
+   - Made all table columns visible by default for better data discoverability
+
+2. **Global Bulk Update Feature** (March 14, 2025)
+   - Comprehensive bulk update system for all entity types
+   - Modal-based interface with field categorization
+   - Smart field input detection with appropriate controls
+   - Foreign key resolution with dropdown selection
+
+3. **Division/Conference Model Addition** (March 13, 2025)
+   - Added DivisionConference model as sub-unit of Leagues 
+   - Created hierarchical relationship: League → Division/Conference → Team
+   - Modified Team model to require division/conference assignment
+
 ## System State
 ```json
 {
   "project_name": "SheetGPT",
-  "version": "0.7.0",
-  "last_updated": "2025-03-13",
+  "version": "0.7.1",
+  "last_updated": "2025-03-15",
   "environment": {
     "development": "Docker-based",
     "services": ["frontend", "backend", "db"],

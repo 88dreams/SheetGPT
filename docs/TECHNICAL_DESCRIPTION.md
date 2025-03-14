@@ -70,6 +70,9 @@ frontend/
    - Table-based components for structured data
    - Sorting mechanisms for data organization
    - Contextual action buttons for improved UX
+   - UUID display toggle for relationship fields (shows names instead of IDs)
+   - Smart dropdowns for relationship fields with logical organization
+   - Default visibility for all columns with toggle controls
    - Domain-specific API clients with targeted functionality
    - Feature-focused folder structure:
      ```
@@ -195,6 +198,12 @@ frontend/
    Statistics Collection → Admin Dashboard Update
    ```
 
+5. **UUID Display System**
+   ```
+   Data Retrieval → UUID Detection → Related Entity Lookup →
+   Display Format Selection (Names/IDs) → Conditional Rendering
+   ```
+
 ## Key Components
 
 ### Bulk Update System
@@ -205,6 +214,9 @@ frontend/
   - Field categorization for logical organization (Basic Information, Relationships, etc.)
   - Smart field input detection based on data type
   - Foreign key resolution with dropdown selection
+    - Division/Conference dropdowns organized by league for better selection
+    - Human-readable display of relationship fields with parent context
+    - Direct endpoint access for critical relationship data
   - Special empty field handling to preserve or clear values as needed
   - Batch processing with real-time progress tracking
   - Detailed success/failure reporting

@@ -14,7 +14,16 @@ SheetGPT is a full-stack application that combines AI-powered chat capabilities 
 
 ### Latest Features
 
-1. Global Bulk Update Feature (March 14, 2025)
+1. UUID Display Toggle & Division/Conference Dropdowns (March 15, 2025)
+   - Added toggle between showing full UUIDs and human-readable names across app
+   - Fixed Division/Conference dropdown selection in bulk edit operations 
+   - Organized Division/Conference dropdowns by league to improve selection experience
+   - Added better UI labels and descriptive help text for relationship fields
+   - Implemented a direct API access approach for key relationship data
+   - Made all table columns visible by default for better data discoverability
+   - Added API error handling and fallbacks for relationship data loading
+
+2. Global Bulk Update Feature (March 14, 2025)
    - Implemented comprehensive bulk update system for all entity types
    - Created modal-based interface for selecting and updating fields across multiple entities
    - Added intelligent field organization by category (Basic Information, Relationships, etc.)

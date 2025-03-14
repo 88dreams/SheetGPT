@@ -29,43 +29,43 @@ const DataGridHeader: React.FC<DataGridHeaderProps> = ({
         {/* UUID toggle button */}
         <button
           onClick={onToggleUuidDisplay}
-          className="px-2 py-1 text-xs rounded flex items-center space-x-1 bg-indigo-100 text-indigo-700 hover:bg-indigo-200"
+          className="px-2 py-1 text-xs rounded flex items-center bg-indigo-600 text-white hover:bg-indigo-700"
           title="Toggle UUID format"
         >
-          <FaKey size={12} />
-          <span>{showFullUuids ? 'Show Names' : 'Show UUIDs'}</span>
+          <FaKey className="mr-1" size={12} />
+          {showFullUuids ? 'Names' : 'IDs'}
         </button>
         {/* Unhide columns button - only shows when columns are hidden */}
         {hasHiddenColumns && (
           <button
             onClick={onUnhideAllColumns}
-            className="px-2 py-1 text-xs rounded flex items-center space-x-1 bg-purple-100 text-purple-700 hover:bg-purple-200"
+            className="px-2 py-1 text-xs rounded flex items-center bg-purple-600 text-white hover:bg-purple-700"
             title="Restore hidden columns"
           >
-            <FaEye size={12} />
-            <span>Unhide Columns</span>
+            <FaEye className="mr-1" size={12} />
+            Columns
           </button>
         )}
         <button
           onClick={toggleExpansion}
-          className="px-2 py-1 text-xs rounded flex items-center space-x-1 bg-gray-100 text-gray-700 hover:bg-gray-200"
+          className="px-2 py-1 text-xs rounded flex items-center bg-gray-600 text-white hover:bg-gray-700"
         >
-          {isExpanded ? <FaCompress size={12} /> : <FaExpand size={12} />}
-          <span>{isExpanded ? 'Collapse' : 'Expand'}</span>
+          {isExpanded ? <FaCompress className="mr-1" size={12} /> : <FaExpand className="mr-1" size={12} />}
+          {isExpanded ? 'Collapse' : 'Expand'}
         </button>
         <button
           onClick={onExportCsv}
-          className="px-2 py-1 text-xs rounded flex items-center space-x-1 bg-blue-100 text-blue-700 hover:bg-blue-200"
+          className="px-2 py-1 text-xs rounded flex items-center bg-blue-600 text-white hover:bg-blue-700"
         >
-          <FaFileCsv size={12} />
-          <span>Export CSV</span>
+          <FaFileCsv className="mr-1" size={12} />
+          CSV
         </button>
         <button
           onClick={onExport}
-          className="px-2 py-1 text-xs rounded flex items-center space-x-1 bg-green-100 text-green-700 hover:bg-green-200"
+          className="px-2 py-1 text-xs rounded flex items-center bg-green-600 text-white hover:bg-green-700"
         >
-          <FaFileExport size={12} />
-          <span>Export Sheets</span>
+          <FaFileExport className="mr-1" size={12} />
+          Sheets
         </button>
       </div>
     </div>

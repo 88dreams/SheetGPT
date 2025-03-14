@@ -1090,7 +1090,7 @@ const DatabaseQuery: React.FC = () => {
                         {sortedResults.map((row, rowIndex) => (
                           <tr 
                             key={rowIndex}
-                            className={`${selectedRows.has(rowIndex) ? 'bg-blue-50' : ''} border-b border-gray-200`}
+                            className={`${selectedRows.has(rowIndex) ? 'bg-blue-50' : ''} border-b border-gray-200 hover:bg-gray-50`}
                           >
                             {/* Selection cell */}
                             <td className="w-10 px-3 py-2 whitespace-nowrap border-r border-gray-200">

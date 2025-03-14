@@ -377,7 +377,7 @@ const EntityList: React.FC<EntityListProps> = ({ className = '' }) => {
               disabled={selectedCount === 0 || isDeleting}
               className={`px-2 py-1 text-sm font-medium rounded flex items-center ${
                 selectedCount > 0 && !isDeleting
-                  ? 'bg-indigo-600 hover:bg-indigo-700 text-white'
+                  ? 'bg-green-600 hover:bg-green-700 text-white'
                   : 'bg-gray-200 text-gray-700 cursor-not-allowed'
               }`}
             >
@@ -388,8 +388,8 @@ const EntityList: React.FC<EntityListProps> = ({ className = '' }) => {
               onClick={() => setShowColumnSelector(!showColumnSelector)}
               className={`px-2 py-1 text-sm font-medium rounded flex items-center ${
                 showColumnSelector
-                  ? 'bg-indigo-600 text-white'
-                  : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                  ? 'bg-blue-600 text-white'
+                  : 'bg-blue-600 bg-opacity-90 text-white hover:bg-blue-700'
               }`}
             >
               <FaColumns className="mr-1" />
@@ -400,7 +400,7 @@ const EntityList: React.FC<EntityListProps> = ({ className = '' }) => {
               className={`px-2 py-1 text-sm font-medium rounded flex items-center ${
                 showFullUuids
                   ? 'bg-indigo-600 text-white'
-                  : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                  : 'bg-indigo-600 bg-opacity-90 text-white hover:bg-indigo-700'
               }`}
             >
               <FaKey className="mr-1" />
@@ -415,7 +415,7 @@ const EntityList: React.FC<EntityListProps> = ({ className = '' }) => {
         <div className="bg-white p-2 border-b border-gray-200 shadow-md">
           <div className="flex justify-between items-center mb-1">
             <button 
-              className="px-2 py-1 text-xs font-medium bg-indigo-600 text-white rounded hover:bg-indigo-700 flex items-center"
+              className="px-2 py-1 text-xs font-medium bg-blue-600 text-white rounded hover:bg-blue-700 flex items-center"
               onClick={() => {
                 // Show all columns using dynamic field list from entity schema
                 const allColumns: {[key: string]: boolean} = {};

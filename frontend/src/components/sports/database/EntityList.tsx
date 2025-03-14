@@ -371,42 +371,51 @@ const EntityList: React.FC<EntityListProps> = ({ className = '' }) => {
               entities={entities as Entity[]}
             />
           </div>
-          <button
-            onClick={() => handleExportToSheets(entities as any[])}
-            disabled={selectedCount === 0 || isDeleting}
-            className={`px-4 py-2 rounded text-sm font-medium flex items-center whitespace-nowrap ${
-              selectedCount > 0 && !isDeleting
-                ? 'bg-indigo-600 hover:bg-indigo-700 text-white'
-                : 'bg-gray-200 text-gray-500 cursor-not-allowed'
-            }`}
-          >
-            <FaFileExport className="mr-2" />
-            {isDeleting ? 'Exporting...' : 'Export to Sheets'}
-          </button>
-          <button
-            onClick={() => setShowColumnSelector(!showColumnSelector)}
-            className="px-4 py-2 rounded text-sm font-medium flex items-center whitespace-nowrap bg-blue-600 text-white hover:bg-blue-700"
-          >
-            <FaColumns className="mr-2" />
-            Columns
-          </button>
-          <button
-            onClick={() => setShowFullUuids(!showFullUuids)}
-            className="px-4 py-2 rounded text-sm font-medium flex items-center whitespace-nowrap bg-indigo-600 text-white hover:bg-indigo-700"
-          >
-            <FaKey className="mr-2" />
-            {showFullUuids ? 'Show Names' : 'Show UUIDs'}
-          </button>
+          <div className="flex space-x-1">
+            <button
+              onClick={() => handleExportToSheets(entities as any[])}
+              disabled={selectedCount === 0 || isDeleting}
+              className={`px-2 py-1 text-sm font-medium rounded flex items-center ${
+                selectedCount > 0 && !isDeleting
+                  ? 'bg-indigo-600 hover:bg-indigo-700 text-white'
+                  : 'bg-gray-200 text-gray-700 cursor-not-allowed'
+              }`}
+            >
+              <FaFileExport className="mr-1" />
+              Export
+            </button>
+            <button
+              onClick={() => setShowColumnSelector(!showColumnSelector)}
+              className={`px-2 py-1 text-sm font-medium rounded flex items-center ${
+                showColumnSelector
+                  ? 'bg-indigo-600 text-white'
+                  : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+              }`}
+            >
+              <FaColumns className="mr-1" />
+              Columns
+            </button>
+            <button
+              onClick={() => setShowFullUuids(!showFullUuids)}
+              className={`px-2 py-1 text-sm font-medium rounded flex items-center ${
+                showFullUuids
+                  ? 'bg-indigo-600 text-white'
+                  : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+              }`}
+            >
+              <FaKey className="mr-1" />
+              {showFullUuids ? 'IDs' : 'Names'}
+            </button>
+          </div>
         </div>
       </div>
       
       {/* Column selector dropdown */}
       {showColumnSelector && (
-        <div className="bg-white p-4 border-b border-gray-200 shadow-md">
-          <div className="flex justify-between items-center mb-2">
-            <h4 className="font-medium text-gray-700">Column Visibility</h4>
+        <div className="bg-white p-2 border-b border-gray-200 shadow-md">
+          <div className="flex justify-between items-center mb-1">
             <button 
-              className="text-xs text-blue-600 hover:text-blue-800"
+              className="px-2 py-1 text-xs font-medium bg-indigo-600 text-white rounded hover:bg-indigo-700 flex items-center"
               onClick={() => {
                 // Show all columns using dynamic field list from entity schema
                 const allColumns: {[key: string]: boolean} = {};
@@ -427,10 +436,10 @@ const EntityList: React.FC<EntityListProps> = ({ className = '' }) => {
                 setVisibleColumns(allColumns);
               }}
             >
-              Show All Columns
+              <FaCheck className="mr-1" /> Show All
             </button>
           </div>
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
+          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-x-4 gap-y-1">
             {/* Common base columns */}
             <div className="flex items-center">
               <input
@@ -438,9 +447,9 @@ const EntityList: React.FC<EntityListProps> = ({ className = '' }) => {
                 id="col-id"
                 checked={visibleColumns['id'] !== false}
                 onChange={() => setVisibleColumns(prev => ({...prev, id: !prev['id']}))}
-                className="mr-2"
+                className="mr-1"
               />
-              <label htmlFor="col-id" className="text-sm text-gray-700 truncate">ID</label>
+              <label htmlFor="col-id" className="text-xs text-gray-700 truncate">ID</label>
             </div>
             <div className="flex items-center">
               <input
@@ -448,9 +457,9 @@ const EntityList: React.FC<EntityListProps> = ({ className = '' }) => {
                 id="col-name"
                 checked={visibleColumns['name'] !== false}
                 onChange={() => setVisibleColumns(prev => ({...prev, name: !prev['name']}))}
-                className="mr-2"
+                className="mr-1"
               />
-              <label htmlFor="col-name" className="text-sm text-gray-700 truncate">Name</label>
+              <label htmlFor="col-name" className="text-xs text-gray-700 truncate">Name</label>
             </div>
             <div className="flex items-center">
               <input
@@ -458,9 +467,9 @@ const EntityList: React.FC<EntityListProps> = ({ className = '' }) => {
                 id="col-created_at"
                 checked={visibleColumns['created_at'] !== false}
                 onChange={() => setVisibleColumns(prev => ({...prev, created_at: !prev['created_at']}))}
-                className="mr-2"
+                className="mr-1"
               />
-              <label htmlFor="col-created_at" className="text-sm text-gray-700 truncate">Created</label>
+              <label htmlFor="col-created_at" className="text-xs text-gray-700 truncate">Created</label>
             </div>
             <div className="flex items-center">
               <input
@@ -468,9 +477,9 @@ const EntityList: React.FC<EntityListProps> = ({ className = '' }) => {
                 id="col-updated_at"
                 checked={visibleColumns['updated_at'] !== false}
                 onChange={() => setVisibleColumns(prev => ({...prev, updated_at: !prev['updated_at']}))}
-                className="mr-2"
+                className="mr-1"
               />
-              <label htmlFor="col-updated_at" className="text-sm text-gray-700 truncate">Updated</label>
+              <label htmlFor="col-updated_at" className="text-xs text-gray-700 truncate">Updated</label>
             </div>
             
             {/* Dynamically generated entity-specific columns */}
@@ -483,9 +492,9 @@ const EntityList: React.FC<EntityListProps> = ({ className = '' }) => {
                     id={`col-${field}`}
                     checked={visibleColumns[field] !== false}
                     onChange={() => setVisibleColumns(prev => ({...prev, [field]: !prev[field]}))}
-                    className="mr-2"
+                    className="mr-1"
                   />
-                  <label htmlFor={`col-${field}`} className="text-sm text-gray-700 truncate">
+                  <label htmlFor={`col-${field}`} className="text-xs text-gray-700 truncate">
                     {/* Display proper labels for fields */}
                     {field.replace(/_/g, ' ').replace(/\b\w/g, char => char.toUpperCase())}
                   </label>

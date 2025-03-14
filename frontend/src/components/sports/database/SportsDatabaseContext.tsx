@@ -6,6 +6,7 @@ import { useDataFlow } from '../../../contexts/DataFlowContext';
 import { useAuth } from '../../../hooks/useAuth';
 import SportsDatabaseService, { EntityType } from '../../../services/SportsDatabaseService';
 import { FilterConfig } from '../EntityFilter';
+import { FaSort, FaSortUp, FaSortDown } from 'react-icons/fa';
 
 // Define interfaces for our context state
 export interface EntitySummary {
@@ -120,12 +121,13 @@ export const SportsDatabaseProvider: React.FC<SportsDatabaseProviderProps> = ({ 
   const [viewMode, setViewMode] = useState<'entity' | 'global' | 'fields'>('entity');
   const [showDeleteConfirm, setShowDeleteConfirm] = useState<string | null>(null);
   const [sortField, setSortField] = useState<string>('name');
-  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc' | 'none'>('asc');
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
   const [totalItems, setTotalItems] = useState(0);
   const [entityCounts, setEntityCounts] = useState<Record<EntityType, number>>({
     league: 0,
+    division_conference: 0,
     team: 0,
     player: 0,
     game: 0,
@@ -368,7 +370,7 @@ export const SportsDatabaseProvider: React.FC<SportsDatabaseProviderProps> = ({ 
         setSortDirection('desc');
       } else if (sortDirection === 'desc') {
         setSortField('');
-        setSortDirection('asc');
+        setSortDirection('none');
       } else {
         setSortDirection('asc');
       }
@@ -381,7 +383,7 @@ export const SportsDatabaseProvider: React.FC<SportsDatabaseProviderProps> = ({ 
 
   // Get sorted entities
   const getSortedEntities = () => {
-    if (!entities || entities.length === 0 || !sortField) return entities || [];
+    if (!entities || entities.length === 0 || !sortField || sortDirection === 'none') return entities || [];
     
     return [...entities].sort((a, b) => {
       const aValue = a[sortField] ?? '';
@@ -410,10 +412,10 @@ export const SportsDatabaseProvider: React.FC<SportsDatabaseProviderProps> = ({ 
 
   // Render sort icon
   const renderSortIcon = (field: string) => {
-    if (sortField !== field) return <span className="ml-1 text-gray-400">⇅</span>;
+    if (sortField !== field || sortDirection === 'none') return <FaSort className="ml-1 text-gray-400" />;
     return sortDirection === 'asc' ? 
-      <span className="ml-1 text-indigo-600">↑</span> : 
-      <span className="ml-1 text-indigo-600">↓</span>;
+      <FaSortUp className="ml-1 text-blue-600" /> : 
+      <FaSortDown className="ml-1 text-blue-600" />;
   };
 
   // Add handlers for filters
@@ -498,6 +500,7 @@ export const SportsDatabaseProvider: React.FC<SportsDatabaseProviderProps> = ({ 
       switch (entityType) {
         case 'league':
           fields.push(
+            { name: 'nickname', required: false, type: 'string', description: 'Short name or acronym for the league (e.g., NFL, NBA)' },
             { name: 'sport', required: true, type: 'string', description: 'Sport type (e.g., Football, Basketball)' },
             { name: 'country', required: true, type: 'string', description: 'Country where the league operates' },
             { name: 'founded_year', required: true, type: 'number', description: 'Year the league was founded' },
@@ -506,9 +509,19 @@ export const SportsDatabaseProvider: React.FC<SportsDatabaseProviderProps> = ({ 
           );
           break;
           
+      case 'division_conference':
+          fields.push(
+            { name: 'league_id', required: true, type: 'string', description: 'ID of the league this division/conference belongs to' },
+            { name: 'type', required: true, type: 'string', description: 'Type of grouping (Division, Conference, etc)' },
+            { name: 'region', required: false, type: 'string', description: 'Geographic region (East, West, North, South, etc)' },
+            { name: 'description', required: false, type: 'string', description: 'Additional details about this division/conference' }
+          );
+          break;
+          
         case 'team':
           fields.push(
             { name: 'league_id', required: true, type: 'string', description: 'ID of the league this team belongs to' },
+            { name: 'division_conference_id', required: true, type: 'string', description: 'ID of the division/conference this team belongs to' },
             { name: 'stadium_id', required: true, type: 'string', description: 'ID of the home stadium' },
             { name: 'city', required: true, type: 'string', description: 'City where the team is based' },
             { name: 'state', required: false, type: 'string', description: 'State/Province where the team is based' },
@@ -641,6 +654,7 @@ export const SportsDatabaseProvider: React.FC<SportsDatabaseProviderProps> = ({ 
     try {
       const counts: Record<EntityType, number> = {
         league: 0,
+        division_conference: 0,
         team: 0,
         player: 0,
         game: 0,

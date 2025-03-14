@@ -575,7 +575,7 @@ const EntityList: React.FC<EntityListProps> = ({ className = '' }) => {
                     onMouseDown={(e) => handleResizeStart(e, 'checkbox')}
                     onClick={(e) => e.stopPropagation()}
                   >
-                    <div className="h-full w-1 bg-gray-300 mx-auto hover:bg-blue-500 hover:w-2 transition-all"></div>
+                    <div className="h-full w-0 mx-auto hover:bg-blue-500 hover:w-2 transition-all"></div>
                   </div>
                 </div>
               </th>
@@ -603,7 +603,7 @@ const EntityList: React.FC<EntityListProps> = ({ className = '' }) => {
                         onMouseDown={(e) => handleResizeStart(e, field)}
                         onClick={(e) => e.stopPropagation()}
                       >
-                        <div className="h-full w-1 bg-gray-300 mx-auto hover:bg-blue-500 hover:w-2 transition-all"></div>
+                        <div className="h-full w-0 mx-auto hover:bg-blue-500 hover:w-2 transition-all"></div>
                       </div>
                     </div>
                   </th>
@@ -623,7 +623,7 @@ const EntityList: React.FC<EntityListProps> = ({ className = '' }) => {
                     onMouseDown={(e) => handleResizeStart(e, 'actions')}
                     onClick={(e) => e.stopPropagation()}
                   >
-                    <div className="h-full w-1 bg-gray-300 mx-auto hover:bg-blue-500 hover:w-2 transition-all"></div>
+                    <div className="h-full w-0 mx-auto hover:bg-blue-500 hover:w-2 transition-all"></div>
                   </div>
                 </div>
               </th>

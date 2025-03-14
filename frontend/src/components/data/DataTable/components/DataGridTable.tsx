@@ -213,7 +213,7 @@ const DataGridTable: React.FC<DataGridTableProps> = ({
                     onMouseDown={(e) => onColumnResize(e, header)}
                     onClick={(e) => e.stopPropagation()}
                   >
-                    <div className="h-full w-1 bg-gray-300 mx-auto hover:bg-blue-500 hover:w-2 transition-all"></div>
+                    <div className="h-full w-0 mx-auto hover:bg-blue-500 hover:w-2 transition-all"></div>
                   </div>
                 </th>
               ))}

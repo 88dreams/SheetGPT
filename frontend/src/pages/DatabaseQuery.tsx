@@ -38,22 +38,8 @@ const DatabaseQuery: React.FC = () => {
   // Set all columns visible by default when query results are loaded
   useEffect(() => {
     if (queryResults.length > 0) {
-      // Check if we have stored column visibility in sessionStorage
-      const columnsJson = sessionStorage.getItem('visibleColumns');
-      
-      if (columnsJson) {
-        try {
-          // If we have stored visibility, use it
-          const storedVisibility = JSON.parse(columnsJson);
-          setVisibleColumns(storedVisibility);
-        } catch (e) {
-          console.error('Error parsing stored column visibility:', e);
-          initializeAllColumnsVisible();
-        }
-      } else {
-        // No stored visibility, set all columns visible
-        initializeAllColumnsVisible();
-      }
+      // Always set all columns visible by default, regardless of stored preferences
+      initializeAllColumnsVisible();
     }
   }, [queryResults]);
   

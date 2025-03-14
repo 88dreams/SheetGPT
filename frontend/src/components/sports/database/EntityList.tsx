@@ -19,7 +19,7 @@ import LoadingSpinner from '../../common/LoadingSpinner';
 // Using local BulkEditModal for now until auth issues are fixed
 import BulkEditModal from './BulkEditModal';
 // @ts-ignore
-import { FaTrash, FaEye, FaSortUp, FaSortDown, FaSort, FaPencilAlt, FaCheck, FaTimes, FaEdit, FaFileExport, FaColumns } from 'react-icons/fa';
+import { FaTrash, FaEye, FaSortUp, FaSortDown, FaSort, FaPencilAlt, FaCheck, FaTimes, FaEdit, FaFileExport, FaColumns, FaKey } from 'react-icons/fa';
 import SmartEntitySearch from '../../data/EntityUpdate/SmartEntitySearch';
 import { EntityCard } from '../../data/EntityUpdate/EntityCard';
 // @ts-ignore
@@ -104,6 +104,7 @@ const EntityList: React.FC<EntityListProps> = ({ className = '' }) => {
     created_at: true
   });
   const [showColumnSelector, setShowColumnSelector] = useState<boolean>(false);
+  const [showFullUuids, setShowFullUuids] = useState<boolean>(false);
 
   const [resizingColumn, setResizingColumn] = useState<string | null>(null);
   const resizeStartX = useRef<number>(0);
@@ -139,40 +140,29 @@ const EntityList: React.FC<EntityListProps> = ({ className = '' }) => {
       }
     }
     
-    // Load column visibility
-    const savedVisibility = localStorage.getItem(`entityList_${selectedEntityType}_columns`);
-    if (savedVisibility) {
-      try {
-        const parsedVisibility = JSON.parse(savedVisibility);
-        setVisibleColumns(parsedVisibility);
-      } catch (e) {
-        console.error('Error parsing saved column visibility:', e);
-      }
-    } else {
-      // Initialize with defaults
-      const defaultVisibility: Record<string, boolean> = {
-        id: true,
-        name: true,
-        created_at: true,
-        updated_at: false // Default off
-      };
+    // Initialize with all columns visible
+    const defaultVisibility: Record<string, boolean> = {
+      id: true,
+      name: true,
+      created_at: true,
+      updated_at: true
+    };
+    
+    // Get all available fields and set all to visible
+    if (getEntityFields) {
+      const fields = getEntityFields(selectedEntityType);
       
-      // Get all available fields and set defaults
-      if (getEntityFields) {
-        const fields = getEntityFields(selectedEntityType);
-        
-        // Set most fields visible by default
-        fields.forEach(field => {
-          // Skip id, name, created_at since we already set them
-          if (!['id', 'name', 'created_at', 'updated_at'].includes(field.fieldName)) {
-            // Set all regular fields to visible, but keep relationships as not visible by default
-            defaultVisibility[field.fieldName] = !field.fieldName.endsWith('_id');
-          }
-        });
-      }
-      
-      setVisibleColumns(defaultVisibility);
+      // Set ALL fields visible by default
+      fields.forEach(field => {
+        defaultVisibility[field.fieldName] = true;
+      });
     }
+    
+    // ALWAYS show all columns by default regardless of what's in localStorage
+    setVisibleColumns(defaultVisibility);
+    
+    // Save this full visibility setting to localStorage to persist it
+    localStorage.setItem(`entityList_${selectedEntityType}_columns`, JSON.stringify(defaultVisibility));
   }, [selectedEntityType]);
 
   const startEdit = (entity: any) => {
@@ -231,6 +221,30 @@ const EntityList: React.FC<EntityListProps> = ({ className = '' }) => {
   // Add a function to get the complete entity data
   const getCompleteEntity = (entityId: string) => {
     return entities.find(e => e.id === entityId);
+  };
+  
+  // Format cell values, particularly UUIDs
+  const formatCellValue = (value: any, field: string) => {
+    // Skip if no value
+    if (value === null || value === undefined) return 'N/A';
+    
+    // Check if it's a UUID by format
+    if (typeof value === 'string' && 
+        /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value)) {
+      
+      // For the main ID field, always show UUID unless toggle is off
+      if (field === 'id') {
+        return showFullUuids ? value : `${value.substring(0, 8)}...`;
+      }
+      
+      // For any other UUID field (likely ends with _id)
+      if (field.endsWith('_id')) {
+        return showFullUuids ? value : `${value.substring(0, 8)}...`;
+      }
+    }
+    
+    // For any other field type
+    return String(value);
   };
 
   // Update the edit click handler
@@ -375,6 +389,13 @@ const EntityList: React.FC<EntityListProps> = ({ className = '' }) => {
           >
             <FaColumns className="mr-2" />
             Columns
+          </button>
+          <button
+            onClick={() => setShowFullUuids(!showFullUuids)}
+            className="px-4 py-2 rounded text-sm font-medium flex items-center whitespace-nowrap bg-indigo-600 text-white hover:bg-indigo-700"
+          >
+            <FaKey className="mr-2" />
+            {showFullUuids ? 'Show Names' : 'Show UUIDs'}
           </button>
         </div>
       </div>
@@ -692,7 +713,7 @@ const EntityList: React.FC<EntityListProps> = ({ className = '' }) => {
                       }
                       
                       // Handle special relationship fields with display names
-                      if (field === 'division_conference_id' && completeEntity?.division_conference_name) {
+                      if (field === 'division_conference_id') {
                         return (
                           <td 
                             key={field}
@@ -700,13 +721,15 @@ const EntityList: React.FC<EntityListProps> = ({ className = '' }) => {
                             style={{ width: `${columnWidths[field] || 120}px`, minWidth: '100px' }}
                           >
                             <div className="text-sm text-gray-700 overflow-hidden text-ellipsis">
-                              {completeEntity.division_conference_name || 'N/A'}
+                              {showFullUuids 
+                                ? completeEntity?.division_conference_id 
+                                : completeEntity?.division_conference_name || 'N/A'}
                             </div>
                           </td>
                         );
                       }
                       
-                      if (field === 'league_id' && completeEntity?.league_name) {
+                      if (field === 'league_id') {
                         return (
                           <td 
                             key={field}
@@ -714,7 +737,41 @@ const EntityList: React.FC<EntityListProps> = ({ className = '' }) => {
                             style={{ width: `${columnWidths[field] || 120}px`, minWidth: '100px' }}
                           >
                             <div className="text-sm text-gray-700 overflow-hidden text-ellipsis">
-                              {completeEntity.league_name || 'N/A'}
+                              {showFullUuids 
+                                ? completeEntity?.league_id 
+                                : completeEntity?.league_name || 'N/A'}
+                            </div>
+                          </td>
+                        );
+                      }
+                      
+                      if (field === 'team_id') {
+                        return (
+                          <td 
+                            key={field}
+                            className="px-6 py-4 whitespace-nowrap overflow-hidden text-ellipsis"
+                            style={{ width: `${columnWidths[field] || 120}px`, minWidth: '100px' }}
+                          >
+                            <div className="text-sm text-gray-700 overflow-hidden text-ellipsis">
+                              {showFullUuids 
+                                ? completeEntity?.team_id 
+                                : completeEntity?.team_name || 'N/A'}
+                            </div>
+                          </td>
+                        );
+                      }
+                      
+                      if (field === 'stadium_id') {
+                        return (
+                          <td 
+                            key={field}
+                            className="px-6 py-4 whitespace-nowrap overflow-hidden text-ellipsis"
+                            style={{ width: `${columnWidths[field] || 120}px`, minWidth: '100px' }}
+                          >
+                            <div className="text-sm text-gray-700 overflow-hidden text-ellipsis">
+                              {showFullUuids 
+                                ? completeEntity?.stadium_id 
+                                : completeEntity?.stadium_name || 'N/A'}
                             </div>
                           </td>
                         );
@@ -729,7 +786,7 @@ const EntityList: React.FC<EntityListProps> = ({ className = '' }) => {
                         >
                           <div className="text-sm text-gray-700 overflow-hidden text-ellipsis">
                             {completeEntity && completeEntity[field] !== undefined
-                              ? String(completeEntity[field])
+                              ? formatCellValue(completeEntity[field], field)
                               : 'N/A'}
                           </div>
                         </td>

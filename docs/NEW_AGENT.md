@@ -229,19 +229,30 @@ SheetGPT is a full-stack application combining AI-powered chat with structured d
 6. Check database backup status
 
 ## Recent Features
-1. **UUID Display Toggle & Division/Conference Dropdowns** (March 15, 2025)
+1. **Chat File Import & SportDataMapper Enhancements** (March 19, 2025)
+   - Added file upload capabilities to chat interface for CSV and text files
+   - Implemented smart CSV parsing with automatic data structure detection
+   - Enhanced SportDataMapper with intelligent name-to-ID resolution
+   - Improved BroadcastRights entity mapping for hierarchy relationships
+   - Added smart date format handling for year-only input (e.g., "2020" → "2020-01-01")
+   - Implemented flexible entity search with exact and partial matching
+   - Enhanced help texts for complex fields to improve user guidance
+   - Fixed validation issues with relationship fields in mapping workflow
+   - Added support for deriving entity_id from entity_type relationships
+
+2. **UUID Display Toggle & Division/Conference Dropdowns** (March 15, 2025)
    - Added toggle between showing full UUIDs and human-readable names across app
    - Fixed Division/Conference dropdown selection in bulk edit operations 
    - Organized Division/Conference dropdowns by league for better selection
    - Made all table columns visible by default for better data discoverability
 
-2. **Global Bulk Update Feature** (March 14, 2025)
+3. **Global Bulk Update Feature** (March 14, 2025)
    - Comprehensive bulk update system for all entity types
    - Modal-based interface with field categorization
    - Smart field input detection with appropriate controls
    - Foreign key resolution with dropdown selection
 
-3. **Division/Conference Model Addition** (March 13, 2025)
+4. **Division/Conference Model Addition** (March 13, 2025)
    - Added DivisionConference model as sub-unit of Leagues 
    - Created hierarchical relationship: League → Division/Conference → Team
    - Modified Team model to require division/conference assignment
@@ -250,8 +261,8 @@ SheetGPT is a full-stack application combining AI-powered chat with structured d
 ```json
 {
   "project_name": "SheetGPT",
-  "version": "0.7.1",
-  "last_updated": "2025-03-15",
+  "version": "0.7.2",
+  "last_updated": "2025-03-19",
   "environment": {
     "development": "Docker-based",
     "services": ["frontend", "backend", "db"],
@@ -259,7 +270,8 @@ SheetGPT is a full-stack application combining AI-powered chat with structured d
   },
   "key_components": {
     "frontend": {
-      "SportDataMapper": "Maps structured data to sports entities",
+      "SportDataMapper": "Maps structured data to sports entities with name-to-ID resolution",
+      "ChatFileImport": "Handles file uploads in chat with smart data detection",
       "SportsDatabase": "Manages sports entities with validation",
       "DataTable": "Displays structured data",
       "EntityFilter": "Advanced filtering system",

@@ -54,11 +54,12 @@ const getAllEntityFields = (entityType: EntityType | null): { name: string, requ
   // Define required fields for each entity type
   const requiredFields: Record<EntityType, string[]> = {
     'league': ['name', 'sport', 'country'],
-    'team': ['name', 'league_id'],
+    'division_conference': ['name', 'league_id', 'type'],
+    'team': ['name', 'league_id', 'division_conference_id', 'stadium_id', 'city', 'country'],
     'player': ['name', 'team_id', 'position'],
     'game': ['home_team_id', 'away_team_id', 'date', 'time'],
     'stadium': ['name', 'city', 'country'],
-    'broadcast': ['entity_id', 'entity_type', 'territory', 'start_date', 'end_date'],
+    'broadcast': ['name', 'entity_id', 'entity_type', 'territory', 'start_date', 'end_date'],
     'game_broadcast': ['game_id', 'broadcast_company_id', 'broadcast_type'],
     'production': ['entity_id', 'entity_type', 'service_type'],
     'brand': ['name', 'industry'],
@@ -69,11 +70,12 @@ const getAllEntityFields = (entityType: EntityType | null): { name: string, requ
   // Define all fields for each entity type
   const allFieldsByEntityType: Record<EntityType, string[]> = {
     'league': ['id', 'name', 'sport', 'country', 'founded_year', 'broadcast_start_date', 'broadcast_end_date', 'created_at', 'updated_at'],
-    'team': ['id', 'name', 'league_id', 'stadium_id', 'city', 'state', 'country', 'founded_year', 'created_at', 'updated_at'],
+    'division_conference': ['id', 'name', 'league_id', 'type', 'region', 'description', 'created_at', 'updated_at'],
+    'team': ['id', 'name', 'league_id', 'division_conference_id', 'stadium_id', 'city', 'state', 'country', 'founded_year', 'created_at', 'updated_at'],
     'player': ['id', 'name', 'team_id', 'position', 'jersey_number', 'college', 'created_at', 'updated_at'],
     'game': ['id', 'league_id', 'home_team_id', 'away_team_id', 'stadium_id', 'date', 'time', 'home_score', 'away_score', 'status', 'season_year', 'season_type', 'created_at', 'updated_at'],
     'stadium': ['id', 'name', 'city', 'state', 'country', 'capacity', 'owner', 'naming_rights_holder', 'host_broadcaster', 'host_broadcaster_id', 'created_at', 'updated_at'],
-    'broadcast': ['id', 'broadcast_company_id', 'entity_type', 'entity_id', 'territory', 'start_date', 'end_date', 'is_exclusive', 'created_at', 'updated_at'],
+    'broadcast': ['id', 'name', 'broadcast_company_id', 'entity_type', 'entity_id', 'division_conference_id', 'territory', 'start_date', 'end_date', 'is_exclusive', 'created_at', 'updated_at'],
     'game_broadcast': ['id', 'game_id', 'broadcast_company_id', 'production_company_id', 'broadcast_type', 'territory', 'start_time', 'end_time', 'created_at', 'updated_at'],
     'production': ['id', 'production_company_id', 'entity_type', 'entity_id', 'service_type', 'start_date', 'end_date', 'created_at', 'updated_at'],
     'brand': ['id', 'name', 'industry', 'created_at', 'updated_at'],

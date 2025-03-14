@@ -220,8 +220,8 @@ export const enhancedMapToDatabaseFieldNames = async (
     });
   }
   
-  // For team entity, handle special lookups
-  if (entityType === 'team') {
+  // Handle league lookup for team, division_conference, and other entities
+  if (entityType === 'team' || entityType === 'division_conference' || entityType === 'broadcast' || entityType === 'game') {
     // Handle league lookup by name if provided
     if (data.league_name) {
       console.log(`Looking up league ID for name: ${data.league_name}`);
@@ -229,6 +229,12 @@ export const enhancedMapToDatabaseFieldNames = async (
       if (leagueId) {
         basicMapped.league_id = leagueId;
         console.log(`Found league ID: ${leagueId} for name: ${data.league_name}`);
+        
+        // For broadcast entity with 'league' entity_type, also set the entity_id
+        if (entityType === 'broadcast' && basicMapped.entity_type === 'league') {
+          basicMapped.entity_id = leagueId;
+          console.log(`Setting entity_id to league ID: ${leagueId} for broadcast`);
+        }
       } else {
         // Try to create a new league if it doesn't exist
         const newLeagueId = await createEntityIfNotExists('league', data.league_name, {
@@ -239,6 +245,12 @@ export const enhancedMapToDatabaseFieldNames = async (
         if (newLeagueId) {
           basicMapped.league_id = newLeagueId;
           console.log(`Created new league with ID: ${newLeagueId} for name: ${data.league_name}`);
+          
+          // For broadcast entity with 'league' entity_type, also set the entity_id
+          if (entityType === 'broadcast' && basicMapped.entity_type === 'league') {
+            basicMapped.entity_id = newLeagueId;
+            console.log(`Setting entity_id to new league ID: ${newLeagueId} for broadcast`);
+          }
         } else {
           console.warn(`Could not find or create league ID for name: ${data.league_name}`);
         }
@@ -335,6 +347,303 @@ export const enhancedMapToDatabaseFieldNames = async (
     }
   }
   
+  // For broadcast rights, handle entity_id based on entity_type and use name for broadcast_company_id
+  if (entityType === 'broadcast') {
+    // Use name field to look up or create broadcast company
+    if (basicMapped.name && (!basicMapped.broadcast_company_id || !isValidUUID(basicMapped.broadcast_company_id))) {
+      const companyName = basicMapped.name;
+      
+      console.log(`Using name "${companyName}" to look up or create broadcast company`);
+      try {
+        const companies = await apiClient.sports.getBroadcastCompanies();
+        const company = companies.find(e => e.name?.toLowerCase() === companyName.toLowerCase());
+        
+        if (company?.id) {
+          basicMapped.broadcast_company_id = company.id;
+          console.log(`Found broadcast company ID: ${company.id} for name: ${companyName}`);
+        } else {
+          console.log(`Creating new broadcast company with name: ${companyName}`);
+          
+          // Try to create a new broadcast company
+          try {
+            const newCompany = await apiClient.sports.createBroadcastCompany({
+              name: companyName,
+              type: data.type || 'Broadcaster',
+              country: data.country || 'Unknown'
+            });
+            
+            if (newCompany?.id) {
+              basicMapped.broadcast_company_id = newCompany.id;
+              console.log(`Created new broadcast company with ID: ${newCompany.id} for name: ${companyName}`);
+            }
+          } catch (createError) {
+            console.error(`Error creating new broadcast company: ${companyName}`, createError);
+          }
+        }
+      } catch (error) {
+        console.error(`Error looking up broadcast company ID for name ${companyName}:`, error);
+      }
+    }
+    
+    // Handle entity_id lookup based on entity_type
+    if (basicMapped.entity_id && basicMapped.entity_type && !isValidUUID(basicMapped.entity_id)) {
+      const entityName = basicMapped.entity_id;
+      const entityType = basicMapped.entity_type;
+      
+      console.log(`Looking up ${entityType} ID for name: ${entityName}`);
+      
+      // Map entity_type to the correct lookup type
+      let lookupType = entityType;
+      
+      // Handle special cases where entity type might be different from lookup type
+      if (entityType === 'divisions' || entityType === 'conferences') {
+        lookupType = 'division_conference';
+      } else if (entityType === 'broadcasts') {
+        lookupType = 'broadcast';
+      } else if (entityType === 'productions') {
+        lookupType = 'production';
+      } else if (entityType === 'brands') {
+        lookupType = 'brand';
+      } else if (entityType === 'games') {
+        lookupType = 'game';
+      } else if (entityType === 'teams') {
+        lookupType = 'team';
+      } else if (entityType === 'stadiums') {
+        lookupType = 'stadium';
+      } else if (entityType === 'leagues') {
+        lookupType = 'league';
+      } else if (entityType === 'players') {
+        lookupType = 'player';
+      }
+      
+      // Get entity ID by name
+      try {
+        let entityId;
+        
+        switch (lookupType) {
+          case 'league':
+            const leagues = await apiClient.sports.getLeagues();
+            const league = leagues.find(e => e.name?.toLowerCase() === entityName.toLowerCase());
+            entityId = league?.id;
+            break;
+          case 'team':
+            const teams = await apiClient.sports.getTeams();
+            const team = teams.find(e => e.name?.toLowerCase() === entityName.toLowerCase());
+            entityId = team?.id;
+            break;
+          case 'stadium':
+            const stadiums = await apiClient.sports.getStadiums();
+            const stadium = stadiums.find(e => e.name?.toLowerCase() === entityName.toLowerCase());
+            entityId = stadium?.id;
+            break;
+          case 'division_conference':
+            // Use the correct method name from sportsService
+            const divisions = await apiClient.sports.getDivisionConferences();
+            const division = divisions.find(e => e.name?.toLowerCase() === entityName.toLowerCase());
+            entityId = division?.id;
+            break;
+          default:
+            console.warn(`Lookup not implemented for entity type: ${lookupType}`);
+            break;
+        }
+        
+        if (entityId) {
+          basicMapped.entity_id = entityId;
+          console.log(`Found ${entityType} ID: ${entityId} for name: ${entityName}`);
+        } else {
+          console.warn(`Could not find ${entityType} ID for name: ${entityName}`);
+        }
+      } catch (error) {
+        console.error(`Error looking up ${entityType} ID for name ${entityName}:`, error);
+      }
+    }
+    
+    // Handle broadcast_company_id by name if directly provided
+    if (basicMapped.broadcast_company_id && !isValidUUID(basicMapped.broadcast_company_id)) {
+      const companyName = basicMapped.broadcast_company_id;
+      
+      console.log(`Looking up broadcast company ID for name: ${companyName}`);
+      try {
+        const companies = await apiClient.sports.getBroadcastCompanies();
+        const company = companies.find(e => e.name?.toLowerCase() === companyName.toLowerCase());
+        
+        if (company?.id) {
+          basicMapped.broadcast_company_id = company.id;
+          console.log(`Found broadcast company ID: ${company.id} for name: ${companyName}`);
+        } else {
+          console.warn(`Could not find broadcast company ID for name: ${companyName}`);
+          
+          // Try to create a new broadcast company
+          try {
+            const newCompany = await apiClient.sports.createBroadcastCompany({
+              name: companyName,
+              type: data.type || 'Broadcaster',
+              country: data.country || 'Unknown'
+            });
+            
+            if (newCompany?.id) {
+              basicMapped.broadcast_company_id = newCompany.id;
+              console.log(`Created new broadcast company with ID: ${newCompany.id} for name: ${companyName}`);
+            }
+          } catch (createError) {
+            console.error(`Error creating new broadcast company: ${companyName}`, createError);
+          }
+        }
+      } catch (error) {
+        console.error(`Error looking up broadcast company ID for name ${companyName}:`, error);
+      }
+    }
+    
+    // Handle division_conference_id by name
+    if (basicMapped.division_conference_id && !isValidUUID(basicMapped.division_conference_id)) {
+      const divisionName = basicMapped.division_conference_id;
+      
+      console.log(`Looking up division/conference ID for name: ${divisionName}`);
+      try {
+        // Use the correct method name from sportsService
+        const divisions = await apiClient.sports.getDivisionConferences();
+        const division = divisions.find(e => e.name?.toLowerCase() === divisionName.toLowerCase());
+        
+        if (division?.id) {
+          basicMapped.division_conference_id = division.id;
+          console.log(`Found division/conference ID: ${division.id} for name: ${divisionName}`);
+        } else {
+          console.warn(`Could not find division/conference ID for name: ${divisionName}`);
+        }
+      } catch (error) {
+        console.error(`Error looking up division/conference ID for name ${divisionName}:`, error);
+      }
+    }
+    
+    // Format start_date and end_date if they are just years
+    if (basicMapped.start_date) {
+      // Check if it's just a year (4 digits)
+      const yearRegex = /^\d{4}$/;
+      if (yearRegex.test(basicMapped.start_date)) {
+        const year = basicMapped.start_date;
+        basicMapped.start_date = `${year}-01-01`;
+        console.log(`Converted start_date from year to full date: ${year} -> ${basicMapped.start_date}`);
+      }
+    }
+    
+    if (basicMapped.end_date) {
+      // Check if it's just a year (4 digits)
+      const yearRegex = /^\d{4}$/;
+      if (yearRegex.test(basicMapped.end_date)) {
+        const year = basicMapped.end_date;
+        basicMapped.end_date = `${year}-12-31`;
+        console.log(`Converted end_date from year to full date: ${year} -> ${basicMapped.end_date}`);
+      }
+    }
+    
+    // Handle case where entity_type is specified but entity_id is not
+    if (basicMapped.entity_type && !basicMapped.entity_id) {
+      console.log(`Entity type '${basicMapped.entity_type}' specified but missing entity_id, attempting to find appropriate entity`);
+      
+      // Map entity_type values to correct lookup types
+      const lookupType = basicMapped.entity_type.toLowerCase().replace(/s$/, '');
+      
+      try {
+        // Handle different entity types
+        switch (lookupType) {
+          case 'league':
+            // Handle league lookup
+            try {
+              // Use division_conference_id or entity_id as search terms
+              const leagues = await apiClient.sports.getLeagues();
+              
+              // Collect potential search terms
+              const searchTerms = [];
+              if (basicMapped.division_conference_id && typeof basicMapped.division_conference_id === 'string' && !isValidUUID(basicMapped.division_conference_id)) {
+                searchTerms.push(basicMapped.division_conference_id.toLowerCase());
+              }
+              if (basicMapped.entity_id && typeof basicMapped.entity_id === 'string' && !isValidUUID(basicMapped.entity_id)) {
+                searchTerms.push(basicMapped.entity_id.toLowerCase());
+              }
+              
+              // Only proceed if we have search terms
+              let league = null;
+              if (searchTerms.length > 0) {
+                console.log('Searching for league using terms:', searchTerms);
+                
+                // Try each search term
+                for (const term of searchTerms) {
+                  // First try exact match
+                  league = leagues.find(e => e.name?.toLowerCase() === term);
+                  
+                  // Then try partial matches if term is long enough
+                  if (!league && term.length > 4) {
+                    league = leagues.find(e => 
+                      e.name?.toLowerCase().includes(term) || 
+                      term.includes(e.name?.toLowerCase())
+                    );
+                  }
+                  
+                  if (league) {
+                    console.log(`Found league match for "${term}": ${league.name}`);
+                    break;
+                  }
+                }
+              }
+              if (league) {
+                basicMapped.entity_id = league.id;
+                console.log(`Found league ID for entity_id: ${league.id}`);
+              }
+            } catch (error) {
+              console.error('Error looking up league ID:', error);
+            }
+            break;
+          case 'conference':
+          case 'division':
+            // For divisions/conferences, use the division_conference_id if available
+            if (basicMapped.division_conference_id) {
+              if (isValidUUID(basicMapped.division_conference_id)) {
+                // If it's already a UUID, use it directly
+                basicMapped.entity_id = basicMapped.division_conference_id;
+                console.log(`Using division_conference_id as entity_id: ${basicMapped.entity_id}`);
+              } else {
+                // If not a UUID, try to look it up
+                console.log(`Looking up division/conference '${basicMapped.division_conference_id}' for entity_id`);
+                try {
+                  const divisions = await apiClient.sports.getDivisionConferences();
+                  const searchTerm = basicMapped.division_conference_id.toLowerCase();
+                  
+                  // First try exact match
+                  let division = divisions.find(d => d.name?.toLowerCase() === searchTerm);
+                  
+                  // Then try partial matches if search term is long enough
+                  if (!division && searchTerm.length > 4) {
+                    division = divisions.find(d => 
+                      d.name?.toLowerCase().includes(searchTerm) || 
+                      searchTerm.includes(d.name?.toLowerCase())
+                    );
+                  }
+                  
+                  if (division) {
+                    console.log(`Found division/conference ID: ${division.id} for '${basicMapped.division_conference_id}'`);
+                    basicMapped.entity_id = division.id;
+                    // Also update the division_conference_id with the UUID
+                    basicMapped.division_conference_id = division.id;
+                  } else {
+                    console.warn(`Could not find division/conference ID for '${basicMapped.division_conference_id}'`);
+                  }
+                } catch (lookupError) {
+                  console.error(`Error looking up division/conference: ${lookupError}`);
+                }
+              }
+            }
+            break;
+        }
+      } catch (error) {
+        console.error(`Error deriving entity_id from entity_type: ${error}`);
+      }
+    }
+    
+    // Remove the 'name' property as it's not an actual field in the database schema for broadcast
+    // We've already used it to create/lookup a broadcast company
+    delete basicMapped.name;
+  }
+
   // For game entity, handle team and stadium lookups
   if (entityType === 'game') {
     if (basicMapped.home_team_id && !isValidUUID(basicMapped.home_team_id)) {

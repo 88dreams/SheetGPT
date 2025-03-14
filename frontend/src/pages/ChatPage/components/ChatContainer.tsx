@@ -3,6 +3,7 @@ import MessageThread from '../../../components/chat/MessageThread';
 import ChatInput from '../../../components/chat/ChatInput';
 import { Message } from '../../../utils/api';
 import ChatEmptyState from './ChatEmptyState';
+import { FileAttachment } from '../../../types/chat';
 
 interface ChatContainerProps {
   chatInputRef: React.RefObject<HTMLDivElement>;
@@ -11,7 +12,7 @@ interface ChatContainerProps {
   isLoading: boolean;
   error: Error | null;
   isPending: boolean;
-  onSendMessage: (content: string, structuredFormat?: Record<string, any>) => Promise<void>;
+  onSendMessage: (content: string, structuredFormat?: Record<string, any>, fileAttachment?: FileAttachment) => Promise<void>;
   onRepeatMessage: (content: string) => Promise<void>;
 }
 

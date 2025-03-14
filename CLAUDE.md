@@ -123,6 +123,10 @@
 - Handle network failures gracefully
 - Use optimistic UI updates with recovery patterns
 - Validate data at multiple levels (client, API, database)
+- Implement smart validation with type coercion for partial inputs
+- Handle year-only date inputs with appropriate conversion
+- Support flexible relationship resolution with name-based lookups
+- Implement intelligent entity search with exact and partial matching
 - Implement CSV fallbacks for export functionality
 - Provide alternative formats for data export when APIs fail
 - Always validate input/output data structure before processing
@@ -188,6 +192,8 @@
 - API key stored in environment variables
 - Implement proper rate limiting awareness
 - Handle streaming responses with buffer management
+- Support file uploads in chat interface (CSV, text)
+- Implement smart CSV parsing with data structure detection
 - Provide fallbacks for API failures
 - Follow Anthropic's usage guidelines
 - Include appropriate model parameters

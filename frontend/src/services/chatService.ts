@@ -57,7 +57,13 @@ export const chatService = {
     conversationId: string,
     content: string,
     structuredFormat?: Record<string, any>,
-    onChunk?: (chunk: string) => void
+    onChunk?: (chunk: string) => void,
+    fileAttachment?: {
+      name: string;
+      content: string;
+      type: 'csv' | 'text' | 'json' | 'markdown';
+      size: number;
+    }
   ): Promise<Message> => {
     const token = getToken()
     if (!token) throw new Error('No authentication token')
@@ -71,7 +77,8 @@ export const chatService = {
       body: JSON.stringify({ 
         content,
         role: 'user',
-        structured_format: structuredFormat
+        structured_format: structuredFormat,
+        metadata: fileAttachment ? { fileAttachment } : undefined
       })
     })
 

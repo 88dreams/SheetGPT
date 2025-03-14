@@ -14,7 +14,18 @@ SheetGPT is a full-stack application that combines AI-powered chat capabilities 
 
 ### Latest Features
 
-1. UI Standardization & UUID Toggle (March 15, 2025)
+1. Chat File Import & SportDataMapper Enhancements (March 19, 2025)
+   - Added file upload capabilities to chat interface for CSV and text files
+   - Implemented smart CSV parsing with automatic data structure detection
+   - Enhanced SportDataMapper with intelligent name-to-ID resolution
+   - Improved BroadcastRights entity mapping for hierarchy relationships
+   - Added smart date format handling for year-only input (e.g., "2020" → "2020-01-01")
+   - Implemented flexible entity search with exact and partial matching
+   - Enhanced help texts for complex fields to improve user guidance
+   - Fixed validation issues with relationship fields in mapping workflow
+   - Added support for deriving entity_id from entity_type relationships
+
+2. UI Standardization & UUID Toggle (March 15, 2025)
    - Unified grid appearance across EntityList, DatabaseQuery, and DataTable components
    - Standardized table cell padding, grid lines, and interactive behaviors
    - Added matching hover effects for both column headers and rows across all data views

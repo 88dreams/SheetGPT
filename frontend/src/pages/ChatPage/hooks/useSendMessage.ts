@@ -1,9 +1,11 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { api, Message } from '../../../utils/api';
+import { FileAttachment } from '../../../types/chat';
 
 interface SendMessageParams {
   content: string;
   structuredFormat?: Record<string, any>;
+  fileAttachment?: FileAttachment;
 }
 
 interface UseSendMessageOptions {
@@ -20,13 +22,14 @@ export function useSendMessage({
   const queryClient = useQueryClient();
   
   const sendMessageMutation = useMutation({
-    mutationFn: async ({ content, structuredFormat }: SendMessageParams) => {
+    mutationFn: async ({ content, structuredFormat, fileAttachment }: SendMessageParams) => {
       if (!conversationId) throw new Error('No conversation selected');
       
       console.log('Sending message:', {
         conversationId,
         content,
         hasStructuredFormat: !!structuredFormat,
+        hasFileAttachment: !!fileAttachment,
         timestamp: new Date().toISOString()
       });
       
@@ -41,7 +44,10 @@ export function useSendMessage({
         content,
         created_at: new Date().toISOString(),
         conversation_id: conversationId,
-        meta_data: structuredFormat ? { structuredFormat } : {}
+        meta_data: {
+          ...(structuredFormat ? { structuredFormat } : {}),
+          ...(fileAttachment ? { fileAttachment } : {})
+        }
       };
       
       // Create a temporary message for the assistant's response
@@ -76,7 +82,8 @@ export function useSendMessage({
                 return msg;
               });
             });
-          }
+          },
+          fileAttachment
         );
         
         // We'll skip the automatic refetch after streaming is complete
@@ -105,8 +112,8 @@ export function useSendMessage({
     },
   });
 
-  const sendMessage = async (content: string, structuredFormat?: Record<string, any>) => {
-    return sendMessageMutation.mutateAsync({ content, structuredFormat });
+  const sendMessage = async (content: string, structuredFormat?: Record<string, any>, fileAttachment?: FileAttachment) => {
+    return sendMessageMutation.mutateAsync({ content, structuredFormat, fileAttachment });
   };
 
   return {

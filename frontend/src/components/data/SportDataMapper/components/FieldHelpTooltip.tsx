@@ -17,6 +17,14 @@ const FieldHelpTooltip: React.FC<FieldHelpTooltipProps> = ({ fieldName, onClose 
         return "The UUID of the stadium this entity uses. If you enter a stadium name, it will be automatically looked up or created.";
       case 'team_id':
         return "The UUID of the team this entity belongs to. If you enter a team name, it will be automatically looked up or created.";
+      case 'broadcast_company_id':
+        return "The UUID of the broadcast company. This is automatically set when you map a name to the 'name' field, but you can also directly enter a company name here.";
+      case 'entity_type':
+        return "The type of entity this broadcast right applies to. Valid values include: 'League', 'Conference', 'Division', 'Team', 'Game'. This determines which entity the broadcast rights are for, and works together with entity_id.";
+      case 'entity_id':
+        return "The UUID of the specific entity this broadcast right applies to, based on the entity_type. You can enter a name (like 'NBA' for a league) and it will be automatically looked up. If you mapped entity_type='Conference' and have division_conference_id filled out, that will be used automatically.";
+      case 'division_conference_id':
+        return "The UUID of the division or conference. If you enter a division/conference name, it will be automatically looked up.";
       case 'city':
         return "The city where this entity is located.";
       case 'country':
@@ -28,9 +36,13 @@ const FieldHelpTooltip: React.FC<FieldHelpTooltipProps> = ({ fieldName, onClose 
       case 'date':
         return "The date in YYYY-MM-DD format.";
       case 'start_date':
-        return "The start date in YYYY-MM-DD format.";
+        return "The start date in YYYY-MM-DD format. You can also enter just a year (e.g., '2020') and it will be converted to January 1st of that year.";
       case 'end_date':
-        return "The end date in YYYY-MM-DD format.";
+        return "The end date in YYYY-MM-DD format. You can also enter just a year (e.g., '2031') and it will be converted to December 31st of that year.";
+      case 'territory':
+        return "The geographical territory or region where the broadcast rights apply (e.g., 'United States', 'Europe').";
+      case 'is_exclusive':
+        return "Whether these broadcast rights are exclusive (true/false).";
       default:
         return "Enter the appropriate value for this field.";
     }

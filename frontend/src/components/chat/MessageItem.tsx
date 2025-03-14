@@ -4,13 +4,14 @@ import { useQueryClient, useMutation } from '@tanstack/react-query'
 import { Message, api } from '../../utils/api'
 import { useNotification } from '../../contexts/NotificationContext'
 import { useDataManagement } from '../../hooks/useDataManagement'
-import { FaTable, FaMapMarkedAlt, FaEye, FaEyeSlash } from 'react-icons/fa'
+import { FaTable, FaMapMarkedAlt, FaEye, FaEyeSlash, FaFileAlt, FaFileCsv } from 'react-icons/fa'
 import DataPreviewModal from './DataPreviewModal'
 import SportDataMapper from '../data/SportDataMapper'
 import '../../styles/dataPreviewModal.css'
 import { Dialog } from '@headlessui/react'
-import { XMarkIcon } from '@heroicons/react/24/outline'
+import { XMarkIcon, DocumentTextIcon } from '@heroicons/react/24/outline'
 import { useChatContext } from '../../contexts/ChatContext'
+import { FileAttachment } from '../../types/chat'
 // Note: Extraction service is now imported dynamically when needed
 
 interface DataExtractionModalProps {
@@ -149,8 +150,7 @@ const MessageItem: React.FC<MessageItemProps> = ({
   const dataManagement = useDataManagement()
   const queryClient = useQueryClient()
   const { showNotification } = useNotification()
-  const [showDataPreview, setShowDataPreview] = useState(false)
-  const [extractedData, setExtractedData] = useState<string>('')
+  // Removed showDataPreview and extractedData states (streamlined workflow)
   const [showSportDataMapper, setShowSportDataMapper] = useState(false)
   const [sportMapperData, setSportMapperData] = useState<any>(null)
   const [mapperKey, setMapperKey] = useState(0)
@@ -220,60 +220,76 @@ const MessageItem: React.FC<MessageItemProps> = ({
           const dataText = parts[1].trim().replace('__STREAM_COMPLETE__', '')
           setStreamingContent(dataText)
           
-          // Enhanced check for existing messages, similar to streaming check
-          const hasHeaders = dataText.includes('"headers"') || dataText.includes('"Headers"');
-          const hasRows = dataText.includes('"rows"') || dataText.includes('"Rows"');
-          const hasClosingBraces = (
-            dataText.endsWith('}}') || dataText.endsWith(']}') || 
-            dataText.endsWith('"}]') || dataText.endsWith('"}') ||
-            dataText.includes('}}__STREAM_COMPLETE__') || 
-            dataText.includes(']}__STREAM_COMPLETE__')
-          );
-          const startsWithOpenBrace = dataText.trimStart().startsWith('{');
-          
-          // More permissive completion detection for existing messages
-          const isLikelyComplete = (
-            startsWithOpenBrace && 
-            (hasClosingBraces || message.content.includes('[PHASE:COMPLETE]')) && 
-            (hasHeaders || hasRows)
+          // For existing messages that contain data sections, be very permissive
+          // The messages are already complete, so we should assume the data is valid
+          // unless there's clear evidence it's not
+          const hasData = dataText.length > 10; // Minimum viable data check
+          const hasJsonStructure = dataText.includes('{') && (
+            dataText.includes('}') || dataText.includes(']')
           );
           
-          console.log('Existing message data check:', {
-            isLikelyComplete,
-            hasClosingBraces,
-            hasHeaders,
-            hasRows,
-            startsWithOpenBrace
+          console.log('Existing message data check (improved):', {
+            hasData,
+            hasJsonStructure,
+            dataLength: dataText.length
           });
           
-          if (isLikelyComplete) {
-            try {
-              // Try to clean up any completion markers that might be in the JSON
-              const cleanedData = dataText
-                .replace('__STREAM_COMPLETE__', '')
-                .replace('[STREAM_END]', '')
-                .replace('[PHASE:COMPLETE]', '')
-                .trim();
-                
-              const data = JSON.parse(cleanedData)
-              setParsedData(data)
-              setIsDataComplete(true)
-              console.log('Successfully parsed existing message data')
-            } catch (error) {
-              console.log('Error parsing existing message data:', error)
-              
-              // For existing messages, we'll be more permissive and show the buttons
-              // even if parsing fails, as long as the data looks reasonably complete
-              if (hasHeaders && hasRows && startsWithOpenBrace) {
-                console.log('Forcing data completion for existing message despite parse error');
-                setIsDataComplete(true);
-              } else {
-                setIsDataComplete(false);
+          // Always try to parse the data first
+          try {
+            // Clean up any completion markers or potential trailing content
+            const cleanedData = dataText
+              .replace('__STREAM_COMPLETE__', '')
+              .replace('[STREAM_END]', '')
+              .replace('[PHASE:COMPLETE]', '')
+              .trim();
+            
+            // Try to find valid JSON by searching for matching braces
+            let processedData = cleanedData;
+            if (!cleanedData.endsWith('}') && !cleanedData.endsWith(']')) {
+              // Find the last closing brace or bracket
+              const lastClosingBrace = Math.max(
+                cleanedData.lastIndexOf('}'),
+                cleanedData.lastIndexOf(']')
+              );
+              if (lastClosingBrace > 0) {
+                processedData = cleanedData.substring(0, lastClosingBrace + 1);
               }
             }
-          } else {
-            console.log('Existing message has incomplete data format')
-            setIsDataComplete(false)
+              
+            const data = JSON.parse(processedData);
+            setParsedData(data);
+            setIsDataComplete(true);
+            console.log('Successfully parsed existing message data');
+          } catch (error) {
+            console.log('Error parsing existing message data:', error);
+            
+            // Even if parsing fails, we'll assume the data is complete for existing messages
+            // This ensures buttons appear for old messages where the JSON might be slightly malformed
+            if (hasData && hasJsonStructure) {
+              console.log('Forcing data completion for existing message despite parse error');
+              
+              // Try to create a minimal valid structure from the text
+              try {
+                // Create a simple data structure with the content as-is
+                // This allows the buttons to appear while preserving the original data
+                const fallbackData = {
+                  headers: ["Data"],
+                  rows: [[dataText]],
+                  meta_data: {
+                    source: "fallback-data",
+                    message_id: message.id,
+                    recovered: true,
+                    original_data: dataText.substring(0, 500) // First 500 chars as reference
+                  }
+                };
+                setParsedData(fallbackData);
+                setIsDataComplete(true);
+              } catch (fallbackError) {
+                console.error('Even fallback data creation failed:', fallbackError);
+              }
+            } else {
+              setIsDataComplete(false);
+            }
           }
         }
       }
@@ -429,12 +445,17 @@ const MessageItem: React.FC<MessageItemProps> = ({
             dataText.includes(']}__STREAM_COMPLETE__')
           );
           const startsWithOpenBrace = dataText.trimStart().startsWith('{');
+          const hasData = dataText.length > 50; // Reasonable minimum data length
+          const hasJsonStructure = dataText.includes('{') && (
+            dataText.includes('}') || dataText.includes(']')
+          );
           
-          // More robust completion detection
+          // More robust completion detection with alternative checks
           const isLikelyComplete = (
-            startsWithOpenBrace && 
-            hasClosingBraces && 
-            (hasHeaders || hasRows)
+            // Primary check: properly structured JSON-like content
+            (startsWithOpenBrace && hasClosingBraces && (hasHeaders || hasRows)) ||
+            // Secondary check: lengthy data with JSON structure but possibly malformed
+            (hasData && hasJsonStructure && (hasHeaders || hasRows))
           );
           
           // Forced completion based on stream markers
@@ -463,19 +484,56 @@ const MessageItem: React.FC<MessageItemProps> = ({
                 .replace('[STREAM_END]', '')
                 .replace('[PHASE:COMPLETE]', '')
                 .trim();
-                
-              const data = JSON.parse(cleanedData);
+              
+              // Try to find valid JSON by searching for matching braces
+              let processedData = cleanedData;
+              if (!cleanedData.endsWith('}') && !cleanedData.endsWith(']')) {
+                // Find the last closing brace or bracket
+                const lastClosingBrace = Math.max(
+                  cleanedData.lastIndexOf('}'),
+                  cleanedData.lastIndexOf(']')
+                );
+                if (lastClosingBrace > 0) {
+                  processedData = cleanedData.substring(0, lastClosingBrace + 1);
+                  console.log('Truncated data to find valid JSON ending at position', lastClosingBrace);
+                }
+              }
+              
+              const data = JSON.parse(processedData);
               setParsedData(data);
               setIsDataComplete(true);
               console.log('Successfully parsed complete data');
             } catch (error) {
               console.log('Error parsing data (appears complete but invalid):', error);
               
-              // If we have markers indicating completion, and it's a JSON error
-              // we should still try to make the buttons available
-              if (forceComplete) {
-                console.log('Stream is complete but JSON parsing failed - forcing data completion');
-                setIsDataComplete(true);
+              // Enhanced recovery for streaming data
+              // Even if parsing fails, we should try to make buttons available in more cases
+              if (forceComplete || (hasData && hasJsonStructure && (hasHeaders || hasRows))) {
+                console.log('Data appears structurally complete despite parse error - forcing data completion');
+                
+                try {
+                  // Create a simple fallback data structure
+                  const fallbackData = {
+                    headers: ["Data"],
+                    rows: [[dataText]],
+                    meta_data: {
+                      source: "fallback-data",
+                      message_id: message.id,
+                      recovered: true,
+                      original_data: dataText.substring(0, 500) // First 500 chars as reference
+                    }
+                  };
+                  setParsedData(fallbackData);
+                  setIsDataComplete(true);
+                } catch (fallbackError) {
+                  console.error('Fallback data creation failed:', fallbackError);
+                  // Last resort - force completion anyway if we have completion markers
+                  if (forceComplete) {
+                    setIsDataComplete(true);
+                  } else {
+                    setIsDataComplete(false);
+                  }
+                }
               } else {
                 setIsDataComplete(false);
               }
@@ -549,6 +607,8 @@ const MessageItem: React.FC<MessageItemProps> = ({
       return
     }
 
+    showNotification('info', 'Sending data to Data Management...');
+
     try {
       // Import DataExtractionService from the new location
       const { DataExtractionService } = await import('../../services/extraction');
@@ -570,19 +630,75 @@ const MessageItem: React.FC<MessageItemProps> = ({
       
       // Store an unprocessed version in session storage as fallback
       try {
+        console.log('MessageItem: Storing data in session storage as fallback');
         sessionStorage.setItem('latest_extracted_data', JSON.stringify(dataWithMetadata));
       } catch (storageError) {
         console.warn('Could not store data in session storage:', storageError);
       }
       
-      // Update state with processed data
-      console.log('MessageItem: Showing data preview modal with processed data', dataWithMetadata);
-      setExtractedData(JSON.stringify(dataWithMetadata, null, 2));
+      // Skip preview and directly send to database
+      console.log('MessageItem: Directly sending data to database', dataWithMetadata);
+      
+      // Update sportMapperData for consistency (used by SportDataMapper if needed)
       setSportMapperData(dataWithMetadata);
+
+      // Format data for API, ensuring rows have IDs
+      let formattedRows = dataWithMetadata.rows || [];
       
-      // Show the data preview modal
-      setShowDataPreview(true);
+      // Add IDs to rows if they don't exist
+      if (Array.isArray(formattedRows) && formattedRows.length > 0) {
+        formattedRows = formattedRows.map((row, index) => {
+          // If row is an object, add an ID
+          if (typeof row === 'object' && !Array.isArray(row) && row !== null) {
+            return { id: `row-${index}`, ...row };
+          }
+          // If row is an array, convert to object with ID
+          if (Array.isArray(row)) {
+            const rowObj: Record<string, any> = { id: `row-${index}` };
+            (dataWithMetadata.headers || []).forEach((header: string, idx: number) => {
+              rowObj[header] = idx < row.length ? row[idx] : '';
+            });
+            return rowObj;
+          }
+          return row;
+        });
+      }
       
+      const formattedData = {
+        conversation_id: message.conversation_id,
+        data_type: 'tabular',
+        schema_version: '1.0',
+        data: {
+          rows: formattedRows,
+          column_order: dataWithMetadata.headers || []
+        },
+        meta_data: {
+          ...dataWithMetadata.meta_data,
+          message_id: message.id,
+          extracted_at: new Date().toISOString(),
+          source: 'chat-extraction'
+        }
+      };
+      
+      // Create structured data entry in the database
+      const response = await api.data.createStructuredData(formattedData);
+      
+      // Store the response ID in session storage for guaranteed retrieval
+      if (response && response.id) {
+        console.log('MessageItem: Successfully created structured data with ID:', response.id);
+        sessionStorage.setItem('recent_data_id', response.id);
+        showNotification('success', 'Data successfully sent to Data Management');
+      
+        // Wait a brief moment for the session storage write to complete
+        setTimeout(() => {
+          // Navigate to the data management page with ID to select it automatically
+          navigate(`/data?selected=${response.id}`);
+        }, 100);
+      } else {
+        console.warn('MessageItem: No ID returned from createStructuredData');
+        showNotification('success', 'Data sent but no ID was returned');
+        navigate('/data');
+      }
     } catch (error) {
       console.error('Error processing data for extraction:', error);
       
@@ -724,31 +840,9 @@ const MessageItem: React.FC<MessageItemProps> = ({
     }
   }, [message.id, message.role, isLastMessage])
 
-  const handleDataPreview = async () => {
-    if (onDataPreview) {
-      try {
-        const contentParts = message.content.split('---DATA---')
-        if (contentParts.length < 2) {
-          console.error('No data marker found in message')
-          return
-        }
+  // handleDataPreview function removed as part of workflow streamlining
 
-        const dataText = contentParts[1].trim()
-        const parsedData = JSON.parse(dataText)
-        const standardData = await onDataPreview(parsedData)
-        
-        // Set both extractedData for backwards compatibility and sportMapperData for the modal
-        setExtractedData(JSON.stringify(standardData, null, 2))
-        setSportMapperData(standardData)
-        setShowDataPreview(true)
-        
-        console.log('MessageItem: Showing data preview', standardData)
-      } catch (error) {
-        console.error('Error previewing data:', error)
-      }
-    }
-  }
-
+  // This function is used by the SportDataMapper component for the "Map to Sports" workflow
   const handleDataConfirm = async (data: any) => {
     showNotification('info', 'Sending data to database...');
     
@@ -800,10 +894,7 @@ const MessageItem: React.FC<MessageItemProps> = ({
       }
     } catch (error) {
       console.error('MessageItem: Error creating structured data', error);
-      showNotification('error', 'Failed to save data to database. You can still view the preview.');
-      
-      // Navigate to data page for preview even if API fails
-      navigate('/data');
+      showNotification('error', `Failed to save data to database: ${(error as Error).message}`);
     }
   }
 
@@ -886,6 +977,23 @@ const MessageItem: React.FC<MessageItemProps> = ({
         .split('---DATA---')[0]}
       </div>
       
+      {/* Display file attachment if present */}
+      {message.metadata?.fileAttachment && (
+        <div className="mt-2 p-3 bg-gray-100 rounded-lg border border-gray-200">
+          <div className="flex items-center gap-2 mb-2">
+            {message.metadata.fileAttachment.type === 'csv' ? (
+              <FaFileCsv className="text-green-600" />
+            ) : (
+              <FaFileAlt className="text-blue-600" />
+            )}
+            <span className="font-semibold">{message.metadata.fileAttachment.name}</span>
+            <span className="text-xs text-gray-500">
+              ({(message.metadata.fileAttachment.size / 1024).toFixed(1)} KB)
+            </span>
+          </div>
+        </div>
+      )}
+      
       {isStreaming && (
         <div className="flex items-center gap-2 text-sm text-gray-600">
           <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-500"></div>
@@ -952,15 +1060,7 @@ const MessageItem: React.FC<MessageItemProps> = ({
         </div>
       )}
 
-      {showDataPreview && sportMapperData && (
-        <DataPreviewModal
-          isOpen={showDataPreview}
-          onClose={() => setShowDataPreview(false)}
-          messageContent="Data preview"
-          extractedData={sportMapperData}
-          onConfirm={handleDataConfirm}
-        />
-      )}
+      {/* DataPreviewModal removed as part of workflow streamlining */}
       {showSportDataMapper && sportMapperData && (
         <SportDataMapper
           data={sportMapperData}

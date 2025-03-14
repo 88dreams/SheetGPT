@@ -240,9 +240,15 @@ frontend/
 - Architecture: Container/Hooks pattern
 - Features:
   - Auto entity detection
-  - Smart field mapping
-  - Batch processing
-  - Progress tracking
+  - Smart field mapping with name-to-ID resolution
+  - Intelligent relationship handling with lookup by name
+  - Advanced date formatting with year-to-date conversion
+  - Smart entity search with exact and partial matching
+  - Flexible entity reference system for hierarchical relationships
+  - Entity ID derivation from relationship fields
+  - Context-sensitive help text for complex fields
+  - Batch processing with validation
+  - Progress tracking with error reporting
 
 ### DatabaseQuery
 - Purpose: Enable users to query the database directly or using natural language
@@ -265,6 +271,8 @@ frontend/
   - Message streaming with real-time processing
   - Structured data extraction and validation
   - Conversation management with history and reordering
+  - File import with CSV parsing and data structure detection
+  - Direct text and CSV file uploads with automatic formatting
   - Error handling and recovery with fallbacks
   - Background task processing
   - Rate limiting and timeout handling
@@ -314,10 +322,14 @@ Components:
 
 ### Validation System
 1. **Entity Validation**
-   - Reference integrity
-   - Required fields
-   - Type checking
-   - Relationship validation
+   - Reference integrity with name resolution
+   - Required fields with smart defaults
+   - Type checking with format detection
+   - Relationship validation with hierarchy awareness
+   - Year-to-date conversion for partial inputs
+   - Intelligent entity search with exact and partial matching
+   - Flexible entity reference system for complex relationships
+   - Entity ID derivation from related entities
 
 2. **Field Mapping**
    - Name-to-UUID conversion

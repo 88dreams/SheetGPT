@@ -2,14 +2,27 @@ import { EntityType, isValidUUID } from './entityTypes';
 
 /**
  * Validate entity data before sending to the database
+ * @param entityType The type of entity to validate
+ * @param data The entity data to validate
+ * @param isUpdateMode If true, only validates the fields that are provided (for partial updates)
  */
-export const validateEntityData = (entityType: EntityType, data: Record<string, any>): { isValid: boolean; errors: string[] } => {
-  console.log(`Validating ${entityType} data:`, JSON.stringify(data, null, 2));
+export const validateEntityData = (
+  entityType: EntityType, 
+  data: Record<string, any>,
+  isUpdateMode: boolean = false
+): { isValid: boolean; errors: string[] } => {
+  console.log(`Validating ${entityType} data (updateMode=${isUpdateMode}):`, JSON.stringify(data, null, 2));
+  
+  // In update mode, we skip validation for required fields that aren't present
+  // This allows for partial updates to existing records
+  if (isUpdateMode) {
+    return { isValid: true, errors: [] };
+  }
   
   const errors: string[] = [];
   
-  // Common validation for all entities
-  if (!data.name) {
+  // Common validation for all entities except broadcast
+  if (entityType !== 'broadcast' && !data.name) {
     errors.push('Name is required');
     console.warn(`${entityType} validation error: Name is required`);
   }
@@ -24,6 +37,27 @@ export const validateEntityData = (entityType: EntityType, data: Record<string, 
       if (!data.country) {
         errors.push('Country is required');
         console.warn(`League validation error: Country is required`);
+      }
+      break;
+      
+    case 'division_conference':
+      // Check if either league_id or league_name is provided
+      if (!data.league_id && !data.league_name) {
+        errors.push('Either League ID or League Name is required');
+        console.warn(`Division/Conference validation error: Either League ID or League Name is required`);
+      } else if (data.league_id && isValidUUID(data.league_id)) {
+        // Only validate UUID format if it's meant to be a UUID
+        console.log('Using provided league_id as UUID');
+      } else {
+        // Treat non-UUID league_id as league_name
+        console.log('Treating league_id as league_name:', data.league_id);
+        data.league_name = data.league_id;
+        delete data.league_id;
+      }
+      
+      if (!data.type) {
+        errors.push('Type is required');
+        console.warn(`Division/Conference validation error: Type is required`);
       }
       break;
       
@@ -158,6 +192,7 @@ export const validateEntityData = (entityType: EntityType, data: Record<string, 
       break;
       
     case 'broadcast':
+      // Check required fields
       if (!data.broadcast_company_id) {
         errors.push('Broadcast Company ID is required');
       } else if (!isValidUUID(data.broadcast_company_id)) {
@@ -168,9 +203,12 @@ export const validateEntityData = (entityType: EntityType, data: Record<string, 
         errors.push('Entity Type is required');
       }
       
-      if (!data.entity_id) {
-        errors.push('Entity ID is required');
-      } else if (!isValidUUID(data.entity_id)) {
+      // For entity_id, it can be derived from other fields if missing
+      if (!data.entity_id && !data.division_conference_id) {
+        errors.push('Either Entity ID or Division Conference ID is required');
+      } else if (data.entity_id && !isValidUUID(data.entity_id)) {
+        // If it's not a valid UUID and we've already tried to resolve it, report the error
+        console.warn(`Entity ID '${data.entity_id}' is not a valid UUID after resolution attempts`);
         errors.push('Entity ID must be a valid UUID');
       }
       

@@ -1,3 +1,10 @@
+export interface FileAttachment {
+  name: string;
+  content: string;
+  type: 'csv' | 'text' | 'json' | 'markdown';
+  size: number;
+}
+
 export interface Message {
   id: string;
   conversation_id: string;
@@ -13,5 +20,6 @@ export interface Message {
     source?: string;
     is_test_data?: boolean;
     note?: string;
+    fileAttachment?: FileAttachment;
   };
 } 

@@ -4,6 +4,7 @@ import LoadingSpinner from '../../components/common/LoadingSpinner';
 import { useNotification } from '../../contexts/NotificationContext';
 import { useAuth } from '../../hooks/useAuth';
 import DataPreviewModal from '../../components/chat/DataPreviewModal';
+import { FileAttachment } from '../../types/chat';
 
 // Import hooks
 import {
@@ -24,9 +25,10 @@ const ChatPage: React.FC = () => {
   const { isAuthenticated, isReady, user } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
   const location = useLocation();
-  const [selectedConversation, setSelectedConversation] = useState<string | null>(
-    searchParams.get('conversation')
-  );
+  const [selectedConversation, setSelectedConversation] = useState<string | null>(() => {
+    // Initialize from URL params or sessionStorage
+    return searchParams.get('conversation') || sessionStorage.getItem('selectedConversation');
+  });
   const { showNotification } = useNotification();
   const [isDataPreviewModalOpen, setIsDataPreviewModalOpen] = useState(false);
   const [previewMessageContent, setPreviewMessageContent] = useState('');
@@ -104,6 +106,7 @@ const ChatPage: React.FC = () => {
   // Handle selecting a conversation
   const handleSelectConversation = (id: string) => {
     setSelectedConversation(id);
+    sessionStorage.setItem('selectedConversation', id);
   };
 
   // Handle confirming data preview
@@ -117,8 +120,10 @@ const ChatPage: React.FC = () => {
   useEffect(() => {
     if (selectedConversation) {
       setSearchParams({ conversation: selectedConversation });
+      sessionStorage.setItem('selectedConversation', selectedConversation);
     } else {
       setSearchParams({});
+      sessionStorage.removeItem('selectedConversation');
     }
   }, [selectedConversation, setSearchParams]);
 
@@ -132,8 +137,8 @@ const ChatPage: React.FC = () => {
     }
   }, [conversationsError, messagesError, showNotification]);
 
-  const handleSendMessage = async (content: string, structuredFormat?: Record<string, any>) => {
-    await sendMessage(content, structuredFormat);
+  const handleSendMessage = async (content: string, structuredFormat?: Record<string, any>, fileAttachment?: FileAttachment) => {
+    await sendMessage(content, structuredFormat, fileAttachment);
   };
 
   const handleRepeatMessage = async (content: string) => {

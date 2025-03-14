@@ -554,7 +554,7 @@ const EntityList: React.FC<EntityListProps> = ({ className = '' }) => {
               {/* Checkbox column */}
               <th 
                 scope="col" 
-                className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider relative border-r border-gray-200"
+                className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider relative border-r border-gray-200 hover:bg-gray-100"
                 style={{ width: `${columnWidths.checkbox}px`, minWidth: '50px' }}
               >
                 <div className="flex items-center">
@@ -587,7 +587,7 @@ const EntityList: React.FC<EntityListProps> = ({ className = '' }) => {
                   <th 
                     key={field}
                     scope="col" 
-                    className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer relative border-r border-gray-200"
+                    className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer relative border-r border-gray-200 hover:bg-gray-100"
                     onClick={() => handleSort(field)}
                     style={{ 
                       width: columnWidths[field] || 120,
@@ -613,7 +613,7 @@ const EntityList: React.FC<EntityListProps> = ({ className = '' }) => {
               {/* Actions column */}
               <th 
                 scope="col" 
-                className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider relative border-r border-gray-200"
+                className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider relative border-r border-gray-200 hover:bg-gray-100"
                 style={{ width: `${columnWidths.actions}px`, minWidth: '100px' }}
               >
                 <div className="flex items-center">

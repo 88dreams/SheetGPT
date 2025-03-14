@@ -141,7 +141,7 @@ const DataGridTable: React.FC<DataGridTableProps> = ({
           <thead className="bg-gray-50">
             <tr className="border-b border-gray-200">
               {/* Selection column for row selection */}
-              <th scope="col" className="w-10 px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider sticky left-0 bg-gray-50 z-10 border-r border-gray-200">
+              <th scope="col" className="w-10 px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider sticky left-0 bg-gray-50 z-10 border-r border-gray-200 hover:bg-gray-100">
                 <div className="flex items-center justify-center">
                   <input
                     type="checkbox"
@@ -156,7 +156,7 @@ const DataGridTable: React.FC<DataGridTableProps> = ({
                 </div>
               </th>
               {showRowNumbers && (
-                <th scope="col" className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-12 sticky left-10 bg-gray-50 z-10 border-r border-gray-200">
+                <th scope="col" className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-12 sticky left-10 bg-gray-50 z-10 border-r border-gray-200 hover:bg-gray-100">
                   #
                 </th>
               )}
@@ -164,7 +164,7 @@ const DataGridTable: React.FC<DataGridTableProps> = ({
                 <th 
                   key={header} 
                   scope="col" 
-                  className={`px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider relative cursor-pointer border-r border-gray-200 ${
+                  className={`px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider relative cursor-pointer border-r border-gray-200 hover:bg-gray-100 ${
                     dragOverHeader === header ? 'bg-blue-100' : 'bg-gray-50'
                   }`}
                   style={{

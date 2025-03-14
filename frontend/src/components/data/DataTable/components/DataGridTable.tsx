@@ -136,12 +136,12 @@ const DataGridTable: React.FC<DataGridTableProps> = ({
         overflowY: 'auto'
       }}
     >
-      <table className="min-w-full divide-y divide-gray-200 table-fixed">
+      <table className="min-w-full divide-y divide-gray-200 table-fixed border-collapse">
         {showHeaders && (
           <thead className="bg-gray-50">
-            <tr>
+            <tr className="border-b border-gray-200">
               {/* Selection column for row selection */}
-              <th scope="col" className="w-10 px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider sticky left-0 bg-gray-50 z-10">
+              <th scope="col" className="w-10 px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider sticky left-0 bg-gray-50 z-10 border-r border-gray-200">
                 <div className="flex items-center justify-center">
                   <input
                     type="checkbox"
@@ -156,7 +156,7 @@ const DataGridTable: React.FC<DataGridTableProps> = ({
                 </div>
               </th>
               {showRowNumbers && (
-                <th scope="col" className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-12 sticky left-10 bg-gray-50 z-10">
+                <th scope="col" className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-12 sticky left-10 bg-gray-50 z-10 border-r border-gray-200">
                   #
                 </th>
               )}
@@ -164,7 +164,7 @@ const DataGridTable: React.FC<DataGridTableProps> = ({
                 <th 
                   key={header} 
                   scope="col" 
-                  className={`px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider relative cursor-pointer ${
+                  className={`px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider relative cursor-pointer border-r border-gray-200 ${
                     dragOverHeader === header ? 'bg-blue-100' : 'bg-gray-50'
                   }`}
                   style={{
@@ -224,7 +224,7 @@ const DataGridTable: React.FC<DataGridTableProps> = ({
           {rows.map((row: Record<string, any> | null | undefined, rowIndex: number) => (
             <tr 
               key={rowIndex}
-              className={`hover:bg-gray-50 ${
+              className={`hover:bg-gray-50 border-b border-gray-200 ${
                 dragOverRow === rowIndex ? 'bg-blue-50' : 
                 (row && row[rowIdField] !== undefined && selectedItems[row[rowIdField]]) ? 'bg-blue-50' : ''
               }`}
@@ -235,7 +235,7 @@ const DataGridTable: React.FC<DataGridTableProps> = ({
               onDragEnd={onRowDragEnd}
             >
               {/* Selection checkbox */}
-              <td className="px-3 py-2 whitespace-nowrap text-sm w-10 sticky left-0 bg-white z-10">
+              <td className="px-3 py-2 whitespace-nowrap text-sm w-10 sticky left-0 bg-white z-10 border-r border-gray-200">
                 <div className="flex items-center justify-center">
                   <input
                     type="checkbox"
@@ -247,7 +247,7 @@ const DataGridTable: React.FC<DataGridTableProps> = ({
               </td>
               {showRowNumbers && (
                 <td 
-                  className="px-3 py-2 whitespace-nowrap text-sm text-gray-500 w-12 sticky left-10 bg-white z-10 cursor-move"
+                  className="px-3 py-2 whitespace-nowrap text-sm text-gray-500 w-12 sticky left-10 bg-white z-10 cursor-move border-r border-gray-200"
                 >
                   {isPaginationEnabled 
                     ? (currentPage - 1) * rowsPerPage + rowIndex + 1 
@@ -257,7 +257,7 @@ const DataGridTable: React.FC<DataGridTableProps> = ({
               {headers.map((header: string) => (
                 <td 
                   key={`${rowIndex}-${header}`} 
-                  className="px-3 py-2 whitespace-pre-wrap break-words text-sm text-gray-900"
+                  className="px-3 py-2 whitespace-pre-wrap break-words text-sm text-gray-900 border-r border-gray-200"
                   style={{ width: `${columnWidths[header] || 150}px` }}
                 >
                   {row && row[header] !== undefined ? formatCellValue(row[header], header) : ''}

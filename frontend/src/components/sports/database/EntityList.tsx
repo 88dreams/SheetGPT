@@ -550,7 +550,7 @@ const EntityList: React.FC<EntityListProps> = ({ className = '' }) => {
         {/* Add CSS class to show when resizing is happening */}
         <table className={`min-w-full divide-y divide-gray-200 table-fixed border-collapse ${resizingColumn ? 'cursor-col-resize' : ''}`}>
           <thead className="bg-gray-50">
-            <tr>
+            <tr className="border-b border-gray-200">
               {/* Checkbox column */}
               <th 
                 scope="col" 
@@ -635,7 +635,7 @@ const EntityList: React.FC<EntityListProps> = ({ className = '' }) => {
               const completeEntity = getCompleteEntity(entity.id);
               
               return (
-                <tr key={entity.id} className="hover:bg-gray-50">
+                <tr key={entity.id} className="hover:bg-gray-50 border-b border-gray-200">
                   {/* Checkbox */}
                   <td 
                     className="px-3 py-2 whitespace-nowrap border-r border-gray-200"

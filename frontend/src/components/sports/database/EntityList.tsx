@@ -548,13 +548,13 @@ const EntityList: React.FC<EntityListProps> = ({ className = '' }) => {
           </div>
         )}
         {/* Add CSS class to show when resizing is happening */}
-        <table className={`min-w-full divide-y divide-gray-200 ${resizingColumn ? 'cursor-col-resize' : ''}`}>
+        <table className={`min-w-full divide-y divide-gray-200 table-fixed ${resizingColumn ? 'cursor-col-resize' : ''}`}>
           <thead className="bg-gray-50">
             <tr>
               {/* Checkbox column */}
               <th 
                 scope="col" 
-                className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider relative"
+                className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider relative"
                 style={{ width: `${columnWidths.checkbox}px`, minWidth: '50px' }}
               >
                 <div className="flex items-center">
@@ -571,10 +571,12 @@ const EntityList: React.FC<EntityListProps> = ({ className = '' }) => {
                     }}
                   />
                   <div 
-                    className={`absolute right-0 top-0 h-full w-2 cursor-col-resize bg-gray-300 hover:bg-gray-400 ${resizingColumn === 'checkbox' ? 'bg-blue-400' : ''}`}
+                    className="absolute top-0 right-0 h-full w-4 cursor-col-resize z-20"
                     onMouseDown={(e) => handleResizeStart(e, 'checkbox')}
                     onClick={(e) => e.stopPropagation()}
-                  />
+                  >
+                    <div className="h-full w-1 bg-gray-300 mx-auto hover:bg-blue-500 hover:w-2 transition-all"></div>
+                  </div>
                 </div>
               </th>
               
@@ -585,7 +587,7 @@ const EntityList: React.FC<EntityListProps> = ({ className = '' }) => {
                   <th 
                     key={field}
                     scope="col" 
-                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer relative"
+                    className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer relative"
                     onClick={() => handleSort(field)}
                     style={{ 
                       width: columnWidths[field] || 120,
@@ -597,10 +599,12 @@ const EntityList: React.FC<EntityListProps> = ({ className = '' }) => {
                       {field.replace(/_/g, ' ').replace(/\b\w/g, char => char.toUpperCase())}
                       {renderSortIcon(field)}
                       <div 
-                        className={`absolute right-0 top-0 h-full w-2 cursor-col-resize bg-gray-300 hover:bg-gray-400 ${resizingColumn === field ? 'bg-blue-400' : ''}`}
+                        className="absolute top-0 right-0 h-full w-4 cursor-col-resize z-20"
                         onMouseDown={(e) => handleResizeStart(e, field)}
                         onClick={(e) => e.stopPropagation()}
-                      />
+                      >
+                        <div className="h-full w-1 bg-gray-300 mx-auto hover:bg-blue-500 hover:w-2 transition-all"></div>
+                      </div>
                     </div>
                   </th>
                 ))
@@ -609,16 +613,18 @@ const EntityList: React.FC<EntityListProps> = ({ className = '' }) => {
               {/* Actions column */}
               <th 
                 scope="col" 
-                className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider relative"
+                className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider relative"
                 style={{ width: `${columnWidths.actions}px`, minWidth: '100px' }}
               >
                 <div className="flex items-center">
                   Actions
                   <div 
-                    className={`absolute right-0 top-0 h-full w-2 cursor-col-resize bg-gray-300 hover:bg-gray-400 ${resizingColumn === 'actions' ? 'bg-blue-400' : ''}`}
+                    className="absolute top-0 right-0 h-full w-4 cursor-col-resize z-20"
                     onMouseDown={(e) => handleResizeStart(e, 'actions')}
                     onClick={(e) => e.stopPropagation()}
-                  />
+                  >
+                    <div className="h-full w-1 bg-gray-300 mx-auto hover:bg-blue-500 hover:w-2 transition-all"></div>
+                  </div>
                 </div>
               </th>
             </tr>
@@ -632,7 +638,7 @@ const EntityList: React.FC<EntityListProps> = ({ className = '' }) => {
                 <tr key={entity.id} className="hover:bg-gray-50">
                   {/* Checkbox */}
                   <td 
-                    className="px-6 py-4 whitespace-nowrap"
+                    className="px-3 py-2 whitespace-nowrap"
                     style={{ width: `${columnWidths.checkbox}px`, minWidth: '50px' }}
                   >
                     <div className="flex items-center">
@@ -653,7 +659,7 @@ const EntityList: React.FC<EntityListProps> = ({ className = '' }) => {
                         return (
                           <td 
                             key={field}
-                            className="px-6 py-4 whitespace-nowrap"
+                            className="px-3 py-2 whitespace-nowrap"
                             style={{ width: `${columnWidths[field] || 150}px`, minWidth: '150px' }}
                           >
                             {editingId === entity.id ? (
@@ -709,7 +715,7 @@ const EntityList: React.FC<EntityListProps> = ({ className = '' }) => {
                         return (
                           <td 
                             key={field}
-                            className="px-6 py-4 whitespace-nowrap"
+                            className="px-3 py-2 whitespace-nowrap"
                             style={{ width: `${columnWidths[field] || 120}px`, minWidth: '100px' }}
                           >
                             <div className="text-sm text-gray-500">
@@ -726,7 +732,7 @@ const EntityList: React.FC<EntityListProps> = ({ className = '' }) => {
                         return (
                           <td 
                             key={field}
-                            className="px-6 py-4 whitespace-nowrap overflow-hidden text-ellipsis"
+                            className="px-3 py-2 whitespace-nowrap overflow-hidden text-ellipsis"
                             style={{ width: `${columnWidths[field] || 120}px`, minWidth: '100px' }}
                           >
                             <div className="text-sm text-gray-700 overflow-hidden text-ellipsis">
@@ -742,7 +748,7 @@ const EntityList: React.FC<EntityListProps> = ({ className = '' }) => {
                         return (
                           <td 
                             key={field}
-                            className="px-6 py-4 whitespace-nowrap overflow-hidden text-ellipsis"
+                            className="px-3 py-2 whitespace-nowrap overflow-hidden text-ellipsis"
                             style={{ width: `${columnWidths[field] || 120}px`, minWidth: '100px' }}
                           >
                             <div className="text-sm text-gray-700 overflow-hidden text-ellipsis">
@@ -758,7 +764,7 @@ const EntityList: React.FC<EntityListProps> = ({ className = '' }) => {
                         return (
                           <td 
                             key={field}
-                            className="px-6 py-4 whitespace-nowrap overflow-hidden text-ellipsis"
+                            className="px-3 py-2 whitespace-nowrap overflow-hidden text-ellipsis"
                             style={{ width: `${columnWidths[field] || 120}px`, minWidth: '100px' }}
                           >
                             <div className="text-sm text-gray-700 overflow-hidden text-ellipsis">
@@ -774,7 +780,7 @@ const EntityList: React.FC<EntityListProps> = ({ className = '' }) => {
                         return (
                           <td 
                             key={field}
-                            className="px-6 py-4 whitespace-nowrap overflow-hidden text-ellipsis"
+                            className="px-3 py-2 whitespace-nowrap overflow-hidden text-ellipsis"
                             style={{ width: `${columnWidths[field] || 120}px`, minWidth: '100px' }}
                           >
                             <div className="text-sm text-gray-700 overflow-hidden text-ellipsis">
@@ -790,7 +796,7 @@ const EntityList: React.FC<EntityListProps> = ({ className = '' }) => {
                       return (
                         <td 
                           key={field}
-                          className="px-6 py-4 whitespace-nowrap overflow-hidden text-ellipsis"
+                          className="px-3 py-2 whitespace-nowrap overflow-hidden text-ellipsis"
                           style={{ width: `${columnWidths[field] || 120}px`, minWidth: '100px' }}
                         >
                           <div className="text-sm text-gray-700 overflow-hidden text-ellipsis">
@@ -805,7 +811,7 @@ const EntityList: React.FC<EntityListProps> = ({ className = '' }) => {
                   
                   {/* Actions */}
                   <td 
-                    className="px-6 py-4 whitespace-nowrap"
+                    className="px-3 py-2 whitespace-nowrap"
                     style={{ width: `${columnWidths.actions}px`, minWidth: '100px' }}
                   >
                     <div className="flex space-x-2">

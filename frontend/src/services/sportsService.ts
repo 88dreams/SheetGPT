@@ -2,6 +2,22 @@ import { request } from '../utils/apiClient';
 import { FilterConfig } from '../components/sports/EntityFilter';
 
 export const sportsService = {
+  // Entity lookup by name
+  lookup: (entityType: string, name: string): Promise<any> => {
+    console.log(`sportsService.lookup: Looking up ${entityType} with name "${name}"`);
+    const url = `/sports/lookup/${entityType}?name=${encodeURIComponent(name)}`;
+    console.log(`Lookup URL: ${url}`);
+    return request(url, { requiresAuth: true })
+      .then(result => {
+        console.log(`Lookup result for ${entityType} "${name}":`, result);
+        return result;
+      })
+      .catch(error => {
+        console.error(`Error looking up ${entityType} "${name}":`, error);
+        throw error;
+      });
+  },
+    
   // Generic entity endpoints
   getEntities: async (
     entityType: string,
@@ -56,6 +72,9 @@ export const sportsService = {
         length: Array.isArray(result) ? result.length : 'not an array',
         sample: Array.isArray(result) && result.length > 0 ? result[0] : result
       });
+      
+      // No sanitization needed anymore since the entity type mapping has been fixed
+      
       return result;
     } catch (error) {
       console.error(`API: Error fetching ${entityType} entities:`, error);
@@ -90,6 +109,36 @@ export const sportsService = {
       requiresAuth: true
     }),
     
+  // Division/Conference endpoints
+  getDivisionConferences: (leagueId?: string): Promise<any[]> =>
+    request('/sports/divisions-conferences', { 
+      requiresAuth: true,
+      ...(leagueId && { params: { league_id: leagueId } })
+    }),
+    
+  createDivisionConference: (data: any): Promise<any> =>
+    request('/sports/divisions-conferences', {
+      method: 'POST',
+      body: JSON.stringify(data),
+      requiresAuth: true
+    }),
+    
+  getDivisionConference: (id: string): Promise<any> =>
+    request(`/sports/divisions-conferences/${id}`, { requiresAuth: true }),
+    
+  updateDivisionConference: (id: string, data: any): Promise<any> =>
+    request(`/sports/divisions-conferences/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+      requiresAuth: true
+    }),
+    
+  deleteDivisionConference: (id: string): Promise<void> =>
+    request(`/sports/divisions-conferences/${id}`, {
+      method: 'DELETE',
+      requiresAuth: true
+    }),
+    
   // Team endpoints
   getTeams: (leagueId?: string): Promise<any[]> =>
     request('/sports/teams', { 
@@ -111,6 +160,35 @@ export const sportsService = {
     request(`/sports/teams/${id}`, {
       method: 'PUT',
       body: JSON.stringify(data),
+      requiresAuth: true
+    }),
+    
+  partialUpdateTeam: (id: string, data: any): Promise<any> =>
+    request(`/sports/teams/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+      requiresAuth: true
+    }),
+    
+  // Generic method for partial updates by name
+  updateEntityByName: (entityType: string, name: string, updateData: Record<string, any>): Promise<any> => {
+    const fullData = { name, ...updateData };
+    console.log(`Updating ${entityType} by name:`, fullData);
+    return request(`/sports/update-by-name/${entityType}`, {
+      method: 'POST',
+      body: JSON.stringify(fullData),
+      requiresAuth: true
+    });
+  },
+  
+  // Convenience methods for common update operations
+  updateTeamDivision: (teamName: string, divisionId: string): Promise<any> =>
+    request(`/sports/update-by-name/team`, {
+      method: 'POST',
+      body: JSON.stringify({
+        name: teamName,
+        division_conference_id: divisionId
+      }),
       requiresAuth: true
     }),
     
@@ -258,11 +336,15 @@ export const sportsService = {
       requiresAuth: true
     }),
     
-  deleteBroadcastRights: (id: string): Promise<void> =>
-    request(`/sports/broadcast-rights/${id}`, {
+  deleteBroadcastRights: (id: string): Promise<void> => {
+    console.log(`sportsService: Deleting broadcast rights with ID: ${id}`);
+    
+    // Direct deletion since entity type mapping is now fixed
+    return request(`/sports/broadcast-rights/${id}`, {
       method: 'DELETE',
       requiresAuth: true
-    }),
+    });
+  },
     
   // ProductionCompany endpoints
   getProductionCompanies: (): Promise<any[]> =>

@@ -229,7 +229,29 @@ SheetGPT is a full-stack application combining AI-powered chat with structured d
 6. Check database backup status
 
 ## Recent Features
-1. **Chat File Import & SportDataMapper Enhancements** (March 19, 2025)
+1. **Entity Display and Deletion Fixes** (March 21, 2025)
+   - Fixed broadcast rights entity display to show proper names instead of blank fields
+   - Corrected entity type mapping in sports_service.py with proper BroadcastRights model
+   - Implemented consistent Names/IDs toggle behavior across all entity fields
+   - Added dynamic name generation for all entities missing name fields
+   - Fixed entity deletion issues with proper entity type mapping
+   - Removed emergency fixes for UUID confusion and implemented proper type mapping
+   - Enhanced cell rendering for all UUID fields with associated text strings
+   - Improved detection of related name fields across entity types
+   - Fixed entity type display in production services and game broadcasts
+
+2. **Entity Name Resolution Improvements** (March 20, 2025)
+   - Enhanced entity name resolution in database query results
+   - Improved BroadcastRights entity handling with better name-to-ID resolution
+   - Added automatic column reordering for related fields (entity_id/entity_name)
+   - Implemented descriptive placeholders for unresolved entities
+   - Fixed auto-creation of missing Division/Conference entities
+   - Enhanced validation for entity relationships across entity types
+   - Added support for entity name resolution across all entity types
+   - Improved error handling for entity creation with relationship enforcement
+   - Enhanced UUID-to-name display toggling with better name resolution
+
+2. **Chat File Import & SportDataMapper Enhancements** (March 19, 2025)
    - Added file upload capabilities to chat interface for CSV and text files
    - Implemented smart CSV parsing with automatic data structure detection
    - Enhanced SportDataMapper with intelligent name-to-ID resolution

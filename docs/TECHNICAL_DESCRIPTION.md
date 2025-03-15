@@ -71,6 +71,8 @@ frontend/
    - Sorting mechanisms for data organization
    - Contextual action buttons for improved UX
    - UUID display toggle for relationship fields (shows names instead of IDs)
+   - Consistent Names/IDs toggle behavior across all relationship fields
+   - Auto-generated display names for entities without name fields
    - Smart dropdowns for relationship fields with logical organization
    - Default visibility for all columns with toggle controls
    - Domain-specific API clients with targeted functionality
@@ -198,7 +200,13 @@ frontend/
    Statistics Collection → Admin Dashboard Update
    ```
 
-5. **UUID Display System**
+5. **Entity Name Resolution**
+   ```
+   Entity Reference → Type Detection → Database Lookup →
+   Name/ID Resolution → Relationship Validation → UI Display
+   ```
+
+6. **UUID Display System**
    ```
    Data Retrieval → UUID Detection → Related Entity Lookup →
    Display Format Selection (Names/IDs) → Conditional Rendering
@@ -262,6 +270,10 @@ frontend/
   - Query saving and management with localStorage persistence
   - Session-based state persistence when navigating away from the page
   - Results display with sorting, column visibility, and row selection
+  - Entity relationship display with UUID-to-name resolution
+  - Smart entity name resolution for relationship fields
+  - Automatic column reordering for related fields (e.g., entity_id next to entity_name)
+  - Toggle between UUID and human-readable name display
   - Direct client-side CSV export with proper file formatting
   - Google Sheets export with authentication flow
 

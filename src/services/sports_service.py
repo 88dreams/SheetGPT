@@ -18,7 +18,8 @@ from src.models.sports_models import (
     ProductionCompany, ProductionService,
     Brand, BrandRelationship,
     GameBroadcast, LeagueExecutive,
-    TeamRecord, TeamOwnership
+    TeamRecord, TeamOwnership,
+    DivisionConference
 )
 from src.schemas.sports import (
     LeagueCreate, LeagueUpdate,
@@ -57,6 +58,7 @@ class SportsService:
         "brand_relationships": BrandRelationship,
         "game_broadcasts": GameBroadcast,
         "league_executives": LeagueExecutive,
+        "divisions_conferences": DivisionConference,
         # Singular forms (added for frontend compatibility)
         "league": League,
         "team": Team,
@@ -71,9 +73,10 @@ class SportsService:
         "brand_relationship": BrandRelationship,
         "game_broadcast": GameBroadcast,
         "league_executive": LeagueExecutive,
+        "division_conference": DivisionConference,
         # Additional mappings for frontend entity types
-        "broadcast": BroadcastCompany,
-        "production": ProductionCompany
+        "broadcast": BroadcastRights,
+        "production": ProductionService
     }
 
     async def get_entities(self, db: AsyncSession, entity_type: str, page: int = 1, limit: int = 50, sort_by: str = "id", sort_direction: str = "asc") -> Dict[str, Any]:
@@ -87,7 +90,103 @@ class SportsService:
         count_query = select(func.count()).select_from(model_class)
         total_count = await db.scalar(count_query)
         
-        # Get paginated results
+        # Special handling for division_conference entities to include league_name
+        if entity_type == "division_conference":
+            # Join with League to get the league name
+            query = (
+                select(model_class, League.name.label("league_name"))
+                .join(League, model_class.league_id == League.id)
+            )
+            
+            # Add sorting - handle special case for league_name
+            if sort_by == "league_name":
+                # Sort by the league name from the joined League table
+                if sort_direction.lower() == "desc":
+                    query = query.order_by(League.name.desc())
+                else:
+                    query = query.order_by(League.name.asc())
+            elif hasattr(model_class, sort_by):
+                sort_column = getattr(model_class, sort_by)
+                if sort_direction.lower() == "desc":
+                    query = query.order_by(sort_column.desc())
+                else:
+                    query = query.order_by(sort_column.asc())
+            
+            # Add pagination
+            query = query.offset((page - 1) * limit).limit(limit)
+            
+            result = await db.execute(query)
+            rows = result.all()
+            
+            # Process the results to include league_name
+            entities_with_league = []
+            for row in rows:
+                division_conference = row[0]  # The DivisionConference model
+                league_name = row[1]          # The league_name from the query
+                
+                # Convert the model to a dict and add league_name
+                entity_dict = self._model_to_dict(division_conference)
+                entity_dict["league_name"] = league_name
+                
+                entities_with_league.append(entity_dict)
+            
+            return {
+                "items": entities_with_league,
+                "total": total_count,
+                "page": page,
+                "size": limit,
+                "pages": math.ceil(total_count / limit)
+            }
+        else:
+            # Standard handling for other entity types
+            query = select(model_class)
+            
+            # Add sorting
+            if hasattr(model_class, sort_by):
+                sort_column = getattr(model_class, sort_by)
+                if sort_direction.lower() == "desc":
+                    query = query.order_by(sort_column.desc())
+                else:
+                    query = query.order_by(sort_column.asc())
+                    
+            # Add pagination
+            query = query.offset((page - 1) * limit).limit(limit)
+            
+            result = await db.execute(query)
+            entities = result.scalars().all()
+            
+            return {
+                "items": [self._model_to_dict(entity) for entity in entities],
+                "total": total_count,
+                "page": page,
+                "size": limit,
+                "pages": math.ceil(total_count / limit)
+            }
+
+    def _model_to_dict(self, model: Any) -> Dict[str, Any]:
+        """Convert a model instance to a dictionary."""
+        result = {}
+        for column in model.__table__.columns:
+            result[column.name] = getattr(model, column.name)
+        return result
+        
+    async def get_entities_with_related_names(self, db: AsyncSession, entity_type: str, page: int = 1, limit: int = 50, sort_by: str = "id", sort_direction: str = "asc") -> Dict[str, Any]:
+        """Get entities with related entity names for better display in the UI.
+        
+        This method provides a standard approach to fetching entities with their
+        related names for all entity types. It will only add related name fields
+        to the response, without modifying the original fields.
+        """
+        if entity_type not in self.ENTITY_TYPES:
+            raise ValueError(f"Invalid entity type: {entity_type}")
+        
+        model_class = self.ENTITY_TYPES[entity_type]
+        
+        # Get total count for pagination
+        count_query = select(func.count()).select_from(model_class)
+        total_count = await db.scalar(count_query)
+        
+        # Create base query for the entity
         query = select(model_class)
         
         # Add sorting
@@ -101,23 +200,249 @@ class SportsService:
         # Add pagination
         query = query.offset((page - 1) * limit).limit(limit)
         
+        # Execute query
         result = await db.execute(query)
         entities = result.scalars().all()
         
+        # Process results to include related entity names
+        processed_items = []
+        for entity in entities:
+            # Convert entity to dictionary
+            item_dict = self._model_to_dict(entity)
+            
+            # Add related entity names based on entity type
+            try:
+                # Handle teams (has league_id, division_conference_id, stadium_id)
+                if entity_type in ['team', 'teams']:
+                    if hasattr(entity, 'league_id'):
+                        league_result = await db.execute(select(League.name).where(League.id == entity.league_id))
+                        item_dict["league_name"] = league_result.scalar()
+                    
+                    if hasattr(entity, 'division_conference_id'):
+                        div_conf_result = await db.execute(select(DivisionConference.name).where(DivisionConference.id == entity.division_conference_id))
+                        item_dict["division_conference_name"] = div_conf_result.scalar()
+                    
+                    if hasattr(entity, 'stadium_id'):
+                        stadium_result = await db.execute(select(Stadium.name).where(Stadium.id == entity.stadium_id))
+                        item_dict["stadium_name"] = stadium_result.scalar()
+                
+                # Handle players (has team_id)
+                elif entity_type in ['player', 'players']:
+                    if hasattr(entity, 'team_id'):
+                        team_result = await db.execute(select(Team.name).where(Team.id == entity.team_id))
+                        item_dict["team_name"] = team_result.scalar()
+                
+                # Handle games (has league_id, home_team_id, away_team_id, stadium_id)
+                elif entity_type in ['game', 'games']:
+                    if hasattr(entity, 'league_id'):
+                        league_result = await db.execute(select(League.name).where(League.id == entity.league_id))
+                        item_dict["league_name"] = league_result.scalar()
+                    
+                    if hasattr(entity, 'home_team_id'):
+                        home_team_result = await db.execute(select(Team.name).where(Team.id == entity.home_team_id))
+                        item_dict["home_team_name"] = home_team_result.scalar()
+                    
+                    if hasattr(entity, 'away_team_id'):
+                        away_team_result = await db.execute(select(Team.name).where(Team.id == entity.away_team_id))
+                        item_dict["away_team_name"] = away_team_result.scalar()
+                    
+                    if hasattr(entity, 'stadium_id'):
+                        stadium_result = await db.execute(select(Stadium.name).where(Stadium.id == entity.stadium_id))
+                        item_dict["stadium_name"] = stadium_result.scalar()
+                
+                # Handle division/conference (has league_id)
+                elif entity_type in ['division_conference', 'divisions_conferences']:
+                    if hasattr(entity, 'league_id'):
+                        league_result = await db.execute(select(League.name).where(League.id == entity.league_id))
+                        item_dict["league_name"] = league_result.scalar()
+                
+                # Handle broadcast rights (has broadcast_company_id, entity_id, division_conference_id)
+                elif entity_type in ['broadcast', 'broadcast_right', 'broadcast_rights']:
+                    if hasattr(entity, 'broadcast_company_id'):
+                        company_result = await db.execute(select(BroadcastCompany.name).where(BroadcastCompany.id == entity.broadcast_company_id))
+                        item_dict["broadcast_company_name"] = company_result.scalar()
+                    
+                    if hasattr(entity, 'division_conference_id') and entity.division_conference_id:
+                        div_conf_result = await db.execute(select(DivisionConference.name).where(DivisionConference.id == entity.division_conference_id))
+                        item_dict["division_conference_name"] = div_conf_result.scalar()
+                    
+                    # Handle entity_id based on entity_type
+                    if hasattr(entity, 'entity_type') and hasattr(entity, 'entity_id'):
+                        if entity.entity_type == "league":
+                            entity_result = await db.execute(select(League.name).where(League.id == entity.entity_id))
+                            item_dict["entity_name"] = entity_result.scalar()
+                        elif entity.entity_type == "team":
+                            entity_result = await db.execute(select(Team.name).where(Team.id == entity.entity_id))
+                            item_dict["entity_name"] = entity_result.scalar()
+                        elif entity.entity_type == "division_conference":
+                            entity_result = await db.execute(select(DivisionConference.name).where(DivisionConference.id == entity.entity_id))
+                            item_dict["entity_name"] = entity_result.scalar()
+                        elif entity.entity_type == "game":
+                            entity_result = await db.execute(select(Game).where(Game.id == entity.entity_id))
+                            game = entity_result.scalar()
+                            if game:
+                                # For games, we need to get more context
+                                home_team_result = await db.execute(select(Team.name).where(Team.id == game.home_team_id))
+                                home_team_name = home_team_result.scalar()
+                                away_team_result = await db.execute(select(Team.name).where(Team.id == game.away_team_id))
+                                away_team_name = away_team_result.scalar()
+                                item_dict["entity_name"] = f"{home_team_name} vs {away_team_name}"
+                        
+                    # Generate a name for broadcast rights since it doesn't have a name field in the database
+                    # First try to get entity_name (which we just set above)
+                    entity_name = item_dict.get("entity_name")
+                    company_name = item_dict.get("broadcast_company_name")
+                    
+                    if entity_name and company_name:
+                        item_dict["name"] = f"{company_name} - {entity_name}"
+                    elif company_name:
+                        # If we don't have entity_name but have company name
+                        territory = getattr(entity, 'territory', 'Unknown Territory')
+                        item_dict["name"] = f"{company_name} - {territory}"
+                    else:
+                        # Fallback
+                        item_dict["name"] = f"Broadcast Rights {entity.id}"
+                
+                # Handle production services (has production_company_id, entity_id)
+                elif entity_type in ['production', 'production_service', 'production_services']:
+                    if hasattr(entity, 'production_company_id'):
+                        company_result = await db.execute(select(ProductionCompany.name).where(ProductionCompany.id == entity.production_company_id))
+                        item_dict["production_company_name"] = company_result.scalar()
+                    
+                    # Handle entity_id based on entity_type - similar to broadcast rights
+                    if hasattr(entity, 'entity_type') and hasattr(entity, 'entity_id'):
+                        # Similar entity lookup as broadcast rights
+                        if entity.entity_type == "league":
+                            entity_result = await db.execute(select(League.name).where(League.id == entity.entity_id))
+                            item_dict["entity_name"] = entity_result.scalar()
+                        elif entity.entity_type == "team":
+                            entity_result = await db.execute(select(Team.name).where(Team.id == entity.entity_id))
+                            item_dict["entity_name"] = entity_result.scalar()
+                        elif entity.entity_type == "division_conference":
+                            entity_result = await db.execute(select(DivisionConference.name).where(DivisionConference.id == entity.entity_id))
+                            item_dict["entity_name"] = entity_result.scalar()
+                        elif entity.entity_type == "game":
+                            entity_result = await db.execute(select(Game).where(Game.id == entity.entity_id))
+                            game = entity_result.scalar()
+                            if game:
+                                home_team_result = await db.execute(select(Team.name).where(Team.id == game.home_team_id))
+                                home_team_name = home_team_result.scalar()
+                                away_team_result = await db.execute(select(Team.name).where(Team.id == game.away_team_id))
+                                away_team_name = away_team_result.scalar()
+                                item_dict["entity_name"] = f"{home_team_name} vs {away_team_name}"
+                                
+                    # Generate a name for production services since it doesn't have a name field in the database
+                    entity_name = item_dict.get("entity_name")
+                    company_name = item_dict.get("production_company_name")
+                    
+                    if entity_name and company_name:
+                        item_dict["name"] = f"{company_name} - {entity_name}"
+                    elif company_name:
+                        service_type = getattr(entity, 'service_type', 'Service')
+                        item_dict["name"] = f"{company_name} - {service_type}"
+                    else:
+                        # Fallback
+                        item_dict["name"] = f"Production Service {entity.id}"
+                
+                # Handle game broadcasts (has game_id, broadcast_company_id, production_company_id)
+                elif entity_type in ['game_broadcast', 'game_broadcasts']:
+                    if hasattr(entity, 'game_id'):
+                        # For games, we need to get more context
+                        game_result = await db.execute(
+                            select(Game, Team.name.label("home_team_name"))
+                            .join(Team, Game.home_team_id == Team.id)
+                            .where(Game.id == entity.game_id)
+                        )
+                        game_record = game_result.first()
+                        if game_record:
+                            game = game_record[0]
+                            home_team_name = game_record[1]
+                            away_team_result = await db.execute(select(Team.name).where(Team.id == game.away_team_id))
+                            away_team_name = away_team_result.scalar()
+                            item_dict["game_name"] = f"{home_team_name} vs {away_team_name}"
+                    
+                    if hasattr(entity, 'broadcast_company_id'):
+                        company_result = await db.execute(select(BroadcastCompany.name).where(BroadcastCompany.id == entity.broadcast_company_id))
+                        item_dict["broadcast_company_name"] = company_result.scalar()
+                    
+                    if hasattr(entity, 'production_company_id') and entity.production_company_id:
+                        company_result = await db.execute(select(ProductionCompany.name).where(ProductionCompany.id == entity.production_company_id))
+                        item_dict["production_company_name"] = company_result.scalar()
+                        
+                    # Generate a name for game broadcasts since they don't have a name field in the database
+                    game_name = item_dict.get("game_name")
+                    broadcast_company = item_dict.get("broadcast_company_name")
+                    
+                    if game_name and broadcast_company:
+                        item_dict["name"] = f"{broadcast_company} - {game_name}"
+                    elif broadcast_company:
+                        broadcast_type = getattr(entity, 'broadcast_type', 'Broadcast')
+                        item_dict["name"] = f"{broadcast_company} - {broadcast_type}"
+                    else:
+                        # Fallback
+                        item_dict["name"] = f"Game Broadcast {entity.id}"
+                
+                # Handle league executives (has league_id)
+                elif entity_type in ['league_executive', 'league_executives']:
+                    if hasattr(entity, 'league_id'):
+                        league_result = await db.execute(select(League.name).where(League.id == entity.league_id))
+                        item_dict["league_name"] = league_result.scalar()
+                        
+                    # Since league executives have a name field already, make sure it's used
+                    # But we can still enhance it by adding league information
+                    if hasattr(entity, 'name') and item_dict.get("league_name"):
+                        league_name = item_dict.get("league_name")
+                        position = getattr(entity, 'position', 'Executive')
+                        item_dict["name"] = f"{entity.name} - {position} ({league_name})"
+                
+                # Handle brand relationships (has brand_id, entity_id)
+                elif entity_type in ['brand_relationship', 'brand_relationships']:
+                    if hasattr(entity, 'brand_id'):
+                        brand_result = await db.execute(select(Brand.name).where(Brand.id == entity.brand_id))
+                        item_dict["brand_name"] = brand_result.scalar()
+                    
+                    # Handle entity_id based on entity_type - similar to broadcast rights
+                    if hasattr(entity, 'entity_type') and hasattr(entity, 'entity_id'):
+                        # Similar entity lookup as broadcast rights
+                        if entity.entity_type == "league":
+                            entity_result = await db.execute(select(League.name).where(League.id == entity.entity_id))
+                            item_dict["entity_name"] = entity_result.scalar()
+                        elif entity.entity_type == "team":
+                            entity_result = await db.execute(select(Team.name).where(Team.id == entity.entity_id))
+                            item_dict["entity_name"] = entity_result.scalar()
+                        elif entity.entity_type == "player":
+                            entity_result = await db.execute(select(Player.name).where(Player.id == entity.entity_id))
+                            item_dict["entity_name"] = entity_result.scalar()
+                        elif entity.entity_type == "stadium":
+                            entity_result = await db.execute(select(Stadium.name).where(Stadium.id == entity.entity_id))
+                            item_dict["entity_name"] = entity_result.scalar()
+                    
+                    # Generate a name for brand relationships
+                    brand_name = item_dict.get("brand_name")
+                    entity_name = item_dict.get("entity_name")
+                    
+                    if brand_name and entity_name:
+                        relationship_type = getattr(entity, 'relationship_type', 'Relationship')
+                        item_dict["name"] = f"{brand_name} - {entity_name} {relationship_type}"
+                    elif brand_name:
+                        item_dict["name"] = f"{brand_name} Brand Relationship"
+                    else:
+                        # Fallback
+                        item_dict["name"] = f"Brand Relationship {entity.id}"
+            except Exception as e:
+                # If we fail to get related names, log error and continue
+                # This ensures the API will still return results even if related data lookup fails
+                logger.error(f"Error fetching related names for {entity_type} with ID {entity.id}: {str(e)}")
+            
+            processed_items.append(item_dict)
+        
         return {
-            "items": [self._model_to_dict(entity) for entity in entities],
+            "items": processed_items,
             "total": total_count,
             "page": page,
             "size": limit,
             "pages": math.ceil(total_count / limit)
         }
-
-    def _model_to_dict(self, model: Any) -> Dict[str, Any]:
-        """Convert a model instance to a dictionary."""
-        result = {}
-        for column in model.__table__.columns:
-            result[column.name] = getattr(model, column.name)
-        return result
 
     # League methods
     async def get_leagues(self, db: AsyncSession) -> List[League]:
@@ -210,6 +535,17 @@ class SportsService:
         if not league:
             raise ValueError(f"League with ID {team.league_id} not found")
         
+        # Validate that division_conference exists and belongs to the specified league
+        result = await db.execute(select(DivisionConference).where(
+            DivisionConference.id == team.division_conference_id
+        ))
+        division_conference = result.scalars().first()
+        if not division_conference:
+            raise ValueError(f"Division/Conference with ID {team.division_conference_id} not found")
+        
+        if division_conference.league_id != team.league_id:
+            raise ValueError(f"Division/Conference with ID {team.division_conference_id} does not belong to League with ID {team.league_id}")
+            
         # Check if a team with the same name already exists
         existing_team = await db.execute(
             select(Team).where(Team.name == team.name)
@@ -258,6 +594,18 @@ class SportsService:
             league = league_result.scalars().first()
             if not league:
                 raise ValueError(f"League with ID {update_data['league_id']} not found")
+        
+        # Validate division_conference_id if it's being updated
+        if 'division_conference_id' in update_data:
+            div_conf_result = await db.execute(select(DivisionConference).where(DivisionConference.id == update_data['division_conference_id']))
+            div_conf = div_conf_result.scalars().first()
+            if not div_conf:
+                raise ValueError(f"Division/Conference with ID {update_data['division_conference_id']} not found")
+            
+            # Make sure the division/conference belongs to the team's league
+            team_league_id = update_data.get('league_id', db_team.league_id)
+            if div_conf.league_id != team_league_id:
+                raise ValueError(f"Division/Conference with ID {update_data['division_conference_id']} does not belong to League with ID {team_league_id}")
         
         # Validate stadium_id if it's being updated
         if 'stadium_id' in update_data:
@@ -645,16 +993,42 @@ class SportsService:
         return True
 
     # BroadcastRights methods
-    async def get_broadcast_rights(self, db: AsyncSession, entity_id: Optional[UUID] = None, 
-                                broadcast_company_id: Optional[UUID] = None) -> List[BroadcastRights]:
-        """Get all broadcast rights, optionally filtered by entity or broadcast company."""
-        query = select(BroadcastRights)
+    async def get_broadcast_rights(self, db: AsyncSession, entity_type: Optional[str] = None,
+                                entity_id: Optional[UUID] = None, 
+                                company_id: Optional[UUID] = None) -> List[BroadcastRights]:
+        """Get all broadcast rights, optionally filtered by entity type, entity ID, or broadcast company."""
+        query = (
+            select(BroadcastRights)
+            .outerjoin(DivisionConference, BroadcastRights.division_conference_id == DivisionConference.id)
+        )
+        
+        # Apply filters
+        if entity_type:
+            query = query.where(BroadcastRights.entity_type == entity_type)
         if entity_id:
             query = query.where(BroadcastRights.entity_id == entity_id)
-        if broadcast_company_id:
-            query = query.where(BroadcastRights.broadcast_company_id == broadcast_company_id)
+        if company_id:
+            query = query.where(BroadcastRights.broadcast_company_id == company_id)
+            
         result = await db.execute(query)
-        return result.scalars().all()
+        broadcast_rights = result.scalars().all()
+        
+        # Process division_conference relationships
+        for br in broadcast_rights:
+            if br.division_conference_id and br.entity_type == 'division_conference':
+                # Fetch the division_conference to ensure the relationship is loaded
+                division_conf_query = select(DivisionConference).where(
+                    DivisionConference.id == br.division_conference_id
+                )
+                division_conf_result = await db.execute(division_conf_query)
+                division_conf = division_conf_result.scalars().first()
+                
+                # Set the entity_id to match the league_id for consistency
+                if division_conf and division_conf.league_id:
+                    if br.entity_id != division_conf.league_id:
+                        br.entity_id = division_conf.league_id
+        
+        return broadcast_rights
 
     async def create_broadcast_rights(self, db: AsyncSession, broadcast_rights: BroadcastRightsCreate) -> BroadcastRights:
         """Create new broadcast rights."""
@@ -665,6 +1039,15 @@ class SportsService:
         broadcast_company = broadcast_company_result.scalars().first()
         if not broadcast_company:
             raise ValueError(f"Broadcast company with ID {broadcast_rights.broadcast_company_id} not found")
+        
+        # Validate division_conference_id if provided
+        if broadcast_rights.division_conference_id:
+            division_conference_result = await db.execute(select(DivisionConference).where(
+                DivisionConference.id == broadcast_rights.division_conference_id
+            ))
+            division_conference = division_conference_result.scalars().first()
+            if not division_conference:
+                raise ValueError(f"Division/Conference with ID {broadcast_rights.division_conference_id} not found")
         
         # Validate entity exists (could be a league, team, or game)
         # This would require more complex validation based on entity_type
@@ -682,8 +1065,31 @@ class SportsService:
 
     async def get_broadcast_right(self, db: AsyncSession, broadcast_rights_id: UUID) -> Optional[BroadcastRights]:
         """Get specific broadcast rights by ID."""
-        result = await db.execute(select(BroadcastRights).where(BroadcastRights.id == broadcast_rights_id))
-        return result.scalars().first()
+        # Use a join to also get division_conference information if present
+        query = (
+            select(BroadcastRights)
+            .outerjoin(DivisionConference, BroadcastRights.division_conference_id == DivisionConference.id)
+            .where(BroadcastRights.id == broadcast_rights_id)
+        )
+        result = await db.execute(query)
+        broadcast_right = result.scalars().first()
+        
+        # If there's a division_conference relationship, also fetch its details
+        if broadcast_right and broadcast_right.division_conference_id:
+            # Fetch the division_conference to ensure the relationship is loaded
+            division_conf_query = select(DivisionConference).where(
+                DivisionConference.id == broadcast_right.division_conference_id
+            )
+            division_conf_result = await db.execute(division_conf_query)
+            division_conf = division_conf_result.scalars().first()
+            
+            # Find the corresponding league
+            if division_conf and division_conf.league_id and broadcast_right.entity_type == 'division_conference':
+                # If entity_id doesn't match league_id, update it
+                if broadcast_right.entity_id != division_conf.league_id:
+                    broadcast_right.entity_id = division_conf.league_id
+        
+        return broadcast_right
 
     async def update_broadcast_rights(self, db: AsyncSession, broadcast_rights_id: UUID, 
                                     broadcast_rights_update: BroadcastRightsUpdate) -> Optional[BroadcastRights]:
@@ -702,6 +1108,15 @@ class SportsService:
             broadcast_company = broadcast_company_result.scalars().first()
             if not broadcast_company:
                 raise ValueError(f"Broadcast company with ID {update_data['broadcast_company_id']} not found")
+        
+        # Validate division_conference_id if it's being updated
+        if 'division_conference_id' in update_data and update_data['division_conference_id'] is not None:
+            division_conference_result = await db.execute(select(DivisionConference).where(
+                DivisionConference.id == update_data['division_conference_id']
+            ))
+            division_conference = division_conference_result.scalars().first()
+            if not division_conference:
+                raise ValueError(f"Division/Conference with ID {update_data['division_conference_id']} not found")
         
         for key, value in update_data.items():
             setattr(db_broadcast_rights, key, value)
@@ -1225,6 +1640,34 @@ class SportsService:
         await db.commit()
         return True
 
+    async def get_entity_by_name(self, db: AsyncSession, entity_type: str, name: str) -> Optional[dict]:
+        """Get an entity by name."""
+        if entity_type not in self.ENTITY_TYPES:
+            raise ValueError(f"Invalid entity type: {entity_type}")
+        
+        model_class = self.ENTITY_TYPES[entity_type]
+        
+        # Use case-insensitive search
+        query = select(model_class).where(func.lower(model_class.name) == func.lower(name))
+        result = await db.execute(query)
+        entity = result.scalars().first()
+        
+        if entity:
+            # Convert to dict
+            entity_dict = self._model_to_dict(entity)
+            
+            # For division_conference, also include the league name
+            if entity_type == 'division_conference' and hasattr(entity, 'league_id'):
+                league_query = select(League).where(League.id == entity.league_id)
+                league_result = await db.execute(league_query)
+                league = league_result.scalars().first()
+                if league:
+                    entity_dict['league_name'] = league.name
+            
+            return entity_dict
+        
+        return None
+    
     async def create_entity(self, entity_type: str, data: dict) -> Optional[UUID]:
         """Create a new entity in the database."""
         try:

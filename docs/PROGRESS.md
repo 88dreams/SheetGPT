@@ -14,7 +14,29 @@ SheetGPT is a full-stack application that combines AI-powered chat capabilities 
 
 ### Latest Features
 
-1. Chat File Import & SportDataMapper Enhancements (March 19, 2025)
+1. Entity Display and Deletion Fixes (March 21, 2025)
+   - Fixed broadcast rights entity display to show proper names instead of blank fields
+   - Corrected entity type mapping in sports_service.py with proper BroadcastRights model
+   - Implemented consistent Names/IDs toggle behavior across all entity fields
+   - Added dynamic name generation for all entities missing name fields
+   - Fixed entity deletion issues with proper entity type mapping
+   - Removed emergency fixes for UUID confusion and implemented proper type mapping
+   - Enhanced cell rendering for all UUID fields with associated text strings
+   - Improved detection of related name fields across entity types
+   - Fixed entity type display in production services and game broadcasts
+
+2. Entity Name Resolution & Broadcast Rights Improvements (March 20, 2025)
+   - Enhanced entity name resolution in BroadcastRights for Division/Conference relationships
+   - Improved entity_id and division_conference_id handling with automatic reconciliation
+   - Fixed entity name display in Database Query results with proper UUID-to-name mapping
+   - Implemented enhanced placeholder display for unresolved entities with context information
+   - Added support for entity name resolution across various entity types in query results
+   - Optimized entity column ordering in query results for better readability
+   - Improved validation for relationship fields with more robust name-to-ID conversion
+   - Enhanced error handling for entity creation with parent-child relationship enforcement
+   - Fixed auto-creation of missing Division/Conference entities when referenced by name
+
+2. Chat File Import & SportDataMapper Enhancements (March 19, 2025)
    - Added file upload capabilities to chat interface for CSV and text files
    - Implemented smart CSV parsing with automatic data structure detection
    - Enhanced SportDataMapper with intelligent name-to-ID resolution

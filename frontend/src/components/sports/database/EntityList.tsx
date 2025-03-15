@@ -232,15 +232,13 @@ const EntityList: React.FC<EntityListProps> = ({ className = '' }) => {
     if (typeof value === 'string' && 
         /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value)) {
       
-      // For the main ID field, always show UUID unless toggle is off
-      if (field === 'id') {
-        return showFullUuids ? value : `${value.substring(0, 8)}...`;
+      // Always show full UUID if toggle is on
+      if (showFullUuids) {
+        return value;
       }
       
-      // For any other UUID field (likely ends with _id)
-      if (field.endsWith('_id')) {
-        return showFullUuids ? value : `${value.substring(0, 8)}...`;
-      }
+      // Otherwise truncate
+      return `${value.substring(0, 8)}...`;
     }
     
     // For any other field type
@@ -654,7 +652,7 @@ const EntityList: React.FC<EntityListProps> = ({ className = '' }) => {
                   {Object.entries(visibleColumns)
                     .filter(([field, isVisible]) => isVisible !== false && field !== 'actions')
                     .map(([field]) => {
-                      // Special case for name field with editing capability
+                      // Standard name field with editing for all entity types
                       if (field === 'name') {
                         return (
                           <td 
@@ -792,6 +790,80 @@ const EntityList: React.FC<EntityListProps> = ({ className = '' }) => {
                         );
                       }
                       
+                      // Standard handling for ID/relationship fields
+                      if (field.endsWith('_id') && completeEntity && field + '_name' in completeEntity) {
+                        // This is a field with a related name available (standard pattern fieldname_id -> fieldname_name)
+                        return (
+                          <td 
+                            key={field}
+                            className="px-3 py-2 whitespace-nowrap overflow-hidden text-ellipsis border-r border-gray-200"
+                            style={{ width: `${columnWidths[field] || 120}px`, minWidth: '120px' }}
+                          >
+                            <div className="text-sm text-gray-700 overflow-hidden text-ellipsis">
+                              {showFullUuids 
+                                ? completeEntity[field] // Show the full ID if IDs toggle is on
+                                : completeEntity[field + '_name'] || 'N/A'} 
+                            </div>
+                          </td>
+                        );
+                      }
+                      
+                      // Standard entity_type field
+                      if (field === 'entity_type') {
+                        return (
+                          <td 
+                            key={field}
+                            className="px-3 py-2 whitespace-nowrap overflow-hidden text-ellipsis border-r border-gray-200"
+                            style={{ width: `${columnWidths[field] || 120}px`, minWidth: '120px' }}
+                          >
+                            <div className="text-sm text-gray-700 overflow-hidden text-ellipsis">
+                              {completeEntity?.entity_type ? completeEntity.entity_type : 'N/A'}
+                            </div>
+                          </td>
+                        );
+                      }
+                      
+                      // Special handling for entity_id field - this pattern is used in multiple entity types
+                      if (field === 'entity_id' && completeEntity && 'entity_name' in completeEntity) {
+                        return (
+                          <td 
+                            key={field}
+                            className="px-3 py-2 whitespace-nowrap overflow-hidden text-ellipsis border-r border-gray-200"
+                            style={{ width: `${columnWidths[field] || 120}px`, minWidth: '120px' }}
+                          >
+                            <div className="text-sm text-gray-700 overflow-hidden text-ellipsis">
+                              {showFullUuids 
+                                ? formatCellValue(completeEntity.entity_id, field)
+                                : completeEntity.entity_name || 'N/A'}
+                            </div>
+                          </td>
+                        );
+                      }
+                      
+                      // Check if it's a UUID field that doesn't have a direct name field but might have related data
+                      if (field.endsWith('_id') && completeEntity && typeof completeEntity[field] === 'string') {
+                        // Find a potential related name field
+                        // For example: 'broadcast_company_id' might have 'broadcast_company_name'
+                        const baseName = field.replace('_id', '');
+                        const possibleNameField = `${baseName}_name`;
+                        
+                        if (possibleNameField in completeEntity) {
+                          return (
+                            <td 
+                              key={field}
+                              className="px-3 py-2 whitespace-nowrap overflow-hidden text-ellipsis border-r border-gray-200"
+                              style={{ width: `${columnWidths[field] || 120}px`, minWidth: '100px' }}
+                            >
+                              <div className="text-sm text-gray-700 overflow-hidden text-ellipsis">
+                                {showFullUuids 
+                                  ? completeEntity[field]
+                                  : completeEntity[possibleNameField] || 'N/A'}
+                              </div>
+                            </td>
+                          );
+                        }
+                      }
+                      
                       // Regular field
                       return (
                         <td 
@@ -823,7 +895,10 @@ const EntityList: React.FC<EntityListProps> = ({ className = '' }) => {
                         <FaEdit />
                       </button>
                       <button
-                        onClick={() => setShowDeleteConfirm(entity.id)}
+                        onClick={() => {
+                          // Show confirmation dialog for all entity types
+                          setShowDeleteConfirm(entity.id);
+                        }}
                         className="text-red-500 hover:text-red-700"
                         title="Delete"
                       >

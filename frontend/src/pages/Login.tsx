@@ -42,6 +42,21 @@ export default function Login() {
         console.log('Navigating to chat page...');
         navigate('/chat');
       } else {
+        if (import.meta.env.DEV) {
+          // In development, provide a fallback option
+          const useDevMode = window.confirm(
+            'Login failed. Do you want to use development mode to bypass authentication?'
+          );
+          
+          if (useDevMode) {
+            console.warn('DEVELOPMENT MODE: Using fallback authentication');
+            localStorage.setItem('auth_token', 'dev_mock_token_' + Date.now());
+            showNotification('success', 'Using development mode authentication');
+            window.location.href = '/chat';
+            return;
+          }
+        }
+        
         showNotification('error', 'Invalid email or password');
       }
     } catch (error) {
@@ -49,6 +64,22 @@ export default function Login() {
         error,
         timestamp: new Date().toISOString()
       });
+      
+      if (import.meta.env.DEV) {
+        // In development, provide a fallback option for errors
+        const useDevMode = window.confirm(
+          'Login error. Do you want to use development mode to bypass authentication?'
+        );
+        
+        if (useDevMode) {
+          console.warn('DEVELOPMENT MODE: Using fallback authentication after error');
+          localStorage.setItem('auth_token', 'dev_mock_token_' + Date.now());
+          showNotification('success', 'Using development mode authentication');
+          window.location.href = '/chat';
+          return;
+        }
+      }
+      
       showNotification('error', 'An error occurred during login');
     } finally {
       setIsLoading(false);
@@ -58,8 +89,21 @@ export default function Login() {
   // Show loading screen if authentication is being checked
   if (authLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+      <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50">
         <LoadingSpinner size="large" />
+        <p className="mt-4 text-gray-600">Checking authentication status...</p>
+        {import.meta.env.DEV && (
+          <button
+            className="mt-4 text-sm text-indigo-600 hover:text-indigo-500 underline"
+            onClick={() => {
+              // Force bypass in development mode
+              localStorage.setItem('auth_token', 'dev_mock_token_' + Date.now());
+              window.location.href = '/chat';
+            }}
+          >
+            Skip login (development mode)
+          </button>
+        )}
       </div>
     );
   }

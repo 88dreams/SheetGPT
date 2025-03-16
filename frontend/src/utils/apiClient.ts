@@ -1,6 +1,7 @@
 /// <reference types="vite/client" />
 
 import axios, { AxiosError, AxiosRequestConfig, AxiosResponse } from 'axios';
+import { isTokenExpiredOrExpiringSoon, refreshAuthToken } from './tokenRefresh';
 
 // Determine if we're running in Docker by checking the hostname
 const isDocker = window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1';
@@ -56,13 +57,72 @@ export function removeToken() {
   localStorage.removeItem(TOKEN_KEY)
 }
 
-// Add request interceptor for logging
+// Flag to prevent multiple simultaneous token refresh attempts
+let isRefreshing = false;
+// Store pending requests that are waiting for token refresh
+let pendingRequests: Array<{
+  resolve: (value?: any) => void;
+  reject: (reason?: any) => void;
+}> = [];
+
+// Process pending requests after token refresh
+const processPendingRequests = (error: any = null) => {
+  if (error) {
+    // If refresh failed, reject all pending requests
+    pendingRequests.forEach(request => {
+      request.reject(error);
+    });
+  } else {
+    // If refresh succeeded, retry all pending requests
+    pendingRequests.forEach(request => {
+      request.resolve();
+    });
+  }
+  pendingRequests = [];
+};
+
+// Add request interceptor to handle token refresh
 apiClient.interceptors.request.use(
-    (config) => {
-        // Add auth token if available
+    async (config) => {
+        // Check if token is expired or expiring soon and refresh if needed
         const token = getToken();
-        if (token) {
-            config.headers.Authorization = `Bearer ${token}`;
+        if (token && config.url !== '/auth/refresh' && config.url !== '/auth/login') {
+            if (isTokenExpiredOrExpiringSoon()) {
+                console.log('Token expired or expiring soon, refreshing...');
+                
+                // Only refresh token once at a time
+                if (!isRefreshing) {
+                    isRefreshing = true;
+                    
+                    try {
+                        const refreshed = await refreshAuthToken();
+                        console.log('Token refresh result:', refreshed ? 'success' : 'failed');
+                        isRefreshing = false;
+                        
+                        // Process pending requests
+                        processPendingRequests();
+                    } catch (error) {
+                        console.error('Token refresh failed:', error);
+                        isRefreshing = false;
+                        
+                        // Reject pending requests
+                        processPendingRequests(error);
+                        
+                        // If refresh failed and this is not a public route, redirect to login
+                        if (config.url !== '/auth/me') {
+                            removeToken();
+                            window.location.href = '/login';
+                            return Promise.reject(error);
+                        }
+                    }
+                }
+            }
+            
+            // Get the latest token (might have been refreshed)
+            const currentToken = getToken();
+            if (currentToken) {
+                config.headers.Authorization = `Bearer ${currentToken}`;
+            }
         }
         
         // Log request details
@@ -89,7 +149,68 @@ apiClient.interceptors.response.use(
         });
         return response;
     },
-    (error) => {
+    async (error) => {
+        // Handle 401 errors (except for auth endpoints)
+        if (error.response && 
+            error.response.status === 401 && 
+            error.config && 
+            !error.config.url.includes('/auth/refresh') && 
+            !error.config.url.includes('/auth/login')) {
+            
+            console.log('Received 401 error, attempting to refresh token');
+            
+            // Try to refresh the token
+            try {
+                if (!isRefreshing) {
+                    isRefreshing = true;
+                    const refreshed = await refreshAuthToken();
+                    isRefreshing = false;
+                    
+                    if (refreshed) {
+                        console.log('Token refreshed successfully, retrying request');
+                        
+                        // Retry the original request with new token
+                        const token = getToken();
+                        if (token) {
+                            error.config.headers.Authorization = `Bearer ${token}`;
+                        }
+                        
+                        // Process any pending requests
+                        processPendingRequests();
+                        
+                        // Retry the original request
+                        return axios(error.config);
+                    } else {
+                        console.log('Token refresh failed, redirecting to login');
+                        removeToken();
+                        window.location.href = '/login';
+                        return Promise.reject(error);
+                    }
+                } else {
+                    // Token refresh already in progress, add to pending queue
+                    return new Promise((resolve, reject) => {
+                        pendingRequests.push({ resolve, reject });
+                    }).then(() => {
+                        // After token refresh completes successfully, retry request
+                        const token = getToken();
+                        if (token) {
+                            error.config.headers.Authorization = `Bearer ${token}`;
+                        }
+                        return axios(error.config);
+                    }).catch(() => {
+                        // If token refresh failed
+                        return Promise.reject(error);
+                    });
+                }
+            } catch (refreshError) {
+                console.error('Error refreshing token:', refreshError);
+                isRefreshing = false;
+                removeToken();
+                window.location.href = '/login';
+                return Promise.reject(error);
+            }
+        }
+        
         console.error('Response error:', error.response || error);
         return Promise.reject(error);
     }

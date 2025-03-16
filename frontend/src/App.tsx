@@ -12,12 +12,13 @@ import Chat from './pages/Chat'
 import DataManagement from './pages/DataManagement'
 import SportsDatabase from './pages/SportsDatabase'
 import EntityDetail from './pages/EntityDetail'
-import Export from './pages/Export'
+import DatabaseQuery from './pages/DatabaseQuery'
 import Settings from './pages/Settings'
 import LoadingSpinner from './components/common/LoadingSpinner'
 import { FaFlask } from 'react-icons/fa'
 import SportDataMapper from './components/data/SportDataMapper'
 import { DataExtractionService } from './services/DataExtractionService'
+import { isTokenExpiredOrExpiringSoon, refreshAuthToken } from './utils/tokenRefresh'
 
 // Protected route wrapper component
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -55,6 +56,31 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
 }
 
 const App: React.FC = () => {
+  // Check token status and refresh if needed when the app loads
+  useEffect(() => {
+    const checkAndRefreshToken = async () => {
+      if (isTokenExpiredOrExpiringSoon()) {
+        console.log('Token expired or expiring soon on app load, refreshing...');
+        try {
+          await refreshAuthToken();
+        } catch (error) {
+          console.error('Failed to refresh token on app load:', error);
+        }
+      }
+    };
+    
+    checkAndRefreshToken();
+    
+    // Set up a timer to periodically check token status
+    const tokenCheckInterval = setInterval(() => {
+      checkAndRefreshToken();
+    }, 5 * 60 * 1000); // Check every 5 minutes
+    
+    return () => {
+      clearInterval(tokenCheckInterval);
+    };
+  }, []);
+
   return (
     <NotificationProvider>
       <DataFlowProvider>
@@ -90,7 +116,7 @@ const App: React.FC = () => {
               <Route path="data/:id" element={<Navigate to="/data" replace />} />
               <Route path="sports" element={<SportsDatabase />} />
               <Route path="sports/:entityType/:id" element={<EntityDetail />} />
-              <Route path="export" element={<Export />} />
+              <Route path="database" element={<DatabaseQuery />} />
               <Route path="settings" element={<Settings />} />
             </Route>
           </Routes>

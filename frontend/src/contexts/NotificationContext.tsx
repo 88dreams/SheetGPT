@@ -1,44 +1,111 @@
-import React, { createContext, useContext, useState, useCallback } from 'react'
-import Notification from '../components/common/Notification'
+import React, { createContext, useContext, useState, useCallback, ReactNode } from 'react'
+import Notification, { NotificationType } from '../components/common/Notification'
+
+interface NotificationOptions {
+  title?: string;
+  duration?: number;
+  position?: 'top-right' | 'top-left' | 'bottom-right' | 'bottom-left' | 'top-center';
+  showIcon?: boolean;
+}
+
+interface NotificationItem {
+  id: string;
+  type: NotificationType;
+  message: string;
+  title?: string;
+  duration?: number;
+  position?: 'top-right' | 'top-left' | 'bottom-right' | 'bottom-left' | 'top-center';
+  showIcon?: boolean;
+}
 
 interface NotificationContextType {
-  showNotification: (type: 'success' | 'error' | 'info', message: string) => void
+  showNotification: (type: NotificationType, message: string, options?: NotificationOptions) => string;
+  hideNotification: (id: string) => void;
+  clearAllNotifications: () => void;
 }
 
 const NotificationContext = createContext<NotificationContextType | undefined>(undefined)
 
 interface NotificationProviderProps {
-  children: React.ReactNode
+  children: ReactNode;
+  maxNotifications?: number;
 }
 
-export const NotificationProvider: React.FC<NotificationProviderProps> = ({ children }) => {
-  const [notification, setNotification] = useState<{
-    type: 'success' | 'error' | 'info'
-    message: string
-  } | null>(null)
+/**
+ * NotificationProvider - Context provider for managing application notifications
+ * 
+ * @param children - React children
+ * @param maxNotifications - Maximum number of notifications to show at once (defaults to 3)
+ */
+export const NotificationProvider: React.FC<NotificationProviderProps> = ({ 
+  children,
+  maxNotifications = 3
+}) => {
+  const [notifications, setNotifications] = useState<NotificationItem[]>([])
 
-  const showNotification = useCallback((type: 'success' | 'error' | 'info', message: string) => {
-    setNotification({ type, message })
-  }, [])
+  // Generate unique ID for notifications
+  const generateId = useCallback(() => {
+    return `notification-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+  }, []);
 
-  const hideNotification = useCallback(() => {
-    setNotification(null)
-  }, [])
+  // Show a new notification
+  const showNotification = useCallback((
+    type: NotificationType, 
+    message: string, 
+    options?: NotificationOptions
+  ): string => {
+    const id = generateId();
+    
+    setNotifications(current => {
+      // Limit the number of notifications
+      const limitedNotifications = current.length >= maxNotifications 
+        ? current.slice(0, maxNotifications - 1) 
+        : current;
+        
+      return [
+        { id, type, message, ...options }, 
+        ...limitedNotifications
+      ];
+    });
+    
+    return id;
+  }, [generateId, maxNotifications]);
+
+  // Hide a specific notification by ID
+  const hideNotification = useCallback((id: string) => {
+    setNotifications(current => current.filter(notification => notification.id !== id));
+  }, []);
+
+  // Clear all notifications
+  const clearAllNotifications = useCallback(() => {
+    setNotifications([]);
+  }, []);
 
   return (
-    <NotificationContext.Provider value={{ showNotification }}>
+    <NotificationContext.Provider value={{ showNotification, hideNotification, clearAllNotifications }}>
       {children}
-      {notification && (
+      {notifications.map(notification => (
         <Notification
+          key={notification.id}
           type={notification.type}
           message={notification.message}
-          onClose={hideNotification}
+          title={notification.title}
+          duration={notification.duration}
+          position={notification.position}
+          showIcon={notification.showIcon}
+          onClose={() => hideNotification(notification.id)}
         />
-      )}
+      ))}
     </NotificationContext.Provider>
   )
 }
 
+/**
+ * useNotification - Hook for accessing notification functionality
+ * 
+ * @returns Methods for showing and hiding notifications
+ * @throws Error if used outside NotificationProvider
+ */
 export const useNotification = () => {
   const context = useContext(NotificationContext)
   if (context === undefined) {

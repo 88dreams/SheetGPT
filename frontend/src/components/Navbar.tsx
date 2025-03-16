@@ -2,30 +2,48 @@ import React from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
 
+interface NavLinkProps {
+  to: string
+  label: string
+  isActive: boolean
+  className?: string
+}
+
+const NavLink: React.FC<NavLinkProps> = ({ to, label, isActive, className = '' }) => (
+  <Link
+    to={to}
+    className={`px-3 py-2 rounded-md text-sm font-medium ${
+      isActive ? 'text-blue-600' : 'text-gray-700'
+    } hover:text-gray-900 ${className}`}
+  >
+    {label}
+  </Link>
+)
+
+interface NavItem {
+  path: string
+  label: string
+  title: string
+  requiresAuth: boolean
+}
+
 export default function Navbar() {
   const { isAuthenticated, logout } = useAuth()
   const location = useLocation()
 
-  const isActive = (path: string) => {
-    return location.pathname === path ? 'text-blue-600' : 'text-gray-700'
-  }
+  const navItems: NavItem[] = [
+    { path: '/chat', label: 'Chat', title: 'Chat', requiresAuth: true },
+    { path: '/sports', label: 'Entities', title: 'Entities', requiresAuth: true },
+    { path: '/database', label: 'Query', title: 'Query', requiresAuth: true },
+    { path: '/data', label: 'Export', title: 'Export', requiresAuth: true },
+    { path: '/settings', label: 'Settings', title: 'Settings', requiresAuth: true },
+    { path: '/login', label: 'Login', title: '', requiresAuth: false },
+    { path: '/register', label: 'Register', title: '', requiresAuth: false },
+  ]
 
   const getPageTitle = () => {
-    const path = location.pathname
-    switch (path) {
-      case '/chat':
-        return 'Chat'
-      case '/data':
-        return 'Data Management'
-      case '/sports':
-        return 'Sports DB'
-      case '/export':
-        return 'Export'
-      case '/settings':
-        return 'Settings'
-      default:
-        return ''
-    }
+    const currentItem = navItems.find(item => item.path === location.pathname)
+    return currentItem?.title || ''
   }
 
   const pageTitle = getPageTitle()
@@ -45,36 +63,16 @@ export default function Navbar() {
           <div className="flex items-center">
             {isAuthenticated ? (
               <>
-                <Link
-                  to="/chat"
-                  className={`px-3 py-2 rounded-md text-sm font-medium ${isActive('/chat')} hover:text-gray-900`}
-                >
-                  Chat
-                </Link>
-                <Link
-                  to="/data"
-                  className={`px-3 py-2 rounded-md text-sm font-medium ${isActive('/data')} hover:text-gray-900`}
-                >
-                  Data
-                </Link>
-                <Link
-                  to="/sports"
-                  className={`px-3 py-2 rounded-md text-sm font-medium ${isActive('/sports')} hover:text-gray-900`}
-                >
-                  Sports DB
-                </Link>
-                <Link
-                  to="/export"
-                  className={`px-3 py-2 rounded-md text-sm font-medium ${isActive('/export')} hover:text-gray-900`}
-                >
-                  Export
-                </Link>
-                <Link
-                  to="/settings"
-                  className={`px-3 py-2 rounded-md text-sm font-medium ${isActive('/settings')} hover:text-gray-900`}
-                >
-                  Settings
-                </Link>
+                {navItems
+                  .filter(item => item.requiresAuth)
+                  .map(item => (
+                    <NavLink
+                      key={item.path}
+                      to={item.path}
+                      label={item.label}
+                      isActive={location.pathname === item.path}
+                    />
+                  ))}
                 <button
                   onClick={logout}
                   className="ml-4 px-3 py-2 rounded-md text-sm font-medium text-gray-700 hover:text-gray-900"
@@ -84,18 +82,17 @@ export default function Navbar() {
               </>
             ) : (
               <>
-                <Link
+                <NavLink
                   to="/login"
-                  className="px-3 py-2 rounded-md text-sm font-medium text-gray-700 hover:text-gray-900"
-                >
-                  Login
-                </Link>
-                <Link
+                  label="Login"
+                  isActive={location.pathname === '/login'}
+                />
+                <NavLink
                   to="/register"
-                  className="ml-4 px-3 py-2 rounded-md text-sm font-medium text-gray-700 hover:text-gray-900"
-                >
-                  Register
-                </Link>
+                  label="Register"
+                  isActive={location.pathname === '/register'}
+                  className="ml-4"
+                />
               </>
             )}
           </div>

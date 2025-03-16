@@ -92,6 +92,7 @@ export const QuickEditForm: React.FC<QuickEditFormProps> = ({
   const renderLeagueFields = () => (
     <>
       {renderField('name', 'League Name', 'text')}
+      {renderField('nickname', 'Nickname', 'text')}
       {renderField('sport', 'Sport', 'text')}
       {renderField('country', 'Country', 'text')}
     </>
@@ -107,10 +108,20 @@ export const QuickEditForm: React.FC<QuickEditFormProps> = ({
     </>
   );
 
+  const renderDivisionConferenceFields = () => (
+    <>
+      {renderField('name', 'Division/Conference Name', 'text')}
+      {renderField('type', 'Type', 'text')}
+      {renderField('region', 'Region', 'text')}
+      {renderField('description', 'Description', 'text')}
+    </>
+  );
+
   return (
     <Form layout="vertical" style={{ maxWidth: 600 }}>
       {entityType === 'stadium' && renderStadiumFields()}
       {entityType === 'league' && renderLeagueFields()}
+      {entityType === 'division_conference' && renderDivisionConferenceFields()}
       {entityType === 'team' && renderTeamFields()}
     </Form>
   );

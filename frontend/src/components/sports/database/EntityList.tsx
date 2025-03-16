@@ -88,6 +88,8 @@ const EntityList: React.FC<EntityListProps> = ({ className = '' }) => {
   // Initialize useDragAndDrop for column reordering
   const {
     reorderedItems: reorderedColumns,
+    draggedItem,
+    dragOverItem,
     handleDragStart: handleColumnDragStart,
     handleDragOver: handleColumnDragOver,
     handleDrop: handleColumnDrop,
@@ -112,12 +114,26 @@ const EntityList: React.FC<EntityListProps> = ({ className = '' }) => {
     }
   }, [visibleColumns, selectedEntityType]);
   
+  // Update columnOrder when reorderedColumns changes
+  useEffect(() => {
+    if (reorderedColumns.length > 0) {
+      // Prevent unnecessary updates with deep equality check
+      const currentOrder = JSON.stringify(columnOrder);
+      const newOrder = JSON.stringify(reorderedColumns);
+      
+      // Only update if the order is actually different
+      if (currentOrder !== newOrder) {
+        setColumnOrder(reorderedColumns);
+      }
+    }
+  }, [reorderedColumns, columnOrder]);
+  
   // Save column order when it changes
   useEffect(() => {
-    if (reorderedColumns.length > 0 && selectedEntityType) {
-      localStorage.setItem(`entityList_${selectedEntityType}_columnOrder`, JSON.stringify(reorderedColumns));
+    if (columnOrder.length > 0 && selectedEntityType) {
+      localStorage.setItem(`entityList_${selectedEntityType}_columnOrder`, JSON.stringify(columnOrder));
     }
-  }, [reorderedColumns, selectedEntityType]);
+  }, [columnOrder, selectedEntityType]);
 
   /**
    * Initialize columns based on entity data when entity type or data changes
@@ -128,23 +144,60 @@ const EntityList: React.FC<EntityListProps> = ({ className = '' }) => {
     // Get fields directly from the data
     const availableFields = Object.keys(entities[0]);
     
-    // Initialize column visibility with all fields visible
+    // Initialize column visibility - hide UUID-only columns by default
     const newVisibility: {[key: string]: boolean} = {};
     availableFields.forEach(field => {
-      newVisibility[field] = true;
+      // Check if this is a UUID field
+      const hasCorrespondingNameField = availableFields.includes(field.replace('_id', '_name'));
+      const isUuidField = field === 'id' || (field.endsWith('_id') && !hasCorrespondingNameField);
+      
+      // Hide all UUID fields by default
+      if (isUuidField) {
+        newVisibility[field] = false;
+      } else {
+        newVisibility[field] = true;
+      }
     });
     
-    // Set up column order
-    const coreFields = ['id', 'name', 'created_at', 'updated_at'];
-    const newOrder = [
-      // Core fields first
-      ...coreFields.filter(f => availableFields.includes(f)),
-      // Then all remaining fields
-      ...availableFields.filter(f => !coreFields.includes(f))
-    ];
+    // Set up column order - try to load from localStorage first
+    const savedOrder = localStorage.getItem(`entityList_${selectedEntityType}_columnOrder`);
     
-    // Set state
-    setColumnOrder(newOrder);
+    if (savedOrder) {
+      try {
+        const parsedOrder = JSON.parse(savedOrder);
+        // Make sure all fields are included (in case new ones were added)
+        const updatedOrder = [...parsedOrder];
+        availableFields.forEach(field => {
+          if (!updatedOrder.includes(field)) {
+            updatedOrder.push(field);
+          }
+        });
+        setColumnOrder(updatedOrder);
+      } catch (e) {
+        console.error('Error parsing saved column order:', e);
+        // Fall back to default order
+        const coreFields = ['id', 'name', 'created_at', 'updated_at'];
+        const newOrder = [
+          // Core fields first
+          ...coreFields.filter(f => availableFields.includes(f)),
+          // Then all remaining fields
+          ...availableFields.filter(f => !coreFields.includes(f))
+        ];
+        setColumnOrder(newOrder);
+      }
+    } else {
+      // No saved order, use default
+      const coreFields = ['id', 'name', 'created_at', 'updated_at'];
+      const newOrder = [
+        // Core fields first
+        ...coreFields.filter(f => availableFields.includes(f)),
+        // Then all remaining fields
+        ...availableFields.filter(f => !coreFields.includes(f))
+      ];
+      setColumnOrder(newOrder);
+    }
+    
+    // Set visibility state
     setVisibleColumns(newVisibility);
   }, [selectedEntityType, entities]);
 
@@ -597,7 +650,9 @@ const EntityList: React.FC<EntityListProps> = ({ className = '' }) => {
                   <th 
                     key={field}
                     scope="col" 
-                    className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-grab relative border-r border-gray-200 hover:bg-gray-100"
+                    className={`px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-grab relative border-r border-gray-200 hover:bg-gray-100 ${
+                      draggedItem === field ? 'opacity-50 bg-blue-50' : ''
+                    } ${dragOverItem === field ? 'bg-blue-100 border-blue-300' : ''}`}
                     onClick={() => handleSort(field)}
                     draggable
                     onDragStart={(e) => handleColumnDragStart(e, field)}

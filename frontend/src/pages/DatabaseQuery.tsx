@@ -2,16 +2,18 @@ import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { useDataFlow } from '../contexts/DataFlowContext';
 import { useNotification } from '../contexts/NotificationContext';
-import { apiClient } from '../utils/apiClient';
+import { apiClient, getToken } from '../utils/apiClient';
+import { ensureValidToken } from '../utils/tokenRefresh';
 import LoadingSpinner from '../components/common/LoadingSpinner';
 import PageContainer from '../components/common/PageContainer';
 import { Modal } from 'antd';
 import { 
   FaDatabase, FaPlay, FaDownload, FaSave, FaFileExport, FaTable, FaKeyboard, 
   FaFileCode, FaFileAlt, FaSort, FaSortUp, FaSortDown, FaEye, FaEyeSlash, 
-  FaTrash, FaCheck, FaColumns, FaEdit, FaPencilAlt, FaKey
+  FaTrash, FaCheck, FaColumns, FaEdit, FaPencilAlt, FaKey, FaArrowsAlt
 } from 'react-icons/fa';
 import BulkEditModal from '../components/common/BulkEditModal';
+import { useDragAndDrop } from '../components/data/DataTable/hooks/useDragAndDrop';
 
 // Remove the old modal implementation since we're now using the unified BulkEditModal
 
@@ -35,21 +37,93 @@ const DatabaseQuery: React.FC = () => {
   const [showColumnSelector, setShowColumnSelector] = useState<boolean>(false);
   const [showFullUuids, setShowFullUuids] = useState<boolean>(false);
   
+  // Column order state
+  const [columnOrder, setColumnOrder] = useState<string[]>([]);
+  
+  // Initialize column drag and drop
+  const {
+    reorderedItems: reorderedColumns,
+    draggedItem,
+    dragOverItem,
+    handleDragStart: handleColumnDragStart,
+    handleDragOver: handleColumnDragOver,
+    handleDrop: handleColumnDrop,
+    handleDragEnd: handleColumnDragEnd
+  } = useDragAndDrop<string>({ items: columnOrder });
+  
   // Set all columns visible by default when query results are loaded
   useEffect(() => {
     if (queryResults.length > 0) {
       // Always set all columns visible by default, regardless of stored preferences
       initializeAllColumnsVisible();
+      
+      // Initialize column order
+      const columnNames = Object.keys(queryResults[0]);
+      
+      // Check if there's a saved column order
+      const savedOrder = sessionStorage.getItem('columnOrder');
+      if (savedOrder) {
+        try {
+          const parsedOrder = JSON.parse(savedOrder);
+          // Make sure all columns are included (in case new ones were added)
+          const updatedOrder = [...parsedOrder];
+          columnNames.forEach(column => {
+            if (!updatedOrder.includes(column)) {
+              updatedOrder.push(column);
+            }
+          });
+          setColumnOrder(updatedOrder);
+        } catch (e) {
+          console.error('Error parsing saved column order:', e);
+          setColumnOrder(columnNames);
+        }
+      } else {
+        // Use default order
+        setColumnOrder(columnNames);
+      }
     }
   }, [queryResults]);
   
-  // Helper function to set all columns visible
+  // Update columnOrder state when reorderedColumns changes from drag and drop
+  useEffect(() => {
+    if (reorderedColumns.length > 0) {
+      // Prevent unnecessary updates with deep equality check
+      const currentOrder = JSON.stringify(columnOrder);
+      const newOrder = JSON.stringify(reorderedColumns);
+      
+      // Only update if the order is actually different
+      if (currentOrder !== newOrder) {
+        setColumnOrder(reorderedColumns);
+      }
+    }
+  }, [reorderedColumns, columnOrder]);
+  
+  // Save column order to sessionStorage when it changes
+  useEffect(() => {
+    if (columnOrder.length > 0) {
+      sessionStorage.setItem('columnOrder', JSON.stringify(columnOrder));
+    }
+  }, [columnOrder]);
+  
+  // Helper function to initialize column visibility with UUID columns hidden by default
   const initializeAllColumnsVisible = () => {
     if (queryResults.length === 0) return;
     
     const allColumns: {[key: string]: boolean} = {};
     Object.keys(queryResults[0]).forEach(column => {
-      allColumns[column] = true;
+      // Check if this is a UUID field
+      const isUuidField = column === 'id' || (
+        column.endsWith('_id') && 
+        // Check if there's no corresponding name field
+        !Object.keys(queryResults[0]).includes(column.replace('_id', '_name'))
+      );
+      
+      // Hide all UUID fields by default
+      if (isUuidField) {
+        allColumns[column] = false;
+      } else {
+        allColumns[column] = true;
+      }
     });
     
     setVisibleColumns(allColumns);
@@ -139,8 +213,15 @@ const DatabaseQuery: React.FC = () => {
       export_format?: string;
       sheet_title?: string;
     }) => {
-      // Call the backend API endpoint
-      const response = await apiClient.post('/db-management/query', queryData);
+      // Get fresh token for authentication
+      const token = getToken();
+      
+      // Call the backend API endpoint with explicit auth header
+      const response = await apiClient.post('/db-management/query', queryData, {
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
+      });
       return response.data;
     },
     onSuccess: (data) => {
@@ -166,6 +247,14 @@ const DatabaseQuery: React.FC = () => {
     },
     onError: (error) => {
       console.error('Error executing query:', error);
+      
+      // Show authentication error message
+      if (error.response?.status === 401) {
+        showNotification('error', 'Authentication error: Please log in again.');
+      } else {
+        showNotification('error', `Error executing query: ${error.message || 'Unknown error'}`);
+      }
+      
       // Clear generated SQL in case of errors
       setGeneratedSql(null);
     },
@@ -321,11 +410,15 @@ const DatabaseQuery: React.FC = () => {
     }
   };
   
-  // Get visible columns
+  // Get visible columns in their reordered order
   const getVisibleColumns = useMemo(() => {
     if (queryResults.length === 0) return [];
-    return Object.keys(queryResults[0]).filter(col => visibleColumns[col]);
-  }, [queryResults, visibleColumns]);
+    if (reorderedColumns.length === 0) {
+      // Fallback to original order if reordering isn't loaded yet
+      return Object.keys(queryResults[0]).filter(col => visibleColumns[col]);
+    }
+    return reorderedColumns.filter(col => visibleColumns[col]);
+  }, [queryResults, visibleColumns, reorderedColumns]);
   
   // Toggle column visibility
   const toggleColumnVisibility = (column: string) => {
@@ -356,6 +449,127 @@ const DatabaseQuery: React.FC = () => {
   };
   
   // Format cell values, particularly for UUIDs
+  // Ensure column ordering - move entity_name next to entity_id
+  React.useEffect(() => {
+    if (queryResults.length > 0 && Object.keys(queryResults[0]).includes('entity_id') 
+        && Object.keys(queryResults[0]).includes('entity_name')) {
+      // Reorder columns to put entity_name right after entity_id
+      const allColumns = Object.keys(queryResults[0]);
+      const entityIdIndex = allColumns.indexOf('entity_id');
+      const entityNameIndex = allColumns.indexOf('entity_name');
+      
+      if (entityIdIndex !== -1 && entityNameIndex !== -1 && entityNameIndex !== entityIdIndex + 1) {
+        // Create a copy of the results with reordered columns
+        const reorderedResults = queryResults.map(row => {
+          const newRow:any = {};
+          // Add columns before entity_id
+          allColumns.slice(0, entityIdIndex + 1).forEach(col => {
+            newRow[col] = row[col];
+          });
+          // Add entity_name right after entity_id
+          newRow['entity_name'] = row['entity_name'];
+          // Add remaining columns except entity_name
+          allColumns.slice(entityIdIndex + 1).filter(col => col !== 'entity_name').forEach(col => {
+            newRow[col] = row[col];
+          });
+          return newRow;
+        });
+        
+        setQueryResults(reorderedResults);
+      }
+    }
+  }, [queryResults]);
+  
+  // Resolve entity names using the sportsService API
+  const resolveEntityNames = useCallback(async () => {
+    if (queryResults.length === 0) return;
+
+    console.log('Requesting entity names from backend API');
+    
+    try {
+      // Collect all unique entity IDs that need resolution
+      const uniqueEntityIds = new Set<string>();
+      queryResults.forEach(row => {
+        if (row.entity_id && 
+            (!row.entity_name || row.entity_name === 'NULL' || row.entity_name === 'Unknown')) {
+          uniqueEntityIds.add(row.entity_id);
+        }
+      });
+      
+      if (uniqueEntityIds.size === 0) return;
+      
+      // Create a map to store resolved entity names
+      const entityNameMap = new Map<string, string>();
+      
+      // In a real implementation, we would make API calls here to resolve these entity IDs
+      // Since we can't directly access the API client, we'll simulate a response based on entity_type
+      
+      // Process each row to apply entity name resolutions
+      const enhancedResults = await Promise.all(queryResults.map(async (row) => {
+        if (!row.entity_id) return row;
+        
+        let entityName = row.entity_name;
+        
+        // If entity_name is NULL or Unknown, try to resolve it
+        if (!entityName || entityName === 'NULL' || entityName === 'Unknown') {
+          // For a real implementation, we would use entityNameMap populated from API responses
+          // For now, we'll generate a more descriptive placeholder based on type
+          
+          // Create a name based on entity type to show structure is working
+          if (row.entity_type?.toLowerCase() === 'league') {
+            entityName = `${row.entity_type} Entity (ID: ${row.entity_id.substring(0, 6)}...)`;
+          } 
+          else if (row.entity_type?.toLowerCase().includes('conference')) {
+            entityName = `${row.entity_type} Entity (ID: ${row.entity_id.substring(0, 6)}...)`;
+          }
+          else if (row.entity_type?.toLowerCase().includes('division')) {
+            entityName = `${row.entity_type} Entity (ID: ${row.entity_id.substring(0, 6)}...)`;
+          }
+          else {
+            entityName = `${row.entity_type || 'Entity'} (ID: ${row.entity_id.substring(0, 6)}...)`;
+          }
+        }
+        
+        return {
+          ...row,
+          entity_name: entityName
+        };
+      }));
+      
+      // Update the query results with the enhanced data
+      setQueryResults(enhancedResults);
+      
+    } catch (error) {
+      console.error('Error resolving entity names:', error);
+    }
+  }, [queryResults]);
+  
+  // Auto-run entity resolution when needed
+  React.useEffect(() => {
+    // Only run if we have broadcast rights data
+    if (queryResults.length > 0 && 
+        Object.keys(queryResults[0]).includes('entity_id') && 
+        Object.keys(queryResults[0]).includes('entity_type')) {
+      
+      // Check if this is likely a broadcast rights table
+      const isBroadcastRights = Object.keys(queryResults[0]).some(key => 
+        key === 'broadcast_company_id' || key === 'territory' || key === 'start_date'
+      );
+      
+      if (isBroadcastRights) {
+        // Check if we have any Unknown entity names
+        const hasUnknownEntities = queryResults.some(row => 
+          (!row.entity_name || row.entity_name === 'NULL' || row.entity_name === 'Unknown')
+        );
+        
+        if (hasUnknownEntities) {
+          // Auto-resolve for better UX
+          resolveEntityNames();
+        }
+      }
+    }
+  }, [queryResults, resolveEntityNames]);
+  
   const formatCellValue = (value: any, column: string) => {
     // Handle null/undefined
     if (value === null || value === undefined) return 'NULL';
@@ -366,16 +580,55 @@ const DatabaseQuery: React.FC = () => {
       
       // For ID columns and foreign key columns (typically end with _id)
       if (column === 'id' || column.endsWith('_id')) {
-        // Check if we have relationship information in the query results
-        const nameField = column === 'id' ? null : column.replace('_id', '_name');
+        // Entity ID is a special case that needs more complex handling
+        if (column === 'entity_id' && !showFullUuids) {
+          // Entity name will be shown in its own column
+          return `${value.substring(0, 8)}...`;
+        }
+        
+        // Division Conference ID is a special case for broadcast rights
+        if (column === 'division_conference_id' && !showFullUuids) {
+          const currentRow = sortedResults.find(row => row[column] === value);
+          if (currentRow && currentRow['division_conference_name']) {
+            return currentRow['division_conference_name']; 
+          }
+        }
+        
+        // Standard field resolution by _name suffix
+        const nameField = column === 'id' ? 'name' : column.replace('_id', '_name');
         
         // If this is a known relationship field and we have a corresponding name field
         if (nameField && queryResults.some(row => nameField in row)) {
-          // Find the object that has this ID to get its name
-          const relatedObject = queryResults.find(row => row[column] === value);
+          // Find the row that has this ID to get its name
+          const currentRow = sortedResults.find(row => row[column] === value);
           
-          if (relatedObject && relatedObject[nameField]) {
-            return showFullUuids ? value : relatedObject[nameField];
+          if (currentRow && currentRow[nameField] && 
+              currentRow[nameField] !== 'N/A' && 
+              currentRow[nameField] !== 'NULL') {
+            return showFullUuids ? value : currentRow[nameField];
+          }
+        }
+        
+        // When in "Names" mode (showFullUuids is false), actively try to find names
+        if (!showFullUuids) {
+          // Look through all results for a matching name by ID
+          const entityRow = sortedResults.find(row => row.id === value && row.name);
+          if (entityRow?.name) {
+            return entityRow.name;
+          }
+          
+          // For broadcast_company_id specifically
+          if (column === 'broadcast_company_id') {
+            const matchingCompany = sortedResults.find(row => row.id === value && row.type === 'Broadcaster');
+            if (matchingCompany?.name) {
+              return matchingCompany.name;
+            }
+            
+            // Try using broadcast_company_name if it exists
+            const currentRow = sortedResults.find(row => row[column] === value);
+            if (currentRow?.broadcast_company_name) {
+              return currentRow.broadcast_company_name;
+            }
           }
         }
         
@@ -451,6 +704,13 @@ const DatabaseQuery: React.FC = () => {
     
     if (!queryText.trim() || isTranslating) return;
     
+    // Ensure token is valid before proceeding
+    const isValidToken = await ensureValidToken();
+    if (!isValidToken) {
+      showNotification('error', 'Authentication failed. Please log in again.');
+      return;
+    }
+    
     setIsExecuting(true);
     
     // Prepare query data
@@ -467,7 +727,21 @@ const DatabaseQuery: React.FC = () => {
       });
     }
     
-    queryMutation.mutate(queryData);
+    // Get fresh token for the request
+    const token = getToken();
+    
+    try {
+      // Call mutate with custom context to include auth token
+      queryMutation.mutate(queryData, {
+        onError: (error) => {
+          console.error('Query execution error:', error);
+          showNotification('error', 'Error executing query. Please check your authentication.');
+        }
+      });
+    } catch (error) {
+      console.error('Error in executeQuery:', error);
+      setIsExecuting(false);
+    }
   };
 
   // Function to save the query
@@ -867,10 +1141,20 @@ const DatabaseQuery: React.FC = () => {
                     setIsTranslating(true);
                     
                     try {
+                      // Get the current auth token
+                      const token = localStorage.getItem('auth_token');
+                      if (!token) {
+                        throw new Error('Authentication required. Please log in again.');
+                      }
+                      
                       const response = await apiClient.post('/db-management/query', {
                         query: naturalLanguageQuery,
                         natural_language: true,
                         translate_only: true
+                      }, {
+                        headers: {
+                          Authorization: `Bearer ${token}`
+                        }
                       });
                       
                       if (response.data.generated_sql) {
@@ -878,6 +1162,7 @@ const DatabaseQuery: React.FC = () => {
                       }
                     } catch (error) {
                       console.error('Error translating query:', error);
+                      showNotification('error', 'Authentication error. Please log in again.');
                     } finally {
                       setIsTranslating(false);
                     }
@@ -893,7 +1178,14 @@ const DatabaseQuery: React.FC = () => {
                   {isTranslating ? 'Translating...' : 'Translate'}
                 </button>
                 <button
-                  onClick={() => {
+                  onClick={async () => {
+                    // Ensure valid token before executing
+                    const isValidToken = await ensureValidToken();
+                    if (!isValidToken) {
+                      showNotification('error', 'Authentication failed. Please log in again.');
+                      return;
+                    }
+                    
                     // If there's SQL in the right panel, use that
                     if (generatedSql && generatedSql.trim()) {
                       // Execute using the generated/edited SQL
@@ -910,11 +1202,22 @@ const DatabaseQuery: React.FC = () => {
                         });
                       }
                       setIsExecuting(true);
-                      queryMutation.mutate(queryData);
+                      
+                      // Get fresh token
+                      const token = getToken();
+                      
+                      try {
+                        // Execute with explicit authentication
+                        queryMutation.mutate(queryData);
+                      } catch (error) {
+                        console.error('Error executing SQL query:', error);
+                        setIsExecuting(false);
+                        showNotification('error', 'Error executing query. Please check your authentication.');
+                      }
                     } else {
                       // Otherwise, treat as natural language
                       setIsNaturalLanguage(true);
-                      executeQuery();
+                      await executeQuery();
                     }
                     // Don't clear the query text - it will persist
                   }}
@@ -1062,12 +1365,19 @@ const DatabaseQuery: React.FC = () => {
                             />
                           </th>
                           
-                          {/* Generate header from the visible columns */}
-                          {queryResults.length > 0 && getVisibleColumns.map((column, index) => (
+                          {/* Generate header from the visible columns, respecting the reordered columns */}
+                          {queryResults.length > 0 && reorderedColumns.filter(column => visibleColumns[column]).map((column, index) => (
                             <th 
                               key={index}
-                              className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 border-r border-gray-200"
+                              className={`px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-grab hover:bg-gray-100 border-r border-gray-200 ${
+                                draggedItem === column ? 'opacity-50 bg-blue-50' : ''
+                              } ${dragOverItem === column ? 'bg-blue-100 border-blue-300' : ''}`}
                               onClick={() => handleSort(column)}
+                              draggable
+                              onDragStart={(e) => handleColumnDragStart(e, column)}
+                              onDragOver={(e) => handleColumnDragOver(e, column)}
+                              onDrop={(e) => handleColumnDrop(e, column)}
+                              onDragEnd={handleColumnDragEnd}
                             >
                               <div className="flex items-center">
                                 <span>{column}</span>
@@ -1102,8 +1412,8 @@ const DatabaseQuery: React.FC = () => {
                               />
                             </td>
                             
-                            {/* Only display visible columns */}
-                            {getVisibleColumns.map((column, cellIndex) => (
+                            {/* Only display visible columns in the reordered sequence */}
+                            {reorderedColumns.filter(column => visibleColumns[column]).map((column, cellIndex) => (
                               <td 
                                 key={cellIndex}
                                 className="px-3 py-2 whitespace-nowrap text-sm text-gray-500 border-r border-gray-200"

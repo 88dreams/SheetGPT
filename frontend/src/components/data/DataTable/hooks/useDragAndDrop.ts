@@ -9,12 +9,47 @@ export function useDragAndDrop<T>({ items }: UseDragAndDropProps<T>) {
   const [draggedItem, setDraggedItem] = useState<T | null>(null);
   const [dragOverItem, setDragOverItem] = useState<T | null>(null);
 
-  // Initialize reordered items when original items change
+  // Initialize or update reordered items when original items change
   useEffect(() => {
-    if (items.length > 0 && reorderedItems.length === 0) {
-      setReorderedItems([...items]);
+    // Always update reordered items when source items change
+    if (items.length > 0) {
+      // Preserve the order of existing items where possible
+      if (reorderedItems.length > 0) {
+        // For primitive values like strings (our column names), we can use a simpler comparison
+        // Compare items using their string representations
+        const itemsStr = JSON.stringify([...items].sort());
+        const reorderedStr = JSON.stringify([...reorderedItems].sort());
+        
+        // If they contain the exact same set of items (regardless of order),
+        // don't update to avoid unnecessary state changes
+        if (itemsStr === reorderedStr) {
+          return;
+        }
+        
+        // Create a new array maintaining order of any existing items
+        const newOrder: T[] = [];
+        
+        // First add all items that exist in both arrays in their current order in reorderedItems
+        reorderedItems.forEach(item => {
+          if (items.includes(item)) {
+            newOrder.push(item);
+          }
+        });
+        
+        // Then add any new items that weren't in the original reorderedItems
+        items.forEach(item => {
+          if (!newOrder.includes(item)) {
+            newOrder.push(item);
+          }
+        });
+        
+        setReorderedItems(newOrder);
+      } else {
+        // Just set initial items if reorderedItems is empty
+        setReorderedItems([...items]);
+      }
     }
-  }, [items, reorderedItems.length]);
+  }, [items]);
 
   // Handle drag start
   const handleDragStart = useCallback((e: React.DragEvent, item: T) => {

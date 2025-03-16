@@ -225,6 +225,9 @@ frontend/
     - Division/Conference dropdowns organized by league for better selection
     - Human-readable display of relationship fields with parent context
     - Direct endpoint access for critical relationship data
+    - Data-driven column display system with fields derived from API response
+    - Special handling for broadcast rights field display with name/territory separation
+    - Simplified column management with data-based initialization
   - Special empty field handling to preserve or clear values as needed
   - Batch processing with real-time progress tracking
   - Detailed success/failure reporting

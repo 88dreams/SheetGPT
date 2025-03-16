@@ -160,6 +160,7 @@
 - Always initialize column visibility with all columns visible, ignoring saved preferences
 - Include UUID toggle functionality for all entity relationship displays (use "IDs"/"Names" button text)
 - Display human-readable names for UUID fields by default
+- Handle special case display for combined fields (like broadcast rights company names and territories)
 - Organize relationship dropdowns by parent entity (e.g., divisions by league)
 - Sort dropdown options by logical organization (alphabetical within parent groups)
 - Add clear descriptive labels and help text for relationship fields
@@ -181,6 +182,10 @@
   - Always start with all columns visible regardless of saved preferences
   - Format field names consistently for display (capitalized with spaces replacing underscores)
   - Handle relationship fields with special display logic (showing names instead of IDs)
+  - Use data-driven approach for field display, relying on actual API response data
+  - Implement consistent field formatting and display across all entity types
+  - Use smart detection and display for relationship fields with corresponding name fields
+  - Simplify column management with API-based column initialization
   - Use table-fixed with consistent cell sizing and padding
   - Use border-collapse with visible grid lines for all tables
   - Apply consistent hover effects for interactive elements

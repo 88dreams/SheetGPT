@@ -119,9 +119,13 @@ SheetGPT is a full-stack application that combines AI-powered chat capabilities 
 
 3. Entity List Column Visibility
    - Previously hardcoded columns in EntityList resulted in inconsistent views between Entity List and Query Results
-   - Implemented dynamic column generation for all entity fields
-   - Added unified column visibility controls across the application
-   - Standardized column handling for all entity types
+   - Implemented data-driven column generation based on API response data
+   - Simplified column management and visibility logic
+   - Standardized column display system across entity types
+   - Fixed broadcast rights display to correctly show company name separate from territory
+   - Added special handling for relationship fields with proper ID/name toggle behavior
+   - Eliminated all emergency hacks and workarounds with a clean architecture
+   - Improved relationship field display with smart ID-to-name conversion
    - Current priority: Resolved (fix implemented)
 
 ### Recent Improvements

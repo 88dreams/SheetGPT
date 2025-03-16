@@ -229,7 +229,7 @@ SheetGPT is a full-stack application combining AI-powered chat with structured d
 6. Check database backup status
 
 ## Recent Features
-1. **Entity Display and Deletion Fixes** (March 21, 2025)
+1. **Entity Display and Relationship Field Improvements** (March 21, 2025)
    - Fixed broadcast rights entity display to show proper names instead of blank fields
    - Corrected entity type mapping in sports_service.py with proper BroadcastRights model
    - Implemented consistent Names/IDs toggle behavior across all entity fields
@@ -239,6 +239,11 @@ SheetGPT is a full-stack application combining AI-powered chat with structured d
    - Enhanced cell rendering for all UUID fields with associated text strings
    - Improved detection of related name fields across entity types
    - Fixed entity type display in production services and game broadcasts
+   - Implemented data-driven column generation based directly on API responses
+   - Fixed broadcast rights display to correctly separate company name from territory
+   - Created dedicated handling for relationship fields with smart display logic
+   - Simplified column visibility system with proper data-based initialization
+   - Fixed editing behavior for special fields like broadcast company names
 
 2. **Entity Name Resolution Improvements** (March 20, 2025)
    - Enhanced entity name resolution in database query results

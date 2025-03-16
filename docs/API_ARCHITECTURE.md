@@ -21,7 +21,7 @@ The API is organized into modules:
 - **Sports Database**: Sports entity management with relationship handling
 - **Export**: Data export to Google Sheets
 - **Admin**: Administrative functions
-- **DB Management**: Database maintenance and administration tools
+- **DB Management**: Database maintenance, query execution, and administration tools
 
 ## Authentication System
 
@@ -109,6 +109,35 @@ During batch imports, the system resolves entity relationships:
    - Resolves relationships by UUID or name lookup
    - Creates missing entities when appropriate
    - Validates final mapped data before saving
+
+### Entity Field Management
+
+1. **Field Filtering**:
+   - Backend `sports_service.py` filters entity fields to only include relevant fields for each entity type
+   - Uses dedicated `_get_entity_fields()` method to determine valid fields per entity type
+   - Returns filtered entity data that contains only appropriate fields
+   - Prevents fields from one entity type showing up in another
+
+2. **Field Display**:
+   - Frontend uses data-driven approach for column generation
+   - Derives column visibility and ordering directly from API response data
+   - Special handling for combined fields (like broadcast rights company names and territories)
+   - Smart detection and display for relationship fields with corresponding name fields
+   - Provides consistent toggle between UUIDs and human-readable names
+
+### Bulk Update Flow
+
+1. User selects multiple entities using checkboxes in the entity list
+2. User clicks "Bulk Edit" button to open the Bulk Edit modal
+3. The system:
+   - Loads available fields for the selected entity type 
+   - Organizes fields into logical categories
+   - Fetches related entities for dropdown fields
+   - Provides appropriate input controls based on field types
+4. User selects fields to update by checking boxes
+5. User enters values for selected fields (or leaves empty to clear)
+6. System processes updates in batches with progress tracking
+7. System reports success/failure statistics
 
 ### Data Management Scripts
 
@@ -487,3 +516,48 @@ async def create_message(
    - Query optimization with PostgreSQL-specific features
    - Specialized JSONB handling for conversation data
    - Order-based query optimizations
+
+## Database Query System
+
+### Architecture
+
+The database query system enables both direct SQL and natural language queries with a secure execution environment:
+
+1. **Query Processing**
+   - SQL validation and safety checks
+   - Natural language to SQL conversion using Claude API
+   - Schema-aware query generation
+   - Export capability to CSV and Google Sheets
+   - Query history and management
+
+2. **API Endpoints**
+```python
+@router.post("/query", response_model=Dict[str, Any])
+async def execute_database_query(
+    query_data: Dict[str, Any],
+    current_user_id: UUID = Depends(get_current_user_id),
+    db: AsyncSession = Depends(get_db)
+) -> Dict[str, Any]:
+    """Execute database query (SQL or natural language)."""
+    # Query execution with safety checks
+    # Result formatting
+    # Optional export processing
+```
+
+3. **Integration with Claude API**
+```python
+async def execute_natural_language_query(self, nl_query: str) -> List[Dict[str, Any]]:
+    """Convert natural language to SQL and execute it."""
+    # Get database schema for context
+    # Generate SQL query using Claude
+    # Execute with safety checks
+    # Return formatted results
+```
+
+4. **Safety Considerations**
+   - SQL injection prevention
+   - Operation whitelisting (SELECT only)
+   - Pattern-based security checks
+   - User permission verification
+   - Schema information protection
+   - Result size limits

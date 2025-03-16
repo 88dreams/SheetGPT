@@ -40,8 +40,14 @@ class SportsDatabaseService:
         # Calculate offset for pagination
         offset = (page - 1) * limit
         
-        # Build the base query
-        query = f"SELECT * FROM {entity_type}"
+        # Build the base query with explicit column selection
+        columns = self._get_entity_columns(entity_type)
+        
+        # Build the SELECT clause - either specific columns or * as fallback
+        select_clause = f"SELECT {columns}" if columns else f"SELECT * FROM {entity_type}"
+        
+        # Complete the query
+        query = f"{select_clause}" if "FROM" in select_clause else f"{select_clause} FROM {entity_type}"
         
         # Add WHERE clause for filters
         params = {}
@@ -100,21 +106,39 @@ class SportsDatabaseService:
             
             # Execute the query with parameters
             result = db.execute(text(query), params)
-            entities = [dict(row) for row in result]
-            print(f"DEBUG - Service: Retrieved {len(entities)} entities")
+            raw_entities = [dict(row) for row in result]
+            print(f"DEBUG - Service: Retrieved {len(raw_entities)} raw entities")
             
             # If no results and we're filtering for soccer leagues, try a direct query as fallback
-            if len(entities) == 0 and entity_type == 'league' and filters and any(f.get('field') == 'sport' and f.get('value') == 'Soccer' for f in filters):
+            if len(raw_entities) == 0 and entity_type == 'league' and filters and any(f.get('field') == 'sport' and f.get('value') == 'Soccer' for f in filters):
                 print("DEBUG - Service: No results with parameterized query, trying direct SQL query for soccer leagues")
-                direct_result = db.execute(text("SELECT * FROM league WHERE sport = 'Soccer'"))
-                direct_entities = [dict(row) for row in direct_result]
-                print(f"DEBUG - Service: Direct query found {len(direct_entities)} soccer leagues")
-                if direct_entities:
-                    print(f"DEBUG - Service: First soccer league: {direct_entities[0]}")
-                    return direct_entities
+                # Get columns for league entity type
+                columns = self._get_entity_columns('league')
+                select_clause = f"SELECT {columns}" if columns else "SELECT *"
+                direct_query = f"{select_clause} FROM league WHERE sport = 'Soccer'"
+                
+                direct_result = db.execute(text(direct_query))
+                raw_direct_entities = [dict(row) for row in direct_result]
+                print(f"DEBUG - Service: Direct query found {len(raw_direct_entities)} soccer leagues")
+                
+                # Filter fields for each entity
+                filtered_direct_entities = []
+                for raw_entity in raw_direct_entities:
+                    filtered_entity = self._filter_entity_fields(raw_entity, 'league')
+                    filtered_direct_entities.append(filtered_entity)
+                
+                if filtered_direct_entities:
+                    print(f"DEBUG - Service: First soccer league after filtering: {filtered_direct_entities[0]}")
+                    return filtered_direct_entities
+            
+            # Filter field for specific entity type to prevent fields from other entities showing up
+            entities = []
+            for raw_entity in raw_entities:
+                filtered_entity = self._filter_entity_fields(raw_entity, entity_type)
+                entities.append(filtered_entity)
             
             if len(entities) > 0:
-                print(f"DEBUG - Service: Sample entity: {entities[0]}")
+                print(f"DEBUG - Service: Sample entity (after filtering): {entities[0]}")
             return entities
         except SQLAlchemyError as e:
             print(f"DEBUG - Service: Database error: {str(e)}")
@@ -127,11 +151,23 @@ class SportsDatabaseService:
                 # Try a simpler query without parameters as a fallback
                 try:
                     print("DEBUG - Service: Attempting fallback query without parameters")
-                    simple_query = f"SELECT * FROM {entity_type} LIMIT {limit}"
+                    # Get columns for the entity type
+                    columns = self._get_entity_columns(entity_type)
+                    select_clause = f"SELECT {columns}" if columns else f"SELECT * FROM {entity_type}"
+                    query_from = f"{select_clause}" if "FROM" in select_clause else f"{select_clause} FROM {entity_type}"
+                    
+                    simple_query = f"{query_from} LIMIT {limit}"
                     simple_result = db.execute(text(simple_query))
-                    simple_entities = [dict(row) for row in simple_result]
-                    print(f"DEBUG - Service: Fallback query retrieved {len(simple_entities)} entities")
-                    return simple_entities
+                    raw_entities = [dict(row) for row in simple_result]
+                    print(f"DEBUG - Service: Fallback query retrieved {len(raw_entities)} raw entities")
+                    
+                    # Filter fields for each entity
+                    filtered_entities = []
+                    for raw_entity in raw_entities:
+                        filtered_entity = self._filter_entity_fields(raw_entity, entity_type)
+                        filtered_entities.append(filtered_entity)
+                        
+                    return filtered_entities
                 except SQLAlchemyError as fallback_error:
                     print(f"DEBUG - Service: Fallback query also failed: {str(fallback_error)}")
             
@@ -142,8 +178,95 @@ class SportsDatabaseService:
         valid_types = [
             'league', 'team', 'player', 'game', 'stadium', 
             'broadcast', 'production', 'brand', 'game_broadcast', 
-            'league_executive'
+            'league_executive', 'division_conference'
         ]
         return entity_type in valid_types
+    
+    def _filter_entity_fields(self, entity: Dict[str, Any], entity_type: str) -> Dict[str, Any]:
+        """
+        Filter entity fields to include only fields relevant for the specific entity type.
+        This prevents fields from other entity types showing up in the response.
+        """
+        allowed_fields = self._get_entity_fields(entity_type)
+        filtered_entity = {}
+        
+        # If allowed_fields is None, don't filter (use all fields)
+        if allowed_fields is None:
+            return entity
+        
+        # Include only allowed fields for this entity type
+        for field, value in entity.items():
+            if field in allowed_fields:
+                filtered_entity[field] = value
+        
+        print(f"DEBUG - Service: Filtered entity fields for {entity_type} from {len(entity)} to {len(filtered_entity)} fields")
+                
+        return filtered_entity
+    
+    def _get_entity_columns(self, entity_type: str) -> str:
+        """
+        Get the SQL column list for a specific entity type.
+        Returns a comma-separated string of column names for use in a SELECT statement.
+        Returns empty string if no specific columns are defined (will use * instead).
+        """
+        # Get the allowed fields for this entity type
+        allowed_fields = self._get_entity_fields(entity_type)
+        
+        # If no specific fields defined, return empty string (will use SELECT * as fallback)
+        if allowed_fields is None:
+            return ""
+        
+        # Join the fields into a comma-separated string
+        return ", ".join(allowed_fields)
+    
+    def _get_entity_fields(self, entity_type: str) -> List[str]:
+        """
+        Get the list of valid fields for a specific entity type.
+        These fields are determined based on the database schema.
+        """
+        # Base fields common to all entities
+        base_fields = ["id", "created_at", "updated_at", "deleted_at"]
+        
+        # Entity-specific fields
+        if entity_type == 'league':
+            return base_fields + ["name", "sport", "country", "nickname", "broadcast_start_date", "broadcast_end_date", "commissioner"]
+            
+        elif entity_type == 'team':
+            return base_fields + ["name", "city", "state", "country", "founded_year", "league_id", "division_conference_id", "stadium_id", "league_name", "division_conference_name", "stadium_name"]
+            
+        elif entity_type == 'player':
+            return base_fields + ["name", "team_id", "position", "jersey_number", "college", "team_name"]
+            
+        elif entity_type == 'game':
+            return base_fields + ["league_id", "home_team_id", "away_team_id", "stadium_id", "date", "time", "home_score", "away_score", "status", "season_year", "season_type", "league_name", "home_team_name", "away_team_name", "stadium_name"]
+            
+        elif entity_type == 'stadium':
+            return base_fields + ["name", "city", "state", "country", "capacity", "owner", "naming_rights_holder", "host_broadcaster", "host_broadcaster_id", "host_broadcaster_name"]
+            
+        elif entity_type in ['broadcast', 'broadcast_right', 'broadcast_rights']:
+            return base_fields + ["entity_type", "entity_id", "broadcast_company_id", "division_conference_id", "territory", "start_date", "end_date", "is_exclusive", "entity_name", "broadcast_company_name", "division_conference_name", "name"]
+            
+        elif entity_type in ['production', 'production_service', 'production_services']:
+            return base_fields + ["entity_type", "entity_id", "production_company_id", "service_type", "start_date", "end_date", "entity_name", "production_company_name", "name"]
+            
+        elif entity_type in ['game_broadcast', 'game_broadcasts']:
+            return base_fields + ["game_id", "broadcast_company_id", "production_company_id", "broadcast_type", "territory", "start_time", "end_time", "game_name", "broadcast_company_name", "production_company_name", "name"]
+            
+        elif entity_type == 'brand':
+            return base_fields + ["name", "industry"]
+            
+        elif entity_type in ['brand_relationship', 'brand_relationships']:
+            return base_fields + ["brand_id", "entity_type", "entity_id", "relationship_type", "start_date", "end_date", "brand_name", "entity_name", "name"]
+            
+        elif entity_type == 'league_executive':
+            return base_fields + ["league_id", "name", "position", "start_date", "end_date", "league_name"]
+            
+        elif entity_type == 'division_conference':
+            return base_fields + ["league_id", "name", "type", "region", "description", "league_name"]
+            
+        # Fallback - return all fields to avoid filtering out anything
+        # This is a safe fallback that will allow all fields but log a warning
+        print(f"WARNING: No field mapping defined for entity type '{entity_type}', returning all fields")
+        return None  # None means allow all fields
     
     # ... existing methods ... 

@@ -6,9 +6,6 @@
  * - Supports selecting rows for bulk editing
  * - Uses column resizing and sorting
  * - Column visibility is saved per entity type
- * 
- * Both the EntityList and DatabaseQuery should display similar fields and provide 
- * similar bulk edit functionality when working with the same entity types.
  */
 
 import React, { useState, useRef, useEffect } from 'react';
@@ -19,12 +16,13 @@ import LoadingSpinner from '../../common/LoadingSpinner';
 // Using local BulkEditModal for now until auth issues are fixed
 import BulkEditModal from './BulkEditModal';
 // @ts-ignore
-import { FaTrash, FaEye, FaSortUp, FaSortDown, FaSort, FaPencilAlt, FaCheck, FaTimes, FaEdit, FaFileExport, FaColumns, FaKey } from 'react-icons/fa';
+import { FaTrash, FaEye, FaSortUp, FaSortDown, FaSort, FaPencilAlt, FaCheck, FaTimes, FaEdit, FaFileExport, FaColumns, FaKey, FaArrowsAlt } from 'react-icons/fa';
 import SmartEntitySearch from '../../data/EntityUpdate/SmartEntitySearch';
 import { EntityCard } from '../../data/EntityUpdate/EntityCard';
 // @ts-ignore
 import { Modal } from 'antd';
 import { Entity, EntityType, BaseEntity, DivisionConference } from '../../../types/sports';
+import { useDragAndDrop } from '../../data/DataTable/hooks/useDragAndDrop';
 
 interface EntityListProps {
   className?: string;
@@ -71,40 +69,30 @@ const EntityList: React.FC<EntityListProps> = ({ className = '' }) => {
     getEntityFields
   } = useSportsDatabase();
   
-  // Get all available fields for the current entity type
-  const getAvailableFields = (): string[] => {
-    if (!selectedEntityType || !getEntityFields) return [];
-    
-    const fields = getEntityFields(selectedEntityType);
-    
-    // Extract field names
-    return fields.map(field => field.fieldName);
-  };
-
   // Column visibility and resizing state
   const [columnWidths, setColumnWidths] = useState<{[key: string]: number}>({
     checkbox: 50,
     id: 100,
-    league: 150,
     name: 300,
-    city: 120,
-    state: 100,
-    division: 150,
-    sport: 120,
-    nickname: 120,
-    type: 120,
-    created: 150,
     actions: 120
   });
 
-  // Column visibility state - initialize with defaults to prevent blank screen
-  const [visibleColumns, setVisibleColumns] = useState<{[key: string]: boolean}>({
-    id: true,
-    name: true,
-    created_at: true
-  });
+  // Column visibility state
+  const [visibleColumns, setVisibleColumns] = useState<{[key: string]: boolean}>({});
   const [showColumnSelector, setShowColumnSelector] = useState<boolean>(false);
   const [showFullUuids, setShowFullUuids] = useState<boolean>(false);
+  
+  // Column ordering state
+  const [columnOrder, setColumnOrder] = useState<string[]>([]);
+  
+  // Initialize useDragAndDrop for column reordering
+  const {
+    reorderedItems: reorderedColumns,
+    handleDragStart: handleColumnDragStart,
+    handleDragOver: handleColumnDragOver,
+    handleDrop: handleColumnDrop,
+    handleDragEnd: handleColumnDragEnd
+  } = useDragAndDrop<string>({ items: columnOrder });
 
   const [resizingColumn, setResizingColumn] = useState<string | null>(null);
   const resizeStartX = useRef<number>(0);
@@ -123,13 +111,45 @@ const EntityList: React.FC<EntityListProps> = ({ className = '' }) => {
       localStorage.setItem(`entityList_${selectedEntityType}_columns`, JSON.stringify(visibleColumns));
     }
   }, [visibleColumns, selectedEntityType]);
-
-  // Load column widths and visibility from localStorage
+  
+  // Save column order when it changes
   useEffect(() => {
-    // Only proceed if we have a valid selectedEntityType
-    if (!selectedEntityType) return;
+    if (reorderedColumns.length > 0 && selectedEntityType) {
+      localStorage.setItem(`entityList_${selectedEntityType}_columnOrder`, JSON.stringify(reorderedColumns));
+    }
+  }, [reorderedColumns, selectedEntityType]);
+
+  /**
+   * Initialize columns based on entity data when entity type or data changes
+   */
+  useEffect(() => {
+    if (!selectedEntityType || !Array.isArray(entities) || entities.length === 0) return;
     
-    // Load column widths
+    // Get fields directly from the data
+    const availableFields = Object.keys(entities[0]);
+    
+    // Initialize column visibility with all fields visible
+    const newVisibility: {[key: string]: boolean} = {};
+    availableFields.forEach(field => {
+      newVisibility[field] = true;
+    });
+    
+    // Set up column order
+    const coreFields = ['id', 'name', 'created_at', 'updated_at'];
+    const newOrder = [
+      // Core fields first
+      ...coreFields.filter(f => availableFields.includes(f)),
+      // Then all remaining fields
+      ...availableFields.filter(f => !coreFields.includes(f))
+    ];
+    
+    // Set state
+    setColumnOrder(newOrder);
+    setVisibleColumns(newVisibility);
+  }, [selectedEntityType, entities]);
+
+  // Load column widths from localStorage
+  useEffect(() => {
     const savedWidths = localStorage.getItem('entityListColumnWidths');
     if (savedWidths) {
       try {
@@ -139,35 +159,17 @@ const EntityList: React.FC<EntityListProps> = ({ className = '' }) => {
         console.error('Error parsing saved column widths:', e);
       }
     }
-    
-    // Initialize with all columns visible
-    const defaultVisibility: Record<string, boolean> = {
-      id: true,
-      name: true,
-      created_at: true,
-      updated_at: true
-    };
-    
-    // Get all available fields and set all to visible
-    if (getEntityFields) {
-      const fields = getEntityFields(selectedEntityType);
-      
-      // Set ALL fields visible by default
-      fields.forEach(field => {
-        defaultVisibility[field.fieldName] = true;
-      });
-    }
-    
-    // ALWAYS show all columns by default regardless of what's in localStorage
-    setVisibleColumns(defaultVisibility);
-    
-    // Save this full visibility setting to localStorage to persist it
-    localStorage.setItem(`entityList_${selectedEntityType}_columns`, JSON.stringify(defaultVisibility));
-  }, [selectedEntityType]);
+  }, []);
 
   const startEdit = (entity: any) => {
     setEditingId(entity.id);
-    setEditValue(entity.name);
+    
+    // For broadcast rights entities, only use the broadcast company name part
+    if (selectedEntityType === 'broadcast' && typeof entity.name === 'string' && entity.name.includes(' - ')) {
+      setEditValue(entity.name.split(' - ')[0]);
+    } else {
+      setEditValue(entity.name);
+    }
   };
 
   const cancelEdit = () => {
@@ -177,7 +179,21 @@ const EntityList: React.FC<EntityListProps> = ({ className = '' }) => {
 
   const saveEdit = async (id: string) => {
     if (editValue.trim()) {
-      await handleUpdateEntity(id, { name: editValue.trim() });
+      // For broadcast rights, preserve the territory part if editing existing entity
+      if (selectedEntityType === 'broadcast') {
+        const entity = filteredEntities.find(e => e.id === id);
+        if (entity && typeof entity.name === 'string' && entity.name.includes(' - ')) {
+          // Keep the territory part when updating
+          const territory = entity.name.split(' - ')[1];
+          await handleUpdateEntity(id, { name: `${editValue.trim()} - ${territory}` });
+        } else {
+          await handleUpdateEntity(id, { name: editValue.trim() });
+        }
+      } else {
+        // Normal case for other entity types
+        await handleUpdateEntity(id, { name: editValue.trim() });
+      }
+      
       setEditingId(null);
       setEditValue('');
     }
@@ -209,58 +225,60 @@ const EntityList: React.FC<EntityListProps> = ({ className = '' }) => {
     return entityTypes.find(e => e.id === selectedEntityType)?.name || selectedEntityType;
   };
 
-  // Get filtered entities - using the complete entities directly instead of limiting to a few fields
-  // This ensures we have all fields available for display and editing
+  // Get filtered entities
   const filteredEntities = getSortedEntities() as BaseEntity[];
-
   const hasActiveFilters = activeFilters && activeFilters.length > 0;
-
-  // Get selected count
   const selectedCount = Object.values(selectedEntities).filter(Boolean).length;
 
-  // Add a function to get the complete entity data
-  const getCompleteEntity = (entityId: string) => {
-    return entities.find(e => e.id === entityId);
-  };
-  
   // Format cell values, particularly UUIDs
   const formatCellValue = (value: any, field: string) => {
     // Skip if no value
     if (value === null || value === undefined) return 'N/A';
     
+    // Special case for name field in broadcast entities - strip out the territory part
+    if (field === 'name' && selectedEntityType === 'broadcast' && typeof value === 'string') {
+      const parts = value.split(' - ');
+      if (parts.length > 1) {
+        return parts[0]; // Only show the broadcast company name part
+      }
+    }
+    
+    // Format dates
+    if (field.includes('date') && value) {
+      try {
+        return new Date(value).toLocaleDateString();
+      } catch (e) {
+        return value;
+      }
+    }
+    
     // Check if it's a UUID by format
     if (typeof value === 'string' && 
         /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value)) {
       
-      // Always show full UUID if toggle is on
-      if (showFullUuids) {
-        return value;
-      }
-      
-      // Otherwise truncate
-      return `${value.substring(0, 8)}...`;
+      // Return full UUID if toggle is on, otherwise truncate
+      return showFullUuids ? value : `${value.substring(0, 8)}...`;
+    }
+    
+    // For boolean fields
+    if (typeof value === 'boolean') {
+      return value ? 'Yes' : 'No';
     }
     
     // For any other field type
     return String(value);
   };
 
-  // Update the edit click handler
+  // Edit click handler
   const handleEditClick = (entity: BaseEntity) => {
-    const completeEntity = getCompleteEntity(entity.id);
-    if (completeEntity) {
-      setSelectedEntity(completeEntity as Entity);
-      setIsEditModalVisible(true);
-    }
+    setSelectedEntity(entity);
+    setIsEditModalVisible(true);
   };
 
-  // Update the search handler
+  // Search handler
   const handleSearchSelect = (entity: Entity) => {
-    const completeEntity = getCompleteEntity(entity.id);
-    if (completeEntity) {
-      setSelectedEntity(completeEntity as Entity);
-      setIsEditModalVisible(true);
-    }
+    setSelectedEntity(entity);
+    setIsEditModalVisible(true);
   };
 
   const handleEditModalClose = () => {
@@ -272,15 +290,6 @@ const EntityList: React.FC<EntityListProps> = ({ className = '' }) => {
     const { id, created_at, updated_at, ...updates } = updatedEntity;
     handleUpdateEntity(id, updates as Record<string, unknown>);
     setIsEditModalVisible(false);
-  };
-
-  const handleExportToSheets = (entities: BaseEntity[]) => {
-    const { handleExportToSheets: exportToSheets } = useSportsDatabase();
-    if (exportToSheets) {
-      exportToSheets(entities);
-    } else {
-      showNotification('error', 'Export functionality is not available');
-    }
   };
 
   // Column resizing handlers
@@ -321,6 +330,7 @@ const EntityList: React.FC<EntityListProps> = ({ className = '' }) => {
     };
   }, []);
 
+  // Loading state
   if (isLoading) {
     return (
       <div className={`flex justify-center items-center h-64 ${className}`}>
@@ -330,7 +340,7 @@ const EntityList: React.FC<EntityListProps> = ({ className = '' }) => {
     );
   }
 
-  // Handle any errors safely
+  // Error state - no entity type selected
   if (!selectedEntityType) {
     return (
       <div className={`flex justify-center items-center h-64 border rounded-lg bg-gray-50 ${className}`}>
@@ -342,6 +352,7 @@ const EntityList: React.FC<EntityListProps> = ({ className = '' }) => {
     );
   }
 
+  // Empty state - no entities found
   if (!entities || entities.length === 0) {
     return (
       <div className={`flex justify-center items-center h-64 border rounded-lg bg-gray-50 ${className}`}>
@@ -352,6 +363,39 @@ const EntityList: React.FC<EntityListProps> = ({ className = '' }) => {
       </div>
     );
   }
+
+  // Determine whether a field is a relationship field (ID field with corresponding name field)
+  const isRelationshipField = (field: string, entity: any): boolean => {
+    return field.endsWith('_id') && `${field.replace('_id', '_name')}` in entity;
+  };
+
+  // Get display value for a field (handles IDs vs names for relationships)
+  const getDisplayValue = (entity: any, field: string): string => {
+    // Special case for territory field in broadcast entities
+    if (field === 'territory' && selectedEntityType === 'broadcast') {
+      // If the territory value is directly in the field, use it
+      if (entity.territory) {
+        return formatCellValue(entity.territory, field);
+      }
+      
+      // Otherwise try to extract from name if using combined format
+      if (entity.name && typeof entity.name === 'string' && entity.name.includes(' - ')) {
+        const parts = entity.name.split(' - ');
+        if (parts.length > 1) {
+          return formatCellValue(parts[1], field); // Return the territory part
+        }
+      }
+    }
+    
+    // Handle relationship fields (showing names instead of IDs)
+    if (isRelationshipField(field, entity) && !showFullUuids) {
+      // Show the name instead of the ID when showing names
+      return formatCellValue(entity[field.replace('_id', '_name')], field);
+    }
+    
+    // Default case
+    return formatCellValue(entity[field], field);
+  };
 
   return (
     <div className={`bg-white rounded-lg shadow ${className}`}>
@@ -365,19 +409,21 @@ const EntityList: React.FC<EntityListProps> = ({ className = '' }) => {
             <SmartEntitySearch
               entityTypes={[selectedEntityType as EntityType]}
               onEntitySelect={handleSearchSelect}
-              placeholder="Update Stadium, League, or Team"
+              placeholder={`Search ${getEntityTypeName()}`}
               entities={entities as Entity[]}
             />
           </div>
           <div className="flex space-x-1">
             <button
-              onClick={() => handleExportToSheets(entities as any[])}
-              disabled={selectedCount === 0 || isDeleting}
-              className={`px-2 py-1 text-sm font-medium rounded flex items-center ${
-                selectedCount > 0 && !isDeleting
-                  ? 'bg-green-600 hover:bg-green-700 text-white'
-                  : 'bg-gray-200 text-gray-700 cursor-not-allowed'
-              }`}
+              onClick={() => {
+                const { handleExportToSheets: exportToSheets } = useSportsDatabase();
+                if (exportToSheets) {
+                  exportToSheets(entities as any[]);
+                } else {
+                  showNotification('error', 'Export functionality is not available');
+                }
+              }}
+              className="px-2 py-1 text-sm font-medium rounded flex items-center bg-green-600 hover:bg-green-700 text-white"
             >
               <FaFileExport className="mr-1" />
               Export
@@ -415,85 +461,51 @@ const EntityList: React.FC<EntityListProps> = ({ className = '' }) => {
             <button 
               className="px-2 py-1 text-xs font-medium bg-blue-600 text-white rounded hover:bg-blue-700 flex items-center"
               onClick={() => {
-                // Show all columns using dynamic field list from entity schema
-                const allColumns: {[key: string]: boolean} = {};
+                // Show all columns that exist in the data
+                const allFields = Array.isArray(entities) && entities.length > 0 
+                  ? Object.keys(entities[0]) 
+                  : [];
                 
-                // Get all available fields for this entity type
-                const availableFields = getAvailableFields();
+                const allVisible = allFields.reduce((acc, field) => {
+                  acc[field] = true;
+                  return acc;
+                }, {} as {[key: string]: boolean});
                 
-                // Set all fields to visible
-                availableFields.forEach(col => {
-                  allColumns[col] = true;
-                });
-                
-                // Always include base columns
-                ['id', 'name', 'created_at', 'updated_at'].forEach(col => {
-                  allColumns[col] = true;
-                });
-                
-                setVisibleColumns(allColumns);
+                setVisibleColumns(allVisible);
               }}
             >
               <FaCheck className="mr-1" /> Show All
             </button>
           </div>
           <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-x-4 gap-y-1">
-            {/* Common base columns */}
-            <div className="flex items-center">
-              <input
-                type="checkbox"
-                id="col-id"
-                checked={visibleColumns['id'] !== false}
-                onChange={() => setVisibleColumns(prev => ({...prev, id: !prev['id']}))}
-                className="mr-1"
-              />
-              <label htmlFor="col-id" className="text-xs text-gray-700 truncate">ID</label>
-            </div>
-            <div className="flex items-center">
-              <input
-                type="checkbox"
-                id="col-name"
-                checked={visibleColumns['name'] !== false}
-                onChange={() => setVisibleColumns(prev => ({...prev, name: !prev['name']}))}
-                className="mr-1"
-              />
-              <label htmlFor="col-name" className="text-xs text-gray-700 truncate">Name</label>
-            </div>
-            <div className="flex items-center">
-              <input
-                type="checkbox"
-                id="col-created_at"
-                checked={visibleColumns['created_at'] !== false}
-                onChange={() => setVisibleColumns(prev => ({...prev, created_at: !prev['created_at']}))}
-                className="mr-1"
-              />
-              <label htmlFor="col-created_at" className="text-xs text-gray-700 truncate">Created</label>
-            </div>
-            <div className="flex items-center">
-              <input
-                type="checkbox"
-                id="col-updated_at"
-                checked={visibleColumns['updated_at'] !== false}
-                onChange={() => setVisibleColumns(prev => ({...prev, updated_at: !prev['updated_at']}))}
-                className="mr-1"
-              />
-              <label htmlFor="col-updated_at" className="text-xs text-gray-700 truncate">Updated</label>
-            </div>
-            
-            {/* Dynamically generated entity-specific columns */}
-            {getAvailableFields()
-              .filter(field => !['id', 'name', 'created_at', 'updated_at'].includes(field))
+            {Object.keys(entities[0] || {})
+              .sort((a, b) => {
+                // Sort core fields first
+                const coreFields = ['id', 'name', 'created_at', 'updated_at'];
+                const aIsCore = coreFields.includes(a);
+                const bIsCore = coreFields.includes(b);
+                
+                if (aIsCore && !bIsCore) return -1;
+                if (!aIsCore && bIsCore) return 1;
+                
+                // Then sort alphabetically
+                return a.localeCompare(b);
+              })
               .map(field => (
                 <div key={field} className="flex items-center">
                   <input
                     type="checkbox"
                     id={`col-${field}`}
                     checked={visibleColumns[field] !== false}
-                    onChange={() => setVisibleColumns(prev => ({...prev, [field]: !prev[field]}))}
+                    onChange={() => {
+                      setVisibleColumns(prev => ({
+                        ...prev,
+                        [field]: !prev[field]
+                      }));
+                    }}
                     className="mr-1"
                   />
                   <label htmlFor={`col-${field}`} className="text-xs text-gray-700 truncate">
-                    {/* Display proper labels for fields */}
                     {field.replace(/_/g, ' ').replace(/\b\w/g, char => char.toUpperCase())}
                   </label>
                 </div>
@@ -545,7 +557,7 @@ const EntityList: React.FC<EntityListProps> = ({ className = '' }) => {
             </p>
           </div>
         )}
-        {/* Add CSS class to show when resizing is happening */}
+        
         <table className={`min-w-full divide-y divide-gray-200 table-fixed border-collapse ${resizingColumn ? 'cursor-col-resize' : ''}`}>
           <thead className="bg-gray-50">
             <tr className="border-b border-gray-200">
@@ -553,7 +565,7 @@ const EntityList: React.FC<EntityListProps> = ({ className = '' }) => {
               <th 
                 scope="col" 
                 className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider relative border-r border-gray-200 hover:bg-gray-100"
-                style={{ width: `${columnWidths.checkbox}px`, minWidth: '50px' }}
+                style={{ width: `${columnWidths.checkbox || 50}px`, minWidth: '50px' }}
               >
                 <div className="flex items-center">
                   <input
@@ -578,22 +590,26 @@ const EntityList: React.FC<EntityListProps> = ({ className = '' }) => {
                 </div>
               </th>
               
-              {/* Dynamic column generation for all fields */}
-              {Object.entries(visibleColumns)
-                .filter(([field, isVisible]) => isVisible !== false && field !== 'actions')
-                .map(([field]) => (
+              {/* Data columns */}
+              {columnOrder
+                .filter(field => visibleColumns[field] !== false && entities[0].hasOwnProperty(field))
+                .map((field) => (
                   <th 
                     key={field}
                     scope="col" 
-                    className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer relative border-r border-gray-200 hover:bg-gray-100"
+                    className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-grab relative border-r border-gray-200 hover:bg-gray-100"
                     onClick={() => handleSort(field)}
+                    draggable
+                    onDragStart={(e) => handleColumnDragStart(e, field)}
+                    onDragOver={(e) => handleColumnDragOver(e, field)}
+                    onDrop={(e) => handleColumnDrop(e, field)}
+                    onDragEnd={handleColumnDragEnd}
                     style={{ 
-                      width: columnWidths[field] || 120,
+                      width: columnWidths[field] || (field === 'name' ? 300 : 120),
                       minWidth: field === 'name' ? '150px' : '100px'
                     }}
                   >
                     <div className="flex items-center">
-                      {/* Format field name for display */}
                       {field.replace(/_/g, ' ').replace(/\b\w/g, char => char.toUpperCase())}
                       {renderSortIcon(field)}
                       <div 
@@ -605,14 +621,13 @@ const EntityList: React.FC<EntityListProps> = ({ className = '' }) => {
                       </div>
                     </div>
                   </th>
-                ))
-              }
+                ))}
               
               {/* Actions column */}
               <th 
                 scope="col" 
                 className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider relative border-r border-gray-200 hover:bg-gray-100"
-                style={{ width: `${columnWidths.actions}px`, minWidth: '100px' }}
+                style={{ width: `${columnWidths.actions || 120}px`, minWidth: '100px' }}
               >
                 <div className="flex items-center">
                   Actions
@@ -628,316 +643,150 @@ const EntityList: React.FC<EntityListProps> = ({ className = '' }) => {
             </tr>
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">
-            {filteredEntities.map((entity) => {
-              // Get the complete entity data to access all fields
-              const completeEntity = getCompleteEntity(entity.id);
-              
-              return (
-                <tr key={entity.id} className="hover:bg-gray-50 border-b border-gray-200">
-                  {/* Checkbox */}
-                  <td 
-                    className="px-3 py-2 whitespace-nowrap border-r border-gray-200"
-                    style={{ width: `${columnWidths.checkbox}px`, minWidth: '50px' }}
-                  >
-                    <div className="flex items-center">
-                      <input
-                        type="checkbox"
-                        checked={!!selectedEntities[entity.id]}
-                        onChange={() => toggleEntitySelection(entity.id)}
-                      />
-                    </div>
-                  </td>
-                  
-                  {/* Dynamically generate cells for visible columns */}
-                  {Object.entries(visibleColumns)
-                    .filter(([field, isVisible]) => isVisible !== false && field !== 'actions')
-                    .map(([field]) => {
-                      // Standard name field with editing for all entity types
-                      if (field === 'name') {
-                        return (
-                          <td 
-                            key={field}
-                            className="px-3 py-2 whitespace-nowrap border-r border-gray-200"
-                            style={{ width: `${columnWidths[field] || 150}px`, minWidth: '150px' }}
-                          >
-                            {editingId === entity.id ? (
-                              <div className="flex items-center space-x-2">
-                                <input
-                                  type="text"
-                                  value={editValue}
-                                  onChange={(e) => setEditValue(e.target.value)}
-                                  onKeyDown={(e) => handleKeyDown(e, entity.id)}
-                                  className="flex-1 px-2 py-1 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                  autoFocus
-                                />
-                                <button
-                                  onClick={() => saveEdit(entity.id)}
-                                  className="text-green-600 hover:text-green-800"
-                                  title="Save"
-                                >
-                                  <FaCheck className="w-4 h-4" />
-                                </button>
-                                <button
-                                  onClick={cancelEdit}
-                                  className="text-red-600 hover:text-red-800"
-                                  title="Cancel"
-                                >
-                                  <FaTimes className="w-4 h-4" />
-                                </button>
-                              </div>
-                            ) : (
-                              <div className="flex items-center space-x-2 overflow-hidden text-ellipsis">
-                                <div className="text-sm font-medium text-gray-900 overflow-hidden text-ellipsis">
-                                  {entity.name}
-                                  {selectedEntityType === 'league' && completeEntity?.nickname && (
-                                    <span className="ml-2 text-xs bg-indigo-100 text-indigo-800 px-2 py-0.5 rounded-full">
-                                      {completeEntity.nickname}
-                                    </span>
-                                  )}
-                                </div>
-                                <button
-                                  onClick={() => startEdit(entity)}
-                                  className="text-gray-400 hover:text-gray-600 flex-shrink-0"
-                                  title="Edit name"
-                                >
-                                  <FaPencilAlt className="w-3.5 h-3.5" />
-                                </button>
-                              </div>
-                            )}
-                          </td>
-                        );
-                      }
-                      
-                      // Handle date fields
-                      if (field === 'created_at' || field === 'updated_at' || field.includes('date')) {
-                        return (
-                          <td 
-                            key={field}
-                            className="px-3 py-2 whitespace-nowrap border-r border-gray-200"
-                            style={{ width: `${columnWidths[field] || 120}px`, minWidth: '100px' }}
-                          >
-                            <div className="text-sm text-gray-500">
-                              {completeEntity && completeEntity[field] 
-                                ? new Date(completeEntity[field]).toLocaleDateString() 
-                                : 'N/A'}
-                            </div>
-                          </td>
-                        );
-                      }
-                      
-                      // Handle special relationship fields with display names
-                      if (field === 'division_conference_id') {
-                        return (
-                          <td 
-                            key={field}
-                            className="px-3 py-2 whitespace-nowrap overflow-hidden text-ellipsis border-r border-gray-200"
-                            style={{ width: `${columnWidths[field] || 120}px`, minWidth: '100px' }}
-                          >
-                            <div className="text-sm text-gray-700 overflow-hidden text-ellipsis">
-                              {showFullUuids 
-                                ? completeEntity?.division_conference_id 
-                                : completeEntity?.division_conference_name || 'N/A'}
-                            </div>
-                          </td>
-                        );
-                      }
-                      
-                      if (field === 'league_id') {
-                        return (
-                          <td 
-                            key={field}
-                            className="px-3 py-2 whitespace-nowrap overflow-hidden text-ellipsis border-r border-gray-200"
-                            style={{ width: `${columnWidths[field] || 120}px`, minWidth: '100px' }}
-                          >
-                            <div className="text-sm text-gray-700 overflow-hidden text-ellipsis">
-                              {showFullUuids 
-                                ? completeEntity?.league_id 
-                                : completeEntity?.league_name || 'N/A'}
-                            </div>
-                          </td>
-                        );
-                      }
-                      
-                      if (field === 'team_id') {
-                        return (
-                          <td 
-                            key={field}
-                            className="px-3 py-2 whitespace-nowrap overflow-hidden text-ellipsis border-r border-gray-200"
-                            style={{ width: `${columnWidths[field] || 120}px`, minWidth: '100px' }}
-                          >
-                            <div className="text-sm text-gray-700 overflow-hidden text-ellipsis">
-                              {showFullUuids 
-                                ? completeEntity?.team_id 
-                                : completeEntity?.team_name || 'N/A'}
-                            </div>
-                          </td>
-                        );
-                      }
-                      
-                      if (field === 'stadium_id') {
-                        return (
-                          <td 
-                            key={field}
-                            className="px-3 py-2 whitespace-nowrap overflow-hidden text-ellipsis border-r border-gray-200"
-                            style={{ width: `${columnWidths[field] || 120}px`, minWidth: '100px' }}
-                          >
-                            <div className="text-sm text-gray-700 overflow-hidden text-ellipsis">
-                              {showFullUuids 
-                                ? completeEntity?.stadium_id 
-                                : completeEntity?.stadium_name || 'N/A'}
-                            </div>
-                          </td>
-                        );
-                      }
-                      
-                      // Standard handling for ID/relationship fields
-                      if (field.endsWith('_id') && completeEntity && field + '_name' in completeEntity) {
-                        // This is a field with a related name available (standard pattern fieldname_id -> fieldname_name)
-                        return (
-                          <td 
-                            key={field}
-                            className="px-3 py-2 whitespace-nowrap overflow-hidden text-ellipsis border-r border-gray-200"
-                            style={{ width: `${columnWidths[field] || 120}px`, minWidth: '120px' }}
-                          >
-                            <div className="text-sm text-gray-700 overflow-hidden text-ellipsis">
-                              {showFullUuids 
-                                ? completeEntity[field] // Show the full ID if IDs toggle is on
-                                : completeEntity[field + '_name'] || 'N/A'} 
-                            </div>
-                          </td>
-                        );
-                      }
-                      
-                      // Standard entity_type field
-                      if (field === 'entity_type') {
-                        return (
-                          <td 
-                            key={field}
-                            className="px-3 py-2 whitespace-nowrap overflow-hidden text-ellipsis border-r border-gray-200"
-                            style={{ width: `${columnWidths[field] || 120}px`, minWidth: '120px' }}
-                          >
-                            <div className="text-sm text-gray-700 overflow-hidden text-ellipsis">
-                              {completeEntity?.entity_type ? completeEntity.entity_type : 'N/A'}
-                            </div>
-                          </td>
-                        );
-                      }
-                      
-                      // Special handling for entity_id field - this pattern is used in multiple entity types
-                      if (field === 'entity_id' && completeEntity && 'entity_name' in completeEntity) {
-                        return (
-                          <td 
-                            key={field}
-                            className="px-3 py-2 whitespace-nowrap overflow-hidden text-ellipsis border-r border-gray-200"
-                            style={{ width: `${columnWidths[field] || 120}px`, minWidth: '120px' }}
-                          >
-                            <div className="text-sm text-gray-700 overflow-hidden text-ellipsis">
-                              {showFullUuids 
-                                ? formatCellValue(completeEntity.entity_id, field)
-                                : completeEntity.entity_name || 'N/A'}
-                            </div>
-                          </td>
-                        );
-                      }
-                      
-                      // Check if it's a UUID field that doesn't have a direct name field but might have related data
-                      if (field.endsWith('_id') && completeEntity && typeof completeEntity[field] === 'string') {
-                        // Find a potential related name field
-                        // For example: 'broadcast_company_id' might have 'broadcast_company_name'
-                        const baseName = field.replace('_id', '');
-                        const possibleNameField = `${baseName}_name`;
-                        
-                        if (possibleNameField in completeEntity) {
-                          return (
-                            <td 
-                              key={field}
-                              className="px-3 py-2 whitespace-nowrap overflow-hidden text-ellipsis border-r border-gray-200"
-                              style={{ width: `${columnWidths[field] || 120}px`, minWidth: '100px' }}
-                            >
-                              <div className="text-sm text-gray-700 overflow-hidden text-ellipsis">
-                                {showFullUuids 
-                                  ? completeEntity[field]
-                                  : completeEntity[possibleNameField] || 'N/A'}
-                              </div>
-                            </td>
-                          );
-                        }
-                      }
-                      
-                      // Regular field
+            {filteredEntities.map((entity) => (
+              <tr key={entity.id} className="hover:bg-gray-50 border-b border-gray-200">
+                {/* Checkbox */}
+                <td 
+                  className="px-3 py-2 whitespace-nowrap border-r border-gray-200"
+                  style={{ width: `${columnWidths.checkbox || 50}px`, minWidth: '50px' }}
+                >
+                  <div className="flex items-center">
+                    <input
+                      type="checkbox"
+                      checked={!!selectedEntities[entity.id]}
+                      onChange={() => toggleEntitySelection(entity.id)}
+                    />
+                  </div>
+                </td>
+                
+                {/* Data cells */}
+                {columnOrder
+                  .filter(field => visibleColumns[field] !== false && entity.hasOwnProperty(field))
+                  .map((field) => {
+                    // Special handling for name field to support inline editing
+                    if (field === 'name') {
                       return (
                         <td 
                           key={field}
-                          className="px-3 py-2 whitespace-nowrap overflow-hidden text-ellipsis border-r border-gray-200"
-                          style={{ width: `${columnWidths[field] || 120}px`, minWidth: '100px' }}
+                          className="px-3 py-2 whitespace-nowrap border-r border-gray-200"
+                          style={{ width: `${columnWidths[field] || 300}px`, minWidth: '150px' }}
                         >
-                          <div className="text-sm text-gray-700 overflow-hidden text-ellipsis">
-                            {completeEntity && completeEntity[field] !== undefined
-                              ? formatCellValue(completeEntity[field], field)
-                              : 'N/A'}
-                          </div>
+                          {editingId === entity.id ? (
+                            <div className="flex items-center space-x-2">
+                              <input
+                                type="text"
+                                value={editValue}
+                                onChange={(e) => setEditValue(e.target.value)}
+                                onKeyDown={(e) => handleKeyDown(e, entity.id)}
+                                className="flex-1 px-2 py-1 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                autoFocus
+                              />
+                              <button
+                                onClick={() => saveEdit(entity.id)}
+                                className="text-green-600 hover:text-green-800"
+                                title="Save"
+                              >
+                                <FaCheck className="w-4 h-4" />
+                              </button>
+                              <button
+                                onClick={cancelEdit}
+                                className="text-red-600 hover:text-red-800"
+                                title="Cancel"
+                              >
+                                <FaTimes className="w-4 h-4" />
+                              </button>
+                            </div>
+                          ) : (
+                            <div className="flex items-center space-x-2 overflow-hidden text-ellipsis">
+                              <div className="text-sm font-medium text-gray-900 overflow-hidden text-ellipsis">
+                                {selectedEntityType === 'broadcast' && typeof entity.name === 'string' && entity.name.includes(' - ')
+                                  ? entity.name.split(' - ')[0] // Show just the broadcast company name for broadcast rights
+                                  : entity.name
+                                }
+                                {selectedEntityType === 'league' && entity.nickname && (
+                                  <span className="ml-2 text-xs bg-indigo-100 text-indigo-800 px-2 py-0.5 rounded-full">
+                                    {entity.nickname}
+                                  </span>
+                                )}
+                              </div>
+                              <button
+                                onClick={() => startEdit(entity)}
+                                className="text-gray-400 hover:text-gray-600 flex-shrink-0"
+                                title="Edit name"
+                              >
+                                <FaPencilAlt className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          )}
                         </td>
                       );
-                    })
-                  }
-                  
-                  {/* Actions */}
-                  <td 
-                    className="px-3 py-2 whitespace-nowrap border-r border-gray-200"
-                    style={{ width: `${columnWidths.actions}px`, minWidth: '100px' }}
-                  >
-                    <div className="flex space-x-2">
-                      <button
-                        onClick={() => handleEditClick(entity)}
-                        className="text-blue-500 hover:text-blue-700"
-                        title="Edit"
+                    }
+                    
+                    // Handle standard cells including relationship fields
+                    return (
+                      <td 
+                        key={field}
+                        className="px-3 py-2 whitespace-nowrap overflow-hidden text-ellipsis border-r border-gray-200"
+                        style={{ width: `${columnWidths[field] || 120}px`, minWidth: '100px' }}
                       >
-                        <FaEdit />
-                      </button>
-                      <button
-                        onClick={() => {
-                          // Show confirmation dialog for all entity types
-                          setShowDeleteConfirm(entity.id);
-                        }}
-                        className="text-red-500 hover:text-red-700"
-                        title="Delete"
-                      >
-                        <FaTrash />
-                      </button>
-                      <button
-                        onClick={() => {
-                          navigate(`/sports/${selectedEntityType}/${entity.id}`);
-                        }}
-                        className="text-blue-500 hover:text-blue-700"
-                        title="View Details"
-                      >
-                        <FaEye />
-                      </button>
-                    </div>
-                    {showDeleteConfirm === entity.id && (
-                      <div className="absolute z-10 mt-2 p-3 bg-white rounded-md shadow-lg border border-gray-200">
-                        <p className="text-sm text-gray-700 mb-2">Are you sure you want to delete this {selectedEntityType}?</p>
-                        <div className="flex justify-end space-x-2">
-                          <button
-                            onClick={() => setShowDeleteConfirm(null)}
-                            className="px-2 py-1 text-xs text-gray-600 hover:text-gray-800 border border-gray-300 rounded"
-                          >
-                            Cancel
-                          </button>
-                          <button
-                            onClick={() => handleDeleteEntity(entity.id)}
-                            className="px-2 py-1 text-xs text-white bg-red-500 hover:bg-red-600 rounded"
-                            disabled={isDeleting}
-                          >
-                            {isDeleting ? 'Deleting...' : 'Delete'}
-                          </button>
+                        <div className="text-sm text-gray-700 overflow-hidden text-ellipsis">
+                          {getDisplayValue(entity, field)}
                         </div>
+                      </td>
+                    );
+                  })}
+                
+                {/* Actions */}
+                <td 
+                  className="px-3 py-2 whitespace-nowrap border-r border-gray-200"
+                  style={{ width: `${columnWidths.actions || 120}px`, minWidth: '100px' }}
+                >
+                  <div className="flex space-x-2">
+                    <button
+                      onClick={() => handleEditClick(entity)}
+                      className="text-blue-500 hover:text-blue-700"
+                      title="Edit"
+                    >
+                      <FaEdit />
+                    </button>
+                    <button
+                      onClick={() => setShowDeleteConfirm(entity.id)}
+                      className="text-red-500 hover:text-red-700"
+                      title="Delete"
+                    >
+                      <FaTrash />
+                    </button>
+                    <button
+                      onClick={() => navigate(`/sports/${selectedEntityType}/${entity.id}`)}
+                      className="text-blue-500 hover:text-blue-700"
+                      title="View Details"
+                    >
+                      <FaEye />
+                    </button>
+                  </div>
+                  {showDeleteConfirm === entity.id && (
+                    <div className="absolute z-10 mt-2 p-3 bg-white rounded-md shadow-lg border border-gray-200">
+                      <p className="text-sm text-gray-700 mb-2">Are you sure you want to delete this {selectedEntityType}?</p>
+                      <div className="flex justify-end space-x-2">
+                        <button
+                          onClick={() => setShowDeleteConfirm(null)}
+                          className="px-2 py-1 text-xs text-gray-600 hover:text-gray-800 border border-gray-300 rounded"
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          onClick={() => handleDeleteEntity(entity.id)}
+                          className="px-2 py-1 text-xs text-white bg-red-500 hover:bg-red-600 rounded"
+                          disabled={isDeleting}
+                        >
+                          {isDeleting ? 'Deleting...' : 'Delete'}
+                        </button>
                       </div>
-                    )}
-                  </td>
-                </tr>
-              );
-            })}
+                    </div>
+                  )}
+                </td>
+              </tr>
+            ))}
           </tbody>
         </table>
       </div>
@@ -997,7 +846,7 @@ const EntityList: React.FC<EntityListProps> = ({ className = '' }) => {
         </div>
       </div>
 
-      {/* Add the edit modal */}
+      {/* Entity Edit Modal */}
       <Modal
         title="Entity Edit"
         open={isEditModalVisible}
@@ -1016,21 +865,17 @@ const EntityList: React.FC<EntityListProps> = ({ className = '' }) => {
       </Modal>
 
       {/* Bulk Edit Modal */}
-      {/* TODO: Replace with the unified BulkEditModal from components/common/BulkEditModal.tsx
-         once authentication issues are resolved. The unified component supports both
-         entity-based and query-based bulk editing but has authentication issues in the entity context. */}
       <BulkEditModal 
         visible={isBulkEditModalVisible}
         onCancel={() => setIsBulkEditModalVisible(false)}
         entityType={selectedEntityType}
         selectedIds={Object.keys(selectedEntities).filter(id => selectedEntities[id])}
         onSuccess={() => {
-          setIsBulkEditModalVisible(false); // Make sure to close the modal
+          setIsBulkEditModalVisible(false);
           refetch();
           deselectAllEntities();
         }}
       />
-
     </div>
   );
 };

@@ -70,23 +70,57 @@ class League(Base):
 
 ### Entity Services
 
-Business logic for managing sports entities:
+Business logic for managing sports entities is organized using a modular approach with domain-driven design:
 
 ```python
-# Example League service methods
-class SportsService:
-    def __init__(self, db: Session):
+# Base service with shared functionality
+class BaseService:
+    def __init__(self, db: AsyncSession = None):
         self.db = db
-    
+        
+    async def get_by_id(self, model_class, entity_id: UUID):
+        """Get entity by ID with common error handling."""
+        query = select(model_class).where(model_class.id == entity_id)
+        result = await self.db.execute(query)
+        return result.scalars().first()
+        
+    async def create_entity(self, model_class, data: dict):
+        """Create entity with validation and error handling."""
+        entity = model_class(**data)
+        self.db.add(entity)
+        await self.db.commit()
+        await self.db.refresh(entity)
+        return entity
+
+# Entity-specific service with domain logic
+class LeagueService(BaseService):
     async def get_leagues(self, skip: int = 0, limit: int = 100):
-        return self.db.query(League).offset(skip).limit(limit).all()
+        """Get leagues with pagination."""
+        query = select(League).offset(skip).limit(limit)
+        result = await self.db.execute(query)
+        return result.scalars().all()
     
     async def create_league(self, league_data: LeagueCreate):
-        league = League(**league_data.dict())
-        self.db.add(league)
-        self.db.commit()
-        self.db.refresh(league)
-        return league
+        """Create league with domain-specific validation."""
+        # Validate league data
+        validated_data = league_data.dict()
+        return await self.create_entity(League, validated_data)
+
+# Facade service that provides a unified API
+class SportsService:
+    def __init__(self):
+        """Initialize with specific services."""
+        self.league_service = LeagueService()
+        self.team_service = TeamService()
+        # Other services...
+    
+    async def get_leagues(self, db: AsyncSession, skip: int = 0, limit: int = 100):
+        """Delegate to specialized service."""
+        return await self.league_service.get_leagues(db, skip, limit)
+    
+    async def create_league(self, db: AsyncSession, league_data: LeagueCreate):
+        """Delegate to specialized service."""
+        return await self.league_service.create_league(db, league_data)
 ```
 
 ## Entity Relationship Handling
@@ -113,9 +147,14 @@ During batch imports, the system resolves entity relationships:
 ### Entity Field Management
 
 1. **Field Filtering**:
-   - Backend `sports_service.py` filters entity fields to only include relevant fields for each entity type
-   - Uses dedicated `_get_entity_fields()` method to determine valid fields per entity type
-   - Returns filtered entity data that contains only appropriate fields
+   - Backend sports service architecture handles field filtering:
+     - Base `SportsDatabaseService` provides core query handling
+     - Uses specialized query builders for constructing SQL queries
+     - Implements dedicated error handling with fallback strategies
+     - Uses logging utilities for consistent debug output
+   - Entity fields filtered to only include relevant fields by entity type
+   - Uses dedicated field mapping methods to determine valid fields
+   - Returns filtered entity data with appropriate fields
    - Prevents fields from one entity type showing up in another
 
 2. **Field Display**:
@@ -124,6 +163,29 @@ During batch imports, the system resolves entity relationships:
    - Special handling for combined fields (like broadcast rights company names and territories)
    - Smart detection and display for relationship fields with corresponding name fields
    - Provides consistent toggle between UUIDs and human-readable names
+
+### Frontend Component Architecture
+
+1. **Component Organization**:
+   - Components organized by feature with clear boundaries
+   - UI components separated from data handling logic
+   - Custom hooks for business logic and API interaction
+   - Utility modules for common functions:
+     - Data processing utilities
+     - Notification management
+     - Error handling
+     - Entity processing 
+     - Batch handling
+
+2. **SportDataMapper Architecture**:
+   - Dialog container for standard modals
+   - Entity-specific views with focused responsibilities
+   - Import process with clean separation:
+     - Data transformation utilities
+     - Batch processing logic with retries
+     - Progress tracking and reporting
+     - Error handling with consistent messaging
+   - Notification system with automatic management
 
 ### Bulk Update Flow
 

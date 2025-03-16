@@ -37,7 +37,8 @@ src/
 
 3. **API Organization**
    - Domain-driven design
-   - Modular routing structure
+   - Modular routing structure with facade pattern for complex services
+   - Services organized by entity type with base service inheritance
    - Standardized response formats
    - Role-based API access
    - Structured error handling
@@ -66,6 +67,8 @@ frontend/
 2. **Component Architecture**
    - Modular feature-based organization
    - Custom hooks for business logic with separation of concerns
+   - Feature-specific utility functions in dedicated modules
+   - Focused components with single responsibility principle
    - Fixed navigation bar with consistent layout
    - Table-based components for structured data
    - Sorting mechanisms for data organization
@@ -89,17 +92,28 @@ frontend/
      │   └── index.ts     # Exports all hooks
      ├── utils/           # Helper functions
      │   ├── featureUtils.ts
+     │   ├── notificationManager.ts
+     │   ├── dataProcessor.ts
      │   └── index.ts     # Exports all utilities
      ├── types.ts         # Feature-specific type definitions
      └── index.tsx        # Main component with minimal logic
      ```
-   - Single responsibility components focused on UI presentation
-   - Backend services follow similar pattern:
+   - UI logic separated from data processing and state management
+   - Specialized utility modules for focused concerns:
+     - Data transformation utilities
+     - Entity processing utilities 
+     - Error handling utilities
+     - Notification management
+     - Batch processing logic
+   - Backend services follow similar modular organization:
      ```
      service_area/
-     ├── specific_service1.py
-     ├── specific_service2.py
-     └── __init__.py      # Exports all services
+     ├── base_service.py      # Shared functionality
+     ├── entity_service.py    # Entity-specific implementation
+     ├── validators.py        # Validation logic
+     ├── utils.py             # Helper functions
+     ├── facade.py            # Unified API with delegation
+     └── __init__.py          # Exports facade
      ```
 
 ## Data Architecture

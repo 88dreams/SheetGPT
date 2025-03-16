@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback, useMemo, useEffect, memo } from 'react';
 import { Input, AutoComplete } from 'antd';
 import { SearchOutlined } from '@ant-design/icons';
 import { Entity, EntityType } from '../../../types/sports';
@@ -17,7 +17,8 @@ interface AutoCompleteOption {
   entity: Entity;
 }
 
-export const SmartEntitySearch: React.FC<SmartEntitySearchProps> = ({
+// Use memo to prevent unnecessary re-renders of the entire component
+const SmartEntitySearch: React.FC<SmartEntitySearchProps> = memo(({
   onEntitySelect,
   entityTypes,
   placeholder = "Search for Stadium, League, or Team...",
@@ -26,14 +27,27 @@ export const SmartEntitySearch: React.FC<SmartEntitySearchProps> = ({
   const [searchText, setSearchText] = useState('');
   const [options, setOptions] = useState<AutoCompleteOption[]>([]);
 
-  const handleSearch = (searchText: string) => {
-    setSearchText(searchText);
-    if (!searchText) {
+  // Get a stable identifier for the current entity list
+  const entitiesStableId = useMemo(() => {
+    if (entities.length === 0) return '';
+    return `${entityTypes.join('-')}-${entities.length}`;
+  }, [entityTypes, entities.length]);
+
+  // Reset search state when entities change
+  useEffect(() => {
+    setSearchText('');
+    setOptions([]);
+  }, [entitiesStableId]);
+
+  // Use useCallback to prevent handleSearch from being recreated on every render
+  const handleSearch = useCallback((text: string) => {
+    setSearchText(text);
+    if (!text) {
       setOptions([]);
       return;
     }
 
-    const searchLower = searchText.toLowerCase();
+    const searchLower = text.toLowerCase();
     const filtered = entities
       .filter(entity => entity.name.toLowerCase().includes(searchLower))
       .map(entity => ({
@@ -44,13 +58,14 @@ export const SmartEntitySearch: React.FC<SmartEntitySearchProps> = ({
       }));
 
     setOptions(filtered);
-  };
+  }, [entities]);
 
-  const handleSelect = (_: string, option: AutoCompleteOption) => {
+  // Use useCallback to prevent handleSelect from being recreated on every render
+  const handleSelect = useCallback((_: string, option: AutoCompleteOption) => {
     onEntitySelect(option.entity);
     setSearchText('');
     setOptions([]);
-  };
+  }, [onEntitySelect]);
 
   return (
     <AutoComplete
@@ -68,6 +83,12 @@ export const SmartEntitySearch: React.FC<SmartEntitySearchProps> = ({
       />
     </AutoComplete>
   );
-};
+});
+
+// Add display name for easier debugging
+SmartEntitySearch.displayName = 'SmartEntitySearch';
+
+// Export both named and default exports for compatibility
+export { SmartEntitySearch };
 
 export default SmartEntitySearch; 

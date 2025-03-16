@@ -15,20 +15,25 @@ SheetGPT is a full-stack application combining AI-powered chat with structured d
 ### Backend
 - FastAPI with SQLAlchemy ORM and PostgreSQL
 - JWT authentication with role-based access
-- Modular design with isolated services
+- Domain-driven design with facade pattern
+- Modular service architecture with inheritance
 - Transaction management with session control
 - Database backup and management system
+- Query builder with error handling
 - Scheduled task infrastructure
 
 ### Frontend
 - React with TypeScript
 - React Query for data management
+- Feature-focused folder structure with specialized hooks
+- Utility modules for specific responsibilities
 - Advanced DataTable component
 - Fixed navigation bar with consistent layout
 - Sports database interface with relationship visualization
 - Admin dashboard for database management
 - Table-based list components with sorting capabilities
 - Contextual action buttons for improved UX
+- Reusable UI components with single responsibilities
 
 ## Key Components
 
@@ -48,6 +53,13 @@ SheetGPT is a full-stack application combining AI-powered chat with structured d
 
 3. **SportDataMapper**
    - Field mapping with drag-and-drop
+   - Modular architecture with separation of concerns:
+     - Dialog container for UI consistency
+     - Entity-specific view components 
+     - Utility modules for data transformation
+     - Batch processing with progress tracking
+     - Notification management system
+   - Streamlined import workflow with error handling
    - Entity type detection
    - Batch import capabilities
    - Progress tracking

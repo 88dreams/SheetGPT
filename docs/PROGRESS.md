@@ -14,7 +14,30 @@ SheetGPT is a full-stack application that combines AI-powered chat capabilities 
 
 ### Latest Features
 
-1. Column Drag/Drop and UUID Display Improvements (March 22, 2025)
+1. Backend and Frontend Refactoring (March 16, 2025)
+   - Refactored `sports_service.py` using object-oriented design principles:
+     - Created `SQLQueryBuilder` for SQL query construction
+     - Added `DatabaseExecutor` for query execution and error handling
+     - Added `Logger` for configurable debug logging
+     - Improved code organization with better separation of concerns
+   - Refactored `SportDataMapperContainer` to improve organization:
+     - Extracted UI components into separate files with single responsibilities
+     - Created reusable `DialogContainer` for modal handling
+     - Extracted view logic into dedicated view components
+     - Added consistent UI elements with `ViewModeSelectorContainer`
+   - Refactored `useImportProcess` hook with modular architecture:
+     - Created utility modules for specific responsibilities
+     - Added `importUtils` for data transformation and entity handling
+     - Created `batchProcessor` for efficient batch operations
+     - Added `notificationManager` for consistent notifications
+     - Reduced duplication between single and batch operations
+     - Improved error handling with standardized patterns
+   - Updated documentation to reflect architectural improvements:
+     - Enhanced `API_ARCHITECTURE.md` with service design details
+     - Updated `TECHNICAL_DESCRIPTION.md` with component organization info
+     - Added documentation on utility modules and facade pattern
+
+2. Column Drag/Drop and UUID Display Improvements (March 22, 2025)
    - Implemented robust column drag-and-drop functionality in EntityList and DatabaseQuery
    - Added visual feedback during drag operations with hover effects
    - Fixed infinite update loops in SmartEntitySearch component

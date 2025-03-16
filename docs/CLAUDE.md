@@ -42,9 +42,15 @@ When users reference entities by name instead of UUID:
 3. If multiple matches, Claude helps disambiguate
 4. New entities can be auto-created if needed
 
-### Recent Improvements (March 21, 2025)
+### Recent Improvements (March 2025)
 
-- Enhanced error messaging for Claude API failures
+- Backend and frontend refactoring (March 16, 2025):
+  - Improved error handling in sports service
+  - Enhanced batch processing in import workflow
+  - Added robust error recovery in API interactions
+  - Created consistent notification management system
+  
+- Enhanced error messaging for Claude API failures (March 21, 2025)
 - Improved prompt for entity name resolution in broadcast rights
 - Added fallback mechanisms for API interruptions
 - Optimized context window usage for better performance

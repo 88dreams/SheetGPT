@@ -144,20 +144,49 @@ const EntityList: React.FC<EntityListProps> = ({ className = '' }) => {
     // Get fields directly from the data
     const availableFields = Object.keys(entities[0]);
     
-    // Initialize column visibility - hide UUID-only columns by default
-    const newVisibility: {[key: string]: boolean} = {};
-    availableFields.forEach(field => {
-      // Check if this is a UUID field
-      const hasCorrespondingNameField = availableFields.includes(field.replace('_id', '_name'));
-      const isUuidField = field === 'id' || (field.endsWith('_id') && !hasCorrespondingNameField);
-      
-      // Hide all UUID fields by default
-      if (isUuidField) {
-        newVisibility[field] = false;
-      } else {
-        newVisibility[field] = true;
+    // Try to load saved column visibility from localStorage first
+    const savedVisibility = localStorage.getItem(`entityList_${selectedEntityType}_columns`);
+    let newVisibility: {[key: string]: boolean} = {};
+    
+    if (savedVisibility) {
+      try {
+        // Start with saved visibility settings
+        const parsedVisibility = JSON.parse(savedVisibility);
+        newVisibility = { ...parsedVisibility };
+        
+        // Add any new fields that might not be in saved settings
+        availableFields.forEach(field => {
+          if (newVisibility[field] === undefined) {
+            // Check if this is a UUID field
+            const hasCorrespondingNameField = availableFields.includes(field.replace('_id', '_name'));
+            const isUuidField = field === 'id' || (field.endsWith('_id') && !hasCorrespondingNameField);
+            
+            // Hide all UUID fields by default
+            newVisibility[field] = !isUuidField;
+          }
+        });
+      } catch (e) {
+        console.error('Error parsing saved column visibility:', e);
+        // Fall back to default visibility if we can't parse saved settings
+        newVisibility = {};
       }
-    });
+    }
+    
+    // If we don't have saved visibility settings or parsing failed, set up defaults
+    if (Object.keys(newVisibility).length === 0) {
+      availableFields.forEach(field => {
+        // Check if this is a UUID field
+        const hasCorrespondingNameField = availableFields.includes(field.replace('_id', '_name'));
+        const isUuidField = field === 'id' || (field.endsWith('_id') && !hasCorrespondingNameField);
+        
+        // Hide all UUID fields by default
+        if (isUuidField) {
+          newVisibility[field] = false;
+        } else {
+          newVisibility[field] = true;
+        }
+      });
+    }
     
     // Set up column order - try to load from localStorage first
     const savedOrder = localStorage.getItem(`entityList_${selectedEntityType}_columnOrder`);

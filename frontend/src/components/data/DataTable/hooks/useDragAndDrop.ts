@@ -15,16 +15,27 @@ export function useDragAndDrop<T>({ items }: UseDragAndDropProps<T>) {
     if (items.length > 0) {
       // Preserve the order of existing items where possible
       if (reorderedItems.length > 0) {
-        // For primitive values like strings (our column names), we can use a simpler comparison
-        // Compare items using their string representations
-        const itemsStr = JSON.stringify([...items].sort());
-        const reorderedStr = JSON.stringify([...reorderedItems].sort());
+        // Determine if the items are actually different rather than just reordered
+        // We need to check if they contain the same elements, regardless of order
+        const itemsSet = new Set(items);
+        const reorderedSet = new Set(reorderedItems);
+        
+        // Convert sets to arrays for comparison
+        const itemsArr = Array.from(itemsSet);
+        const reorderedArr = Array.from(reorderedSet);
+        
+        // Sort both arrays for consistent comparison
+        const itemsStr = JSON.stringify(itemsArr.sort());
+        const reorderedStr = JSON.stringify(reorderedArr.sort());
         
         // If they contain the exact same set of items (regardless of order),
-        // don't update to avoid unnecessary state changes
+        // we only need to add any new items while preserving existing order
         if (itemsStr === reorderedStr) {
-          return;
+          return; // Identical sets, current order is preserved
         }
+        
+        // For primitive values like strings (our column names), we should maintain order
+        // but add any new items that don't exist in the current order
         
         // Create a new array maintaining order of any existing items
         const newOrder: T[] = [];
@@ -43,13 +54,19 @@ export function useDragAndDrop<T>({ items }: UseDragAndDropProps<T>) {
           }
         });
         
-        setReorderedItems(newOrder);
+        // Only update state if the order actually changed
+        const currentOrderStr = JSON.stringify(reorderedItems);
+        const newOrderStr = JSON.stringify(newOrder);
+        
+        if (currentOrderStr !== newOrderStr) {
+          setReorderedItems(newOrder);
+        }
       } else {
         // Just set initial items if reorderedItems is empty
         setReorderedItems([...items]);
       }
     }
-  }, [items]);
+  }, [items, reorderedItems]);
 
   // Handle drag start
   const handleDragStart = useCallback((e: React.DragEvent, item: T) => {

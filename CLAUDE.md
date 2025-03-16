@@ -96,11 +96,20 @@
 ## React DnD Implementation Notes
 
 - For drag and drop functionality, prefer react-beautiful-dnd over react-dnd 
+- Implement custom drag-and-drop hooks for focused functionality like column reordering
+- Provide proper memoization and state synchronization to prevent infinite render loops
+- Use stable references with useCallback for event handlers
+- Add visual feedback during drag operations with CSS classes for dragged items
+- Implement localStorage persistence for drag-and-drop state changes
+- Set up unique storage keys when handling multiple drag contexts
 - The conversation reordering feature has unresolved issues with state updates
 - Future implementation should handle optimistic UI updates consistently
 - Keep drag-drop interactions simple, with minimal state changes during hover events
 - Update local state immediately on drop, then send API request as side effect
-- Always provide visual feedback during drag operations
+- Use deep equality checks to prevent redundant re-renders
+- Monitor dependency arrays carefully to prevent circular dependencies 
+- Ensure stateful hooks properly update when prop dependencies change
+- Fix SmartEntitySearch component issues with proper memoization strategies
 
 ## Database Guidelines
 
@@ -149,6 +158,11 @@
   - Add hover:bg-gray-100 to all column headers for interactive feedback
   - Make column resize handles invisible when not hovered (w-0)
   - Use hover:bg-blue-500 hover:w-2 transition-all for resize handle hover effects
+- Add column drag-and-drop functionality with visual feedback during operations
+- Implement drag-and-drop with stateful hooks and persistent storage
+- Hide UUID-only columns by default while providing column visibility controls
+- Add visual indicators during drag operations (opacity, background color changes)
+- Use deep equality checks to prevent redundant state updates
 - Add sorting capabilities with clear visual indicators
 - Use contextual actions that appear only when relevant
 - Optimize vertical space with collapsible sections
@@ -156,8 +170,6 @@
 - Calculate proper heights for scrollable containers (h-[calc(100vh-5rem)])
 - Use consistent color scheme for actions (blue for edit, red for delete, etc.)
 - Provide clear visual feedback for interactive elements
-- Show all columns by default for entity lists and query results
-- Always initialize column visibility with all columns visible, ignoring saved preferences
 - Include UUID toggle functionality for all entity relationship displays (use "IDs"/"Names" button text)
 - Display human-readable names for UUID fields by default
 - Handle special case display for combined fields (like broadcast rights company names and territories)

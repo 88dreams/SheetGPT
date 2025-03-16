@@ -208,8 +208,15 @@ frontend/
 
 6. **UUID Display System**
    ```
-   Data Retrieval → UUID Detection → Related Entity Lookup →
+   Data Retrieval → UUID Detection → Default Hiding →
+   Column Visibility Control → Related Entity Lookup →
    Display Format Selection (Names/IDs) → Conditional Rendering
+   ```
+
+7. **Column Drag and Drop System**
+   ```
+   User Interaction → Visual Feedback → State Update →
+   Persistent Storage → UI Rerendering → Browser Survival
    ```
 
 ## Key Components
@@ -271,6 +278,10 @@ frontend/
   - Syntax-highlighted, editable SQL with one-click execution
   - Query translation without execution through "Translate" button
   - Query saving and management with localStorage persistence
+  - Column drag-and-drop reordering with visual feedback
+  - UUID columns hidden by default for improved readability
+  - Long-term column order persistence through localStorage
+  - Hash-based storage keys for different query types
   - Session-based state persistence when navigating away from the page
   - Results display with sorting, column visibility, and row selection
   - Entity relationship display with UUID-to-name resolution
@@ -380,6 +391,10 @@ Components:
    - Context function extraction validation
    - Component rendering sequence optimization
    - Dynamic field generation with fallbacks
+   - Component memoization to prevent render loops
+   - Circular dependency detection and prevention
+   - Smart entity search optimization with fallbacks
+   - Deep equality checks to prevent redundant updates
 
 2. **Data Errors**
    - Field validation

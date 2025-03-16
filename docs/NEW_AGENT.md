@@ -229,7 +229,19 @@ SheetGPT is a full-stack application combining AI-powered chat with structured d
 6. Check database backup status
 
 ## Recent Features
-1. **Entity Display and Relationship Field Improvements** (March 21, 2025)
+1. **Column Management and SmartEntitySearch Optimization** (March 22, 2025)
+   - Implemented persistent column drag-and-drop functionality across EntityList and DatabaseQuery
+   - Added visual feedback during column drag operations with clear hover states
+   - Fixed SmartEntitySearch component to eliminate infinite update loops
+   - Modified column visibility to hide UUID columns by default for improved readability
+   - Implemented column order persistence that survives page navigation and browser restarts
+   - Added unique storage keys for different query types to maintain separate column preferences
+   - Used localStorage instead of sessionStorage for long-term persistence
+   - Enhanced component rendering with optimized memoization strategies
+   - Fixed circular dependency issues in state management hooks
+   - Improved event handlers to prevent redundant state updates
+
+2. **Entity Display and Relationship Field Improvements** (March 21, 2025)
    - Fixed broadcast rights entity display to show proper names instead of blank fields
    - Corrected entity type mapping in sports_service.py with proper BroadcastRights model
    - Implemented consistent Names/IDs toggle behavior across all entity fields

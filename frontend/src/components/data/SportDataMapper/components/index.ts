@@ -7,4 +7,11 @@ export { default as ActionButtons } from './ActionButtons';
 export { default as Notification } from './Notification';
 export { default as FieldItem } from './FieldItem';
 export { default as FieldHelpTooltip } from './FieldHelpTooltip';
-export { default as GuidedWalkthrough } from './GuidedWalkthrough'; 
+export { default as GuidedWalkthrough } from './GuidedWalkthrough';
+export { default as FieldView } from './FieldView';
+
+// New components
+export { default as DialogContainer } from './DialogContainer';
+export { default as EntityView } from './EntityView';
+export { default as ViewModeSelectorContainer } from './ViewModeSelectorContainer';
+export { default as InvalidDataView } from './InvalidDataView'; 

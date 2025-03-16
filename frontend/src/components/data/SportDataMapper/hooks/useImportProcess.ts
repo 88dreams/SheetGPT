@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { EntityType, validateEntityData, enhancedMapToDatabaseFieldNames } from '../../../../utils/sportDataMapper';
 import sportsDatabaseService, { EntityType as DbEntityType } from '../../../../services/SportsDatabaseService';
 import { api } from '../../../../utils/api';
+import { sportsService } from '../../../../services/sportsService';
 
 export interface ImportResults {
   success: number;
@@ -42,7 +43,8 @@ export default function useImportProcess() {
   const saveToDatabase = async (
     entityType: EntityType,
     mappedData: Record<string, any>,
-    currentRecord: Record<string, any>
+    currentRecord: Record<string, any>,
+    isUpdateMode: boolean = false
   ): Promise<boolean> => {
     if (!entityType || Object.keys(mappedData).length === 0) {
       showNotification('error', 'Please select an entity type and map at least one field');
@@ -79,8 +81,32 @@ export default function useImportProcess() {
       
       console.log('Saving to database:', { entityType, data: databaseMappedData });
       
+      // If isUpdateMode is not explicitly set, determine it automatically
+      // If we're only mapping a single field, assume we're updating an existing record
+      const effectiveUpdateMode = isUpdateMode || Object.keys(mappedData).length === 1;
+      
+      // For team updates with division_conference_id, check if it's a name (like "AFC East") 
+      // instead of an ID and convert it if needed
+      if (entityType === 'team' && 
+          Object.keys(databaseMappedData).includes('division_conference_id') &&
+          databaseMappedData.division_conference_id && 
+          typeof databaseMappedData.division_conference_id === 'string' &&
+          !databaseMappedData.division_conference_id.includes('-')) {
+        try {
+          console.log('division_conference_id appears to be a name:', databaseMappedData.division_conference_id);
+          const divConfLookup = await sportsService.lookup('division_conference', databaseMappedData.division_conference_id);
+          if (divConfLookup && divConfLookup.id) {
+            console.log(`Found division/conference ID: ${divConfLookup.id} for name: ${databaseMappedData.division_conference_id}`);
+            // Replace the name with the actual ID
+            databaseMappedData.division_conference_id = divConfLookup.id;
+          }
+        } catch (divError) {
+          console.error('Error looking up division/conference by name:', divError);
+        }
+      }
+      
       // Validate the data before sending to the database
-      const validation = validateEntityData(entityType, databaseMappedData);
+      const validation = validateEntityData(entityType, databaseMappedData, effectiveUpdateMode);
       if (!validation.isValid) {
         const errorMessage = `Validation failed: ${validation.errors.join(', ')}`;
         showNotification('error', errorMessage);
@@ -91,12 +117,45 @@ export default function useImportProcess() {
       // Save the entity to the database using the service
       let success = false;
       
+      // Generic partial update handling for any entity with a name field and at least one update field
+      if (Object.keys(databaseMappedData).includes('name') && 
+          // Check if we're in update mode or if we're just updating 1-2 fields
+          (effectiveUpdateMode || Object.keys(databaseMappedData).length <= 3)) {
+            
+        const entityName = databaseMappedData.name;
+        const updateData = { ...databaseMappedData };
+        
+        // Generic update approach for any entity type
+        console.log(`Using generic updateEntityByName for ${entityType}:`, { name: entityName, updateData });
+        try {
+          const response = await sportsService.updateEntityByName(
+            entityType,
+            entityName,
+            updateData
+          );
+          console.log(`${entityType} update response:`, response);
+          success = !!response;
+          return success;  // Early return on success
+        } catch (error) {
+          // If entity not found with this name, continue to create path
+          if (error.message && error.message.includes('not found')) {
+            console.log(`${entityType} not found, will try to create instead`);
+          } else {
+            console.error(`Error updating ${entityType}:`, error);
+            throw error;
+          }
+        }
+      }
       // Special handling for brand_relationship type
-      if (entityType === 'brand_relationship') {
+      else if (entityType === 'brand_relationship') {
         const response = await api.sports.createBrandRelationship(databaseMappedData);
         success = !!response;
       } else {
-        const response = await sportsDatabaseService.createEntity(entityType as DbEntityType, databaseMappedData);
+        const response = await sportsDatabaseService.createEntity(
+          entityType as DbEntityType, 
+          databaseMappedData,
+          effectiveUpdateMode
+        );
         success = !!response;
       }
       
@@ -126,7 +185,8 @@ export default function useImportProcess() {
   const batchImport = async (
     entityType: EntityType,
     mappings: Record<string, string>,
-    recordsToImport: any[]
+    recordsToImport: any[],
+    isUpdateMode: boolean = false
   ) => {
     if (!entityType || Object.keys(mappings).length === 0) {
       showNotification('error', 'Please select an entity type and map at least one field');
@@ -177,8 +237,12 @@ export default function useImportProcess() {
                 mappedData[dbField] = record[sourceField];
               }
               
+              // If isUpdateMode is not explicitly set, determine it automatically
+              // If we're only mapping a single field, assume we're updating an existing record
+              const effectiveUpdateMode = isUpdateMode || Object.keys(mappings).length === 1;
+              
               // Validate the data
-              const validationResult = validateEntityData(entityType, mappedData);
+              const validationResult = validateEntityData(entityType, mappedData, effectiveUpdateMode);
               
               if (!validationResult.isValid) {
                 console.error(`Validation failed for record:`, validationResult.errors);
@@ -194,9 +258,56 @@ export default function useImportProcess() {
                 record
               );
               
-              // Save to database
-              const dbEntityType = entityType.toLowerCase() as DbEntityType;
-              await sportsDatabaseService.createEntity(dbEntityType, databaseMappedData);
+              // For team updates with division_conference_id, check if it's a name (like "AFC East") 
+              // instead of an ID and convert it if needed
+              if (entityType === 'team' && 
+                  Object.keys(databaseMappedData).includes('division_conference_id') &&
+                  databaseMappedData.division_conference_id && 
+                  typeof databaseMappedData.division_conference_id === 'string' &&
+                  !databaseMappedData.division_conference_id.includes('-')) {
+                try {
+                  console.log('Batch: division_conference_id appears to be a name:', databaseMappedData.division_conference_id);
+                  const divConfLookup = await sportsService.lookup('division_conference', databaseMappedData.division_conference_id);
+                  if (divConfLookup && divConfLookup.id) {
+                    console.log(`Batch: Found division/conference ID: ${divConfLookup.id} for name: ${databaseMappedData.division_conference_id}`);
+                    // Replace the name with the actual ID
+                    databaseMappedData.division_conference_id = divConfLookup.id;
+                  }
+                } catch (divError) {
+                  console.error('Batch: Error looking up division/conference by name:', divError);
+                }
+              }
+              
+              // Generic partial update handling for any entity with a name field
+              if (Object.keys(databaseMappedData).includes('name') && 
+                  // Check if we're in update mode or if we're just updating 1-2 fields
+                  (effectiveUpdateMode || Object.keys(databaseMappedData).length <= 3)) {
+                  
+                const entityName = databaseMappedData.name;
+                const updateData = { ...databaseMappedData };
+                
+                console.log(`Batch: Using generic updateEntityByName for ${entityType}:`, { name: entityName, updateData });
+                try {
+                  await sportsService.updateEntityByName(
+                    entityType,
+                    entityName,
+                    updateData
+                  );
+                  // Skip the rest of the process on success
+                  break;
+                } catch (error) {
+                  // If entity not found with this name, continue to create path
+                  if (error.message && error.message.includes('not found')) {
+                    console.log(`Batch: ${entityType} not found, will try to create instead`);
+                  } else {
+                    throw error; // Re-throw other errors
+                  }
+                }
+              } else {
+                // Save to database using normal path
+                const dbEntityType = entityType.toLowerCase() as DbEntityType;
+                await sportsDatabaseService.createEntity(dbEntityType, databaseMappedData, effectiveUpdateMode);
+              }
               
               results.success++;
               break; // Success, exit retry loop

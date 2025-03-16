@@ -51,17 +51,22 @@ const DatabaseQuery: React.FC = () => {
     handleDragEnd: handleColumnDragEnd
   } = useDragAndDrop<string>({ items: columnOrder });
   
-  // Set all columns visible by default when query results are loaded
+  // Set columns visible by default when query results are loaded
   useEffect(() => {
     if (queryResults.length > 0) {
-      // Always set all columns visible by default, regardless of stored preferences
+      // Always set up column visibility with UUID columns hidden by default
       initializeAllColumnsVisible();
       
       // Initialize column order
       const columnNames = Object.keys(queryResults[0]);
       
+      // Generate a unique storage key based on the columns
+      // This ensures different query types have different saved orders
+      const columnsHash = columnNames.sort().join('|');
+      const storageKey = `queryColumns_${columnsHash}`;
+      
       // Check if there's a saved column order
-      const savedOrder = sessionStorage.getItem('columnOrder');
+      const savedOrder = localStorage.getItem(storageKey);
       if (savedOrder) {
         try {
           const parsedOrder = JSON.parse(savedOrder);
@@ -98,17 +103,40 @@ const DatabaseQuery: React.FC = () => {
     }
   }, [reorderedColumns, columnOrder]);
   
-  // Save column order to sessionStorage when it changes
+  // Save column order to localStorage when it changes
   useEffect(() => {
-    if (columnOrder.length > 0) {
-      sessionStorage.setItem('columnOrder', JSON.stringify(columnOrder));
+    if (columnOrder.length > 0 && queryResults.length > 0) {
+      // Generate a unique storage key based on the columns
+      const columnsHash = Object.keys(queryResults[0]).sort().join('|');
+      const storageKey = `queryColumns_${columnsHash}`;
+      
+      // Store in localStorage for persistence across sessions
+      localStorage.setItem(storageKey, JSON.stringify(columnOrder));
     }
-  }, [columnOrder]);
+  }, [columnOrder, queryResults]);
   
   // Helper function to initialize column visibility with UUID columns hidden by default
   const initializeAllColumnsVisible = () => {
     if (queryResults.length === 0) return;
     
+    // Generate a unique storage key based on the columns
+    const columnsHash = Object.keys(queryResults[0]).sort().join('|');
+    const storageKey = `queryColumnsVisibility_${columnsHash}`;
+    
+    // Check if we have saved column visibility settings
+    const savedVisibility = localStorage.getItem(storageKey);
+    if (savedVisibility) {
+      try {
+        const parsedVisibility = JSON.parse(savedVisibility);
+        setVisibleColumns(parsedVisibility);
+        return;
+      } catch (e) {
+        console.error('Error parsing saved column visibility:', e);
+        // Fall through to default initialization
+      }
+    }
+    
+    // Default initialization - hide UUID columns
     const allColumns: {[key: string]: boolean} = {};
     Object.keys(queryResults[0]).forEach(column => {
       // Check if this is a UUID field
@@ -128,8 +156,8 @@ const DatabaseQuery: React.FC = () => {
     
     setVisibleColumns(allColumns);
     
-    // Store in sessionStorage
-    sessionStorage.setItem('visibleColumns', JSON.stringify(allColumns));
+    // Store in localStorage for persistence
+    localStorage.setItem(storageKey, JSON.stringify(allColumns));
   };
   
   // Row selection state
@@ -429,8 +457,14 @@ const DatabaseQuery: React.FC = () => {
     
     setVisibleColumns(updatedVisibility);
     
-    // Store in sessionStorage
-    sessionStorage.setItem('visibleColumns', JSON.stringify(updatedVisibility));
+    // Generate a unique storage key based on the columns
+    if (queryResults.length > 0) {
+      const columnsHash = Object.keys(queryResults[0]).sort().join('|');
+      const storageKey = `queryColumnsVisibility_${columnsHash}`;
+      
+      // Store in localStorage for persistence across sessions
+      localStorage.setItem(storageKey, JSON.stringify(updatedVisibility));
+    }
   };
   
   // Reset column visibility (show all)
@@ -444,8 +478,12 @@ const DatabaseQuery: React.FC = () => {
     
     setVisibleColumns(resetVisibility);
     
-    // Store in sessionStorage
-    sessionStorage.setItem('visibleColumns', JSON.stringify(resetVisibility));
+    // Generate a unique storage key based on the columns
+    const columnsHash = Object.keys(queryResults[0]).sort().join('|');
+    const storageKey = `queryColumnsVisibility_${columnsHash}`;
+    
+    // Store in localStorage for persistence across sessions
+    localStorage.setItem(storageKey, JSON.stringify(resetVisibility));
   };
   
   // Format cell values, particularly for UUIDs

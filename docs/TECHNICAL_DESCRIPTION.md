@@ -71,6 +71,9 @@ frontend/
    - Focused components with single responsibility principle
    - Fixed navigation bar with consistent layout
    - Table-based components for structured data
+   - Optimized rendering with React.memo and precise prop comparison
+   - Memoized formatters for efficient cell value rendering
+   - Efficient drag-and-drop with fingerprinting for DOM operations
    - Sorting mechanisms with dedicated hooks for data organization
    - Entity-specific field components for improved maintainability
    - Contextual action buttons for improved UX
@@ -96,7 +99,8 @@ frontend/
      │   ├── useEntityData.ts       # Data fetching logic
      │   ├── useEntitySelection.ts  # Selection management
      │   ├── useFiltering.ts        # Filter operations
-     │   ├── useSorting.ts          # Sorting operations 
+     │   ├── useSorting.ts          # Sorting operations with optimized comparisons
+     │   ├── useSelection.ts        # Selection management with efficient state updates
      │   ├── useEntityPagination.ts # Pagination controls
      │   └── index.ts     # Exports all hooks
      ├── utils/           # Helper functions
@@ -127,6 +131,32 @@ frontend/
      ├── facade.py            # Unified API with delegation
      └── __init__.py          # Exports facade
      ```
+
+## Performance Optimization
+
+### Key Strategies
+1. **Memoization**
+   - Strategic use of useMemo and useCallback for expensive operations
+   - Memoization of expensive formatters and cell value rendering
+   - Fingerprinting techniques for efficient collection comparison
+   - Component memoization with React.memo and custom equality checks
+
+2. **Dependency Optimization**
+   - Proper dependency array management in hooks
+   - Comprehensive prop comparison in memoized components
+   - Deep equality checks only when necessary
+
+3. **Rendering Efficiency**
+   - Fine-grained component updates
+   - DOM operations batching
+   - Efficient drag-and-drop implementations
+   - Smart re-rendering prevention
+   - Type-specific value comparisons (dates, strings, numbers, UUIDs)
+
+4. **Hook Specialization**
+   - Dedicated hooks for sorting, selection, and data transformation
+   - Proper memoization patterns within hooks
+   - Clean separation of UI rendering and data processing logic
 
 ## Data Architecture
 

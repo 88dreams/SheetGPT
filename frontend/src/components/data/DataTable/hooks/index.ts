@@ -12,9 +12,9 @@ export { default as useDragAndDrop } from './useDragAndDrop';
 export { default as useResizable } from './useResizable';
 export { default as usePagination } from './usePagination';
 
-// Data manipulation hooks - uncomment once these are implemented fully
-// export { default as useSorting } from './useSorting';
-// export { default as useSelection } from './useSelection';
+// Data manipulation hooks
+export { default as useSorting } from './useSorting';
+export { default as useSelection } from './useSelection';
 
 // Utility function to check if dynamic hooks are available
 export const isHookAvailable = (hookName: string): boolean => {
@@ -27,9 +27,8 @@ export const isHookAvailable = (hookName: string): boolean => {
       'useResizable', 
       'usePagination', 
       'useDataTransformer', 
-      // Comment out until implemented
-      // 'useSorting',
-      // 'useSelection'
+      'useSorting',
+      'useSelection'
     ].includes(hookName);
   } catch (e) {
     return false;

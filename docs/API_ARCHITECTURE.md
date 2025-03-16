@@ -170,7 +170,8 @@ During batch imports, the system resolves entity relationships:
    - Components organized by feature with clear boundaries
    - UI components separated from data handling logic
    - Custom hooks for business logic and API interaction
-   - Entity-specific field components with standardized rendering:
+   - Entity-specific field components with standardized rendering
+   - Optimized rendering with strategic memoization:
      - TeamFields, StadiumFields, LeagueFields, etc.
      - Reusable FormField component for consistent UI
      - Entity relationship components with context-aware rendering
@@ -191,8 +192,13 @@ During batch imports, the system resolves entity relationships:
 
 2. **Context Refactoring with Hook Architecture**:
    - Main contexts split into focused custom hooks
-   - Clean separation between UI rendering and data logic
+   - Clean separation between UI rendering and data logic 
    - Explicit memoization pattern to prevent unnecessary re-renders
+   - Performance-optimized hooks for common operations:
+     - useSorting: Type-aware sorting with comprehensive data handling
+     - useSelection: Efficient selection state management
+     - useDragAndDrop: Optimized DOM operations with fingerprinting
+     - useDataTransformer: Memoized data transformation
    - State and action separation for better maintainability
    - Proper dependency tracking in useEffect hooks
    - Comprehensive typings for all functions and state

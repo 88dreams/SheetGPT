@@ -55,9 +55,15 @@
   │   ├── SubComponentA.tsx
   │   ├── SubComponentB.tsx
   │   └── index.ts           # Exports all components
+  ├── fields/                # Entity-specific field components
+  │   ├── EntityTypeFields.tsx  # Entity-specific form fields
+  │   ├── FormField.tsx         # Reusable field component
+  │   └── index.ts           # Exports all field components  
   ├── hooks/                 # Component-specific hooks
-  │   ├── useFeatureState.ts
-  │   ├── useFeatureActions.ts
+  │   ├── useEntityData.ts      # Data fetching logic
+  │   ├── useEntitySelection.ts # Selection management
+  │   ├── useFiltering.ts       # Filter operations
+  │   ├── useSorting.ts         # Sorting operations
   │   └── index.ts           # Exports all hooks  
   ├── utils/                 # Component-specific utilities
   │   ├── featureUtils.ts
@@ -66,8 +72,20 @@
   └── types.ts               # Component-specific types
   ```
 - Extract reusable logic into custom hooks with clear boundaries
-- Create a dedicated hook for each distinct responsibility
+- Create a dedicated hook for each distinct responsibility:
+  - Data fetching hooks separate from UI state hooks
+  - Selection management hooks separate from data processing
+  - Filtering/sorting hooks separate from pagination
 - Split complex components into sub-components of 100-200 lines maximum
+- Extract large contexts into smaller, focused custom hooks:
+  - Split monolithic contexts into single-responsibility hooks
+  - Combine hooks in the main context for backward compatibility
+  - Use explicit memoization for derived state
+  - Track dependencies properly in useEffect hooks
+- Create reusable field components for entity-specific forms:
+  - Use common FormField component for consistent rendering
+  - Create entity-specific field components (TeamFields, LeagueFields, etc.)
+  - Handle relationship fields consistently across components
 - Follow naming conventions:
   - Hooks start with "use" (`useDataFetching`)
   - Components use PascalCase (`DataTable`)
@@ -92,6 +110,42 @@
   └── __init__.py            # Exports all services
   ```
 - Use Facade pattern for coordinating multiple services without exposing complexity
+
+## Hook Design Patterns
+
+- Implement custom hooks with single responsibility principle
+- Split monolithic contexts into focused custom hooks:
+  - Data fetching hooks (useEntityData)
+  - Entity selection hooks (useEntitySelection, useSelection)
+  - Filtering/sorting hooks (useFiltering, useSorting)
+  - Pagination hooks (useEntityPagination, usePagination)
+  - UI state hooks (useEntityView, useUiState)
+  - Schema definition hooks (useEntitySchema)
+  - Drag and drop hooks (useDragAndDrop) with fingerprinting optimization
+- Use proper dependency tracking in useEffect hooks:
+  - Include all dependencies used inside the effect
+  - Use function dependencies with useCallback when needed
+  - Avoid [] empty dependency arrays unless truly independent
+- Implement explicit memoization for derived state:
+  - Use useMemo for expensive calculations
+  - Use useCallback for event handlers passed as props
+  - Include all dependencies in memoization dependency arrays
+  - Apply React.memo for components with expensive renders
+  - Implement custom equality functions for React.memo when needed
+  - Use memoized formatters for repetitive operations
+- Create hook indices for clean imports:
+  - Export all hooks from an index.ts file
+  - Group related hooks in the same directory
+  - Use named exports for better autocomplete
+- Share state between hooks using composition:
+  - Pass state from one hook to another as needed
+  - Avoid circular dependencies between hooks
+  - Use context as a last resort for deeply nested state
+- Optimize hook performance:
+  - Use early returns for conditional logic
+  - Avoid recalculating values that don't change
+  - Extract large objects from dependencies when possible
+  - Use object destructuring to access only needed properties
 
 ## React DnD Implementation Notes
 
@@ -158,6 +212,25 @@
   - Add hover:bg-gray-100 to all column headers for interactive feedback
   - Make column resize handles invisible when not hovered (w-0)
   - Use hover:bg-blue-500 hover:w-2 transition-all for resize handle hover effects
+
+## Performance Optimization Guidelines
+
+- Memoize components with React.memo for expensive renders
+- Implement custom equality checks for component props
+- Use fingerprinting technique for array/object comparisons
+- Create memoized formatters for repetitive cell rendering operations
+- Apply type-specific optimized comparison functions:
+  - Date objects: Compare timestamps with getTime()
+  - Strings: Use localeCompare for proper sorting
+  - Numbers: Direct numeric comparison
+  - Objects: Fingerprinting or shallow key comparison
+- Properly track dependencies in all hooks and effects
+- Extract calculation-heavy functions outside of render
+- Implement virtualization for long lists/tables
+- Cache results of expensive calculations with useMemo
+- Batch DOM update operations when possible
+- Use custom hooks for specialized operations (sort, filter, select)
+- Avoid unnecessary re-renders with useCallback handlers
 - Add column drag-and-drop functionality with visual feedback during operations
 - Implement drag-and-drop with stateful hooks and persistent storage
 - Hide UUID-only columns by default while providing column visibility controls

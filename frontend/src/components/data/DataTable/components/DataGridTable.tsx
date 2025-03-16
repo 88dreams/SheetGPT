@@ -87,42 +87,59 @@ const DataGridTable: React.FC<DataGridTableProps> = ({
   showFullUuids = false,
   relationshipFields = {}
 }) => {
-  // Function to detect and format UUIDs
-  const formatCellValue = (value: any, header: string) => {
-    if (value === null || value === undefined) return '';
+  // Memoized formatter function - recalculated only when necessary
+  const formatters = React.useMemo(() => {
+    // Create a formatter for each header
+    const result: Record<string, (value: any) => string> = {};
     
-    // Check if it's a UUID field (ends with _id) and we have a relation name for it
-    const isUuidField = header.endsWith('_id');
-    const relationFieldName = isUuidField ? relationshipFields[header] : null;
+    // UUID pattern for detection
+    const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
     
-    // If this is a UUID field and we have a relationship display name for it
-    if (isUuidField && relationFieldName) {
-      // When showing UUIDs, return the full UUID
-      if (showFullUuids) {
+    // Build formatters for each header column
+    headers.forEach(header => {
+      // Create a formatter function optimized for this specific column
+      result[header] = (value: any) => {
+        if (value === null || value === undefined) return '';
+        
+        // Check if it's a UUID field with relationship
+        const isUuidField = header.endsWith('_id');
+        const relationFieldName = isUuidField ? relationshipFields[header] : null;
+        
+        // UUID field with relationship handling
+        if (isUuidField && relationFieldName) {
+          // Return full UUID when toggle is enabled
+          if (showFullUuids) {
+            return String(value);
+          }
+          
+          // Find relationship display name
+          const currentRow = rows.find(row => row[header] === value);
+          if (currentRow && currentRow[relationFieldName]) {
+            return String(currentRow[relationFieldName]);
+          }
+          
+          // Fallback for UUID format
+          if (typeof value === 'string' && uuidPattern.test(value)) {
+            return showFullUuids ? value : `${value.substring(0, 8)}...`;
+          }
+        }
+        
+        // General UUID format detection
+        if (typeof value === 'string' && uuidPattern.test(value)) {
+          return showFullUuids ? value : `${value.substring(0, 8)}...`;
+        }
+        
+        // Default string conversion
         return String(value);
-      }
-      
-      // For a row, find the corresponding entry with the relationship name field
-      const currentRow = rows.find(row => row[header] === value);
-      if (currentRow && currentRow[relationFieldName]) {
-        return String(currentRow[relationFieldName]);
-      }
-      
-      // If it's a UUID (guessing by format) but we don't have a mapping, show shortened version
-      if (typeof value === 'string' && 
-          /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value)) {
-        return showFullUuids ? value : `${value.substring(0, 8)}...`;
-      }
-    }
+      };
+    });
     
-    // Check if it's a UUID by format
-    if (typeof value === 'string' && 
-        /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value)) {
-      return showFullUuids ? value : `${value.substring(0, 8)}...`;
-    }
-    
-    // Default string conversion
-    return String(value);
+    return result;
+  }, [headers, rows, relationshipFields, showFullUuids]);
+  
+  // Function to format cell values using the memoized formatters
+  const formatCellValue = (value: any, header: string) => {
+    return formatters[header] && header in formatters ? formatters[header](value) : String(value);
   };
 
   return (
@@ -271,4 +288,61 @@ const DataGridTable: React.FC<DataGridTableProps> = ({
   );
 };
 
-export default DataGridTable;
+// Memoize the component to prevent unnecessary re-renders
+// Only re-render when props that would affect the visual output change
+export default React.memo(DataGridTable, (prevProps, nextProps) => {
+  // Return true if the component should NOT re-render
+  
+  // Check for changes in data content
+  const rowsEqual = prevProps.rows === nextProps.rows;
+  const headersEqual = prevProps.headers === nextProps.headers;
+  
+  // Check for changes in visual properties
+  const heightEqual = prevProps.height === nextProps.height;
+  const columnWidthsEqual = JSON.stringify(prevProps.columnWidths) === JSON.stringify(nextProps.columnWidths);
+  const showHeadersEqual = prevProps.showHeaders === nextProps.showHeaders;
+  const showRowNumbersEqual = prevProps.showRowNumbers === nextProps.showRowNumbers;
+  
+  // Check for changes in drag state
+  const dragStateEqual = 
+    prevProps.draggedHeader === nextProps.draggedHeader &&
+    prevProps.dragOverHeader === nextProps.dragOverHeader &&
+    prevProps.draggedRow === nextProps.draggedRow &&
+    prevProps.dragOverRow === nextProps.dragOverRow;
+  
+  // Check for changes in pagination
+  const paginationEqual = 
+    prevProps.currentPage === nextProps.currentPage &&
+    prevProps.rowsPerPage === nextProps.rowsPerPage &&
+    prevProps.isPaginationEnabled === nextProps.isPaginationEnabled;
+  
+  // Check for changes in sort state
+  const sortEqual = 
+    prevProps.sortField === nextProps.sortField &&
+    prevProps.sortDirection === nextProps.sortDirection;
+  
+  // Check for changes in selection state
+  const selectionEqual = JSON.stringify(prevProps.selectedItems) === JSON.stringify(nextProps.selectedItems);
+  
+  // Check for changes in column visibility
+  const visibilityEqual = JSON.stringify(prevProps.hiddenColumns) === JSON.stringify(nextProps.hiddenColumns);
+  
+  // Check for changes in UUID display
+  const uuidDisplayEqual = 
+    prevProps.showFullUuids === nextProps.showFullUuids &&
+    JSON.stringify(prevProps.relationshipFields) === JSON.stringify(nextProps.relationshipFields);
+  
+  // Only re-render if something has actually changed
+  return rowsEqual && 
+    headersEqual && 
+    heightEqual && 
+    columnWidthsEqual && 
+    showHeadersEqual && 
+    showRowNumbersEqual && 
+    dragStateEqual && 
+    paginationEqual && 
+    sortEqual && 
+    selectionEqual && 
+    visibilityEqual &&
+    uuidDisplayEqual;
+});

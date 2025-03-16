@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { useSportsDatabase } from './SportsDatabaseContext';
 import { EntityField } from './SportsDatabaseContext';
 
@@ -15,10 +15,11 @@ const EntityFieldsView: React.FC<EntityFieldsViewProps> = ({ className = '' }) =
     renderSortIcon 
   } = useSportsDatabase();
 
-  // Get entity type name for display
-  const getEntityTypeName = () => {
+  // Get entity type name for display - memoized to avoid recreating on each render
+  const entityTypeName = useMemo(() => {
     const entityTypes = [
       { id: 'league', name: 'Leagues' },
+      { id: 'division_conference', name: 'Divisions/Conferences' },
       { id: 'team', name: 'Teams' },
       { id: 'player', name: 'Players' },
       { id: 'game', name: 'Games' },
@@ -28,31 +29,31 @@ const EntityFieldsView: React.FC<EntityFieldsViewProps> = ({ className = '' }) =
       { id: 'brand', name: 'Brand Relationships' }
     ];
     return entityTypes.find(e => e.id === selectedEntityType)?.name || selectedEntityType;
-  };
+  }, [selectedEntityType]);
 
-  // Get fields and convert to EntityField format
-  const fields = getEntityFields(selectedEntityType).map(field => ({
+  // Get fields and convert to EntityField format - memoized to avoid recalculating on every render
+  const fields = useMemo(() => getEntityFields(selectedEntityType).map(field => ({
     fieldName: field.name,
     fieldType: field.type,
     required: field.required,
     description: field.description,
     name: field.name,
     type: field.type
-  }));
+  })), [selectedEntityType, getEntityFields]);
 
-  // Sort fields based on current sort field and direction
-  const sortedFields = [...fields].sort((a: EntityField, b: EntityField) => {
+  // Sort fields based on current sort field and direction - memoized to avoid sorting on every render
+  const sortedFields = useMemo(() => [...fields].sort((a: EntityField, b: EntityField) => {
     const aValue = a[sortField as keyof EntityField] ?? '';
     const bValue = b[sortField as keyof EntityField] ?? '';
     
     if (aValue < bValue) return -1;
     if (aValue > bValue) return 1;
     return 0;
-  });
+  }), [fields, sortField]);
 
   return (
     <div className={`border rounded-lg p-4 ${className}`}>
-      <h4 className="font-medium text-gray-900 mb-3">Fields for {getEntityTypeName()}</h4>
+      <h4 className="font-medium text-gray-900 mb-3">Fields for {entityTypeName}</h4>
       <div className="overflow-y-auto max-h-[500px]">
         <table className="min-w-full divide-y divide-gray-200">
           <thead className="bg-gray-50 sticky top-0">

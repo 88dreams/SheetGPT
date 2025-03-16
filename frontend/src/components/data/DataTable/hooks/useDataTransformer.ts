@@ -60,7 +60,7 @@ export function useDataTransformer({
       }
       return { headers: [], rows: [] };
     }
-  }, [data]);
+  }, [data, process.env.NODE_ENV]);
 
   /**
    * Select the appropriate data source (paginated or full)

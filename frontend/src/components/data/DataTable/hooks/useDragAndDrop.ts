@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useMemo } from 'react';
 
 interface UseDragAndDropProps<T> {
   items: T[];
@@ -9,64 +9,52 @@ export function useDragAndDrop<T>({ items }: UseDragAndDropProps<T>) {
   const [draggedItem, setDraggedItem] = useState<T | null>(null);
   const [dragOverItem, setDragOverItem] = useState<T | null>(null);
 
+  // Create a memoized fingerprint of items for efficient comparison
+  const itemsFingerprint = useMemo(() => {
+    if (items.length === 0) return '';
+    // We need a stable representation of items that doesn't depend on order
+    // This creates a unique fingerprint of the items collection
+    return JSON.stringify([...items].sort());
+  }, [items]);
+
   // Initialize or update reordered items when original items change
   useEffect(() => {
-    // Always update reordered items when source items change
-    if (items.length > 0) {
-      // Preserve the order of existing items where possible
-      if (reorderedItems.length > 0) {
-        // Determine if the items are actually different rather than just reordered
-        // We need to check if they contain the same elements, regardless of order
-        const itemsSet = new Set(items);
-        const reorderedSet = new Set(reorderedItems);
-        
-        // Convert sets to arrays for comparison
-        const itemsArr = Array.from(itemsSet);
-        const reorderedArr = Array.from(reorderedSet);
-        
-        // Sort both arrays for consistent comparison
-        const itemsStr = JSON.stringify(itemsArr.sort());
-        const reorderedStr = JSON.stringify(reorderedArr.sort());
-        
-        // If they contain the exact same set of items (regardless of order),
-        // we only need to add any new items while preserving existing order
-        if (itemsStr === reorderedStr) {
-          return; // Identical sets, current order is preserved
-        }
-        
-        // For primitive values like strings (our column names), we should maintain order
-        // but add any new items that don't exist in the current order
-        
-        // Create a new array maintaining order of any existing items
-        const newOrder: T[] = [];
-        
-        // First add all items that exist in both arrays in their current order in reorderedItems
-        reorderedItems.forEach(item => {
-          if (items.includes(item)) {
-            newOrder.push(item);
-          }
-        });
-        
-        // Then add any new items that weren't in the original reorderedItems
-        items.forEach(item => {
-          if (!newOrder.includes(item)) {
-            newOrder.push(item);
-          }
-        });
-        
-        // Only update state if the order actually changed
-        const currentOrderStr = JSON.stringify(reorderedItems);
-        const newOrderStr = JSON.stringify(newOrder);
-        
-        if (currentOrderStr !== newOrderStr) {
-          setReorderedItems(newOrder);
-        }
-      } else {
-        // Just set initial items if reorderedItems is empty
-        setReorderedItems([...items]);
-      }
+    // Skip processing for empty items
+    if (items.length === 0) return;
+    
+    // Initialize reordered items if empty
+    if (reorderedItems.length === 0) {
+      setReorderedItems([...items]);
+      return;
     }
-  }, [items, reorderedItems]);
+    
+    // Generate fingerprint of current reordered items for comparison
+    const reorderedFingerprint = JSON.stringify([...reorderedItems].sort());
+    
+    // If items collection hasn't actually changed (just reordered), preserve current order
+    if (itemsFingerprint === reorderedFingerprint) return;
+    
+    // Items have changed - maintain existing order where possible
+    // Create a new order preserving existing items and adding new ones
+    const newOrder: T[] = [];
+    
+    // Add existing items in their current order
+    reorderedItems.forEach(item => {
+      if (items.includes(item)) {
+        newOrder.push(item);
+      }
+    });
+    
+    // Add any new items that weren't in reordered items
+    items.forEach(item => {
+      if (!newOrder.includes(item)) {
+        newOrder.push(item);
+      }
+    });
+    
+    // Update state with new order
+    setReorderedItems(newOrder);
+  }, [items, reorderedItems, itemsFingerprint]);
 
   // Handle drag start
   const handleDragStart = useCallback((e: React.DragEvent, item: T) => {

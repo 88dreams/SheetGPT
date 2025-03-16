@@ -66,12 +66,13 @@ frontend/
 
 2. **Component Architecture**
    - Modular feature-based organization
-   - Custom hooks for business logic with separation of concerns
+   - Custom hooks for business logic with clean separation of concerns
    - Feature-specific utility functions in dedicated modules
    - Focused components with single responsibility principle
    - Fixed navigation bar with consistent layout
    - Table-based components for structured data
-   - Sorting mechanisms for data organization
+   - Sorting mechanisms with dedicated hooks for data organization
+   - Entity-specific field components for improved maintainability
    - Contextual action buttons for improved UX
    - UUID display toggle for relationship fields (shows names instead of IDs)
    - Consistent Names/IDs toggle behavior across all relationship fields
@@ -86,9 +87,17 @@ frontend/
      │   ├── SubComponentA.tsx
      │   ├── SubComponentB.tsx
      │   └── index.ts     # Exports all components
+     ├── fields/          # Entity-specific form fields
+     │   ├── TeamFields.tsx
+     │   ├── LeagueFields.tsx
+     │   ├── FormField.tsx    # Reusable form field component
+     │   └── index.ts     # Exports all field components
      ├── hooks/           # Custom hooks
-     │   ├── useFeatureState.ts
-     │   ├── useFeatureActions.ts
+     │   ├── useEntityData.ts       # Data fetching logic
+     │   ├── useEntitySelection.ts  # Selection management
+     │   ├── useFiltering.ts        # Filter operations
+     │   ├── useSorting.ts          # Sorting operations 
+     │   ├── useEntityPagination.ts # Pagination controls
      │   └── index.ts     # Exports all hooks
      ├── utils/           # Helper functions
      │   ├── featureUtils.ts
@@ -99,6 +108,9 @@ frontend/
      └── index.tsx        # Main component with minimal logic
      ```
    - UI logic separated from data processing and state management
+   - Custom form fields with standardized rendering pattern
+   - Comprehensive memoization to prevent unnecessary renders
+   - Explicit dependency tracking in useEffect hooks
    - Specialized utility modules for focused concerns:
      - Data transformation utilities
      - Entity processing utilities 

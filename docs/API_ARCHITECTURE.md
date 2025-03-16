@@ -170,14 +170,35 @@ During batch imports, the system resolves entity relationships:
    - Components organized by feature with clear boundaries
    - UI components separated from data handling logic
    - Custom hooks for business logic and API interaction
+   - Entity-specific field components with standardized rendering:
+     - TeamFields, StadiumFields, LeagueFields, etc.
+     - Reusable FormField component for consistent UI
+     - Entity relationship components with context-aware rendering
+   - Hook-based architecture with focused responsibilities:
+     - useEntityData for data fetching
+     - useEntitySelection for selection management
+     - useFiltering for filter operations
+     - useSorting for sorting functionality
+     - useEntityPagination for pagination controls
+     - useEntitySchema for field information
+     - useEntityRelationships for related entity data
    - Utility modules for common functions:
      - Data processing utilities
      - Notification management
      - Error handling
-     - Entity processing 
+     - Entity processing
      - Batch handling
 
-2. **SportDataMapper Architecture**:
+2. **Context Refactoring with Hook Architecture**:
+   - Main contexts split into focused custom hooks
+   - Clean separation between UI rendering and data logic
+   - Explicit memoization pattern to prevent unnecessary re-renders
+   - State and action separation for better maintainability
+   - Proper dependency tracking in useEffect hooks
+   - Comprehensive typings for all functions and state
+   - Data fetching logic isolated from component state management
+
+3. **SportDataMapper Architecture**:
    - Dialog container for standard modals
    - Entity-specific views with focused responsibilities
    - Import process with clean separation:

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import { Input, AutoComplete } from 'antd';
 import { SearchOutlined } from '@ant-design/icons';
 import { Entity, EntityType } from '../../../types/sports';
@@ -17,123 +17,75 @@ interface AutoCompleteOption {
   entity: Entity;
 }
 
-// Create a fully class-based component to avoid hooks-related issues
-class SmartEntitySearch extends React.Component<SmartEntitySearchProps, { searchText: string, options: AutoCompleteOption[] }> {
-  static defaultProps = {
-    placeholder: "Search for Stadium, League, or Team...",
-    entities: []
-  };
+/**
+ * SmartEntitySearch component that provides an autocomplete search box for entities.
+ * This implementation uses memoization and stable callback references to prevent infinite loops.
+ */
+export const SmartEntitySearch: React.FC<SmartEntitySearchProps> = React.memo(({
+  onEntitySelect,
+  entityTypes,
+  placeholder = "Search for Stadium, League, or Team...",
+  entities = []
+}) => {
+  const [searchText, setSearchText] = useState('');
 
-  constructor(props: SmartEntitySearchProps) {
-    super(props);
-    this.state = {
-      searchText: '',
-      options: []
-    };
-  }
+  // Memoize options to prevent unnecessary recalculations
+  const options = useMemo(() => {
+    if (!searchText) return [];
+    
+    const searchLower = searchText.toLowerCase();
+    if (!Array.isArray(entities)) return [];
+    
+    return entities
+      .filter(entity => entity?.name?.toLowerCase?.().includes(searchLower))
+      .map(entity => ({
+        key: entity?.id || '',
+        value: entity?.name || '',
+        label: entity?.name || '',
+        entity
+      }));
+  }, [searchText, entities]);
 
-  // Reset state when entities or entityTypes change, but with deep comparison
-  componentDidUpdate(prevProps: SmartEntitySearchProps) {
-    // Safety check to prevent updating when the component is unmounting
-    if (!this.props.entities) return;
-    
-    // Only reset state when the actual entity list changes meaningfully
-    const prevType = prevProps.entityTypes?.join('-') || '';
-    const currType = this.props.entityTypes?.join('-') || '';
-    
-    const prevLength = prevProps.entities?.length || 0;
-    const currLength = this.props.entities?.length || 0;
-    
-    // Deep compare to avoid unnecessary resets
-    if (
-      prevType !== currType || 
-      prevLength !== currLength || 
-      (prevLength > 0 && currLength > 0 && prevProps.entities[0]?.id !== this.props.entities[0]?.id)
-    ) {
-      this.setState({
-        searchText: '',
-        options: []
-      });
+  // Use a stable callback for handleSearch
+  const handleSearch = useCallback((text: string) => {
+    setSearchText(text);
+  }, []);
+
+  // Use a stable callback for handleSelect
+  const handleSelect = useCallback((_, option: any) => {
+    if (option && option.entity) {
+      onEntitySelect(option.entity);
+      setSearchText('');
     }
-  }
+  }, [onEntitySelect]);
 
-  handleSearch = (text: string) => {
-    // Use a single setState call to update both values at once
-    if (!text) {
-      this.setState({ 
-        searchText: text,
-        options: [] 
-      });
-      return;
-    }
+  // Create a stable key for the AutoComplete component based on entity type
+  const searchKey = useMemo(() => 
+    `search-${entityTypes.join('-')}-${entities.length}`,
+  [entityTypes, entities.length]);
 
-    const { entities = [] } = this.props;
-    const searchLower = text.toLowerCase();
-    
-    try {
-      // Guard against potential issues if entities is invalid
-      if (!Array.isArray(entities)) {
-        this.setState({ 
-          searchText: text,
-          options: [] 
-        });
-        return;
-      }
-      
-      const filtered = entities
-        .filter(entity => entity.name?.toLowerCase?.().includes(searchLower))
-        .map(entity => ({
-          key: entity.id || '',
-          value: entity.name || '',
-          label: entity.name || '',
-          entity: entity
-        }));
-
-      this.setState({ 
-        searchText: text,
-        options: filtered 
-      });
-    } catch (error) {
-      // Fail gracefully by just updating search text if filtering fails
-      this.setState({ 
-        searchText: text,
-        options: [] 
-      });
-    }
-  };
-
-  handleSelect = (_: string, option: AutoCompleteOption) => {
-    this.props.onEntitySelect(option.entity);
-    this.setState({
-      searchText: '',
-      options: []
-    });
-  };
-
-  render() {
-    const { placeholder } = this.props;
-    const { searchText, options } = this.state;
-
-    return (
-      <AutoComplete
+  return (
+    <AutoComplete
+      key={searchKey}
+      style={{ width: '100%' }}
+      options={options}
+      onSelect={handleSelect}
+      onSearch={handleSearch}
+      placeholder={placeholder}
+      value={searchText}
+      filterOption={false} // Disable built-in filtering to prevent Ant filtering twice
+      notFoundContent={searchText ? "No matches found" : "Type to search"}
+    >
+      <Input
+        size="middle"
+        prefix={<SearchOutlined />}
         style={{ width: '100%' }}
-        options={options}
-        onSelect={this.handleSelect}
-        onSearch={this.handleSearch}
-        placeholder={placeholder}
-        value={searchText}
-      >
-        <Input
-          size="middle"
-          prefix={<SearchOutlined />}
-          style={{ width: '100%' }}
-        />
-      </AutoComplete>
-    );
-  }
-}
+      />
+    </AutoComplete>
+  );
+});
 
-// Export both named and default exports for compatibility
-export { SmartEntitySearch };
+// Add display name for easier debugging
+SmartEntitySearch.displayName = 'SmartEntitySearch';
 
 export default SmartEntitySearch; 

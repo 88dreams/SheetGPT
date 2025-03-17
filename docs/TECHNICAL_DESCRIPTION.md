@@ -65,10 +65,26 @@ frontend/
    - DataFlowContext for extraction pipeline
 
 2. **Component Architecture**
-   - Modular feature-based organization
+   - Modular feature-based organization:
+     ```
+     features/FeatureName/
+     ├── index.tsx                # Main container component
+     ├── README.md                # Feature documentation
+     ├── components/              # UI components
+     │   ├── SubComponentA.tsx
+     │   ├── SubComponentB.tsx
+     │   └── index.ts             # Component exports
+     ├── hooks/                   # Custom hooks
+     │   ├── useFeatureData.ts
+     │   ├── useFeatureState.ts
+     │   └── index.ts             # Hook exports
+     └── types.ts                 # Feature-specific types
+     ```
    - Custom hooks for business logic with clean separation of concerns
    - Feature-specific utility functions in dedicated modules
    - Focused components with single responsibility principle
+   - Consolidated component implementations to reduce duplication
+   - Unified modal components with flexible prop interfaces
    - Fixed navigation bar with consistent layout
    - Table-based components for structured data
    - Optimized rendering with React.memo and precise prop comparison
@@ -159,6 +175,36 @@ frontend/
    - Clean separation of UI rendering and data processing logic
 
 ## Data Architecture
+
+### Feature-Based Organization
+
+The frontend is organized into feature-focused modules:
+
+```
+src/
+├── features/              # Feature-based modules
+│   ├── DataManagement/    # Structured data management
+│   │   ├── index.tsx      # Main container component
+│   │   ├── README.md      # Feature documentation
+│   │   ├── MIGRATION.md   # Migration notes
+│   │   ├── components/    # UI components
+│   │   │   ├── DataList.tsx
+│   │   │   ├── DataPreview.tsx
+│   │   │   ├── NoDataView.tsx
+│   │   │   └── index.ts
+│   │   ├── hooks/         # Custom hooks
+│   │   │   ├── useDataFlow.ts
+│   │   │   ├── useDataSelection.ts
+│   │   │   ├── useExtractedData.ts
+│   │   │   └── index.ts
+│   │   └── types.ts
+│   └── /* other features */
+├── components/            # Shared components
+├── contexts/              # Global contexts
+├── hooks/                 # Shared hooks
+├── pages/                 # Route components
+└── utils/                 # Shared utilities
+```
 
 ### Database Schema
 
@@ -279,7 +325,14 @@ frontend/
 
 ### Bulk Update System
 - Purpose: Enable mass updates of entity fields across multiple records
-- Architecture: Modal component with field detection and batch processing
+- Architecture: Consolidated modal component with unified interface
+- Implementation:
+  - Single BulkEditModal component supporting multiple use cases:
+    - Entity mode for sports database entities
+    - Query mode for database query results
+    - Type-safe implementation with proper interfaces
+    - Smart entity type detection for query results
+    - Consistent UI patterns across different modes
 - Features:
   - Works with all entity types through a unified interface
   - Field categorization for logical organization (Basic Information, Relationships, etc.)
@@ -296,6 +349,7 @@ frontend/
   - Detailed success/failure reporting
   - Performance optimization with request batching
   - Clear visual instructions and feedback
+  - Authentication handling with direct API calls when needed
 
 ### DatabaseManagementSystem
 - Purpose: Maintain database health and provide backup/restore capabilities

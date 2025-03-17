@@ -13,8 +13,8 @@ import { useNavigate } from 'react-router-dom';
 import { useSportsDatabase } from './SportsDatabaseContext';
 import { useNotification } from '../../../contexts/NotificationContext';
 import LoadingSpinner from '../../common/LoadingSpinner';
-// Using local BulkEditModal for now until auth issues are fixed
-import BulkEditModal from './BulkEditModal';
+// Use the consolidated BulkEditModal from common components
+import BulkEditModal from '../../common/BulkEditModal';
 // @ts-ignore
 import { FaTrash, FaEye, FaSortUp, FaSortDown, FaSort, FaPencilAlt, FaCheck, FaTimes, FaEdit, FaFileExport, FaColumns, FaKey, FaArrowsAlt } from 'react-icons/fa';
 import SmartEntitySearch from '../../data/EntityUpdate/SmartEntitySearch';

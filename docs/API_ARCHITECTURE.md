@@ -423,6 +423,38 @@ A specialized tool for mapping structured data to sports database entities:
 
 ## Frontend Integration
 
+### Component Organization
+
+1. **Feature-Based Organization**:
+   - Components organized into feature directories:
+     ```
+     features/FeatureName/
+     ├── index.tsx                # Main container component
+     ├── README.md                # Feature documentation
+     ├── components/              # UI components
+     │   ├── ComponentA.tsx
+     │   ├── ComponentB.tsx
+     │   └── index.ts             # Component exports
+     ├── hooks/                   # Custom hooks
+     │   ├── useFeatureData.ts
+     │   ├── useFeatureState.ts
+     │   └── index.ts             # Hook exports
+     └── types.ts                 # Feature-specific types
+     ```
+   - Example implementations:
+     - `features/DataManagement/` - Structured data management with optimized hooks
+     - `features/EntityManagement/` (planned) - Entity management with relationship handling
+
+2. **Component Design**:
+   - UI components separated from data handling logic
+   - Custom hooks for business logic and API interaction
+   - Entity-specific field components with standardized rendering
+   - Optimized rendering with strategic memoization
+   - Consolidated modal components with unified interfaces:
+     - BulkEditModal with entity and query mode support
+     - Type-safe implementations with proper interfaces
+     - Consistent UI patterns across different use cases
+
 ### Sports Database Module
 
 Modular component architecture:

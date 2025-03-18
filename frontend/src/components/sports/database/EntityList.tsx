@@ -17,7 +17,9 @@ import LoadingSpinner from '../../common/LoadingSpinner';
 import BulkEditModal from '../../common/BulkEditModal';
 // @ts-ignore
 import { FaTrash, FaEye, FaSortUp, FaSortDown, FaSort, FaPencilAlt, FaCheck, FaTimes, FaEdit, FaFileExport, FaColumns, FaKey, FaArrowsAlt } from 'react-icons/fa';
-import SmartEntitySearch from '../../data/EntityUpdate/SmartEntitySearch';
+// import SmartEntitySearch from '../../data/EntityUpdate/SmartEntitySearch';
+import { Input } from 'antd';
+import { SearchOutlined } from '@ant-design/icons';
 import { EntityCard } from '../../data/EntityUpdate/EntityCard';
 // @ts-ignore
 import { Modal } from 'antd';
@@ -516,12 +518,25 @@ const EntityList: React.FC<EntityListProps> = ({ className = '' }) => {
             {getEntityTypeName()}
           </h2>
           <div className="flex-grow max-w-xl">
-            <SmartEntitySearch
-              entityTypes={[selectedEntityType as EntityType]}
-              onEntitySelect={handleSearchSelect}
-              placeholder={`Search ${getEntityTypeName()}`}
-              entities={entities as Entity[]}
-            />
+            {/* Simple inline search implementation */}
+            <div className="w-full">
+              <Input 
+                prefix={<SearchOutlined />} 
+                placeholder={`Search ${getEntityTypeName()}`}
+                onChange={(e) => {
+                  const value = e.target.value.toLowerCase();
+                  // Basic local filtering - find matching entity and select it
+                  if (value.length > 2) {
+                    const match = entities.find(entity => 
+                      entity.name && entity.name.toLowerCase().includes(value)
+                    );
+                    if (match) {
+                      handleSearchSelect(match as Entity);
+                    }
+                  }
+                }}
+              />
+            </div>
           </div>
           <div className="flex space-x-1">
             <button

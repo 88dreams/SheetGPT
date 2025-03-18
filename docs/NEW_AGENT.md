@@ -34,6 +34,12 @@ SheetGPT is a full-stack application combining AI-powered chat with structured d
 - Table-based list components with sorting capabilities
 - Contextual action buttons for improved UX
 - Reusable UI components with single responsibilities
+- Performance optimization strategies:
+  - Dependency fingerprinting for stable object comparison
+  - Breaking circular dependency chains
+  - Simplified component patterns for critical interactions
+  - State isolation to prevent infinite render loops
+  - Optimized search implementations for large datasets
 
 ## Key Components
 

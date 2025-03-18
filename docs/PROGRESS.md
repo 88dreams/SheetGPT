@@ -14,7 +14,17 @@ SheetGPT is a full-stack application that combines AI-powered chat capabilities 
 
 ### Latest Features
 
-1. Division/Conference Nickname Field (March 25, 2025)
+1. Entity Search Component Fix (March 28, 2025)
+   - Fixed critical infinite loop bug in SmartEntitySearch component:
+     - Simplified the search implementation to eliminate complex dependencies
+     - Replaced AutoComplete dropdown with a direct input search
+     - Removed recursive dependency chain that caused maximum update depth error
+     - Eliminated problematic useMemo and useEffect patterns
+     - Improved component stability for entity search across the application
+     - Implemented minimal search solution directly in EntityList component
+     - Added more robust error handling for entity search operations
+
+2. Division/Conference Nickname Field (March 25, 2025)
    - Added nickname field to DivisionConference entity:
      - Updated SQLAlchemy model with nickname field (String(20), nullable, indexed)
      - Created Alembic migration for database schema change

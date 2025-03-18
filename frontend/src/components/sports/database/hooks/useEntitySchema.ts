@@ -99,10 +99,14 @@ export function useEntitySchema() {
 
         case 'broadcast':
           fields.push(
+            // Note: 'name' field is removed as it's redundant with broadcast_company_name
             { name: 'broadcast_company_id', required: true, type: 'string', description: 'ID of the broadcasting company' },
+            { name: 'broadcast_company_name', required: true, type: 'string', description: 'Name of the broadcasting company' },
             { name: 'entity_type', required: true, type: 'string', description: 'Type of entity being broadcast (league, team, game)' },
             { name: 'entity_id', required: true, type: 'string', description: 'ID of the entity being broadcast' },
+            { name: 'entity_name', required: false, type: 'string', description: 'Name of the entity being broadcast' },
             { name: 'division_conference_id', required: false, type: 'string', description: 'ID of the division/conference associated with this broadcast right' },
+            { name: 'division_conference_name', required: false, type: 'string', description: 'Name of the division/conference associated with this broadcast right' },
             { name: 'territory', required: true, type: 'string', description: 'Broadcast territory' },
             { name: 'start_date', required: true, type: 'date', description: 'Start date of broadcast rights' },
             { name: 'end_date', required: true, type: 'date', description: 'End date of broadcast rights' },
@@ -179,8 +183,8 @@ export function useEntitySchema() {
              'stadium_id', 'date', 'time', 'home_score', 'away_score', 'status', 'season_year', 'season_type'],
       
       // Broadcast Rights fields
-      broadcast: ['id', 'name', 'created_at', 'updated_at', 'broadcast_company_id', 'entity_type', 'entity_id',
-                  'division_conference_id', 'territory', 'start_date', 'end_date', 'is_exclusive'],
+      broadcast: ['id', 'created_at', 'updated_at', 'broadcast_company_id', 'broadcast_company_name', 'entity_type', 'entity_id',
+                  'entity_name', 'division_conference_id', 'division_conference_name', 'territory', 'start_date', 'end_date', 'is_exclusive'],
       
       // Production fields
       production: ['id', 'name', 'created_at', 'updated_at', 'production_company_id', 'entity_type', 'entity_id',

@@ -2,7 +2,17 @@ import { useState, useCallback } from 'react';
 import SportsDatabaseService, { EntityType } from '../../../../services/SportsDatabaseService';
 
 export function useEntityView(entityType: EntityType) {
-  const [viewMode, setViewMode] = useState<'entity' | 'global' | 'fields'>('entity');
+  // Persist view mode in localStorage
+  const storedViewMode = localStorage.getItem('sportsDbViewMode');
+  const [viewMode, setViewMode] = useState<'entity' | 'global' | 'fields'>(
+    (storedViewMode as 'entity' | 'global' | 'fields') || 'entity'
+  );
+  
+  // Update localStorage when view mode changes
+  const updateViewMode = useCallback((newMode: 'entity' | 'global' | 'fields') => {
+    localStorage.setItem('sportsDbViewMode', newMode);
+    setViewMode(newMode);
+  }, []);
   const [entityCounts, setEntityCounts] = useState<Record<EntityType, number>>({
     league: 0,
     division_conference: 0,
@@ -52,7 +62,7 @@ export function useEntityView(entityType: EntityType) {
 
   return {
     viewMode,
-    setViewMode,
+    setViewMode: updateViewMode,
     entityCounts,
     setEntityCounts,
     fetchEntityCounts

@@ -254,3 +254,24 @@ class SportsService:
             return entity_dict
         
         return None
+        
+    # BroadcastRights methods
+    async def get_broadcast_rights(self, db: AsyncSession, entity_type: Optional[str] = None, entity_id: Optional[UUID] = None, company_id: Optional[UUID] = None) -> List[BroadcastRights]:
+        """Get all broadcast rights, optionally filtered."""
+        broadcast_rights_service = BroadcastRightsService()
+        return await broadcast_rights_service.get_broadcast_rights(db, entity_type, entity_id, company_id)
+    
+    async def get_broadcast_right(self, db: AsyncSession, rights_id: UUID) -> Optional[BroadcastRights]:
+        """Get broadcast rights by ID."""
+        broadcast_rights_service = BroadcastRightsService()
+        return await broadcast_rights_service.get_broadcast_right(db, rights_id)
+    
+    async def update_broadcast_rights(self, db: AsyncSession, rights_id: UUID, rights_update: BroadcastRightsUpdate) -> Optional[BroadcastRights]:
+        """Update broadcast rights."""
+        broadcast_rights_service = BroadcastRightsService()
+        return await broadcast_rights_service.update_broadcast_rights(db, rights_id, rights_update)
+    
+    async def delete_broadcast_rights(self, db: AsyncSession, rights_id: UUID) -> bool:
+        """Delete broadcast rights."""
+        broadcast_rights_service = BroadcastRightsService()
+        return await broadcast_rights_service.delete_broadcast_rights(db, rights_id)

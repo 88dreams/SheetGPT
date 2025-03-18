@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode, useMemo } from 'react';
+import React, { createContext, useContext, useState, useEffect, ReactNode, useMemo, useCallback } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { useNotification } from '../../../contexts/NotificationContext';
@@ -121,8 +121,11 @@ export const SportsDatabaseProvider: React.FC<SportsDatabaseProviderProps> = ({ 
   const { showNotification } = useNotification();
   const { setDestination } = useDataFlow();
   
-  // Core entity type state
-  const [selectedEntityType, setSelectedEntityType] = useState<EntityType>('league');
+  // Core entity type state - use localStorage to persist the selected entity type
+  const storedEntityType = localStorage.getItem('selectedEntityType');
+  const [selectedEntityType, setSelectedEntityType] = useState<EntityType>(
+    (storedEntityType as EntityType) || 'league'
+  );
   
   // Update data flow when component mounts
   useEffect(() => {
@@ -261,9 +264,15 @@ export const SportsDatabaseProvider: React.FC<SportsDatabaseProviderProps> = ({ 
   }, [viewMode, fetchEntityCounts]);
 
   // Create the context value object (memoized to prevent unnecessary re-renders)
+  // Custom setter that updates localStorage
+  const handleSetSelectedEntityType = useCallback((type: EntityType) => {
+    localStorage.setItem('selectedEntityType', type);
+    setSelectedEntityType(type);
+  }, []);
+
   const contextValue = useMemo<SportsDatabaseContextType>(() => ({
     selectedEntityType,
-    setSelectedEntityType,
+    setSelectedEntityType: handleSetSelectedEntityType,
     entities,
     isLoading,
     error,
@@ -305,6 +314,7 @@ export const SportsDatabaseProvider: React.FC<SportsDatabaseProviderProps> = ({ 
     fetchEntityCounts,
   }), [
     selectedEntityType,
+    handleSetSelectedEntityType,
     entities,
     isLoading,
     error,

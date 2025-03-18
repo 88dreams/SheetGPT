@@ -131,6 +131,12 @@ frontend/
    - Custom form fields with standardized rendering pattern
    - Comprehensive memoization to prevent unnecessary renders
    - Explicit dependency tracking in useEffect hooks
+   - Component optimization strategies:
+     - Stable reference patterns for complex data structures
+     - Fingerprinting techniques for object comparison
+     - Breaking circular dependency chains
+     - Simplified component implementation for critical UI elements
+     - Careful management of component rerender cycles
    - Specialized utility modules for focused concerns:
      - Data transformation utilities
      - Entity processing utilities 

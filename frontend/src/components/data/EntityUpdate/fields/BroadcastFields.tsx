@@ -24,15 +24,7 @@ const BroadcastFields: React.FC<BroadcastFieldsProps> = ({ entity, onChange, isE
   
   return (
     <>
-      <FormField
-        field="name"
-        label="Broadcast Rights Name"
-        type="text"
-        value={entity.name || ''}
-        onChange={onChange}
-        isEditing={isEditing}
-        isRequired={true}
-      />
+      {/* Name field removed as it's redundant with Broadcast Company Name */}
       <FormField
         field="territory"
         label="Territory"

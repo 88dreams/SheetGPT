@@ -165,7 +165,10 @@
 - Use deep equality checks to prevent redundant re-renders
 - Monitor dependency arrays carefully to prevent circular dependencies 
 - Ensure stateful hooks properly update when prop dependencies change
-- Fix SmartEntitySearch component issues with proper memoization strategies
+- Use simplified search implementation for EntityList to prevent infinite loops
+- Avoid complex dependency chains in frequently re-rendered components
+- Keep critical UI components as simple as possible to prevent React update exhaustion
+- When a component has circular dependency issues, replace it with a simpler direct implementation
 
 ## Database Guidelines
 

@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useMemo } from 'react';
+import React, { useState } from 'react';
 import { Input, AutoComplete } from 'antd';
 import { SearchOutlined } from '@ant-design/icons';
 import { Entity, EntityType } from '../../../types/sports';
@@ -10,71 +10,54 @@ interface SmartEntitySearchProps {
   entities?: Entity[];
 }
 
-interface AutoCompleteOption {
-  key: string;
-  value: string;
-  label: string;
-  entity: Entity;
-}
-
 /**
- * SmartEntitySearch component that provides an autocomplete search box for entities.
- * This implementation uses memoization and stable callback references to prevent infinite loops.
+ * Basic implementation of SmartEntitySearch without any complex dependencies
  */
-export const SmartEntitySearch: React.FC<SmartEntitySearchProps> = React.memo(({
+const SmartEntitySearch = ({
   onEntitySelect,
   entityTypes,
-  placeholder = "Search for Stadium, League, or Team...",
+  placeholder = "Search for entity...",
   entities = []
-}) => {
+}: SmartEntitySearchProps) => {
   const [searchText, setSearchText] = useState('');
-
-  // Memoize options to prevent unnecessary recalculations
-  const options = useMemo(() => {
-    if (!searchText) return [];
-    
-    const searchLower = searchText.toLowerCase();
-    if (!Array.isArray(entities)) return [];
-    
-    return entities
-      .filter(entity => entity?.name?.toLowerCase?.().includes(searchLower))
-      .map(entity => ({
-        key: entity?.id || '',
-        value: entity?.name || '',
-        label: entity?.name || '',
-        entity
-      }));
-  }, [searchText, entities]);
-
-  // Use a stable callback for handleSearch
-  const handleSearch = useCallback((text: string) => {
+  
+  // Simplified handling with no memorization or complex logic
+  const handleSearch = (text: string) => {
     setSearchText(text);
-  }, []);
+  };
 
-  // Use a stable callback for handleSelect
-  const handleSelect = useCallback((_, option: any) => {
-    if (option && option.entity) {
+  const handleSelect = (value: string, option: any) => {
+    if (option?.entity) {
       onEntitySelect(option.entity);
       setSearchText('');
     }
-  }, [onEntitySelect]);
+  };
 
-  // Create a stable key for the AutoComplete component based on entity type
-  const searchKey = useMemo(() => 
-    `search-${entityTypes.join('-')}-${entities.length}`,
-  [entityTypes, entities.length]);
+  // Create options directly in the render method - no dependencies or memoization
+  const options = !searchText 
+    ? [] 
+    : entities
+        .filter(entity => {
+          if (!entity?.name) return false;
+          return entity.name.toLowerCase().includes(searchText.toLowerCase());
+        })
+        .slice(0, 20)
+        .map(entity => ({
+          key: entity.id || Math.random().toString(),
+          value: entity.name || '',
+          label: entity.name || '',
+          entity
+        }));
 
   return (
     <AutoComplete
-      key={searchKey}
       style={{ width: '100%' }}
       options={options}
       onSelect={handleSelect}
       onSearch={handleSearch}
       placeholder={placeholder}
       value={searchText}
-      filterOption={false} // Disable built-in filtering to prevent Ant filtering twice
-      notFoundContent={searchText ? "No matches found" : "Type to search"}
+      filterOption={false}
     >
       <Input
         size="middle"
@@ -83,9 +66,6 @@ export const SmartEntitySearch: React.FC<SmartEntitySearchProps> = React.memo(({
       />
     </AutoComplete>
   );
-});
+};
 
-// Add display name for easier debugging
-SmartEntitySearch.displayName = 'SmartEntitySearch';
-
-export default SmartEntitySearch; 
+export default SmartEntitySearch;

@@ -112,7 +112,7 @@ class SportsService:
         """Initialize with specific services."""
         self.league_service = LeagueService()
         self.team_service = TeamService()
-        # Other services...
+        # Other services initialized on-demand to prevent circular imports
     
     async def get_leagues(self, db: AsyncSession, skip: int = 0, limit: int = 100):
         """Delegate to specialized service."""
@@ -121,6 +121,11 @@ class SportsService:
     async def create_league(self, db: AsyncSession, league_data: LeagueCreate):
         """Delegate to specialized service."""
         return await self.league_service.create_league(db, league_data)
+        
+    async def delete_broadcast_rights(self, db: AsyncSession, rights_id: UUID) -> bool:
+        """Delegate to broadcast rights service (created on-demand)."""
+        broadcast_rights_service = BroadcastRightsService()
+        return await broadcast_rights_service.delete_broadcast_rights(db, rights_id)
 ```
 
 ## Entity Relationship Handling
@@ -143,6 +148,24 @@ During batch imports, the system resolves entity relationships:
    - Resolves relationships by UUID or name lookup
    - Creates missing entities when appropriate
    - Validates final mapped data before saving
+   
+### Service Layer Architecture
+
+1. **Specialized Entity Services**:
+   - Each entity type has a dedicated service class (TeamService, LeagueService, etc.)
+   - Services implement CRUD operations with domain-specific logic
+   - Services handle validation rules specific to the entity type
+   - Each service follows a consistent interface pattern
+
+2. **Facade Pattern Implementation**:
+   - SportsService facade provides a unified API for client code
+   - Delegates operations to specialized service classes
+   - Handles initialization of services on-demand to prevent circular imports
+   - Ensures complete API coverage for all entity operations:
+     - Each entity operation in routes must have a corresponding facade method
+     - Facade methods delegate to specialized services
+     - Direct service access is avoided outside the facade
+     - Services are instantiated when needed rather than all at initialization
 
 ### Entity Field Management
 

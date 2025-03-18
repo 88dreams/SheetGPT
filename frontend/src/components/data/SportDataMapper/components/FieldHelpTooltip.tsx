@@ -10,7 +10,7 @@ const FieldHelpTooltip: React.FC<FieldHelpTooltipProps> = ({ fieldName, onClose 
   const getHelpText = () => {
     switch (fieldName) {
       case 'name':
-        return "The name of the entity (e.g., 'Los Angeles Lakers' for a team)";
+        return "The name of the entity (e.g., 'Los Angeles Lakers' for a team). Note: For broadcast rights, use 'broadcast_company_id' instead of 'name'.";
       case 'league_id':
         return "The UUID of the league this entity belongs to. If you enter a league name, it will be automatically looked up or created.";
       case 'stadium_id':
@@ -18,7 +18,7 @@ const FieldHelpTooltip: React.FC<FieldHelpTooltipProps> = ({ fieldName, onClose 
       case 'team_id':
         return "The UUID of the team this entity belongs to. If you enter a team name, it will be automatically looked up or created.";
       case 'broadcast_company_id':
-        return "The UUID of the broadcast company. This is automatically set when you map a name to the 'name' field, but you can also directly enter a company name here.";
+        return "The UUID of the broadcast company or the company name (like 'NBC Sports'). If you enter a company name, the system will automatically look up an existing company with that name or create a new one if it doesn't exist. For broadcast rights, this is the primary identifier instead of 'name'.";
       case 'entity_type':
         return "The type of entity this broadcast right applies to. Valid values include: 'League', 'Conference', 'Division', 'Team', 'Game'. This determines which entity the broadcast rights are for, and works together with entity_id.";
       case 'entity_id':
@@ -43,6 +43,8 @@ const FieldHelpTooltip: React.FC<FieldHelpTooltipProps> = ({ fieldName, onClose 
         return "The geographical territory or region where the broadcast rights apply (e.g., 'United States', 'Europe').";
       case 'is_exclusive':
         return "Whether these broadcast rights are exclusive (true/false).";
+      case 'broadcast_company_name':
+        return "The name of the broadcast company (e.g., 'NBC Sports', 'ESPN'). This is the display name for the broadcast_company_id field.";
       default:
         return "Enter the appropriate value for this field.";
     }

@@ -217,7 +217,8 @@ src/
    └── → broadcast_companies
    
    division_conferences
-   ├── name, type (division/conference)
+   ├── name, nickname, type (division/conference)
+   ├── region, description
    └── → leagues
    
    teams
@@ -305,7 +306,7 @@ src/
 5. **Entity Name Resolution**
    ```
    Entity Reference → Type Detection → Database Lookup →
-   Name/ID Resolution → Relationship Validation → UI Display
+   Name/ID Resolution → Nickname Resolution → Relationship Validation → UI Display
    ```
 
 6. **UUID Display System**
@@ -343,6 +344,11 @@ src/
     - Direct endpoint access for critical relationship data
     - Data-driven column display system with fields derived from API response
     - Special handling for broadcast rights field display with name/territory separation
+    - Inline nickname editing for League and DivisionConference entities
+    - Color-coded nickname badges (indigo for League, blue for DivisionConference)
+    - Direct editing through badge click with optimistic UI updates
+    - Placeholder display for entities without nicknames ("+ Add nickname")
+    - Keyboard navigation support for nickname editing (Enter to save, Escape to cancel)
     - Simplified column management with data-based initialization
   - Special empty field handling to preserve or clear values as needed
   - Batch processing with real-time progress tracking

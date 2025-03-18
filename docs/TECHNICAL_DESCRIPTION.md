@@ -63,6 +63,9 @@ frontend/
    - Context API for global state
    - ChatContext for optimized streaming
    - DataFlowContext for extraction pipeline
+   - Enhanced error handling for constraint violations
+   - User-friendly notifications for database errors
+   - Persistent state across page navigation
 
 2. **Component Architecture**
    - Modular feature-based organization:
@@ -389,6 +392,15 @@ src/
   - Context-sensitive help text for complex fields
   - Batch processing with validation
   - Progress tracking with error reporting
+  - Intelligent entity type detection from name content
+  - Specialized handling for broadcast rights entity names
+  - Enhanced error handling for duplicate entries
+  - Constraint violation detection with human-readable messages
+  - User-friendly error notifications with guidance
+  - Prominent, non-dismissing error display for critical issues
+  - Smart parsing of database error messages
+  - Record navigation persistence between page views
+  - Circular record navigation with bounds checking
 
 ### DatabaseQuery
 - Purpose: Enable users to query the database directly or using natural language
@@ -517,6 +529,15 @@ Components:
    - Circular dependency detection and prevention
    - Smart entity search optimization with fallbacks
    - Deep equality checks to prevent redundant updates
+   - Enhanced constraint violation messages
+   - User-friendly database error explanations
+   - Prominent error notifications for critical issues
+   - Persistent error displays for important messages
+   - Helpful guidance text for error recovery
+   - Improved error parsing for database constraints
+   - Visual distinction between error types
+   - Error positioning based on severity
+   - Non-auto-dismissing errors for critical issues
 
 2. **Data Errors**
    - Field validation
@@ -538,11 +559,15 @@ Components:
    - Authentication errors
 
 2. **Database Errors**
-   - Constraint violations
+   - Constraint violations with user-friendly explanations
    - Transaction failures
    - Deadlock handling
    - Connection issues
    - Backup failures
+   - Duplicate entry detection with helpful recovery guidance
+   - Foreign key validation with relationship context
+   - Unique constraint violations with descriptive messages
+   - Smart error pattern detection for common database issues
 
 ## Performance Considerations
 

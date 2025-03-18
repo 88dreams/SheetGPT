@@ -44,6 +44,22 @@ When users reference entities by name instead of UUID:
 
 ### Recent Improvements (March 2025)
 
+- Broadcast Rights in SportDataMapper (March 29, 2025):
+  - Fixed name field interpretation for broadcast rights entity mapping
+  - Added intelligent entity type detection from name content
+  - Enhanced error handling with user-friendly constraint violation messages
+  - Updated field help tooltips for clearer guidance
+  - Improved UI error notifications with prominent, non-dismissing errors
+  - Added database constraint error detection with human-readable explanations
+  - Enhanced error display with centered, clearly visible notifications
+
+- Column Order and EntityList Fixes (March 28, 2025):
+  - Rewrote useDragAndDrop hook to eliminate circular dependencies
+  - Improved component state management with proper reference tracking
+  - Enhanced persistence between page navigation and entity type changes
+  - Fixed Entity Search component with simplified implementation
+  - Added proper error handling for state synchronization
+
 - Component consolidation and feature-based organization (March 18, 2025):
   - Consolidated multiple BulkEditModal implementations into a unified component
   - Created feature-based organization pattern with DataManagement example
@@ -66,12 +82,16 @@ When users reference entities by name instead of UUID:
   - Added proper dependency tracking in all hooks
   - Improved rendering efficiency with strategic memoization
 
-- Enhanced error messaging for Claude API failures (March 21, 2025)
-- Improved prompt for entity name resolution in broadcast rights
-- Added fallback mechanisms for API interruptions
-- Optimized context window usage for better performance
-- Implemented better Claude error handling at service layer
-- Enhanced streaming response buffering
+- Enhanced error handling across application (March 21-29, 2025):
+  - Better error messaging for Claude API failures
+  - Improved prompt for entity name resolution in broadcast rights
+  - Added fallback mechanisms for API interruptions
+  - Optimized context window usage for better performance
+  - Implemented better Claude error handling at service layer
+  - Enhanced streaming response buffering
+  - Added user-friendly database constraint violation messages
+  - Created more visible and informative error notifications
+  - Improved guidance for users encountering errors
 
 ## Usage Guidelines
 

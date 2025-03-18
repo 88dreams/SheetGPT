@@ -14,7 +14,31 @@ SheetGPT is a full-stack application that combines AI-powered chat capabilities 
 
 ### Latest Features
 
-1. Entity Search Component Fix (March 28, 2025)
+1. Broadcast Rights in SportDataMapper Improvements (March 29, 2025)
+   - Fixed critical issue with name field interpretation in broadcast rights entries:
+     - Correctly interprets name field as the entity being broadcast, not the broadcaster
+     - Added intelligent entity type detection from name content (e.g., "Conference")
+     - Enhanced lookup flow to properly set entity_id and related fields
+     - Fixed duplicate entry handling with user-friendly error messages
+     - Updated field help tooltips with clear explanations of field purposes
+     - Improved UI error notifications with prominent, non-dismissing errors for constraints
+     - Added database constraint error detection with human-readable explanations
+     - Enhanced error display with centered, clearly visible notifications
+     - Implemented better guidance text for users encountering errors
+     
+2. EntityList Column Order Persistence (March 28, 2025)
+   - Fixed infinite render loop in EntityList component:
+     - Completely rewrote the useDragAndDrop hook to eliminate circular dependencies
+     - Used refs to track state and prevent unnecessary re-renders
+     - Added proper dependency management in all hooks
+     - Made the hook the single source of truth for column order
+     - Simplified component-hook interactions to prevent state synchronization issues
+     - Added browser session persistence for column order preferences
+     - Enhanced the hook to properly handle storage key changes for different entity types
+     - Ensured column order persists between page navigation and entity type changes
+     - Improved error handling with proper storage key management
+
+3. Entity Search Component Fix (March 28, 2025)
    - Fixed critical infinite loop bug in SmartEntitySearch component:
      - Simplified the search implementation to eliminate complex dependencies
      - Replaced AutoComplete dropdown with a direct input search

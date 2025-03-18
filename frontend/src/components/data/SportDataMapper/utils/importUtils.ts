@@ -63,6 +63,7 @@ export const saveEntityToDatabase = async (
   data: Record<string, any>,
   isUpdateMode: boolean
 ): Promise<boolean> => {
+  console.log(`saveEntityToDatabase called for entity type: ${entityType}`);
   let success = false;
   
   // Handle update mode for entities with a name field
@@ -96,11 +97,112 @@ export const saveEntityToDatabase = async (
     }
   }
   
-  // Special handling for brand_relationship type
+  // Special handling for certain entity types
+  console.log(`Checking special handling for entity type: ${entityType}`);
+  
   if (entityType === 'brand_relationship') {
+    console.log('Using special handling for brand_relationship');
     const response = await api.sports.createBrandRelationship(data);
     return !!response;
-  } 
+  }
+  
+  // Special handling for broadcast entity due to backend service issue
+  if (entityType === 'broadcast') {
+    console.log('Using special handling for broadcast entity');
+    try {
+      console.log('Using direct API call for broadcast entity creation:', data);
+      
+      // Check what API endpoint we actually need
+      console.log('Analyzing available endpoints for broadcast entity:');
+      
+      // First, try to make a simple probe request to see if the endpoint is configured
+      const baseUrl = window.location.origin;
+      const token = localStorage.getItem('auth_token');
+      
+      // Print all data we'll be sending
+      console.log('Data being sent to broadcast-rights endpoint:', JSON.stringify(data, null, 2));
+      
+      // Include extra context information for debugging
+      console.log('Authorization token present:', !!token);
+      console.log('Origin URL being used:', baseUrl);
+      
+      // Make the actual POST request with detailed error handling
+      try {
+        // Try using the sportsService directly instead of manual fetch
+        console.log('Using sportsService.createBroadcastRights instead of direct fetch');
+        try {
+          const result = await sportsService.createBroadcastRights(data);
+          console.log('Successfully created broadcast rights using sportsService:', result);
+          return true;
+        } catch (serviceError) {
+          console.error('Error using sportsService.createBroadcastRights:', serviceError);
+          console.log('Falling back to direct fetch approach');
+        }
+        
+        // If service call fails, try manual fetch as fallback
+        const response = await fetch(`${baseUrl}/api/v1/sports/broadcast-rights`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify(data)
+        });
+        
+        // Detailed response logging
+        console.log('Broadcast API response status:', response.status);
+        console.log('Broadcast API response status text:', response.statusText);
+        
+        // Try to read the response body
+        let responseText;
+        try {
+          responseText = await response.text();
+          console.log('Response text:', responseText);
+        } catch (e) {
+          console.log('Could not read response text:', e);
+        }
+        
+        // If not successful, show detailed error
+        if (!response.ok) {
+          throw new Error(`API Error (${response.status}): ${responseText || response.statusText}`);
+        }
+        
+        // Parse JSON only if we got a successful response
+        let responseData;
+        try {
+          responseData = responseText ? JSON.parse(responseText) : null;
+          console.log('Broadcast creation response:', responseData);
+        } catch (e) {
+          console.error('Error parsing response JSON:', e);
+          // If we can't parse it as JSON but got a 2xx status, consider it a success
+          if (response.ok) {
+            return true;
+          }
+          throw new Error(`Invalid JSON response: ${responseText}`);
+        }
+        
+        return !!responseData;
+      } catch (fetchError) {
+        console.error('Error making fetch request:', fetchError);
+        // Create a log of all the request details to help diagnose the problem
+        console.error('Request details:', {
+          url: `${baseUrl}/api/v1/sports/broadcast-rights`,
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer [hidden for security]'
+          },
+          body: JSON.stringify(data)
+        });
+        throw fetchError;
+      }
+    } catch (error) {
+      console.error('Error creating broadcast entity:', error);
+      // For this entity type, we'll continue despite errors
+      console.warn('Continuing despite broadcast entity creation error');
+      return false;
+    }
+  }
   
   // Default path: create entity
   const response = await sportsDatabaseService.createEntity(
@@ -113,11 +215,34 @@ export const saveEntityToDatabase = async (
 };
 
 /**
- * Format error message from various error types
+ * Format error message from various error types, with special handling for common database errors
  */
 export const formatErrorMessage = (error: unknown): string => {
   if (error instanceof Error) {
-    return error.message;
+    const errorMessage = error.message;
+    
+    // Special handling for broadcast rights unique constraint violation
+    if (errorMessage.includes('duplicate key value violates unique constraint') && 
+        errorMessage.includes('broadcast_rights')) {
+      // Parse the error to extract the entity information
+      try {
+        // Extract the entity details from the error message
+        const entityTypeMatch = errorMessage.match(/Key \(entity_type, entity_id, broadcast_company_id.*?\)=\(([^,]+), ([^,]+), ([^,]+)/);
+        
+        if (entityTypeMatch && entityTypeMatch.length >= 4) {
+          const entityType = entityTypeMatch[1];
+          const entityId = entityTypeMatch[2].substring(0, 8); // Just show first part of UUID
+          const broadcastCompanyId = entityTypeMatch[3].substring(0, 8);
+          
+          return `A broadcast right already exists for this combination of ${entityType}, entity, and broadcast company. Try using different parameters or edit the existing record instead.`;
+        }
+      } catch (parseError) {
+        // If parsing fails, fall back to a generic but still helpful message
+        return `A broadcast right already exists with these exact parameters. Modify some values to make it unique or use the edit interface instead.`;
+      }
+    }
+    
+    return errorMessage;
   } else if (typeof error === 'object' && error !== null) {
     try {
       return JSON.stringify(error);

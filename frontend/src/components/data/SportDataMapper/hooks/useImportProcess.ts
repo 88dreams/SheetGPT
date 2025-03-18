@@ -82,7 +82,14 @@ export default function useImportProcess() {
     } catch (error) {
       console.error('Error saving to database:', error);
       const errorMessage = formatErrorMessage(error);
-      showNotification('error', `Error saving to database: ${errorMessage}`);
+      
+      // Set autoDismiss to false for errors to give user time to read them
+      showNotification(
+        'error', 
+        `Error saving to database`, 
+        errorMessage,
+        false // Don't auto-dismiss error messages
+      );
       return false;
     } finally {
       setIsSaving(false);
@@ -155,10 +162,13 @@ export default function useImportProcess() {
       }
     } catch (error) {
       console.error('Batch import error:', error);
+      const errorMessage = formatErrorMessage(error);
+      
       showNotification(
         'error', 
         'Error during batch import', 
-        error instanceof Error ? error.message : 'An unknown error occurred'
+        errorMessage,
+        false // Don't auto-dismiss error messages
       );
     } finally {
       setIsBatchImporting(false);

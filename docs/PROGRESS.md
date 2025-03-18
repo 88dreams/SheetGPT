@@ -14,7 +14,36 @@ SheetGPT is a full-stack application that combines AI-powered chat capabilities 
 
 ### Latest Features
 
-1. UI Component Consolidation (March 18, 2025)
+1. Division/Conference Nickname Field (March 25, 2025)
+   - Added nickname field to DivisionConference entity:
+     - Updated SQLAlchemy model with nickname field (String(20), nullable, indexed)
+     - Created Alembic migration for database schema change
+     - Updated Pydantic schemas for all relevant operations
+     - Added TypeScript interface definition with nickname field
+     - Implemented UI components for viewing and editing nicknames
+     - Added inline nickname editing in EntityList with color-coded badges
+     - Enhanced EntitySchema definitions for form building
+     - Updated BulkEditModal to include nickname field
+     - Added comprehensive documentation in CLAUDE.md
+
+2. SportDataMapper Fixes (March 24, 2025)
+   - Fixed entity name resolution with special character handling:
+     - Added comprehensive support for handling parentheses in entity names
+     - Implemented fallback mechanism that extracts base name before parentheses
+     - Enhanced entity lookup with exact and partial name matching
+     - Normalized entity types in backend validators to handle variations (e.g., 'conference' → 'division_conference')
+     - Fixed broadcast entity creation with proper API endpoint usage
+     - Improved error logging for troubleshooting entity creation issues
+   
+   - Fixed record navigation in SportDataMapper:
+     - Implemented circular navigation (cycle back to first record after last)
+     - Enhanced record navigation UI to prevent disabled states
+     - Added bounds checking and validation for record indices
+     - Used RequestAnimationFrame for smoother UI transitions
+     - Fixed source field value updates by eliminating conditional checks
+     - Implemented direct state updates to ensure UI refresh
+
+2. UI Component Consolidation (March 18, 2025)
    - Consolidated BulkEditModal implementations:
      - Unified four separate BulkEditModal implementations into a single component
      - Added consistent UI for both entity and query result editing
@@ -201,6 +230,22 @@ SheetGPT is a full-stack application that combines AI-powered chat capabilities 
    - Added special handling for relationship fields with proper ID/name toggle behavior
    - Eliminated all emergency hacks and workarounds with a clean architecture
    - Improved relationship field display with smart ID-to-name conversion
+   - Current priority: Resolved (fix implemented)
+
+4. SportDataMapper Special Character Handling
+   - Fixed issues with special characters (particularly parentheses) in entity names
+   - Implemented smarter entity name resolution with base name extraction
+   - Added fallback mechanism for broadcast entity creation
+   - Enhanced backend validators to handle entity type variations
+   - Normalized entity types to handle cases like 'conference' → 'division_conference'
+   - Current priority: Resolved (fix implemented)
+
+5. SportDataMapper Record Navigation
+   - Fixed record navigation issues that prevented moving between records
+   - Implemented circular navigation with proper bounds checking
+   - Enhanced UI to prevent disabled states on navigation buttons
+   - Used RequestAnimationFrame for smoother transitions
+   - Fixed source field value updates with direct state changes
    - Current priority: Resolved (fix implemented)
 
 ### Recent Improvements

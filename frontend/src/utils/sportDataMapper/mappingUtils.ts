@@ -47,10 +47,35 @@ export const lookupEntityIdByName = async (
         return null;
     }
     
-    // Find the entity with the matching name (case-insensitive)
-    const entity = entities.find(e => 
+    // First, try exact match (case-insensitive)
+    let entity = entities.find(e => 
       e.name && e.name.toLowerCase() === name.toLowerCase()
     );
+    
+    // If no exact match found and name is long enough, try partial matching
+    if (!entity && name.length > 3) {
+      console.log(`No exact match found for "${name}", trying partial matching`);
+      // Try to find partial matches
+      entity = entities.find(e => 
+        (e.name && e.name.toLowerCase().includes(name.toLowerCase())) ||
+        (e.name && name.toLowerCase().includes(e.name.toLowerCase()))
+      );
+      
+      // Handle special case for names with parentheses
+      if (!entity && name.includes('(')) {
+        const baseName = name.split('(')[0].trim();
+        console.log(`Trying match with base name: "${baseName}"`);
+        entity = entities.find(e => 
+          e.name && e.name.toLowerCase() === baseName.toLowerCase()
+        );
+        
+        if (!entity) {
+          entity = entities.find(e => 
+            e.name && e.name.toLowerCase().includes(baseName.toLowerCase())
+          );
+        }
+      }
+    }
     
     if (entity) {
       console.log(`Found ${entityType} with name "${name}": ${entity.id}`);
@@ -347,42 +372,148 @@ export const enhancedMapToDatabaseFieldNames = async (
     }
   }
   
-  // For broadcast rights, handle entity_id based on entity_type and use name for broadcast_company_id
+  // For broadcast rights, handle entity_id based on entity_type 
   if (entityType === 'broadcast') {
-    // Use name field to look up or create broadcast company
-    if (basicMapped.name && (!basicMapped.broadcast_company_id || !isValidUUID(basicMapped.broadcast_company_id))) {
-      const companyName = basicMapped.name;
-      
-      console.log(`Using name "${companyName}" to look up or create broadcast company`);
-      try {
-        const companies = await apiClient.sports.getBroadcastCompanies();
-        const company = companies.find(e => e.name?.toLowerCase() === companyName.toLowerCase());
-        
-        if (company?.id) {
-          basicMapped.broadcast_company_id = company.id;
-          console.log(`Found broadcast company ID: ${company.id} for name: ${companyName}`);
-        } else {
-          console.log(`Creating new broadcast company with name: ${companyName}`);
-          
-          // Try to create a new broadcast company
-          try {
-            const newCompany = await apiClient.sports.createBroadcastCompany({
-              name: companyName,
-              type: data.type || 'Broadcaster',
-              country: data.country || 'Unknown'
-            });
+    // For broadcast rights, the name field is usually referring to the ENTITY being broadcast
+    // (like "Big 12 Conference"), not the broadcast company itself
+    if (basicMapped.name) {
+      const entityName = basicMapped.name;
+      console.log(`For broadcast rights, treating name "${entityName}" as the entity being broadcast, not broadcast company`);
             
-            if (newCompany?.id) {
-              basicMapped.broadcast_company_id = newCompany.id;
-              console.log(`Created new broadcast company with ID: ${newCompany.id} for name: ${companyName}`);
+      // First, check if we have an entity_type set
+      if (!basicMapped.entity_type) {
+        // Try to guess entity type from the name
+        if (entityName.toLowerCase().includes('conference') || 
+            entityName.toLowerCase().includes('division')) {
+          basicMapped.entity_type = 'division_conference';
+          console.log(`Setting entity_type to 'division_conference' based on name: ${entityName}`);
+        } else if (entityName.toLowerCase().includes('league')) {
+          basicMapped.entity_type = 'league';
+          console.log(`Setting entity_type to 'league' based on name: ${entityName}`);
+        } else {
+          // Default to division_conference as a guess
+          basicMapped.entity_type = 'division_conference';
+          console.log(`No entity type specified, defaulting to 'division_conference' for name: ${entityName}`);
+        }
+      }
+            
+      // Now handle entity ID lookup based on detected entity type
+      console.log(`Looking up ${basicMapped.entity_type} with name: "${entityName}"`);
+      
+      // Map entity_type to the correct lookup type (normalize singular form)
+      let lookupType = basicMapped.entity_type.toLowerCase();
+      // Remove trailing 's' if present to get singular form
+      if (lookupType.endsWith('s')) {
+        lookupType = lookupType.slice(0, -1);
+      }
+      
+      // Handle special cases and normalize lookupType
+      if (['division', 'conference', 'divisions', 'conferences'].includes(lookupType)) {
+        lookupType = 'division_conference';
+      }
+      
+      console.log(`Looking up entity ID using type: ${lookupType} and name: ${entityName}`);
+      
+      try {
+        let entities = [];
+        
+        // Fetch entities based on entity type
+        switch (lookupType) {
+          case 'league':
+            entities = await apiClient.sports.getLeagues();
+            break;
+          case 'team':
+            entities = await apiClient.sports.getTeams();
+            break;
+          case 'division_conference':
+            entities = await apiClient.sports.getDivisionConferences();
+            break;
+          case 'game':
+            entities = await apiClient.sports.getGames();
+            break;
+          default:
+            console.warn(`Lookup not implemented for entity type: ${lookupType}`);
+            break;
+        }
+        
+        if (entities && entities.length > 0) {
+          // First try exact match
+          let entity = entities.find(e => 
+            e.name?.toLowerCase() === entityName.toLowerCase()
+          );
+          
+          // If no match and the name is long enough, try partial matching
+          if (!entity && entityName.length > 3) {
+            entity = entities.find(e => 
+              (e.name?.toLowerCase().includes(entityName.toLowerCase()) || 
+              entityName.toLowerCase().includes(e.name?.toLowerCase()))
+            );
+          }
+          
+          if (entity) {
+            basicMapped.entity_id = entity.id;
+            console.log(`Found ${lookupType} ID: ${entity.id} for name: ${entityName}`);
+            
+            // For division_conference, also set division_conference_id
+            if (lookupType === 'division_conference') {
+              basicMapped.division_conference_id = entity.id;
+              console.log(`Also setting division_conference_id to: ${entity.id}`);
+              
+              // Try to get the league_id from the division
+              if (!basicMapped.league_id && entity.league_id) {
+                basicMapped.league_id = entity.league_id;
+                console.log(`Setting league_id to: ${entity.league_id} from division`);
+              }
             }
-          } catch (createError) {
-            console.error(`Error creating new broadcast company: ${companyName}`, createError);
+          } else {
+            console.warn(`Could not find ${lookupType} with name: ${entityName}`);
+            
+            // Try to create the entity if appropriate
+            if (lookupType === 'division_conference' && basicMapped.league_id) {
+              try {
+                console.log(`Creating new division/conference: ${entityName}`);
+                const newDivision = await apiClient.sports.createDivisionConference({
+                  name: entityName,
+                  league_id: basicMapped.league_id,
+                  type: 'Conference'
+                });
+                
+                if (newDivision?.id) {
+                  basicMapped.entity_id = newDivision.id;
+                  basicMapped.division_conference_id = newDivision.id;
+                  console.log(`Created new division/conference with ID: ${newDivision.id}`);
+                }
+              } catch (createError) {
+                console.error(`Error creating new division/conference: ${entityName}`, createError);
+              }
+            } else if (lookupType === 'league') {
+              try {
+                console.log(`Creating new league: ${entityName}`);
+                const newLeague = await apiClient.sports.createLeague({
+                  name: entityName,
+                  sport: 'Unknown',
+                  country: 'Unknown'
+                });
+                
+                if (newLeague?.id) {
+                  basicMapped.entity_id = newLeague.id;
+                  console.log(`Created new league with ID: ${newLeague.id}`);
+                }
+              } catch (createError) {
+                console.error(`Error creating new league: ${entityName}`, createError);
+              }
+            }
           }
         }
       } catch (error) {
-        console.error(`Error looking up broadcast company ID for name ${companyName}:`, error);
+        console.error(`Error looking up ${lookupType} with name "${entityName}":`, error);
       }
+    }
+
+    // Handle broadcast_company_id - only use name fallback if broadcast_company_id is not already set
+    if (!basicMapped.broadcast_company_id && basicMapped.name) {
+      console.log(`WARNING: No broadcast_company_id provided, but this should not use the name field`);
+      console.log(`For broadcast rights, you should provide a separate broadcast_company_id field`);
     }
     
     // Handle entity_id lookup based on entity_type
@@ -392,59 +523,74 @@ export const enhancedMapToDatabaseFieldNames = async (
       
       console.log(`Looking up ${entityType} ID for name: ${entityName}`);
       
-      // Map entity_type to the correct lookup type
-      let lookupType = entityType;
+      // Map entity_type to the correct lookup type (singular form)
+      let lookupType = entityType.toLowerCase();
       
-      // Handle special cases where entity type might be different from lookup type
-      if (entityType === 'divisions' || entityType === 'conferences') {
-        lookupType = 'division_conference';
-      } else if (entityType === 'broadcasts') {
-        lookupType = 'broadcast';
-      } else if (entityType === 'productions') {
-        lookupType = 'production';
-      } else if (entityType === 'brands') {
-        lookupType = 'brand';
-      } else if (entityType === 'games') {
-        lookupType = 'game';
-      } else if (entityType === 'teams') {
-        lookupType = 'team';
-      } else if (entityType === 'stadiums') {
-        lookupType = 'stadium';
-      } else if (entityType === 'leagues') {
-        lookupType = 'league';
-      } else if (entityType === 'players') {
-        lookupType = 'player';
+      // Remove trailing 's' if present to get singular form
+      if (lookupType.endsWith('s')) {
+        lookupType = lookupType.slice(0, -1);
       }
+      
+      // Handle special cases and normalize lookupType
+      if (['division', 'conference', 'divisions', 'conferences'].includes(lookupType)) {
+        lookupType = 'division_conference';
+      }
+      
+      console.log(`Normalized lookup type: ${lookupType}`);
       
       // Get entity ID by name
       try {
-        let entityId;
+        let entityId = null;
+        let entities = [];
         
+        // Fetch entities based on entity type
         switch (lookupType) {
           case 'league':
-            const leagues = await apiClient.sports.getLeagues();
-            const league = leagues.find(e => e.name?.toLowerCase() === entityName.toLowerCase());
-            entityId = league?.id;
+            entities = await apiClient.sports.getLeagues();
             break;
           case 'team':
-            const teams = await apiClient.sports.getTeams();
-            const team = teams.find(e => e.name?.toLowerCase() === entityName.toLowerCase());
-            entityId = team?.id;
+            entities = await apiClient.sports.getTeams();
             break;
           case 'stadium':
-            const stadiums = await apiClient.sports.getStadiums();
-            const stadium = stadiums.find(e => e.name?.toLowerCase() === entityName.toLowerCase());
-            entityId = stadium?.id;
+            entities = await apiClient.sports.getStadiums();
             break;
           case 'division_conference':
-            // Use the correct method name from sportsService
-            const divisions = await apiClient.sports.getDivisionConferences();
-            const division = divisions.find(e => e.name?.toLowerCase() === entityName.toLowerCase());
-            entityId = division?.id;
+            entities = await apiClient.sports.getDivisionConferences();
+            break;
+          case 'player':
+            entities = await apiClient.sports.getPlayers();
+            break;
+          case 'game':
+            entities = await apiClient.sports.getGames();
+            break;
+          case 'broadcast':
+            entities = await apiClient.sports.getBroadcastRights();
+            break;
+          case 'brand':
+            entities = await apiClient.sports.getBrands();
             break;
           default:
             console.warn(`Lookup not implemented for entity type: ${lookupType}`);
             break;
+        }
+        
+        if (entities && entities.length > 0) {
+          // First try exact match
+          let entity = entities.find(e => 
+            e.name?.toLowerCase() === entityName.toLowerCase()
+          );
+          
+          // If no match and the name is long enough, try partial matching
+          if (!entity && entityName.length > 3) {
+            entity = entities.find(e => 
+              (e.name?.toLowerCase().includes(entityName.toLowerCase()) || 
+              entityName.toLowerCase().includes(e.name?.toLowerCase()))
+            );
+          }
+          
+          if (entity) {
+            entityId = entity.id;
+          }
         }
         
         if (entityId) {
@@ -452,6 +598,63 @@ export const enhancedMapToDatabaseFieldNames = async (
           console.log(`Found ${entityType} ID: ${entityId} for name: ${entityName}`);
         } else {
           console.warn(`Could not find ${entityType} ID for name: ${entityName}`);
+          
+          // Try to create a new entity if it's a league or division_conference
+          if (lookupType === 'league') {
+            try {
+              console.log(`Attempting to create new league: ${entityName}`);
+              const newLeague = await apiClient.sports.createLeague({
+                name: entityName,
+                sport: 'Unknown',  // Required field
+                country: 'Unknown' // Required field
+              });
+              
+              if (newLeague?.id) {
+                basicMapped.entity_id = newLeague.id;
+                console.log(`Created new league with ID: ${newLeague.id} for name: ${entityName}`);
+              }
+            } catch (createError) {
+              console.error(`Error creating new league: ${entityName}`, createError);
+            }
+          } 
+          else if (lookupType === 'division_conference') {
+            // Find a default league if we don't have one
+            if (!basicMapped.league_id) {
+              try {
+                console.log('No league_id found, attempting to find a default league');
+                const leagues = await apiClient.sports.getLeagues();
+                if (leagues && leagues.length > 0) {
+                  basicMapped.league_id = leagues[0].id;
+                  console.log(`Using default league ID: ${basicMapped.league_id}`);
+                }
+              } catch (leagueError) {
+                console.error('Error finding default league:', leagueError);
+              }
+            }
+            
+            if (basicMapped.league_id) {
+              try {
+                console.log(`Attempting to create new division/conference: ${entityName}`);
+                const newDivision = await apiClient.sports.createDivisionConference({
+                  name: entityName,
+                  league_id: basicMapped.league_id,
+                  type: 'Conference'
+                });
+                
+                if (newDivision?.id) {
+                  basicMapped.entity_id = newDivision.id;
+                  console.log(`Created new division/conference with ID: ${newDivision.id} for name: ${entityName}`);
+                  
+                  // Also update division_conference_id if we're using that field
+                  if (basicMapped.division_conference_id) {
+                    basicMapped.division_conference_id = newDivision.id;
+                  }
+                }
+              } catch (createError) {
+                console.error(`Error creating new division/conference: ${entityName}`, createError);
+              }
+            }
+          }
         }
       } catch (error) {
         console.error(`Error looking up ${entityType} ID for name ${entityName}:`, error);
@@ -464,33 +667,55 @@ export const enhancedMapToDatabaseFieldNames = async (
       
       console.log(`Looking up broadcast company ID for name: ${companyName}`);
       try {
-        const companies = await apiClient.sports.getBroadcastCompanies();
-        const company = companies.find(e => e.name?.toLowerCase() === companyName.toLowerCase());
+        // Check for special case with parentheses
+        let nameToLookup = companyName;
+        let baseNameToLookup = null;
         
-        if (company?.id) {
-          basicMapped.broadcast_company_id = company.id;
-          console.log(`Found broadcast company ID: ${company.id} for name: ${companyName}`);
+        if (companyName.includes('(')) {
+          baseNameToLookup = companyName.split('(')[0].trim();
+          console.log(`Broadcast company name contains parentheses, will try base name "${baseNameToLookup}" if full name fails`);
+        }
+        
+        // First try the full name
+        let response = await apiClient.sports.lookup('broadcast_company', nameToLookup);
+        
+        // If full name doesn't match and we have a base name, try that
+        if ((!response || !response.id) && baseNameToLookup) {
+          console.log(`Trying lookup with base name: "${baseNameToLookup}"`);
+          response = await apiClient.sports.lookup('broadcast_company', baseNameToLookup);
+        }
+        
+        if (response && response.id) {
+          basicMapped.broadcast_company_id = response.id;
+          console.log(`Found broadcast company ID ${response.id} for name: ${companyName}`);
         } else {
           console.warn(`Could not find broadcast company ID for name: ${companyName}`);
           
-          // Try to create a new broadcast company
+          // Try to create a new broadcast company with simple data
           try {
+            console.log(`Creating new broadcast company with name: ${companyName}`);
             const newCompany = await apiClient.sports.createBroadcastCompany({
               name: companyName,
-              type: data.type || 'Broadcaster',
-              country: data.country || 'Unknown'
+              type: 'Broadcaster',
+              country: 'Unknown'
             });
             
             if (newCompany?.id) {
               basicMapped.broadcast_company_id = newCompany.id;
               console.log(`Created new broadcast company with ID: ${newCompany.id} for name: ${companyName}`);
+            } else {
+              throw new Error(`Failed to create broadcast company: API returned no ID`);
             }
           } catch (createError) {
             console.error(`Error creating new broadcast company: ${companyName}`, createError);
+            // Re-throw to prevent submission with invalid ID
+            throw new Error(`Failed to resolve broadcast company name "${companyName}" to a valid ID: ${createError}`);
           }
         }
       } catch (error) {
         console.error(`Error looking up broadcast company ID for name ${companyName}:`, error);
+        // Re-throw to prevent submission with invalid ID
+        throw new Error(`Failed to resolve broadcast company name "${companyName}" to a valid ID: ${error}`);
       }
     }
     
@@ -502,13 +727,92 @@ export const enhancedMapToDatabaseFieldNames = async (
       try {
         // Use the correct method name from sportsService
         const divisions = await apiClient.sports.getDivisionConferences();
-        const division = divisions.find(e => e.name?.toLowerCase() === divisionName.toLowerCase());
+        
+        // First try exact match
+        let division = divisions.find(e => e.name?.toLowerCase() === divisionName.toLowerCase());
+        
+        // If no exact match, try partial match for longer names
+        if (!division && divisionName.length > 4) {
+          console.log('No exact match found, trying partial match');
+          division = divisions.find(e => 
+            e.name?.toLowerCase().includes(divisionName.toLowerCase()) || 
+            divisionName.toLowerCase().includes(e.name?.toLowerCase())
+          );
+        }
         
         if (division?.id) {
           basicMapped.division_conference_id = division.id;
+          
+          // If entity_type is 'division_conference', also set the entity_id
+          if (basicMapped.entity_type === 'division_conference' || 
+              basicMapped.entity_type === 'conference' || 
+              basicMapped.entity_type === 'division') {
+            basicMapped.entity_id = division.id;
+            console.log(`Setting entity_id to division_conference_id: ${division.id}`);
+          }
           console.log(`Found division/conference ID: ${division.id} for name: ${divisionName}`);
         } else {
           console.warn(`Could not find division/conference ID for name: ${divisionName}`);
+          
+          // Find a default league if we don't have one
+          if (!basicMapped.league_id) {
+            try {
+              console.log('No league_id found, attempting to find a default league');
+              const leagues = await apiClient.sports.getLeagues();
+              if (leagues && leagues.length > 0) {
+                // Try to find by matching league name in division name
+                let matchedLeague = null;
+                for (const league of leagues) {
+                  if (divisionName.toLowerCase().includes(league.name.toLowerCase())) {
+                    matchedLeague = league;
+                    break;
+                  }
+                }
+                
+                // If no match found, use the first league
+                if (!matchedLeague && leagues.length > 0) {
+                  matchedLeague = leagues[0];
+                }
+                
+                if (matchedLeague) {
+                  basicMapped.league_id = matchedLeague.id;
+                  console.log(`Using league ${matchedLeague.name} (${matchedLeague.id}) for new division/conference`);
+                }
+              }
+            } catch (leagueError) {
+              console.error('Error finding default league:', leagueError);
+            }
+          }
+          
+          // Try to create a new division/conference
+          try {
+            const league_id = basicMapped.league_id;
+            if (league_id) {
+              console.log(`Attempting to create new division/conference: ${divisionName}`);
+              const newDivision = await apiClient.sports.createDivisionConference({
+                name: divisionName,
+                league_id: league_id,
+                type: 'Conference' // Default type
+              });
+              
+              if (newDivision?.id) {
+                basicMapped.division_conference_id = newDivision.id;
+                
+                // If entity_type is 'division_conference', also set the entity_id
+                if (basicMapped.entity_type === 'division_conference' || 
+                    basicMapped.entity_type === 'conference' || 
+                    basicMapped.entity_type === 'division') {
+                  basicMapped.entity_id = newDivision.id;
+                  console.log(`Setting entity_id to new division_conference_id: ${newDivision.id}`);
+                }
+                console.log(`Created new division/conference with ID: ${newDivision.id} for name: ${divisionName}`);
+              }
+            } else {
+              console.warn('Cannot create division/conference without a league_id');
+            }
+          } catch (createError) {
+            console.error(`Error creating new division/conference: ${divisionName}`, createError);
+          }
         }
       } catch (error) {
         console.error(`Error looking up division/conference ID for name ${divisionName}:`, error);
@@ -595,6 +899,7 @@ export const enhancedMapToDatabaseFieldNames = async (
             break;
           case 'conference':
           case 'division':
+          case 'division_conference':
             // For divisions/conferences, use the division_conference_id if available
             if (basicMapped.division_conference_id) {
               if (isValidUUID(basicMapped.division_conference_id)) {
@@ -626,6 +931,29 @@ export const enhancedMapToDatabaseFieldNames = async (
                     basicMapped.division_conference_id = division.id;
                   } else {
                     console.warn(`Could not find division/conference ID for '${basicMapped.division_conference_id}'`);
+                    
+                    // Try to create a new division_conference
+                    if (basicMapped.league_id) {
+                      try {
+                        console.log(`Attempting to create new division/conference: ${basicMapped.division_conference_id}`);
+                        const newDivision = await apiClient.sports.createDivisionConference({
+                          name: basicMapped.division_conference_id,
+                          league_id: basicMapped.league_id,
+                          type: 'Conference' // Default type
+                        });
+                        
+                        if (newDivision?.id) {
+                          // Update both division_conference_id and entity_id
+                          basicMapped.division_conference_id = newDivision.id;
+                          basicMapped.entity_id = newDivision.id;
+                          console.log(`Created new division/conference with ID: ${newDivision.id}`);
+                        }
+                      } catch (createError) {
+                        console.error(`Error creating new division/conference: ${createError}`);
+                      }
+                    } else {
+                      console.warn('Cannot create division/conference without a league_id');
+                    }
                   }
                 } catch (lookupError) {
                   console.error(`Error looking up division/conference: ${lookupError}`);

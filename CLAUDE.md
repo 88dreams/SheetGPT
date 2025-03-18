@@ -57,6 +57,8 @@
   │   └── index.ts           # Exports all components
   ├── fields/                # Entity-specific field components
   │   ├── EntityTypeFields.tsx  # Entity-specific form fields
+  │   ├── DivisionConferenceFields.tsx  # Contains nickname field
+  │   ├── LeagueFields.tsx  # Contains nickname field
   │   ├── FormField.tsx         # Reusable field component
   │   └── index.ts           # Exports all field components  
   ├── hooks/                 # Component-specific hooks
@@ -175,6 +177,13 @@
 - Use order_index fields for sortable collections
 - Structure PostgreSQL queries properly for JSONB fields
 - Follow entity dependency order in operations
+- For entity field additions:
+  - Add new fields as nullable to avoid migration issues
+  - Include appropriate indexes for searchable fields
+  - Use appropriate field lengths for string fields (nickname max 20 chars)
+  - Update all related Pydantic schemas (Base, Create, Update, Response)
+  - Keep TypeScript interfaces in sync with backend models
+  - Consider adding helper text for new fields in forms
 
 ## Error Handling Guidelines
 
@@ -199,6 +208,9 @@
 - Provide graceful fallbacks for rendering when data is missing
 - Use conditional rendering for potentially undefined values
 - Standardize error display components
+- Handle special characters in entity names (e.g., parentheses) with proper parsing and normalization
+- Use exact name matching first, fallback to partial matching for longer names
+- Normalize entity type values in backend services (e.g., 'conference' → 'division_conference')
 
 ## UI Implementation Guidelines
 
@@ -212,6 +224,20 @@
   - Add hover:bg-gray-100 to all column headers for interactive feedback
   - Make column resize handles invisible when not hovered (w-0)
   - Use hover:bg-blue-500 hover:w-2 transition-all for resize handle hover effects
+- For nickname display and editing:
+  - League nicknames use indigo color (bg-indigo-100 text-indigo-800)
+  - Division/Conference nicknames use blue color (bg-blue-100 text-blue-800)
+  - Make nicknames directly editable with inline editing
+  - Show "+ Add nickname" placeholder when nickname is empty
+  - Add edit icon on hover (absolute positioning with translate for overlay)
+  - Use consistent input sizes for inline editing (w-16 for nickname fields)
+  - Add proper keyboard support for editing (Enter to save, Escape to cancel)
+- For record navigation in SportDataMapper:
+  - Allow circular navigation (cycling back to first record after reaching the end)
+  - Ensure navigation buttons are always enabled as long as data exists
+  - Use animation frames (requestAnimationFrame) for smooth UI transitions 
+  - Handle edge cases with proper index bounds checking
+  - Force source field value updates without conditional checks
 
 ## Performance Optimization Guidelines
 

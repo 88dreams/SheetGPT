@@ -70,7 +70,8 @@ const EntityList: React.FC<EntityListProps> = ({ className = '' }) => {
     setPageSize,
     totalItems,
     refetch,
-    getEntityFields
+    getEntityFields,
+    handleExportToSheets
   } = useSportsDatabase();
   
   // Column visibility and resizing state
@@ -86,19 +87,36 @@ const EntityList: React.FC<EntityListProps> = ({ className = '' }) => {
   const [showColumnSelector, setShowColumnSelector] = useState<boolean>(false);
   const [showFullUuids, setShowFullUuids] = useState<boolean>(false);
   
-  // Column ordering state
-  const [columnOrder, setColumnOrder] = useState<string[]>([]);
+  // Generate initial column order based on entity data
+  const getInitialColumnOrder = () => {
+    if (!Array.isArray(entities) || entities.length === 0) return [];
+    
+    // Get fields directly from the data
+    const availableFields = Object.keys(entities[0]);
+    
+    // Set up default column order
+    const coreFields = ['id', 'name', 'created_at', 'updated_at'];
+    return [
+      // Core fields first
+      ...coreFields.filter(f => availableFields.includes(f)),
+      // Then all remaining fields
+      ...availableFields.filter(f => !coreFields.includes(f))
+    ];
+  };
   
-  // Initialize useDragAndDrop for column reordering
+  // Initialize useDragAndDrop for column reordering with localStorage persistence
   const {
-    reorderedItems: reorderedColumns,
+    reorderedItems: columnOrder,
     draggedItem,
     dragOverItem,
     handleDragStart: handleColumnDragStart,
     handleDragOver: handleColumnDragOver,
     handleDrop: handleColumnDrop,
     handleDragEnd: handleColumnDragEnd
-  } = useDragAndDrop<string>({ items: columnOrder });
+  } = useDragAndDrop<string>({
+    items: getInitialColumnOrder(),
+    storageKey: selectedEntityType ? `entityList_${selectedEntityType}_columnOrder` : undefined 
+  });
 
   const [resizingColumn, setResizingColumn] = useState<string | null>(null);
   const resizeStartX = useRef<number>(0);
@@ -118,26 +136,10 @@ const EntityList: React.FC<EntityListProps> = ({ className = '' }) => {
     }
   }, [visibleColumns, selectedEntityType]);
   
-  // Update columnOrder when reorderedColumns changes
-  useEffect(() => {
-    if (reorderedColumns.length > 0) {
-      // Prevent unnecessary updates with deep equality check
-      const currentOrder = JSON.stringify(columnOrder);
-      const newOrder = JSON.stringify(reorderedColumns);
-      
-      // Only update if the order is actually different
-      if (currentOrder !== newOrder) {
-        setColumnOrder(reorderedColumns);
-      }
-    }
-  }, [reorderedColumns, columnOrder]);
+  // We no longer need this effect since the useDragAndDrop hook now handles all the ordering logic
+  // and prevents circular dependencies
   
-  // Save column order when it changes
-  useEffect(() => {
-    if (columnOrder.length > 0 && selectedEntityType) {
-      localStorage.setItem(`entityList_${selectedEntityType}_columnOrder`, JSON.stringify(columnOrder));
-    }
-  }, [columnOrder, selectedEntityType]);
+  // Column order saving is now handled by the useDragAndDrop hook with the storageKey
 
   /**
    * Initialize columns based on entity data when entity type or data changes
@@ -192,43 +194,7 @@ const EntityList: React.FC<EntityListProps> = ({ className = '' }) => {
       });
     }
     
-    // Set up column order - try to load from localStorage first
-    const savedOrder = localStorage.getItem(`entityList_${selectedEntityType}_columnOrder`);
-    
-    if (savedOrder) {
-      try {
-        const parsedOrder = JSON.parse(savedOrder);
-        // Make sure all fields are included (in case new ones were added)
-        const updatedOrder = [...parsedOrder];
-        availableFields.forEach(field => {
-          if (!updatedOrder.includes(field)) {
-            updatedOrder.push(field);
-          }
-        });
-        setColumnOrder(updatedOrder);
-      } catch (e) {
-        console.error('Error parsing saved column order:', e);
-        // Fall back to default order
-        const coreFields = ['id', 'name', 'created_at', 'updated_at'];
-        const newOrder = [
-          // Core fields first
-          ...coreFields.filter(f => availableFields.includes(f)),
-          // Then all remaining fields
-          ...availableFields.filter(f => !coreFields.includes(f))
-        ];
-        setColumnOrder(newOrder);
-      }
-    } else {
-      // No saved order, use default
-      const coreFields = ['id', 'name', 'created_at', 'updated_at'];
-      const newOrder = [
-        // Core fields first
-        ...coreFields.filter(f => availableFields.includes(f)),
-        // Then all remaining fields
-        ...availableFields.filter(f => !coreFields.includes(f))
-      ];
-      setColumnOrder(newOrder);
-    }
+    // Column order is now handled directly by the useDragAndDrop hook
     
     // Set visibility state
     setVisibleColumns(newVisibility);
@@ -541,12 +507,8 @@ const EntityList: React.FC<EntityListProps> = ({ className = '' }) => {
           <div className="flex space-x-1">
             <button
               onClick={() => {
-                // Access the export function directly from our existing context
-                if (handleExportToSheets) {
-                  handleExportToSheets(entities as any[]);
-                } else {
-                  showNotification('error', 'Export functionality is not available');
-                }
+                // Use the handle function from context
+                handleExportToSheets(entities as any[]);
               }}
               className="px-2 py-1 text-sm font-medium rounded flex items-center bg-green-600 hover:bg-green-700 text-white"
             >
@@ -604,6 +566,8 @@ const EntityList: React.FC<EntityListProps> = ({ className = '' }) => {
           </div>
           <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-x-4 gap-y-1">
             {Object.keys(entities[0] || {})
+              // Filter out the name field for broadcast rights
+              .filter(field => !(selectedEntityType === 'broadcast' && field === 'name'))
               .sort((a, b) => {
                 // Sort core fields first
                 const coreFields = ['id', 'name', 'created_at', 'updated_at'];
@@ -717,7 +681,14 @@ const EntityList: React.FC<EntityListProps> = ({ className = '' }) => {
               
               {/* Data columns */}
               {columnOrder
-                .filter(field => visibleColumns[field] !== false && entities[0].hasOwnProperty(field))
+                .filter(field => {
+                  // Hide "name" field for broadcast entities (it's redundant with broadcast_company_name)
+                  if (selectedEntityType === 'broadcast' && field === 'name') {
+                    return false;
+                  }
+                  // Otherwise show fields that are visible and exist in the data
+                  return visibleColumns[field] !== false && entities[0].hasOwnProperty(field);
+                })
                 .map((field) => (
                   <th 
                     key={field}
@@ -788,7 +759,14 @@ const EntityList: React.FC<EntityListProps> = ({ className = '' }) => {
                 
                 {/* Data cells */}
                 {columnOrder
-                  .filter(field => visibleColumns[field] !== false && entity.hasOwnProperty(field))
+                  .filter(field => {
+                    // Hide "name" field for broadcast entities (it's redundant with broadcast_company_name)
+                    if (selectedEntityType === 'broadcast' && field === 'name') {
+                      return false;
+                    }
+                    // Otherwise show fields that are visible and exist in the data
+                    return visibleColumns[field] !== false && entity.hasOwnProperty(field);
+                  })
                   .map((field) => {
                     // Special handling for name field to support inline editing
                     if (field === 'name') {

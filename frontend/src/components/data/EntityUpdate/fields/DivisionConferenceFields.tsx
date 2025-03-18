@@ -32,6 +32,15 @@ const DivisionConferenceFields: React.FC<DivisionConferenceFieldsProps> = ({ ent
         isRequired={true}
       />
       <FormField
+        field="nickname"
+        label="Nickname"
+        type="text"
+        value={entity.nickname as string || ''}
+        onChange={onChange}
+        isEditing={isEditing}
+        helpText="Short abbreviation or code (e.g., AFC, NFC)"
+      />
+      <FormField
         field="type"
         label="Type"
         type="text"

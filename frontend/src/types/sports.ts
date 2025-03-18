@@ -31,6 +31,7 @@ export interface DivisionConference extends BaseEntity {
   region?: string;
   description?: string;
   league_name?: string; // For display purposes
+  nickname?: string; // Short name or abbreviation
 }
 
 export interface Team extends BaseEntity {

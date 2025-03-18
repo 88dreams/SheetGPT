@@ -8,6 +8,7 @@ class LeagueBase(BaseModel):
     name: str
     sport: str
     country: str
+    nickname: Optional[str] = None
     broadcast_start_date: Optional[date] = None
     broadcast_end_date: Optional[date] = None
 
@@ -18,6 +19,7 @@ class LeagueUpdate(BaseModel):
     name: Optional[str] = None
     sport: Optional[str] = None
     country: Optional[str] = None
+    nickname: Optional[str] = None
     broadcast_start_date: Optional[date] = None
     broadcast_end_date: Optional[date] = None
 
@@ -25,6 +27,41 @@ class LeagueResponse(LeagueBase):
     id: UUID
     created_at: str
     updated_at: str
+
+    class Config:
+        from_attributes = True
+        
+    @validator('created_at', 'updated_at', pre=True)
+    def parse_datetime(cls, value):
+        if isinstance(value, datetime):
+            return value.isoformat()
+        return value
+
+# Base schemas for DivisionConference
+class DivisionConferenceBase(BaseModel):
+    name: str
+    league_id: UUID
+    type: str
+    nickname: Optional[str] = None
+    region: Optional[str] = None
+    description: Optional[str] = None
+
+class DivisionConferenceCreate(DivisionConferenceBase):
+    pass
+
+class DivisionConferenceUpdate(BaseModel):
+    name: Optional[str] = None
+    league_id: Optional[UUID] = None
+    type: Optional[str] = None
+    nickname: Optional[str] = None
+    region: Optional[str] = None
+    description: Optional[str] = None
+
+class DivisionConferenceResponse(DivisionConferenceBase):
+    id: UUID
+    created_at: str
+    updated_at: str
+    league_name: Optional[str] = None
 
     class Config:
         from_attributes = True
@@ -79,6 +116,7 @@ class StadiumResponse(StadiumBase):
 class TeamBase(BaseModel):
     league_id: UUID
     stadium_id: UUID
+    division_conference_id: UUID  # Added missing required field
     name: str
     city: str
     state: Optional[str] = None
@@ -91,6 +129,7 @@ class TeamCreate(TeamBase):
 class TeamUpdate(BaseModel):
     league_id: Optional[UUID] = None
     stadium_id: Optional[UUID] = None
+    division_conference_id: Optional[UUID] = None  # Added missing field
     name: Optional[str] = None
     city: Optional[str] = None
     state: Optional[str] = None
@@ -224,6 +263,7 @@ class BroadcastRightsBase(BaseModel):
     start_date: date
     end_date: date
     is_exclusive: bool = False
+    division_conference_id: Optional[UUID] = None
 
 class BroadcastRightsCreate(BroadcastRightsBase):
     pass
@@ -236,11 +276,13 @@ class BroadcastRightsUpdate(BaseModel):
     start_date: Optional[date] = None
     end_date: Optional[date] = None
     is_exclusive: Optional[bool] = None
+    division_conference_id: Optional[UUID] = None
 
 class BroadcastRightsResponse(BroadcastRightsBase):
     id: UUID
     created_at: str
     updated_at: str
+    division_conference_name: Optional[str] = None
 
     class Config:
         from_attributes = True

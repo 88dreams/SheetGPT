@@ -87,8 +87,52 @@ const BulkEditModal: React.FC<BulkEditModalProps> = ({
       setSelectedFields({});
       setFieldValues({});
       setShowResults(false);
+      setAvailableFields([]);
+      setRelatedEntities({});
     }
-  }, [visible, entityType, queryResults]);
+  }, [visible, entityType, selectedIds, isEntityMode, isQueryMode]);
+  
+  // Add effect to load division conference data when needed
+  useEffect(() => {
+    // Only run this if we're dealing with a team entity that needs division data
+    if (visible && relatedEntities && !relatedEntities['division_conference_id']) {
+      const isTeam = isEntityMode ? entityType === 'team' : 
+                    (queryResults.length > 0 && 
+                     queryResults[0].name && 
+                     (queryResults[0].city || queryResults[0].league_id) && 
+                     !queryResults[0].sport);
+                     
+      const needsDivisionData = isTeam || 
+                               availableFields.some(f => f.name === 'division_conference_id');
+                               
+      if (needsDivisionData) {
+        console.log("Loading division conference data for dropdown selection");
+        
+        (async () => {
+          try {
+            const response = await apiClient.get('/sports/divisions-conferences');
+            
+            if (response.data) {
+              // Add league name mapping if not included
+              const items = response.data.map((item: any) => {
+                if (!item.league_name && item.league_id) {
+                  return { ...item, league_name: "League" };
+                }
+                return item;
+              });
+              
+              setRelatedEntities(prev => ({
+                ...prev,
+                'division_conference_id': items
+              }));
+            }
+          } catch (error) {
+            console.error('Error fetching division conferences:', error);
+          }
+        })();
+      }
+    }
+  }, [visible, relatedEntities, availableFields, isEntityMode, entityType, queryResults]);
 
   // Load field definitions for entity-based mode
   const loadEntityFields = async () => {
@@ -162,7 +206,10 @@ const BulkEditModal: React.FC<BulkEditModalProps> = ({
       setAvailableFields(fields);
       
       // Load related entities for relationship fields
-      loadRelatedEntitiesForQuery(fields);
+      // Load related entities in a separate operation to avoid state updates during render
+      setTimeout(() => {
+        loadRelatedEntitiesForQuery(fields);
+      }, 0);
     } catch (error) {
       console.error('Error processing query fields:', error);
       showNotification('error', `Failed to process fields: ${error}`);
@@ -190,6 +237,7 @@ const BulkEditModal: React.FC<BulkEditModalProps> = ({
       ],
       'division_conference': [
         { name: 'league_id', type: 'string', required: true, description: 'League ID' },
+        { name: 'nickname', type: 'string', required: false, description: 'Nickname or abbreviation (AFC, NFC, etc)' },
         { name: 'type', type: 'string', required: true, description: 'Type (Division, Conference)' },
         { name: 'region', type: 'string', required: false, description: 'Region (East, West, etc)' }
       ],
@@ -302,6 +350,8 @@ const BulkEditModal: React.FC<BulkEditModalProps> = ({
 
   // Load related entities for query-based mode
   const loadRelatedEntitiesForQuery = async (fields: any[]) => {
+    // Create a copy of current state to batch updates
+    const relatedData: Record<string, any[]> = { ...relatedEntities };
     // Special handling for division_conference_id - we'll use direct API call later
     const isDivisionConferencePresent = fields.some(f => f.name === 'division_conference_id');
     
@@ -371,10 +421,7 @@ const BulkEditModal: React.FC<BulkEditModalProps> = ({
           return item;
         });
         
-        setRelatedEntities(prev => ({
-          ...prev,
-          'division_conference_id': items
-        }));
+        relatedData['division_conference_id'] = items;
         console.log(`Loaded ${items.length} division/conference items directly`);
       } catch (error) {
         console.error('Error fetching division conferences:', error);
@@ -400,10 +447,7 @@ const BulkEditModal: React.FC<BulkEditModalProps> = ({
         });
         
         if (response.data && response.data.items) {
-          setRelatedEntities(prev => ({
-            ...prev,
-            [relationship.field]: response.data.items
-          }));
+          relatedData[relationship.field] = response.data.items;
           console.log(`Loaded ${response.data.items.length} ${relationship.entityType} items for ${relationship.field}`);
         }
       } catch (error) {
@@ -748,36 +792,7 @@ const BulkEditModal: React.FC<BulkEditModalProps> = ({
       // Also make sure to fetch the data if not already loaded
       if (!relatedEntities['division_conference_id']) {
         console.log("Loading division conference data for dropdown selection");
-        
-        // Use an immediately invoked async function to handle the async operation
-        (async () => {
-          try {
-            // Use the direct sportsService method for this endpoint
-            const response = await apiClient.get('/sports/divisions-conferences');
-            
-            if (response.data) {
-              // Add league name mapping if not included
-              const items = response.data.map((item: any) => {
-                // If the item doesn't have a league_name but has a league_id, add a placeholder
-                if (!item.league_name && item.league_id) {
-                  console.log("Adding placeholder league name for division:", item.name);
-                  return { ...item, league_name: "League" };
-                }
-                return item;
-              });
-              
-              setRelatedEntities(prev => ({
-                ...prev,
-                'division_conference_id': items
-              }));
-              console.log(`Successfully loaded ${items.length} division conference items`);
-            } else {
-              console.warn("No data received from divisions-conferences endpoint");
-            }
-          } catch (error) {
-            console.error('Error fetching division conferences:', error);
-          }
-        })();
+        // We'll load this data in a separate effect to avoid state updates during render
       }
     }
     

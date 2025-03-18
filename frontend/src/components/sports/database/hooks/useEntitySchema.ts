@@ -40,6 +40,7 @@ export function useEntitySchema() {
         case 'division_conference':
           fields.push(
             { name: 'league_id', required: true, type: 'string', description: 'ID of the league this division/conference belongs to' },
+            { name: 'nickname', required: false, type: 'string', description: 'Short name or abbreviation for the division/conference (e.g., AFC, NFC)' },
             { name: 'type', required: true, type: 'string', description: 'Type of grouping (Division, Conference, etc)' },
             { name: 'region', required: false, type: 'string', description: 'Geographic region (East, West, North, South, etc)' },
             { name: 'description', required: false, type: 'string', description: 'Additional details about this division/conference' }
@@ -160,7 +161,7 @@ export function useEntitySchema() {
       league: ['id', 'name', 'created_at', 'updated_at', 'nickname', 'sport', 'country', 'broadcast_start_date', 'broadcast_end_date'],
       
       // Division/Conference fields
-      division_conference: ['id', 'name', 'created_at', 'updated_at', 'league_id', 'type', 'region', 'description'],
+      division_conference: ['id', 'name', 'created_at', 'updated_at', 'league_id', 'nickname', 'type', 'region', 'description'],
       
       // Team fields
       team: ['id', 'name', 'created_at', 'updated_at', 'league_id', 'division_conference_id', 'stadium_id', 

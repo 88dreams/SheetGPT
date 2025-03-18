@@ -33,6 +33,8 @@ const EntityList: React.FC<EntityListProps> = ({ className = '' }) => {
   const { showNotification } = useNotification();
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editValue, setEditValue] = useState('');
+  const [editingNicknameId, setEditingNicknameId] = useState<string | null>(null);
+  const [nicknameEditValue, setNicknameEditValue] = useState('');
   const [selectedEntity, setSelectedEntity] = useState<BaseEntity | null>(null);
   const [isEditModalVisible, setIsEditModalVisible] = useState(false);
   const [isBulkEditModalVisible, setIsBulkEditModalVisible] = useState(false);
@@ -289,6 +291,32 @@ const EntityList: React.FC<EntityListProps> = ({ className = '' }) => {
     }
   };
 
+  const startNicknameEdit = (entity: any) => {
+    setEditingNicknameId(entity.id);
+    setNicknameEditValue(entity.nickname || '');
+  };
+
+  const cancelNicknameEdit = () => {
+    setEditingNicknameId(null);
+    setNicknameEditValue('');
+  };
+
+  const saveNicknameEdit = async (id: string) => {
+    if (selectedEntityType === 'league' || selectedEntityType === 'division_conference') {
+      await handleUpdateEntity(id, { nickname: nicknameEditValue.trim() });
+      setEditingNicknameId(null);
+      setNicknameEditValue('');
+    }
+  };
+
+  const handleNicknameKeyDown = (e: React.KeyboardEvent, id: string) => {
+    if (e.key === 'Enter') {
+      saveNicknameEdit(id);
+    } else if (e.key === 'Escape') {
+      cancelNicknameEdit();
+    }
+  };
+
   // Get entity type name for display
   const getEntityTypeName = () => {
     const entityTypes = [
@@ -498,9 +526,9 @@ const EntityList: React.FC<EntityListProps> = ({ className = '' }) => {
           <div className="flex space-x-1">
             <button
               onClick={() => {
-                const { handleExportToSheets: exportToSheets } = useSportsDatabase();
-                if (exportToSheets) {
-                  exportToSheets(entities as any[]);
+                // Access the export function directly from our existing context
+                if (handleExportToSheets) {
+                  handleExportToSheets(entities as any[]);
                 } else {
                   showNotification('error', 'Export functionality is not available');
                 }
@@ -787,10 +815,87 @@ const EntityList: React.FC<EntityListProps> = ({ className = '' }) => {
                                   ? entity.name.split(' - ')[0] // Show just the broadcast company name for broadcast rights
                                   : entity.name
                                 }
-                                {selectedEntityType === 'league' && entity.nickname && (
-                                  <span className="ml-2 text-xs bg-indigo-100 text-indigo-800 px-2 py-0.5 rounded-full">
-                                    {entity.nickname}
-                                  </span>
+                                {selectedEntityType === 'league' && (
+                                  <>
+                                    {editingNicknameId === entity.id ? (
+                                      <span className="ml-2 inline-flex items-center">
+                                        <input
+                                          type="text"
+                                          value={nicknameEditValue}
+                                          onChange={(e) => setNicknameEditValue(e.target.value)}
+                                          onKeyDown={(e) => handleNicknameKeyDown(e, entity.id)}
+                                          className="w-16 px-1 py-0.5 text-xs border border-indigo-300 rounded-md focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                                          autoFocus
+                                          placeholder="Nickname"
+                                        />
+                                        <button
+                                          onClick={() => saveNicknameEdit(entity.id)}
+                                          className="ml-1 text-green-600 hover:text-green-800"
+                                          title="Save Nickname"
+                                        >
+                                          <FaCheck className="w-3 h-3" />
+                                        </button>
+                                        <button
+                                          onClick={cancelNicknameEdit}
+                                          className="ml-1 text-red-600 hover:text-red-800"
+                                          title="Cancel"
+                                        >
+                                          <FaTimes className="w-3 h-3" />
+                                        </button>
+                                      </span>
+                                    ) : (
+                                      <span 
+                                        className="ml-2 text-xs bg-indigo-100 text-indigo-800 px-2 py-0.5 rounded-full group relative cursor-pointer"
+                                        onClick={() => startNicknameEdit(entity)}
+                                      >
+                                        {entity.nickname || <span className="opacity-60">+ Add nickname</span>}
+                                        <span className="absolute opacity-0 group-hover:opacity-100 right-0 top-0 translate-x-1/2 -translate-y-1/2 bg-indigo-600 text-white rounded-full w-4 h-4 flex items-center justify-center">
+                                          <FaPencilAlt className="w-2 h-2" />
+                                        </span>
+                                      </span>
+                                    )}
+                                  </>
+                                )}
+                                {selectedEntityType === 'division_conference' && (
+                                  <>
+                                    {editingNicknameId === entity.id ? (
+                                      <span className="ml-2 inline-flex items-center">
+                                        <input
+                                          type="text"
+                                          value={nicknameEditValue}
+                                          onChange={(e) => setNicknameEditValue(e.target.value)}
+                                          onKeyDown={(e) => handleNicknameKeyDown(e, entity.id)}
+                                          className="w-16 px-1 py-0.5 text-xs border border-blue-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500"
+                                          autoFocus
+                                          placeholder="Nickname"
+                                        />
+                                        <button
+                                          onClick={() => saveNicknameEdit(entity.id)}
+                                          className="ml-1 text-green-600 hover:text-green-800"
+                                          title="Save Nickname"
+                                        >
+                                          <FaCheck className="w-3 h-3" />
+                                        </button>
+                                        <button
+                                          onClick={cancelNicknameEdit}
+                                          className="ml-1 text-red-600 hover:text-red-800"
+                                          title="Cancel"
+                                        >
+                                          <FaTimes className="w-3 h-3" />
+                                        </button>
+                                      </span>
+                                    ) : (
+                                      <span 
+                                        className="ml-2 text-xs bg-blue-100 text-blue-800 px-2 py-0.5 rounded-full group relative cursor-pointer"
+                                        onClick={() => startNicknameEdit(entity)}
+                                      >
+                                        {entity.nickname || <span className="opacity-60">+ Add nickname</span>}
+                                        <span className="absolute opacity-0 group-hover:opacity-100 right-0 top-0 translate-x-1/2 -translate-y-1/2 bg-blue-600 text-white rounded-full w-4 h-4 flex items-center justify-center">
+                                          <FaPencilAlt className="w-2 h-2" />
+                                        </span>
+                                      </span>
+                                    )}
+                                  </>
                                 )}
                               </div>
                               <button

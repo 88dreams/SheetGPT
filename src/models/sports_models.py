@@ -28,6 +28,11 @@ class League(TimestampedBase):
         unique=True,
         index=True
     )
+    nickname: Mapped[Optional[str]] = mapped_column(
+        String(20), 
+        nullable=True,
+        index=True
+    )
     sport: Mapped[str] = mapped_column(
         String(50),
         nullable=False
@@ -46,9 +51,12 @@ class League(TimestampedBase):
     )
 
     # Relationships
-    teams: Mapped[List["Team"]] = relationship(
+    divisions_conferences: Mapped[List["DivisionConference"]] = relationship(
         back_populates="league",
         cascade="all, delete-orphan"
+    )
+    teams: Mapped[List["Team"]] = relationship(
+        back_populates="league"
     )
     games: Mapped[List["Game"]] = relationship(
         back_populates="league",
@@ -56,6 +64,61 @@ class League(TimestampedBase):
     )
     executives: Mapped[List["LeagueExecutive"]] = relationship(
         back_populates="league",
+        cascade="all, delete-orphan"
+    )
+
+
+class DivisionConference(TimestampedBase):
+    """Model for sports divisions and conferences within leagues."""
+    
+    __tablename__ = "divisions_conferences"
+    __table_args__ = (
+        UniqueConstraint('league_id', 'name', name='uq_division_conference_name_per_league'),
+        Index('ix_divisions_conferences_name', 'name'),
+    )
+
+    id: Mapped[UUID] = mapped_column(
+        SQLUUID,
+        primary_key=True,
+        default=uuid4
+    )
+    league_id: Mapped[UUID] = mapped_column(
+        ForeignKey("leagues.id"),
+        nullable=False
+    )
+    name: Mapped[str] = mapped_column(
+        String(100),
+        nullable=False,
+        index=True
+    )
+    nickname: Mapped[Optional[str]] = mapped_column(
+        String(20), 
+        nullable=True,
+        index=True
+    )
+    type: Mapped[str] = mapped_column(
+        String(50),
+        nullable=False
+    )
+    region: Mapped[Optional[str]] = mapped_column(
+        String(100),
+        nullable=True
+    )
+    description: Mapped[Optional[str]] = mapped_column(
+        Text,
+        nullable=True
+    )
+
+    # Relationships
+    league: Mapped["League"] = relationship(
+        back_populates="divisions_conferences"
+    )
+    teams: Mapped[List["Team"]] = relationship(
+        back_populates="division_conference",
+        cascade="all, delete-orphan"
+    )
+    broadcast_rights: Mapped[List["BroadcastRights"]] = relationship(
+        back_populates="division_conference",
         cascade="all, delete-orphan"
     )
 
@@ -144,6 +207,10 @@ class Team(TimestampedBase):
         ForeignKey("leagues.id"),
         nullable=False
     )
+    division_conference_id: Mapped[UUID] = mapped_column(
+        ForeignKey("divisions_conferences.id"),
+        nullable=False
+    )
     stadium_id: Mapped[UUID] = mapped_column(
         ForeignKey("stadiums.id"),
         nullable=False
@@ -173,6 +240,9 @@ class Team(TimestampedBase):
 
     # Relationships
     league: Mapped["League"] = relationship(
+        back_populates="teams"
+    )
+    division_conference: Mapped["DivisionConference"] = relationship(
         back_populates="teams"
     )
     stadium: Mapped["Stadium"] = relationship(
@@ -376,6 +446,11 @@ class BroadcastRights(TimestampedBase):
         ForeignKey("broadcast_companies.id"),
         nullable=False
     )
+    division_conference_id: Mapped[Optional[UUID]] = mapped_column(
+        SQLUUID,
+        ForeignKey("divisions_conferences.id"),
+        nullable=True
+    )
     territory: Mapped[str] = mapped_column(
         String(100),
         nullable=False
@@ -396,6 +471,9 @@ class BroadcastRights(TimestampedBase):
 
     # Relationships
     broadcast_company: Mapped["BroadcastCompany"] = relationship(
+        back_populates="broadcast_rights"
+    )
+    division_conference: Mapped[Optional["DivisionConference"]] = relationship(
         back_populates="broadcast_rights"
     )
 

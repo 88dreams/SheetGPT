@@ -8,7 +8,7 @@
  * - Column visibility is saved per entity type
  */
 
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useSportsDatabase } from './SportsDatabaseContext';
 import { useNotification } from '../../../contexts/NotificationContext';
@@ -104,6 +104,9 @@ const EntityList: React.FC<EntityListProps> = ({ className = '' }) => {
     ];
   };
   
+  // Generate a memo of field order to prevent recalculation on every render
+  const initialColumnOrder = useMemo(() => getInitialColumnOrder(), [entities]);
+  
   // Initialize useDragAndDrop for column reordering with localStorage persistence
   const {
     reorderedItems: columnOrder,
@@ -114,8 +117,9 @@ const EntityList: React.FC<EntityListProps> = ({ className = '' }) => {
     handleDrop: handleColumnDrop,
     handleDragEnd: handleColumnDragEnd
   } = useDragAndDrop<string>({
-    items: getInitialColumnOrder(),
-    storageKey: selectedEntityType ? `entityList_${selectedEntityType}_columnOrder` : undefined 
+    items: initialColumnOrder,
+    // Always include entity type in the storage key for persistence between navigation
+    storageKey: selectedEntityType ? `entityList_${selectedEntityType}_columnOrder` : undefined
   });
 
   const [resizingColumn, setResizingColumn] = useState<string | null>(null);

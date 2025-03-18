@@ -24,15 +24,29 @@ export function useDragAndDrop<T>({ items, storageKey }: UseDragAndDropProps<T>)
   
   // Track if we've loaded data from localStorage
   const hasLoadedFromStorage = useRef(false);
+  
+  // Keep track of the previous storage key
+  const previousStorageKey = useRef<string | undefined>(storageKey);
 
-  // Initialize or update when items change
+  // Initialize or update when items change or storage key changes
   useEffect(() => {
     // Skip empty items
     if (!items || items.length === 0) return;
     
-    // Skip if items array hasn't actually changed
+    // Check if storage key has changed - if so, we need to reload from the new storage key
+    const storageKeyChanged = storageKey !== previousStorageKey.current;
+    
+    // Update the previous storage key ref
+    if (storageKeyChanged) {
+      previousStorageKey.current = storageKey;
+      // Reset loaded flag when storage key changes to force reload
+      hasLoadedFromStorage.current = false;
+    }
+    
+    // Skip if items array hasn't actually changed and storage key is the same
     // This prevents unnecessary re-renders
     if (
+      !storageKeyChanged &&
       itemsRef.current.length === items.length && 
       JSON.stringify(itemsRef.current.sort()) === JSON.stringify([...items].sort())
     ) {
@@ -42,9 +56,10 @@ export function useDragAndDrop<T>({ items, storageKey }: UseDragAndDropProps<T>)
     // Update our ref to the new items
     itemsRef.current = [...items];
     
-    // Skip loading from localStorage if we've already done it
-    // and items still match what we have in storage
+    // Skip loading from localStorage if we've already done it with this key,
+    // storage key hasn't changed, and items still match what we have in storage
     if (
+      !storageKeyChanged &&
       hasLoadedFromStorage.current && 
       reorderedItems.length > 0 && 
       // Check if all our items are in the reordered array already
@@ -58,8 +73,10 @@ export function useDragAndDrop<T>({ items, storageKey }: UseDragAndDropProps<T>)
       return;
     }
     
-    // Try to load from localStorage
-    if (storageKey && !hasLoadedFromStorage.current) {
+    // Try to load from localStorage when:
+    // 1. We have a storage key, and
+    // 2. Either we haven't loaded yet, or the storage key has changed
+    if (storageKey && (!hasLoadedFromStorage.current || storageKeyChanged)) {
       try {
         const savedOrder = localStorage.getItem(storageKey);
         if (savedOrder) {

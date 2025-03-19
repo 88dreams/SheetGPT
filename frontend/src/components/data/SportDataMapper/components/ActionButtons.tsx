@@ -6,6 +6,7 @@ interface ActionButtonsProps {
   isBatchImporting: boolean;
   onSaveToDatabase: () => void;
   onBatchImport: () => void;
+  onSendToData?: () => void; // Optional callback for sending to data management
 }
 
 const ActionButtons: React.FC<ActionButtonsProps> = ({
@@ -13,7 +14,8 @@ const ActionButtons: React.FC<ActionButtonsProps> = ({
   isSaving,
   isBatchImporting,
   onSaveToDatabase,
-  onBatchImport
+  onBatchImport,
+  onSendToData
 }) => {
   return (
     <div className="mt-4 flex justify-center space-x-3">
@@ -70,6 +72,24 @@ const ActionButtons: React.FC<ActionButtonsProps> = ({
           </>
         )}
       </button>
+      
+      {/* Only show Send to Data button if the callback is provided */}
+      {onSendToData && (
+        <button
+          onClick={onSendToData}
+          disabled={!selectedEntityType}
+          className={`px-3 py-1.5 rounded-md text-sm font-medium shadow-sm transition-all flex items-center ${
+            !selectedEntityType
+              ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+              : 'bg-blue-600 text-white hover:bg-blue-700'
+          }`}
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+          </svg>
+          Send to Data
+        </button>
+      )}
     </div>
   );
 };

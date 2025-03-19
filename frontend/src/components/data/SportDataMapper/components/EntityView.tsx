@@ -33,6 +33,7 @@ interface EntityViewProps {
   isBatchImporting: boolean;
   onSaveToDatabase: () => void;
   onBatchImport: () => void;
+  onSendToData?: () => void; // Optional callback for sending to data management
 }
 
 const EntityView: React.FC<EntityViewProps> = ({
@@ -59,7 +60,8 @@ const EntityView: React.FC<EntityViewProps> = ({
   isSaving,
   isBatchImporting,
   onSaveToDatabase,
-  onBatchImport
+  onBatchImport,
+  onSendToData
 }) => {
   return (
     <div>
@@ -117,6 +119,7 @@ const EntityView: React.FC<EntityViewProps> = ({
             isBatchImporting={isBatchImporting}
             onSaveToDatabase={onSaveToDatabase}
             onBatchImport={onBatchImport}
+            onSendToData={onSendToData}
           />
         </div>
       )}

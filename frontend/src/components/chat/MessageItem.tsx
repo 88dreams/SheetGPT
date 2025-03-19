@@ -842,8 +842,11 @@ const MessageItem: React.FC<MessageItemProps> = ({
 
   // handleDataPreview function removed as part of workflow streamlining
 
-  // This function is used by the SportDataMapper component for the "Map to Sports" workflow
+  // This function is used when explicitly choosing to send mapped data to the database
+  // It's no longer automatically triggered when closing the SportDataMapper
   const handleDataConfirm = async (data: any) => {
+    // This function should only be called when a user explicitly chooses to send data
+    // to the database, not when simply closing the SportDataMapper
     showNotification('info', 'Sending data to database...');
     
     try {
@@ -1065,6 +1068,8 @@ const MessageItem: React.FC<MessageItemProps> = ({
         <SportDataMapper
           data={sportMapperData}
           onConfirm={handleDataConfirm}
+          // When SportDataMapper closes, just hide it without sending to data
+          onClose={() => setShowSportDataMapper(false)}
         />
       )}
 

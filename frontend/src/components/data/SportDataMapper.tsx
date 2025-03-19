@@ -10,6 +10,8 @@ export interface SportDataMapperProps {
   data: StandardDataFormat;
   /** Function to confirm the mapping */
   onConfirm: (data: StandardDataFormat) => void;
+  /** Function to handle when the mapper is closed without confirming */
+  onClose?: () => void;
 }
 
 /**
@@ -24,13 +26,27 @@ export interface SportDataMapperProps {
  * - Saving mapped data to the database
  * - Batch importing multiple records
  */
-const SportDataMapper: React.FC<SportDataMapperProps> = ({ data, onConfirm }) => {
+const SportDataMapper: React.FC<SportDataMapperProps> = ({ data, onConfirm, onClose }) => {
+  // Handle the close event without automatically confirming
+  const handleClose = () => {
+    // When modal is closed, we don't automatically confirm the data
+    // This separates the "Map to Sports" action from "Send to Data"
+    console.log('Sport Data Mapper closed without confirming data');
+    
+    // Call the onClose callback if provided
+    if (onClose) {
+      onClose();
+    }
+  };
+  
   return (
-    <SportDataMapperContainer
-      isOpen={true}
-      onClose={() => onConfirm(data)}
-      structuredData={data}
-    />
+    <>
+      <SportDataMapperContainer
+        isOpen={true}
+        onClose={handleClose}
+        structuredData={data}
+      />
+    </>
   );
 };
 

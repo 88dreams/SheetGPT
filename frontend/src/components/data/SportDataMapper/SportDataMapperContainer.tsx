@@ -63,6 +63,7 @@ const SportDataMapperContainer: React.FC<SportDataMapperProps> = ({ isOpen, onCl
   
   const {
     currentRecordIndex,
+    setCurrentRecordIndex,
     totalRecords,
     goToNextRecord: hookGoToNextRecord,
     goToPreviousRecord,
@@ -130,9 +131,14 @@ const SportDataMapperContainer: React.FC<SportDataMapperProps> = ({ isOpen, onCl
   // Initialize data when the component mounts or structuredData changes
   useEffect(() => {
     if (structuredData) {
-      extractSourceFields(structuredData, hookExtractSourceFields, setDataValidity);
+      // Only initialize the data on first load, not on every structuredData change
+      // This prevents reinitializing to the first record after navigation
+      if (dataToImport.length === 0) {
+        console.log('Initializing data for the first time');
+        extractSourceFields(structuredData, hookExtractSourceFields, setDataValidity);
+      }
     }
-  }, [structuredData, hookExtractSourceFields, setDataValidity]);
+  }, [structuredData, hookExtractSourceFields, setDataValidity, dataToImport.length]);
   
   // Update mapped data when entity type changes
   const updateMappedDataForEntityType = (entityType: MapperEntityType) => {
@@ -141,10 +147,28 @@ const SportDataMapperContainer: React.FC<SportDataMapperProps> = ({ isOpen, onCl
   
   // Update source field values when current record changes
   useEffect(() => {
-    if (currentRecordIndex !== null) {
-      updateSourceFieldValues(currentRecordIndex);
+    console.log(`Effect triggered: Record index is ${currentRecordIndex}, total records: ${dataToImport.length}`);
+    
+    // Skip if no data
+    if (dataToImport.length === 0) {
+      console.log('No data to import, skipping source field update');
+      return;
     }
-  }, [currentRecordIndex, updateSourceFieldValues]);
+    
+    // Ensure index is valid
+    let indexToUse = currentRecordIndex !== null ? currentRecordIndex : 0;
+    if (indexToUse < 0) {
+      indexToUse = 0;
+    } else if (indexToUse >= dataToImport.length) {
+      indexToUse = dataToImport.length - 1;
+    }
+    
+    console.log(`Using index ${indexToUse} to update source field values`);
+    
+    // Update source field values immediately, the hook itself uses requestAnimationFrame
+    updateSourceFieldValues(indexToUse);
+    console.log(`Source field values updated for record at index ${indexToUse}`);
+  }, [currentRecordIndex, dataToImport, updateSourceFieldValues]);
   
   // Update mapped data when entity type or current record changes
   useEffect(() => {
@@ -163,14 +187,8 @@ const SportDataMapperContainer: React.FC<SportDataMapperProps> = ({ isOpen, onCl
     }
   }, [dataToImport, sourceFields]);
   
-  // Handle functions
-  const goToNextRecord = () => {
-    hookGoToNextRecord();
-    if (currentRecordIndex !== null && dataToImport.length > 0) {
-      const nextIndex = (currentRecordIndex + 1) % dataToImport.length;
-      updateSourceFieldValues(nextIndex);
-    }
-  };
+  // Use the hook's navigation functions directly
+  const goToNextRecord = hookGoToNextRecord;
   
   const handleEntityTypeSelect = (entityType: MapperEntityType) => {
     setSelectedEntityType(entityType);
@@ -254,6 +272,7 @@ const SportDataMapperContainer: React.FC<SportDataMapperProps> = ({ isOpen, onCl
                 isBatchImporting={isBatchImporting}
                 onSaveToDatabase={handleSaveToDatabase}
                 onBatchImport={handleBatchImport}
+                onSendToData={onClose} // Use the onClose prop as onSendToData
               />
               
               <ViewModeSelectorContainer 

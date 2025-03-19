@@ -134,6 +134,12 @@ export const validateEntityData = (
         }
       }
       
+      // Clean entity names that might have special characters
+      if (data.name) {
+        data.name = data.name.trim();
+        console.log(`Stadium name normalized: "${data.name}"`);
+      }
+      
       // Check if host_broadcaster_id is a valid UUID if present
       if (data.host_broadcaster_id && !isValidUUID(data.host_broadcaster_id)) {
         errors.push('Host broadcaster ID must be a valid UUID');
@@ -194,35 +200,111 @@ export const validateEntityData = (
     case 'broadcast':
       // Check required fields
       if (!data.broadcast_company_id) {
-        errors.push('Broadcast Company ID is required');
-      } else if (!isValidUUID(data.broadcast_company_id)) {
-        errors.push('Broadcast Company ID must be a valid UUID');
+        errors.push('Broadcast Company ID or Name is required');
+      } 
+      // Check if we're using our special placeholder UUID for a new company
+      else if (data.broadcast_company_id === "00000000-NEW-COMP-ANY0-000000000000") {
+        if (data._newBroadcastCompanyName) {
+          errors.push(`Broadcast company "${data._newBroadcastCompanyName}" not found in the database. Please create it first using the Entity menu, then try again.`);
+        } else {
+          errors.push('Broadcast company not found. Please create it first using the Entity menu, then try again.');
+        }
       }
+      // Handle special characters in broadcast_company_id if it's a string (name)
+      else if (typeof data.broadcast_company_id === 'string' && !isValidUUID(data.broadcast_company_id)) {
+        // Trim whitespace and normalize string
+        data.broadcast_company_id = data.broadcast_company_id.trim();
+        console.log(`Normalized broadcast_company_id: "${data.broadcast_company_id}"`);
+        
+        // Handle parentheses in company names
+        if (data.broadcast_company_id.includes('(')) {
+          const baseName = data.broadcast_company_id.split('(')[0].trim();
+          console.log(`Found parentheses in broadcast company name, extracting base name: "${baseName}"`);
+          // Store original name for reference
+          data._original_company_name = data.broadcast_company_id;
+          // Use base name for lookup if needed
+          data._base_company_name = baseName;
+        }
+      }
+      // We don't validate UUID format for broadcast_company_id since it can be a name
+      // that will be resolved to an existing company or create a new one
       
       if (!data.entity_type) {
         errors.push('Entity Type is required');
       }
       
-      // For entity_id, it can be derived from other fields if missing
-      if (!data.entity_id && !data.division_conference_id) {
-        errors.push('Either Entity ID or Division Conference ID is required');
-      } else if (data.entity_id && !isValidUUID(data.entity_id)) {
-        // If it's not a valid UUID and we've already tried to resolve it, report the error
-        console.warn(`Entity ID '${data.entity_id}' is not a valid UUID after resolution attempts`);
-        errors.push('Entity ID must be a valid UUID');
+      // For all entity types, we'll validate differently based on what's provided
+      // If division_conference_id is provided, that takes precedence
+      if (data.division_conference_id) {
+        console.log(`Division/conference ID provided: ${data.division_conference_id}`);
+        
+        // If it's a string name and not a UUID, that's fine - we'll resolve it during mapping
+        if (typeof data.division_conference_id === 'string' && !isValidUUID(data.division_conference_id)) {
+          console.log(`Division/conference ID appears to be a name: "${data.division_conference_id}", will resolve during mapping`);
+          // No validation errors here
+        }
+        // If it's already a UUID, it's good to go
+        else if (isValidUUID(data.division_conference_id)) {
+          console.log(`Division/conference ID is a valid UUID: ${data.division_conference_id}`);
+          
+          // If entity_type is division/conference, we'll use this as entity_id too
+          if (data.entity_type === 'division_conference' || 
+              data.entity_type === 'conference' || 
+              data.entity_type === 'division') {
+            // Set the entity_id if missing
+            if (!data.entity_id) {
+              console.log(`Setting entity_id to match division_conference_id: ${data.division_conference_id}`);
+              data.entity_id = data.division_conference_id;
+            }
+          }
+        }
+        // Otherwise it's an invalid UUID format
+        else {
+          console.warn(`Division/conference ID is not a valid UUID: ${data.division_conference_id}`);
+          errors.push('Division Conference ID must be a valid UUID or a name that can be resolved');
+        }
+      }
+      
+      // Check entity_id and validate based on content
+      if (data.entity_id) {
+        // If it's already a UUID, it's good to go
+        if (isValidUUID(data.entity_id)) {
+          console.log(`Entity ID is a valid UUID: ${data.entity_id}`);
+        }
+        // If it's a string name and not a UUID, that's fine - we'll resolve it during mapping
+        else if (typeof data.entity_id === 'string') {
+          console.log(`Entity ID appears to be a name: "${data.entity_id}", will resolve during mapping`);
+          // No validation errors here - we'll try to resolve during mapping
+        }
+        // Otherwise it's an invalid format
+        else {
+          console.warn(`Entity ID is not a valid UUID or string: ${data.entity_id}`);
+          errors.push('Entity ID must be a valid UUID or a name that can be resolved');
+        }
+      }
+      // If entity_id is missing, check if required based on entity_type
+      else {
+        if (data.entity_type === 'division_conference' || 
+            data.entity_type === 'conference' || 
+            data.entity_type === 'division') {
+          // For division/conference entity types, we can derive entity_id from division_conference_id
+          if (!data.division_conference_id) {
+            errors.push('Either Entity ID or Division Conference ID is required for division/conference entities');
+          }
+        } 
+        // For other entity types
+        else {
+          errors.push('Entity ID is required');
+        }
       }
       
       if (!data.territory) {
         errors.push('Territory is required');
       }
       
-      if (!data.start_date) {
-        errors.push('Start Date is required');
-      }
-      
-      if (!data.end_date) {
-        errors.push('End Date is required');
-      }
+      // Start and end dates are optional for broadcast rights
+      // They will be set to a default value (April 1, 1976) if missing
+      // in the mappingUtils.ts file
       break;
       
     case 'game_broadcast':

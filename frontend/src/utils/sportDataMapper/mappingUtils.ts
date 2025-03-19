@@ -689,33 +689,31 @@ export const enhancedMapToDatabaseFieldNames = async (
           basicMapped.broadcast_company_id = response.id;
           console.log(`Found broadcast company ID ${response.id} for name: ${companyName}`);
         } else {
-          console.warn(`Could not find broadcast company ID for name: ${companyName}`);
+          // Instead of trying to create a company automatically (which the API doesn't support),
+          // store the company name in a special field we'll use later
+          console.log(`Broadcast company "${companyName}" not found, will use a placeholder UUID`);
           
-          // Try to create a new broadcast company with simple data
-          try {
-            console.log(`Creating new broadcast company with name: ${companyName}`);
-            const newCompany = await apiClient.sports.createBroadcastCompany({
-              name: companyName,
-              type: 'Broadcaster',
-              country: 'Unknown'
-            });
-            
-            if (newCompany?.id) {
-              basicMapped.broadcast_company_id = newCompany.id;
-              console.log(`Created new broadcast company with ID: ${newCompany.id} for name: ${companyName}`);
-            } else {
-              throw new Error(`Failed to create broadcast company: API returned no ID`);
-            }
-          } catch (createError) {
-            console.error(`Error creating new broadcast company: ${companyName}`, createError);
-            // Re-throw to prevent submission with invalid ID
-            throw new Error(`Failed to resolve broadcast company name "${companyName}" to a valid ID: ${createError}`);
-          }
+          // Use a placeholder UUID - this will trigger validation errors but we'll catch them
+          // in importUtils.ts to provide a better error message
+          basicMapped._pendingBroadcastCompanyName = companyName;
+          
+          // Store the name as a property for later use
+          basicMapped._newBroadcastCompanyName = companyName;
+          
+          // For now, use a known UUID placeholder that will cause a specific error we can catch
+          // Using v4 UUID format with "NEW-COMPANY" embedded in it
+          basicMapped.broadcast_company_id = "00000000-NEW-COMP-ANY0-000000000000";
         }
       } catch (error) {
         console.error(`Error looking up broadcast company ID for name ${companyName}:`, error);
-        // Re-throw to prevent submission with invalid ID
-        throw new Error(`Failed to resolve broadcast company name "${companyName}" to a valid ID: ${error}`);
+        
+        // Store the company name as a property for later use 
+        basicMapped._newBroadcastCompanyName = companyName;
+            
+        // Use a placeholder UUID that will trigger validation with a specific value we can detect
+        basicMapped.broadcast_company_id = "00000000-NEW-COMP-ANY0-000000000000";
+        
+        console.log(`Using placeholder UUID for new broadcast company "${companyName}"`);
       }
     }
     
@@ -807,6 +805,10 @@ export const enhancedMapToDatabaseFieldNames = async (
                 }
                 console.log(`Created new division/conference with ID: ${newDivision.id} for name: ${divisionName}`);
               }
+            } else if (entityType === 'broadcast') {
+              // For broadcast entities, we'll skip division creation if league_id is missing
+              // since league_id is optional for broadcast rights
+              console.log('League ID is optional for broadcast rights, skipping division/conference creation');
             } else {
               console.warn('Cannot create division/conference without a league_id');
             }
@@ -819,24 +821,57 @@ export const enhancedMapToDatabaseFieldNames = async (
       }
     }
     
-    // Format start_date and end_date if they are just years
-    if (basicMapped.start_date) {
-      // Check if it's just a year (4 digits)
-      const yearRegex = /^\d{4}$/;
-      if (yearRegex.test(basicMapped.start_date)) {
-        const year = basicMapped.start_date;
-        basicMapped.start_date = `${year}-01-01`;
-        console.log(`Converted start_date from year to full date: ${year} -> ${basicMapped.start_date}`);
+    // Handle start_date and end_date for broadcast rights
+    if (entityType === 'broadcast') {
+      // Set default dates for missing start_date and end_date to April 1, 1976
+      const DEFAULT_DATE = '1976-04-01';
+      
+      if (!basicMapped.start_date) {
+        basicMapped.start_date = DEFAULT_DATE;
+        console.log(`Missing start_date for broadcast rights, setting default: ${DEFAULT_DATE}`);
+      } else {
+        // Check if it's just a year (4 digits)
+        const yearRegex = /^\d{4}$/;
+        if (yearRegex.test(basicMapped.start_date)) {
+          const year = basicMapped.start_date;
+          basicMapped.start_date = `${year}-01-01`;
+          console.log(`Converted start_date from year to full date: ${year} -> ${basicMapped.start_date}`);
+        }
       }
-    }
-    
-    if (basicMapped.end_date) {
-      // Check if it's just a year (4 digits)
-      const yearRegex = /^\d{4}$/;
-      if (yearRegex.test(basicMapped.end_date)) {
-        const year = basicMapped.end_date;
-        basicMapped.end_date = `${year}-12-31`;
-        console.log(`Converted end_date from year to full date: ${year} -> ${basicMapped.end_date}`);
+      
+      if (!basicMapped.end_date) {
+        basicMapped.end_date = DEFAULT_DATE;
+        console.log(`Missing end_date for broadcast rights, setting default: ${DEFAULT_DATE}`);
+      } else {
+        // Check if it's just a year (4 digits)
+        const yearRegex = /^\d{4}$/;
+        if (yearRegex.test(basicMapped.end_date)) {
+          const year = basicMapped.end_date;
+          basicMapped.end_date = `${year}-12-31`;
+          console.log(`Converted end_date from year to full date: ${year} -> ${basicMapped.end_date}`);
+        }
+      }
+    } else {
+      // For non-broadcast entities, just handle year formatting without defaults
+      // Format start_date and end_date if they are just years
+      if (basicMapped.start_date) {
+        // Check if it's just a year (4 digits)
+        const yearRegex = /^\d{4}$/;
+        if (yearRegex.test(basicMapped.start_date)) {
+          const year = basicMapped.start_date;
+          basicMapped.start_date = `${year}-01-01`;
+          console.log(`Converted start_date from year to full date: ${year} -> ${basicMapped.start_date}`);
+        }
+      }
+      
+      if (basicMapped.end_date) {
+        // Check if it's just a year (4 digits)
+        const yearRegex = /^\d{4}$/;
+        if (yearRegex.test(basicMapped.end_date)) {
+          const year = basicMapped.end_date;
+          basicMapped.end_date = `${year}-12-31`;
+          console.log(`Converted end_date from year to full date: ${year} -> ${basicMapped.end_date}`);
+        }
       }
     }
     
@@ -951,6 +986,10 @@ export const enhancedMapToDatabaseFieldNames = async (
                       } catch (createError) {
                         console.error(`Error creating new division/conference: ${createError}`);
                       }
+                    } else if (entityType === 'broadcast') {
+                      // For broadcast entities, we'll skip division creation if league_id is missing
+                      // since league_id is optional for broadcast rights
+                      console.log('League ID is optional for broadcast rights, skipping division/conference creation');
                     } else {
                       console.warn('Cannot create division/conference without a league_id');
                     }

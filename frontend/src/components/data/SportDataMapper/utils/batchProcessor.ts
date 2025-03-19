@@ -6,6 +6,7 @@ export interface ImportResults {
   success: number;
   failed: number;
   total: number;
+  newBroadcastCompanies?: Array<{ name: string; id: string }>;  // Track newly created broadcast companies
 }
 
 /**
@@ -15,12 +16,13 @@ export const processBatchedData = async (
   records: any[],
   batchSize: number,
   onProgressUpdate: (currentBatch: number, totalBatches: number, progressPercent: number) => void,
-  processRecord: (record: any) => Promise<boolean>
+  processRecord: (record: any) => Promise<{ success: boolean; newBroadcastCompany?: { name: string; id: string } }>
 ): Promise<ImportResults> => {
   const results: ImportResults = {
     success: 0,
     failed: 0,
-    total: records.length
+    total: records.length,
+    newBroadcastCompanies: []
   };
   
   // Calculate batches
@@ -40,18 +42,25 @@ export const processBatchedData = async (
     const batchResults = await Promise.all(
       currentBatch.map(async (record) => {
         try {
-          const success = await processRecord(record);
-          return success;
+          const result = await processRecord(record);
+          return result;
         } catch (error) {
           console.error('Error processing record:', error);
-          return false;
+          return { success: false };
         }
       })
     );
     
     // Count successes and failures
-    results.success += batchResults.filter(success => success).length;
-    results.failed += batchResults.filter(success => !success).length;
+    results.success += batchResults.filter(result => result.success).length;
+    results.failed += batchResults.filter(result => !result.success).length;
+    
+    // Collect any new broadcast companies
+    batchResults.forEach(result => {
+      if (result.success && result.newBroadcastCompany) {
+        results.newBroadcastCompanies.push(result.newBroadcastCompany);
+      }
+    });
   }
   
   return results;
@@ -66,7 +75,7 @@ export const processEntityRecord = async (
   mappings: Record<string, string>,
   isUpdateMode: boolean,
   maxRetries: number = 3
-): Promise<boolean> => {
+): Promise<{ success: boolean; newBroadcastCompany?: { name: string; id: string } }> => {
   let retries = maxRetries;
   
   while (retries > 0) {
@@ -81,7 +90,7 @@ export const processEntityRecord = async (
       const validationResult = validateEntityData(entityType, mappedData, effectiveUpdateMode);
       if (!validationResult.isValid) {
         console.error(`Validation failed for record:`, validationResult.errors);
-        return false;
+        return { success: false };
       }
       
       // Map to database field names
@@ -96,17 +105,35 @@ export const processEntityRecord = async (
       const processedData = await processDivisionConferenceReference(entityType, databaseMappedData);
       
       // Save entity to database
-      await saveEntityToDatabase(entityType, processedData, effectiveUpdateMode);
+      const success = await saveEntityToDatabase(entityType, processedData, effectiveUpdateMode);
       
-      return true; // Success
+      // Check if a new broadcast company was created and return that info
+      if (success && processedData._newBroadcastCompanyCreated) {
+        return {
+          success: true,
+          newBroadcastCompany: processedData._newBroadcastCompanyCreated
+        };
+      }
+      
+      return { success: true }; // Success
     } catch (error) {
       console.error(`Error processing record (attempt ${maxRetries - retries + 1}/${maxRetries}):`, error);
+      
+      // Check if the error is about broadcast company not found
+      if (error instanceof Error && 
+          error.message.includes('Broadcast_company with name') && 
+          error.message.includes('not found')) {
+        
+        // This is now handled automatically in mappingUtils.ts, but let's log it
+        console.log("Broadcast company not found error - this should be auto-handled in enhancedMapToDatabaseFieldNames");
+      }
+      
       retries--;
       
       // Handle authentication errors immediately
       if (error instanceof Error && error.message.includes('401')) {
         console.error('Authentication error detected');
-        return false;
+        return { success: false };
       }
       
       if (retries > 0) {
@@ -117,5 +144,5 @@ export const processEntityRecord = async (
     }
   }
   
-  return false; // Failed after all retries
+  return { success: false }; // Failed after all retries
 };

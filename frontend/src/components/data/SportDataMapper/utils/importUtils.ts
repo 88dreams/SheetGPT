@@ -21,7 +21,7 @@ export const transformMappedData = (
 };
 
 /**
- * Process division/conference references for team entities
+ * Process additional data before saving to handle special fields
  */
 export const processDivisionConferenceReference = async (
   entityType: EntityType,
@@ -220,6 +220,27 @@ export const saveEntityToDatabase = async (
 export const formatErrorMessage = (error: unknown): string => {
   if (error instanceof Error) {
     const errorMessage = error.message;
+    
+    // Special handling for invalid/placeholder broadcast company UUID
+    if (errorMessage.includes('broadcast_company_id') && 
+        (errorMessage.includes('should be a valid UUID') || 
+         errorMessage.includes('NEW-COMP-ANY0'))) {
+      
+      return `The broadcast company name you entered does not exist in the database and cannot be automatically created. Please create the broadcast company first using the Entity menu, then try again.`;
+    }
+    
+    // Special handling for broadcast company not found 
+    if (errorMessage.includes('Broadcast_company with name') && errorMessage.includes('not found')) {
+      // Extract the company name from the error message
+      const match = errorMessage.match(/Broadcast_company with name '([^']+)' not found/);
+      if (match && match[1]) {
+        const companyName = match[1];
+        return `Broadcast company "${companyName}" not found. Please create it first using the Entity menu, then try again.`;
+      }
+      
+      // If we can't extract the name, use a generic message
+      return `Broadcast company not found. Please create it first using the Entity menu, then try again.`;
+    }
     
     // Special handling for broadcast rights unique constraint violation
     if (errorMessage.includes('duplicate key value violates unique constraint') && 

@@ -75,7 +75,19 @@ export default function useImportProcess() {
       const success = await saveEntityToDatabase(entityType, processedData, effectiveUpdateMode);
       
       if (success) {
-        showNotification('success', `Successfully saved ${entityType} to database`);
+        // Check if a new broadcast company was created during the process
+        if (processedData._newBroadcastCompanyCreated) {
+          const { name, id } = processedData._newBroadcastCompanyCreated;
+          // Show a success notification about both the entity save and the broadcast company creation
+          showNotification(
+            'success', 
+            `Successfully saved ${entityType} to database`, 
+            `Also created new broadcast company "${name}" with ID ${id.substring(0, 8)}...`
+          );
+        } else {
+          // Just show regular success notification
+          showNotification('success', `Successfully saved ${entityType} to database`);
+        }
       }
       
       return success;
@@ -148,17 +160,47 @@ export default function useImportProcess() {
       
       // Show final results notification
       if (results.failed === 0) {
-        showNotification(
-          'success', 
-          `Successfully imported ${results.success} records`, 
-          `All records were imported successfully.`
-        );
+        // Check if any new broadcast companies were created
+        if (results.newBroadcastCompanies && results.newBroadcastCompanies.length > 0) {
+          const newCompaniesCount = results.newBroadcastCompanies.length;
+          const companiesList = results.newBroadcastCompanies
+            .slice(0, 3) // Show max 3 examples
+            .map(company => `"${company.name}"`)
+            .join(', ');
+          
+          const additionalText = newCompaniesCount > 3 
+            ? ` and ${newCompaniesCount - 3} more` 
+            : '';
+            
+          showNotification(
+            'success', 
+            `Successfully imported ${results.success} records`, 
+            `All records were imported successfully. Also created ${newCompaniesCount} new broadcast ${newCompaniesCount === 1 ? 'company' : 'companies'}: ${companiesList}${additionalText}.`
+          );
+        } else {
+          showNotification(
+            'success', 
+            `Successfully imported ${results.success} records`, 
+            `All records were imported successfully.`
+          );
+        }
       } else {
-        showNotification(
-          'info', 
-          `Imported ${results.success} of ${results.total} records`, 
-          `${results.failed} records failed to import. Check the console for details.`
-        );
+        // Check if any new broadcast companies were created despite some failures
+        if (results.newBroadcastCompanies && results.newBroadcastCompanies.length > 0) {
+          const newCompaniesCount = results.newBroadcastCompanies.length;
+          
+          showNotification(
+            'info', 
+            `Imported ${results.success} of ${results.total} records`, 
+            `${results.failed} records failed to import. Also created ${newCompaniesCount} new broadcast ${newCompaniesCount === 1 ? 'company' : 'companies'} during the process. Check the console for details.`
+          );
+        } else {
+          showNotification(
+            'info', 
+            `Imported ${results.success} of ${results.total} records`, 
+            `${results.failed} records failed to import. Check the console for details.`
+          );
+        }
       }
     } catch (error) {
       console.error('Batch import error:', error);

@@ -14,7 +14,22 @@ SheetGPT is a full-stack application that combines AI-powered chat capabilities 
 
 ### Latest Features
 
-1. Broadcast Rights in SportDataMapper Improvements (March 29, 2025)
+1. SportDataMapper and Broadcast Rights Enhancements (March 31, 2025)
+   - Fixed workflow issue with "Map to Sports" operation:
+     - Separated SportDataMapper from automatic "Send to Data" actions
+     - Made "Send to Data" a distinct, explicit operation requiring user action
+     - Prevented automatic opening of Export page when mapper is closed
+     - Added clear button implementation with proper state management
+     - Improved UX by making operations more predictable and controlled
+   - Enhanced Broadcast Rights functionality:
+     - Made league_id field optional for broadcast rights entities
+     - Added default date handling (April 1, 1976) when dates are missing
+     - Improved error messages for broadcast company creation
+     - Auto-detects entity type from name content (e.g., "Conference")
+     - Displays user-friendly notifications when creating new records
+     - Added better guidance text in error scenarios
+     
+2. Broadcast Rights in SportDataMapper Improvements (March 29, 2025)
    - Fixed critical issue with name field interpretation in broadcast rights entries:
      - Correctly interprets name field as the entity being broadcast, not the broadcaster
      - Added intelligent entity type detection from name content (e.g., "Conference")

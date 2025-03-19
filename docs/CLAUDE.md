@@ -44,6 +44,20 @@ When users reference entities by name instead of UUID:
 
 ### Recent Improvements (March 2025)
 
+- SportDataMapper Workflow and Broadcast Rights (March 31, 2025):
+  - Improved workflow in SportDataMapper to separate mapping from data operations:
+    - Decoupled "Map to Sports" from automatic "Send to Data" actions
+    - Made data operations explicit and user-initiated with clear button actions
+    - Enhanced component architecture to properly handle modal closing
+    - Added clearer UI guidance for different actions (Save, Import, Send to Data)
+  - Enhanced Broadcast Rights functionality:
+    - Made league_id field optional for better flexibility
+    - Added default date handling (April 1, 1976) for missing dates
+    - Improved error handling for broadcast company creation attempts
+    - Added smart entity type detection from name content
+    - Integrated user-friendly notifications about new record creation
+    - Enhanced guidance for correcting missing or invalid data
+    
 - Broadcast Rights in SportDataMapper (March 29, 2025):
   - Fixed name field interpretation for broadcast rights entity mapping
   - Added intelligent entity type detection from name content

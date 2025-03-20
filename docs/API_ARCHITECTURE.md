@@ -5,22 +5,22 @@
 SheetGPT's API is built using FastAPI with a modular architecture:
 
 1. **Routes**: API endpoints and HTTP request/response handling
-2. **Services**: Business logic and database operations
-3. **Models**: Database schema using SQLAlchemy ORM
+2. **Services**: Business logic and database operations with facade pattern
+3. **Models**: Database schema using SQLAlchemy ORM with relationship mapping
 4. **Schemas**: Request/response validation using Pydantic
 5. **Core**: Configuration and shared functionality
 6. **Config**: Environment-specific settings
 
 ## API Structure
 
-The API is organized into modules:
+The API is organized into feature-focused modules:
 
 - **Authentication**: User registration, login, and token management
-- **Chat**: Conversation and message management with Claude API integration
+- **Chat**: Conversation and message management with Claude API integration and streaming responses
 - **Data Management**: Structured data operations with extraction services
-- **Sports Database**: Sports entity management with relationship handling
-- **Export**: Data export to Google Sheets
-- **Admin**: Administrative functions
+- **Sports Database**: Sports entity management with comprehensive relationship handling
+- **Export**: Data export to Google Sheets and CSV
+- **Admin**: Administrative functions and monitoring capabilities
 - **DB Management**: Database maintenance, query execution, and administration tools
 
 ## Authentication System
@@ -50,104 +50,232 @@ async def get_current_user(
 
 ### Entity Models
 
-SQLAlchemy ORM models with PostgreSQL:
+SQLAlchemy ORM models with PostgreSQL implement a rich domain model with comprehensive relationships:
 
 ```python
-# Example League model
-class League(Base):
+# League model with nickname field
+class League(TimestampedBase):
     __tablename__ = "leagues"
-    
+    __table_args__ = (
+        UniqueConstraint('name', name='uq_leagues_name'),
+        Index('ix_leagues_name', 'name'),
+    )
+
     id: Mapped[UUID] = mapped_column(SQLUUID, primary_key=True, default=uuid4)
-    name: Mapped[str] = mapped_column(String(255), nullable=False)
-    sport: Mapped[str] = mapped_column(String(100), nullable=False)
-    country: Mapped[str] = mapped_column(String(100), nullable=True)
-    founded_year: Mapped[int] = mapped_column(Integer, nullable=True)
-    description: Mapped[str] = mapped_column(Text, nullable=True)
-    
+    name: Mapped[str] = mapped_column(String(100), nullable=False, unique=True, index=True)
+    nickname: Mapped[Optional[str]] = mapped_column(String(20), nullable=True, index=True)
+    sport: Mapped[str] = mapped_column(String(50), nullable=False)
+    country: Mapped[str] = mapped_column(String(100), nullable=False)
+    broadcast_start_date: Mapped[Optional[datetime.date]] = mapped_column(Date, nullable=True)
+    broadcast_end_date: Mapped[Optional[datetime.date]] = mapped_column(Date, nullable=True)
+
     # Relationships
-    teams: Mapped[List["Team"]] = relationship("Team", back_populates="league")
+    divisions_conferences: Mapped[List["DivisionConference"]] = relationship(
+        back_populates="league", cascade="all, delete-orphan"
+    )
+    teams: Mapped[List["Team"]] = relationship(back_populates="league")
+    games: Mapped[List["Game"]] = relationship(back_populates="league", cascade="all, delete-orphan")
+    executives: Mapped[List["LeagueExecutive"]] = relationship(
+        back_populates="league", cascade="all, delete-orphan"
+    )
+
+# DivisionConference model - new addition
+class DivisionConference(TimestampedBase):
+    __tablename__ = "divisions_conferences"
+    __table_args__ = (
+        UniqueConstraint('league_id', 'name', name='uq_division_conference_name_per_league'),
+        Index('ix_divisions_conferences_name', 'name'),
+    )
+
+    id: Mapped[UUID] = mapped_column(SQLUUID, primary_key=True, default=uuid4)
+    league_id: Mapped[UUID] = mapped_column(ForeignKey("leagues.id"), nullable=False)
+    name: Mapped[str] = mapped_column(String(100), nullable=False, index=True)
+    nickname: Mapped[Optional[str]] = mapped_column(String(20), nullable=True, index=True)
+    type: Mapped[str] = mapped_column(String(50), nullable=False)
+    region: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+    description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+
+    # Relationships
+    league: Mapped["League"] = relationship(back_populates="divisions_conferences")
+    teams: Mapped[List["Team"]] = relationship(back_populates="division_conference", cascade="all, delete-orphan")
+    broadcast_rights: Mapped[List["BroadcastRights"]] = relationship(
+        back_populates="division_conference", cascade="all, delete-orphan"
+    )
 ```
 
-### Entity Services
+### Entity Services Architecture
 
-Business logic for managing sports entities is organized using a modular approach with domain-driven design:
+Business logic is organized using a sophisticated service layer with domain-driven design and the facade pattern:
 
 ```python
-# Base service with shared functionality
-class BaseService:
-    def __init__(self, db: AsyncSession = None):
-        self.db = db
+# Generic base service with common functionality
+class BaseEntityService(Generic[T]):
+    """Base service class for entity operations."""
+    
+    def __init__(self, model_class: Type[T]):
+        self.model_class = model_class
         
-    async def get_by_id(self, model_class, entity_id: UUID):
+    async def get_by_id(self, db: AsyncSession, entity_id: UUID) -> Optional[T]:
         """Get entity by ID with common error handling."""
-        query = select(model_class).where(model_class.id == entity_id)
-        result = await self.db.execute(query)
+        query = select(self.model_class).where(self.model_class.id == entity_id)
+        result = await db.execute(query)
         return result.scalars().first()
         
-    async def create_entity(self, model_class, data: dict):
+    async def create(self, db: AsyncSession, data: dict) -> T:
         """Create entity with validation and error handling."""
-        entity = model_class(**data)
-        self.db.add(entity)
-        await self.db.commit()
-        await self.db.refresh(entity)
-        return entity
+        try:
+            entity = self.model_class(**data)
+            db.add(entity)
+            await db.commit()
+            await db.refresh(entity)
+            return entity
+        except SQLAlchemyError as e:
+            await db.rollback()
+            # Error handling with human-readable messages
+            raise self._handle_db_error(e)
 
 # Entity-specific service with domain logic
-class LeagueService(BaseService):
-    async def get_leagues(self, skip: int = 0, limit: int = 100):
-        """Get leagues with pagination."""
-        query = select(League).offset(skip).limit(limit)
-        result = await self.db.execute(query)
+class DivisionConferenceService(BaseEntityService[DivisionConference]):
+    """Service for DivisionConference entity operations."""
+    
+    def __init__(self):
+        super().__init__(DivisionConference)
+    
+    async def get_divisions_conferences(
+        self, db: AsyncSession, filters: Optional[dict] = None, 
+        skip: int = 0, limit: int = 100
+    ) -> List[DivisionConference]:
+        """Get divisions/conferences with filtering and pagination."""
+        query = select(DivisionConference)
+        
+        # Apply filters
+        if filters:
+            if league_id := filters.get("league_id"):
+                query = query.where(DivisionConference.league_id == league_id)
+            if type_filter := filters.get("type"):
+                query = query.where(DivisionConference.type == type_filter)
+        
+        # Apply pagination
+        query = query.offset(skip).limit(limit)
+        result = await db.execute(query)
         return result.scalars().all()
     
-    async def create_league(self, league_data: LeagueCreate):
-        """Create league with domain-specific validation."""
-        # Validate league data
-        validated_data = league_data.dict()
-        return await self.create_entity(League, validated_data)
+    async def update_nickname(self, db: AsyncSession, entity_id: UUID, nickname: Optional[str]) -> DivisionConference:
+        """Update nickname with specialized logic."""
+        entity = await self.get_by_id(db, entity_id)
+        if not entity:
+            raise EntityNotFoundError(f"Division/Conference with ID {entity_id} not found")
+        
+        entity.nickname = nickname
+        await db.commit()
+        await db.refresh(entity)
+        return entity
 
 # Facade service that provides a unified API
 class SportsService:
+    """Facade service that coordinates all sports entity operations."""
+    
     def __init__(self):
-        """Initialize with specific services."""
+        """Initialize with frequently used services."""
         self.league_service = LeagueService()
         self.team_service = TeamService()
+        self.division_conference_service = DivisionConferenceService()
         # Other services initialized on-demand to prevent circular imports
     
-    async def get_leagues(self, db: AsyncSession, skip: int = 0, limit: int = 100):
-        """Delegate to specialized service."""
-        return await self.league_service.get_leagues(db, skip, limit)
-    
-    async def create_league(self, db: AsyncSession, league_data: LeagueCreate):
-        """Delegate to specialized service."""
-        return await self.league_service.create_league(db, league_data)
+    async def get_entities(
+        self, db: AsyncSession, entity_type: str, 
+        filters: Optional[dict] = None, skip: int = 0, limit: int = 100
+    ) -> List[Any]:
+        """Generic method to get entities of any type with filtering."""
+        # Map entity type to appropriate service method
+        if entity_type == "league":
+            return await self.league_service.get_leagues(db, filters, skip, limit)
+        elif entity_type == "division_conference":
+            return await self.division_conference_service.get_divisions_conferences(db, filters, skip, limit)
+        elif entity_type == "team":
+            return await self.team_service.get_teams(db, filters, skip, limit)
+        # ... other entity types
         
-    async def delete_broadcast_rights(self, db: AsyncSession, rights_id: UUID) -> bool:
-        """Delegate to broadcast rights service (created on-demand)."""
-        broadcast_rights_service = BroadcastRightsService()
-        return await broadcast_rights_service.delete_broadcast_rights(db, rights_id)
+        raise ValueError(f"Unsupported entity type: {entity_type}")
+        
+    async def update_entity_nickname(self, db: AsyncSession, entity_type: str, entity_id: UUID, nickname: Optional[str]) -> Any:
+        """Update nickname for any entity type that supports it."""
+        if entity_type == "league":
+            return await self.league_service.update_nickname(db, entity_id, nickname)
+        elif entity_type == "division_conference":
+            return await self.division_conference_service.update_nickname(db, entity_id, nickname)
+            
+        raise ValueError(f"Nickname not supported for entity type: {entity_type}")
 ```
 
 ## Entity Relationship Handling
 
-### Automatic Entity Resolution
+### Entity Name Resolution
 
-During batch imports, the system resolves entity relationships:
+The system implements a sophisticated entity name resolution system:
 
-1. **Entity Lookup**: Finds entities by name or creates them if they don't exist
-2. **Enhanced Field Mapping**: Processes entity references based on entity type
-3. **Entity Creation**: Creates missing entities automatically when needed
-4. **Referential Integrity**: Maintains database constraints during operations
+```python
+class EntityNameResolver:
+    """Resolves entity references and adds human-readable names to database entities."""
+    
+    async def resolve_entity_names(self, db: AsyncSession, entity_type: str, entities: List[Dict]) -> List[Dict]:
+        """Add human-readable names to entities based on relationship IDs."""
+        if not entities:
+            return []
+            
+        # Process each entity to add related names
+        result = []
+        for entity in entities:
+            # Copy to avoid modifying original
+            entity_copy = dict(entity)
+            
+            # Add related names based on entity type
+            if entity_type == "team":
+                await self._add_team_related_names(db, entity_copy)
+            elif entity_type == "broadcast_rights":
+                await self._add_broadcast_rights_related_names(db, entity_copy)
+            elif entity_type == "division_conference":
+                await self._add_division_conference_related_names(db, entity_copy)
+            # ... other entity types
+            
+            result.append(entity_copy)
+            
+        return result
+        
+    async def _add_broadcast_rights_related_names(self, db: AsyncSession, entity: Dict) -> None:
+        """Add related names for broadcast rights, including division/conference if present."""
+        # Add broadcast company name
+        if company_id := entity.get("broadcast_company_id"):
+            company = await self._get_entity_by_id(db, BroadcastCompany, company_id)
+            if company:
+                entity["broadcast_company_name"] = company.name
+                
+        # Add division/conference name if present (optional relationship)
+        if div_conf_id := entity.get("division_conference_id"):
+            div_conf = await self._get_entity_by_id(db, DivisionConference, div_conf_id)
+            if div_conf:
+                entity["division_conference_name"] = div_conf.name
+                
+        # Generate descriptive display name based on entity type
+        entity_type = entity.get("entity_type")
+        entity_id = entity.get("entity_id")
+        if entity_type and entity_id:
+            display_name = await self._generate_entity_display_name(db, entity_type, entity_id)
+            entity["entity_display_name"] = display_name
+```
 
 ### Entity Relationship Flow
 
 1. User maps fields in the SportDataMapper interface
 2. During batch import, the system:
    - Maps basic fields directly
-   - Identifies relationship fields (e.g., league_id, stadium_id)
-   - Resolves relationships by UUID or name lookup
-   - Creates missing entities when appropriate
-   - Validates final mapped data before saving
+   - Identifies relationship fields (e.g., league_id, division_conference_id)
+   - Resolves relationships by UUID or name lookup with intelligent entity type detection
+   - Creates missing entities when appropriate with default values
+   - Handles special naming patterns for broadcast rights
+   - Validates data with proper constraint checking and user-friendly error messages
+   - Processes imports in batches with progress tracking
+   - Provides detailed success/failure reporting
    
 ### Service Layer Architecture
 
@@ -222,10 +350,18 @@ During batch imports, the system resolves entity relationships:
      - useSelection: Efficient selection state management
      - useDragAndDrop: Optimized DOM operations with fingerprinting
      - useDataTransformer: Memoized data transformation
+     - useFieldManagement: Field selection, categorization, and values
+     - useRelationships: Relationship data loading with lifecycle awareness
+     - useFieldDetection: Field pattern detection and recommendations
+     - useBulkUpdate: Batch processing with progress tracking
+     - useModalLifecycle: Component lifecycle management for safe state updates
    - State and action separation for better maintainability
    - Proper dependency tracking in useEffect hooks
+   - Explicit lifecycle management to prevent infinite render loops
+   - Reference stability with useCallback and useMemo
    - Comprehensive typings for all functions and state
    - Data fetching logic isolated from component state management
+   - Safety checks to prevent state updates after component unmounting
 
 3. **SportDataMapper Architecture**:
    - Dialog container for standard modals
@@ -250,6 +386,67 @@ During batch imports, the system resolves entity relationships:
 5. User enters values for selected fields (or leaves empty to clear)
 6. System processes updates in batches with progress tracking
 7. System reports success/failure statistics
+
+### Refactored BulkEditModal Architecture
+
+The BulkEditModal has been completely refactored to follow best practices and avoid render loop issues:
+
+1. **Component Directory Structure**:
+   ```
+   BulkEditModal/
+   ├── components/         # Sub-components
+   │   ├── FieldInput.tsx      # Input controls for different field types
+   │   ├── FieldSelector.tsx   # Field selection and display
+   │   ├── ProcessingStatus.tsx # Processing and results UI
+   │   └── index.ts           # Component exports
+   ├── hooks/               # Focused custom hooks
+   │   ├── useFieldManagement.ts # Field state and categorization
+   │   ├── useRelationships.ts   # Relationship data loading
+   │   ├── useFieldDetection.ts  # Field detection from data
+   │   ├── useBulkUpdate.ts      # Update processing
+   │   ├── useModalLifecycle.ts  # Component lifecycle management
+   │   └── index.ts             # Hook exports
+   ├── utils/               # Helper functions
+   │   ├── modalUtils.ts        # Utility functions
+   │   └── index.ts             # Utility exports
+   ├── types.ts             # Type definitions
+   └── index.tsx            # Main component with minimal logic
+   ```
+
+2. **Key Hook Implementations**:
+   - `useFieldManagement`: Manages field selection, values, and categorization
+   - `useRelationships`: Handles loading related entities with lifecycle awareness
+   - `useFieldDetection`: Detects fields from query results with entity type inference
+   - `useBulkUpdate`: Processes updates with batch handling and progress tracking
+   - `useModalLifecycle`: Manages component lifecycle for safe state updates
+
+3. **Lifecycle Management**:
+   - Uses `useRef` to track component mounting state
+   - Prevents state updates after unmounting with safety checks
+   - Implements controlled initialization sequence
+   - Adds timeouts to break potential render cycles
+   - Ensures clean dependency tracking in all effects
+
+4. **Entity Type Detection**:
+   - Automatically identifies likely team entities based on field patterns
+   - Ensures division_conference_id is available for teams
+   - Recommends appropriate fields for different entity types
+   - Handles field categorization for logical organization
+
+5. **Field Categorization**:
+   - Organizes fields into logical groups:
+     - Basic Information (name, nickname, description)
+     - Relationships (fields ending with _id)
+     - Dates & Numbers (date/time/number fields)
+     - Other (remaining fields)
+   - Provides consistent UI across all entity types
+   - Renders appropriate inputs based on field type
+
+6. **Update Processing**:
+   - Implements batch processing with configurable batch size
+   - Shows real-time progress with percentage indicator
+   - Provides detailed success/failure statistics
+   - Implements proper error handling for both entity and query modes
 
 ### Data Management Scripts
 
@@ -473,10 +670,30 @@ A specialized tool for mapping structured data to sports database entities:
    - Custom hooks for business logic and API interaction
    - Entity-specific field components with standardized rendering
    - Optimized rendering with strategic memoization
-   - Consolidated modal components with unified interfaces:
-     - BulkEditModal with entity and query mode support
+   - Consolidated modal components with unified interfaces and advanced directory structure:
+     ```
+     BulkEditModal/
+     ├── components/         # Sub-components
+     │   ├── FieldInput.tsx      # Input controls for different field types
+     │   ├── FieldSelector.tsx   # Field selection and display
+     │   ├── ProcessingStatus.tsx # Processing and results UI
+     │   └── index.ts           # Component exports
+     ├── hooks/               # Focused custom hooks
+     │   ├── useFieldManagement.ts # Field state and categorization
+     │   ├── useRelationships.ts   # Relationship data loading
+     │   ├── useFieldDetection.ts  # Field detection from data
+     │   ├── useBulkUpdate.ts      # Update processing
+     │   ├── useModalLifecycle.ts  # Component lifecycle management
+     │   └── index.ts             # Hook exports
+     ├── utils/               # Helper functions
+     │   ├── modalUtils.ts        # Utility functions
+     │   └── index.ts             # Utility exports
+     ├── types.ts             # Type definitions
+     └── index.tsx            # Main component with minimal logic
+     ```
      - Type-safe implementations with proper interfaces
      - Consistent UI patterns across different use cases
+     - Clean separation of concerns with single-responsibility principles
 
 ### Sports Database Module
 
@@ -545,7 +762,7 @@ The API implements a flexible entity reference system that balances user experie
 
 ### Chat Service Implementation
 
-The chat service is implemented with the following key features:
+The chat service features sophisticated streaming response handling and Claude API integration:
 
 ```python
 class ChatService:
@@ -553,6 +770,43 @@ class ChatService:
         self.db = db
         self.anthropic_service = AnthropicService()  # Claude API integration
         self.model = "claude-3-sonnet-20240229"
+        self.logger = logging.getLogger("chat_service")
+        
+    async def get_chat_response(self, conversation_id: UUID, message_content: str) -> AsyncGenerator[str, None]:
+        """Process chat message and stream response with proper event formatting."""
+        try:
+            # Record user message
+            user_message = await self._save_message(conversation_id, "user", message_content)
+            
+            # Get conversation history for context
+            history = await self._get_conversation_history(conversation_id)
+            
+            # Special handling for search operations
+            if message_content.strip().startswith("[SEARCH]"):
+                # Process search request (detects keyword queries)
+                async for chunk in self._handle_search_request(message_content, history):
+                    yield self._format_sse_message(chunk)
+                return
+                
+            # Stream response from Claude API
+            async for chunk in self.anthropic_service.get_streaming_response(history, message_content):
+                # Process each chunk
+                yield self._format_sse_message(chunk)
+                
+            # Ensure completion marker is sent
+            yield self._format_sse_message("[STREAM_END]")
+            
+            # Record complete assistant response
+            await self._process_complete_response(conversation_id)
+            
+        except Exception as e:
+            self.logger.error(f"Chat response error: {str(e)}")
+            yield self._format_sse_message(f"Error: {str(e)}")
+            yield self._format_sse_message("[STREAM_END]")
+        
+    def _format_sse_message(self, data: str) -> str:
+        """Format string as Server-Sent Events message."""
+        return f"data: {data}\n\n"
 ```
 
 ```python
@@ -563,38 +817,93 @@ class AnthropicService:
         )
         self.default_model = "claude-3-sonnet-20240229"
         self.logger = logging.getLogger("anthropic_service")
+        self.max_retries = 3
+        
+    async def get_streaming_response(
+        self, 
+        history: List[Dict[str, str]], 
+        message: str
+    ) -> AsyncGenerator[str, None]:
+        """Get streaming response from Claude API with retry logic."""
+        retry_count = 0
+        buffer = ""
+        
+        while retry_count <= self.max_retries:
+            try:
+                # Format history into messages array
+                messages = self._format_messages(history, message)
+                
+                # Create streaming completion
+                with self.client.messages.stream(
+                    model=self.default_model,
+                    max_tokens=4000,
+                    messages=messages,
+                    temperature=0.7,
+                ) as stream:
+                    for chunk in stream:
+                        if chunk.type == "content_block_delta" and chunk.delta.text:
+                            # Process content chunk
+                            buffer += chunk.delta.text
+                            
+                            # Yield complete sentences when available
+                            while "." in buffer or "\n" in buffer:
+                                idx = max(buffer.find("."), buffer.find("\n"))
+                                if idx == -1:
+                                    break
+                                    
+                                # Yield complete sentence or line
+                                yield buffer[:idx+1]
+                                buffer = buffer[idx+1:]
+                            
+                    # Yield any remaining content
+                    if buffer:
+                        yield buffer
+                        
+                # Successful completion
+                return
+                
+            except anthropic.APIError as e:
+                # Handle rate limits with exponential backoff
+                if e.status_code == 429 and retry_count < self.max_retries:
+                    retry_count += 1
+                    wait_time = (2 ** retry_count) * 0.5  # Exponential backoff
+                    self.logger.warning(f"Rate limited. Retrying in {wait_time}s. Attempt {retry_count}/{self.max_retries}")
+                    await asyncio.sleep(wait_time)
+                else:
+                    # Non-recoverable error
+                    self.logger.error(f"Claude API error: {str(e)}")
+                    yield f"Error communicating with Claude: {str(e)}"
+                    return
+            except Exception as e:
+                self.logger.error(f"Unexpected error: {str(e)}")
+                yield f"Unexpected error: {str(e)}"
+                return
 ```
 
-#### Key Components:
+### Key Chat System Features
 
-1. **Claude API Integration**
-   - AnthropicService for API management
-   - Model selection and configuration
-   - Streaming response handling
-   - Buffer management for efficient streaming
-   - Structured error handling
+1. **Streaming Response Architecture**
+   - Server-Sent Events (SSE) format for real-time updates
+   - Proper event formatting with data prefixes
+   - Chunk processing for sentence-based streaming
+   - Special handling for search operations
+   - Graceful error handling with informative messages
+   - Stream completion markers for client notification
+   - Buffer management for optimal chunk delivery
 
-2. **Message Streaming**
-   - Real-time response streaming
-   - Chunked message processing
-   - Custom buffer management
-   - Rate limit handling
-   - Connection error recovery
+2. **File Upload and Processing**
+   - Support for CSV and text file uploads
+   - Automatic data structure detection
+   - CSV parsing with intelligent column mapping
+   - Data extraction for structured information
+   - Fallback to manual data organization
 
-3. **Structured Data Processing**
-   - Enhanced schema validation
-   - Modular extraction services
-   - JSON parsing and validation
-   - Database persistence with session fallbacks
-   - Error recovery mechanisms
-
-4. **Conversation Management**
-   - Message history tracking
-   - Conversation reordering
-   - Context maintenance
-   - User session management
-   - Metadata handling
-   - Order-based conversation sorting
+3. **Conversation Management**
+   - Order-based conversation organization
+   - Support for manual reordering through API
+   - Conversation archiving capabilities
+   - Message history context management
+   - Efficient PostgreSQL JSONB storage for messages
 
 ### API Endpoints
 
@@ -607,10 +916,43 @@ async def create_message(
     current_user: User = Depends(get_current_user),
     chat_service: ChatService = Depends(get_chat_service)
 ) -> StreamingResponse:
+    """Send a message and get streaming response."""
+    # Verify user owns the conversation
+    if not await chat_service.user_owns_conversation(conversation_id, current_user.id):
+        raise HTTPException(status_code=403, detail="Not authorized to access this conversation")
+        
     return StreamingResponse(
         chat_service.get_chat_response(conversation_id, message.content),
         media_type="text/event-stream"
     )
+
+@router.put("/conversations/order")
+async def update_conversation_order(
+    order_data: ConversationOrderUpdate,
+    current_user: User = Depends(get_current_user),
+    chat_service: ChatService = Depends(get_chat_service)
+) -> List[ConversationResponse]:
+    """Update the order of user conversations."""
+    return await chat_service.update_conversation_order(
+        current_user.id, 
+        order_data.conversation_ids
+    )
+    
+@router.post("/conversations/{conversation_id}/upload")
+async def upload_file(
+    conversation_id: UUID,
+    file: UploadFile,
+    current_user: User = Depends(get_current_user),
+    chat_service: ChatService = Depends(get_chat_service)
+) -> Dict[str, Any]:
+    """Upload a file to a conversation for processing."""
+    # Verify user owns the conversation
+    if not await chat_service.user_owns_conversation(conversation_id, current_user.id):
+        raise HTTPException(status_code=403, detail="Not authorized to access this conversation")
+    
+    # Process uploaded file
+    result = await chat_service.process_uploaded_file(conversation_id, file)
+    return {"success": True, "file_data": result}
 ```
 
 ### Error Handling
@@ -665,43 +1007,252 @@ async def create_message(
 
 ### Architecture
 
-The database query system enables both direct SQL and natural language queries with a secure execution environment:
+The database query system enables both direct SQL and natural language queries with a secure execution environment and entity name resolution:
 
-1. **Query Processing**
-   - SQL validation and safety checks
-   - Natural language to SQL conversion using Claude API
-   - Schema-aware query generation
-   - Export capability to CSV and Google Sheets
-   - Query history and management
+1. **Natural Language Query Processing**
+   ```python
+   class DatabaseQueryService:
+       async def process_natural_language_query(
+           self, 
+           nl_query: str, 
+           translate_only: bool = False
+       ) -> Dict[str, Any]:
+           """Convert natural language to SQL using Claude API."""
+           try:
+               # Prepare schema context for Claude
+               schema_context = await self._get_database_schema_context()
+               
+               # Generate SQL query using Claude
+               prompt = self._create_nl_to_sql_prompt(nl_query, schema_context)
+               sql_query = await self.anthropic_service.generate_sql(prompt)
+               
+               result = {
+                   "original_query": nl_query,
+                   "generated_sql": sql_query,
+                   "results": None
+               }
+               
+               # Execute query if requested
+               if not translate_only:
+                   # Validate and execute the query with safety checks
+                   query_results = await self._execute_sql_query(sql_query)
+                   result["results"] = await self.entity_resolver.resolve_query_results(query_results)
+               
+               return result
+               
+           except Exception as e:
+               self.logger.error(f"Natural language query error: {str(e)}")
+               raise DBQueryError(f"Error processing natural language query: {str(e)}")
+   ```
 
-2. **API Endpoints**
-```python
-@router.post("/query", response_model=Dict[str, Any])
-async def execute_database_query(
-    query_data: Dict[str, Any],
-    current_user_id: UUID = Depends(get_current_user_id),
-    db: AsyncSession = Depends(get_db)
-) -> Dict[str, Any]:
-    """Execute database query (SQL or natural language)."""
-    # Query execution with safety checks
-    # Result formatting
-    # Optional export processing
-```
+2. **Entity Name Resolution for Query Results**
+   ```python
+   class EntityNameResolver:
+       async def resolve_query_results(self, results: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+           """Add human-readable names to database query results."""
+           if not results:
+               return []
+               
+           # Process each result row
+           enhanced_results = []
+           for row in results:
+               enhanced_row = dict(row)
+               await self._process_query_result_row(enhanced_row)
+               enhanced_results.append(enhanced_row)
+               
+           return enhanced_results
+           
+       async def _process_query_result_row(self, row: Dict[str, Any]) -> None:
+           """Process a single query result row to add human-readable names."""
+           # Detect entity ID columns (uuid-looking fields with _id suffix)
+           for key, value in list(row.items()):
+               if key.endswith('_id') and isinstance(value, UUID):
+                   # Extract entity type from column name
+                   entity_type = key[:-3]  # Remove '_id' suffix
+                   
+                   # Handle special cases
+                   if entity_type == "league":
+                       await self._add_league_name(row, value)
+                   elif entity_type == "division_conference":
+                       await self._add_division_conference_name(row, value)
+                   elif entity_type == "team":
+                       await self._add_team_name(row, value)
+                   # ... other entity types
+   ```
 
-3. **Integration with Claude API**
-```python
-async def execute_natural_language_query(self, nl_query: str) -> List[Dict[str, Any]]:
-    """Convert natural language to SQL and execute it."""
-    # Get database schema for context
-    # Generate SQL query using Claude
-    # Execute with safety checks
-    # Return formatted results
-```
+3. **API Endpoints**
+   ```python
+   @router.post("/query", response_model=Dict[str, Any])
+   async def execute_database_query(
+       query_data: DatabaseQueryRequest,
+       current_user: User = Depends(get_current_admin_user),
+       db: AsyncSession = Depends(get_db)
+   ) -> Dict[str, Any]:
+       """Execute database query (SQL or natural language) with entity name resolution."""
+       db_query_service = DatabaseQueryService(db)
+       
+       if query_data.query_type == "sql":
+           # Direct SQL execution with safety checks
+           sql_results = await db_query_service.execute_sql_query(query_data.query)
+           
+           # Enhance results with entity name resolution
+           results = await db_query_service.entity_resolver.resolve_query_results(sql_results)
+           
+           return {
+               "query": query_data.query,
+               "results": results
+           }
+       elif query_data.query_type == "natural_language":
+           # Process natural language query
+           nl_result = await db_query_service.process_natural_language_query(
+               query_data.query, 
+               translate_only=query_data.translate_only
+           )
+           return nl_result
+       else:
+           raise HTTPException(
+               status_code=400, 
+               detail=f"Unsupported query type: {query_data.query_type}"
+           )
+   
+   @router.post("/query/save", response_model=SavedQueryResponse)
+   async def save_query(
+       query_data: SaveQueryRequest,
+       current_user: User = Depends(get_current_user),
+       db: AsyncSession = Depends(get_db)
+   ) -> SavedQueryResponse:
+       """Save a query for future use."""
+       db_query_service = DatabaseQueryService(db)
+       saved_query = await db_query_service.save_query(
+           user_id=current_user.id,
+           name=query_data.name,
+           query_type=query_data.query_type,
+           query=query_data.query,
+           description=query_data.description
+       )
+       return SavedQueryResponse.from_orm(saved_query)
+   
+   @router.post("/query/export", response_model=Dict[str, Any])
+   async def export_query_results(
+       export_data: ExportQueryRequest,
+       current_user: User = Depends(get_current_user),
+       db: AsyncSession = Depends(get_db)
+   ) -> Dict[str, Any]:
+       """Export query results to CSV or Google Sheets."""
+       db_query_service = DatabaseQueryService(db)
+       export_service = ExportService(db)
+       
+       # Execute query to get results
+       results = await db_query_service.execute_query(
+           query_type=export_data.query_type,
+           query=export_data.query
+       )
+       
+       # Export based on requested format
+       if export_data.export_format == "csv":
+           csv_data = export_service.generate_csv(results)
+           return {"format": "csv", "data": csv_data}
+       elif export_data.export_format == "sheets":
+           sheet_url = await export_service.export_to_sheets(
+               current_user.id,
+               export_data.sheet_name or "Query Results",
+               results
+           )
+           return {"format": "sheets", "url": sheet_url}
+       else:
+           raise HTTPException(
+               status_code=400, 
+               detail=f"Unsupported export format: {export_data.export_format}"
+           )
+   ```
 
-4. **Safety Considerations**
-   - SQL injection prevention
-   - Operation whitelisting (SELECT only)
-   - Pattern-based security checks
-   - User permission verification
-   - Schema information protection
-   - Result size limits
+4. **Claude API Integration for SQL Generation**
+   ```python
+   class AnthropicService:
+       async def generate_sql(self, prompt: str) -> str:
+           """Generate SQL from natural language using Claude."""
+           try:
+               response = await self.client.messages.create(
+                   model=self.default_model,
+                   max_tokens=1000,
+                   messages=[
+                       {"role": "user", "content": prompt}
+                   ],
+                   temperature=0.2  # Lower temperature for more deterministic SQL generation
+               )
+               
+               # Extract SQL from response
+               sql = self._extract_sql_from_response(response.content[0].text)
+               return sql
+               
+           except Exception as e:
+               self.logger.error(f"SQL generation error: {str(e)}")
+               raise SQLGenerationError(f"Failed to generate SQL: {str(e)}")
+       
+       def _extract_sql_from_response(self, response_text: str) -> str:
+           """Extract SQL query from Claude's response."""
+           # Look for SQL between triple backticks
+           sql_pattern = r"```sql\s*(.*?)\s*```"
+           match = re.search(sql_pattern, response_text, re.DOTALL)
+           
+           if match:
+               return match.group(1).strip()
+           
+           # Fallback to any text between triple backticks
+           code_pattern = r"```\s*(.*?)\s*```"
+           match = re.search(code_pattern, response_text, re.DOTALL)
+           
+           if match:
+               return match.group(1).strip()
+               
+           # Last resort - try to find anything that looks like SQL
+           if "SELECT" in response_text.upper():
+               # Extract from SELECT to end or next paragraph
+               select_idx = response_text.upper().find("SELECT")
+               end_idx = len(response_text)
+               
+               # Look for end markers
+               for marker in ["\n\n", "\r\n\r\n"]:
+                   marker_idx = response_text.find(marker, select_idx)
+                   if marker_idx > 0:
+                       end_idx = min(end_idx, marker_idx)
+                       
+               return response_text[select_idx:end_idx].strip()
+               
+           # No SQL found
+           raise SQLGenerationError("Could not extract SQL from Claude's response")
+   ```
+
+5. **Safety Implementation**
+   ```python
+   class DatabaseQueryService:
+       def _validate_sql_query(self, sql: str) -> None:
+           """Validate SQL query for safety."""
+           # Check if query is SELECT only
+           sql_upper = sql.upper()
+           if not sql_upper.strip().startswith("SELECT"):
+               raise SQLValidationError("Only SELECT queries are allowed")
+               
+           # Check for unauthorized operations
+           for forbidden in ["INSERT", "UPDATE", "DELETE", "DROP", "ALTER", "TRUNCATE", "GRANT"]:
+               if forbidden in sql_upper:
+                   raise SQLValidationError(f"Forbidden operation detected: {forbidden}")
+                   
+           # Check for multiple statements
+           if ";" in sql[:-1]:  # Allow semicolon at the end
+               raise SQLValidationError("Multiple SQL statements are not allowed")
+               
+           # Check for SQL injection patterns
+           suspicious_patterns = ["--", "/*", "*/", "UNION ALL", "UNION SELECT", "INTO OUTFILE"]
+           for pattern in suspicious_patterns:
+               if pattern in sql_upper:
+                   raise SQLValidationError(f"Suspicious pattern detected: {pattern}")
+   ```
+
+6. **Entity Type Handling with Enhanced Features**
+   - Support for division_conference entities in query results
+   - Proper handling of broadcast rights with division/conference relationships
+   - Comprehensive entity name resolution for query outputs
+   - Intelligent column ordering based on relationship fields
+   - Toggle between UUID and human-readable name display
+   - Support for nickname fields in relevant entities

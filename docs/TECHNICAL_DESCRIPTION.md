@@ -134,7 +134,27 @@ frontend/
      - useEntitySchema for field definitions
      - useDragAndDrop for column reordering with persistent storage
    - Consolidated component implementations:
-     - Unified BulkEditModal for entity and query editing
+     - Advanced component architecture with directory-based organization:
+       ```
+       BulkEditModal/
+       ├── components/         # Sub-components
+       │   ├── FieldInput.tsx      # Input controls for different field types
+       │   ├── FieldSelector.tsx   # Field selection and display
+       │   ├── ProcessingStatus.tsx # Processing and results UI
+       │   └── index.ts           # Component exports
+       ├── hooks/               # Focused custom hooks
+       │   ├── useFieldManagement.ts # Field state and categorization
+       │   ├── useRelationships.ts   # Relationship data loading
+       │   ├── useFieldDetection.ts  # Field detection from data
+       │   ├── useBulkUpdate.ts      # Update processing
+       │   ├── useModalLifecycle.ts  # Component lifecycle management
+       │   └── index.ts             # Hook exports
+       ├── utils/               # Helper functions
+       │   ├── modalUtils.ts        # Utility functions
+       │   └── index.ts             # Utility exports
+       ├── types.ts             # Type definitions
+       └── index.tsx            # Main component with minimal logic
+       ```
      - Standardized entity field components with common patterns
      - Reusable FormField component for consistent rendering
      - Common validation and error handling patterns

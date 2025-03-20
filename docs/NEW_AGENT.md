@@ -1,483 +1,231 @@
-# NEW AGENT INTRODUCTION
+# NEW AGENT QUICK START
 
 ## Project Overview
-SheetGPT is a full-stack application combining AI-powered chat with structured data management and sports database functionality. Key capabilities:
-- AI chat for data extraction and structuring
-- Tabular data management with column controls
-- Sports entity management (leagues, teams, players, etc.)
-- Advanced database query system with SQL and natural language support
-- Google Sheets integration for data export
-- Database maintenance and backup system
-- Conversation archiving functionality
+SheetGPT combines AI-powered chat with structured data management and a sports database. Core features:
+- Claude AI integration for data extraction and natural language queries
+- Sports database with comprehensive entity relationships
+- Data import/export tools with Google Sheets integration
+- Database management system with backup and archiving
 
-## Technical Architecture
+## Architecture
 
 ### Backend
-- FastAPI with SQLAlchemy ORM and PostgreSQL
-- JWT authentication with role-based access
-- Domain-driven design with facade pattern
-- Modular service architecture with inheritance
-- Transaction management with session control
-- Database backup and management system
-- Query builder with error handling
-- Scheduled task infrastructure
+- FastAPI + PostgreSQL with SQLAlchemy ORM
+- Domain-driven design with facade pattern for services
+- Modular architecture with generic base services and inheritance
+- Claude API integration with streaming response handling
+- Transaction management with proper error recovery
 
 ### Frontend
-- React with TypeScript
-- React Query for data management
-- Feature-focused folder structure with specialized hooks
-- Utility modules for specific responsibilities
-- Advanced DataTable component
-- Fixed navigation bar with consistent layout
-- Sports database interface with relationship visualization
-- Admin dashboard for database management
-- Table-based list components with sorting capabilities
-- Contextual action buttons for improved UX
-- Reusable UI components with single responsibilities
-- Performance optimization strategies:
-  - Dependency fingerprinting for stable object comparison
-  - Breaking circular dependency chains
-  - Simplified component patterns for critical interactions
-  - State isolation to prevent infinite render loops
-  - Optimized search implementations for large datasets
+- React with TypeScript and custom hook-based architecture
+- Feature-based folder organization for maintainability
+- Single-responsibility components with optimized rendering
+- Advanced data grid with sorting, filtering, and column management
+- Performance optimizations to prevent render loops and dependency issues
 
 ## Key Components
 
 1. **Database Management System**
-   - Comprehensive backup and restore functionality
-   - Conversation archiving system
-   - Database statistics collection and reporting
-   - Admin management interface
-   - CLI tools for database operations
-   - Scheduled tasks for automated maintenance
+   - Backup/restore functionality with CLI tools
+   - Conversation archiving with JSON blob storage
+   - Database statistics and monitoring dashboard
+   - Scheduled maintenance tasks
 
-2. **Entity Reference Resolution System**
-   - Flexible reference system (UUID/name-based)
-   - Validation layer (`validationUtils.ts`)
-   - Mapping layer (`mappingUtils.ts`)
-   - Automatic entity creation and lookup
+2. **Entity Resolution System**
+   - Name or UUID-based entity references
+   - Automatic entity creation for missing references
+   - Special character handling in entity names
+   - Hierarchical relationship resolution
 
 3. **SportDataMapper**
-   - Field mapping with drag-and-drop
-   - Modular architecture with separation of concerns:
-     - Dialog container for UI consistency
-     - Entity-specific view components 
-     - Utility modules for data transformation
-     - Batch processing with progress tracking
-     - Notification management system
-   - Streamlined import workflow with error handling
-   - Entity type detection
-   - Batch import capabilities
-   - Progress tracking
-   - Record navigation
+   - Interactive field mapping with drag-and-drop
+   - Batch import with progress tracking
+   - Smart entity type detection from field patterns
+   - Record navigation with validation
+   - Intelligent error handling with user guidance
 
-4. **Advanced Filtering**
-   - Hybrid approach (backend/client-side)
-   - Multiple filter types and operators
-   - Filter persistence
-   - Dynamic query building
+4. **Entity Management**
+   - Entity-specific form components with relationship fields
+   - Bulk update system for mass entity changes
+   - Column drag-and-drop with persistence
+   - Toggle between UUID and human-readable names
+   - Division/Conference hierarchy management
+   - Advanced filtering with multiple operators
 
-5. **Entity Edit System**
-   - Modular form components per entity type
-   - Smart field type detection and rendering
-   - Relationship field handling with dropdowns
-   - Real-time validation and error handling
-   - Related entities display
+5. **Database Query System**
+   - Natural language to SQL using Claude AI
+   - Multi-level SQL extraction with fallbacks
+   - Safety validation with whitelisted operations
+   - Entity name resolution in query results
+   - Export to CSV or Google Sheets
 
-6. **Bulk Update System**
-   - Comprehensive interface for updating multiple entity records at once
-   - Works across all entity types (teams, leagues, players, etc.)
-   - Smart field organization by category
-   - Intelligent field type detection with appropriate inputs
-   - Empty field handling with preservation of existing values
-   - Batch processing with progress indication
-   - Performance optimization with request batching
-   - Success/failure reporting with detailed results
+## Current Status
 
-7. **Database Query System**
-   - Natural language to SQL conversion using Claude AI
-   - Direct SQL query execution with safety checks
-   - Side-by-side view of natural language and SQL
-   - Query translation without execution 
-   - Results display with sorting and column controls
-   - Client-side CSV export and Google Sheets export
-
-## Current Status (March 2025)
-
-### Completed Features
-- ✅ User authentication and management
-- ✅ Chat interface with AI integration
-- ✅ Structured data extraction
-- ✅ Sports database with comprehensive models
-- ✅ Division/Conference model with hierarchical relationships
-- ✅ Frontend-backend integration
-- ✅ Admin functionality
-- ✅ Enhanced field mapping visualization
-- ✅ Hybrid filtering implementation
-- ✅ Bulk operations for entities
-- ✅ Advanced entity editing with relationship management
-- ✅ Message repeat functionality
-- ✅ Entity list pagination
-- ✅ Database management system
-- ✅ Conversation archiving functionality
-- ✅ Database backup and restore
-- ✅ Admin statistics dashboard
-- ✅ Claude API integration
-- ✅ Conversation reordering
-- ✅ Enhanced error handling framework
-- ✅ Extraction services architecture
-- ✅ Database Query system with natural language support
+### Complete
+- ✅ User authentication with JWT and role-based access
+- ✅ Sports database with Division/Conference hierarchy model
+- ✅ Claude AI chat with streaming responses
+- ✅ Natural language database query system
+- ✅ Entity management with relationship handling
+- ✅ Database backup and conversation archiving
+- ✅ Bulk entity operations with field preservation
+- ✅ CSV and structured data extraction
+- ✅ Entity name resolution system
+- ✅ File upload processing in chat
 
 ### In Progress
-- 🔄 Google Sheets API integration reliability
-- 🔄 Sports database API endpoint testing
-- 🔄 Frontend component test coverage
-- 🔄 Automated database maintenance schedules
+- 🔄 Google Sheets export reliability
+- 🔄 API endpoint testing
+- 🔄 Frontend test coverage
+- 🔄 Automated database maintenance
 - 🔄 Mobile responsive design
 
 ## Critical Information
 
-1. **Database Schema**
-   - All entities use UUID primary keys
-   - Strict referential integrity
-   - Required fields enforced at database level
-   - Relationship tables for many-to-many
-   - System tables for archiving and backups
-
-2. **Entity Dependencies**
+1. **Entity Hierarchy**
+   ```
    Primary:
-   - Leagues
+   - Leagues (with optional nickname)
    - Broadcast Companies
    - Production Companies
    
    Secondary:
    - Division/Conferences (requires leagues)
-   - Teams (requires leagues, division/conferences, stadiums)
-   - Stadiums (requires broadcast companies)
+   - Teams (requires leagues + division/conferences + stadiums)
+   - Stadiums (may have host_broadcaster)
    - Players (requires teams)
    
    Relationship:
-   - Games (requires teams, stadiums)
-   - Broadcast Rights
+   - Games (requires teams + stadiums)
+   - Broadcast Rights (may reference division/conferences)
    - Production Services
-   
-   System:
-   - Archived Conversations
-   - Database Backups
-   - Database Statistics
+   ```
 
-3. **Recent Changes**
-   - Added DivisionConference model as sub-unit of Leagues
-   - Created hierarchical relationship: League → Division/Conference → Team
-   - Refactored large components into modular, focused components
-   - Implemented feature-based folder structure for complex features
-   - Extracted business logic into specialized custom hooks
-   - Reorganized API client code into domain-specific services
-   - Improved type safety with dedicated type files and interfaces
-   - Enhanced Teams Advanced Edit functionality with proper relationship handling
-   - Integrated Claude API with robust error handling
-   - Implemented fixed navigation bar across the application
-   - Enhanced extraction services architecture
-   - Added conversation archiving with restore capability
-   - Created database statistics dashboard for administrators
+2. **Key Architecture Patterns**
+   - UUID primary keys throughout with relationship mappings
+   - Facade pattern in backend services to delegate to specialized services
+   - Hook-based modular frontend with single responsibility hooks
+   - Feature-focused folder structure for complex components
+   - Streaming response architecture with buffer management
+   - Entity name resolution with special character handling
 
-## Common Issues and Solutions
+## Common Issues and Quick Solutions
 
-1. **Database Management**
-   - Use CLI tools for database operations: `python src/scripts/db_management.py [command]`
-   - Schedule backups using cron jobs
-   - Archive instead of delete for important data
-   - Monitor database growth patterns
-   - Use provided restore tools for recovery
+1. **Database Operations**
+   - Database tools: `python src/scripts/db_management.py [command]`
+   - Backup: `python src/scripts/db_management.py backup`
+   - Stats: `python src/scripts/db_management.py stats`
+   - Archive conversations instead of deleting them
 
-2. **Entity Creation**
+2. **Entity Relationships**
    - Use name-based references when possible
-   - System handles UUID conversion
-   - Automatic entity creation for missing references
-   - Ensure EntityType definitions are consistent across the codebase
-   - Use dynamic field generation for consistent column handling
+   - System automatically resolves names to UUIDs
+   - Respect entity creation order (primary → secondary → relationship)
+   - Division/Conference entities require league_id
+   - Teams require division_conference_id
 
-3. **Validation**
-   - Validation occurs before mapping
-   - Support for both UUID and name fields
-   - Clear error messages for debugging
-   - Real-time field validation in forms
-   - Add proper error handling for undefined values
-   - Use null checks before accessing properties
-   - Extract context functions before using them
+3. **Frontend Development**
+   - Extract context variables at component start
+   - Add null checks before accessing nested properties
+   - Use optimistic updates with proper error fallbacks
+   - Apply React.memo for expensive components
+   - Keep column visibility consistent between entity and query views
 
-4. **Data Import**
-   - Batch import with progress tracking
-   - Automatic relationship resolution
-   - Error aggregation and reporting
-   - Ensure context data is available before use
-   - Handle field mapping consistently across views
-
-5. **Entity Editing**
-   - Use AdvancedEditForm for complex entities
-   - Handle relationships through dropdowns
-   - Implement optimistic updates
-   - Provide fallback error handling
-   - Structure components to fetch context data before rendering
-   - Add defensive programming for potential undefined values
-   - Use unified column visibility controls
-   - Generate UI elements dynamically from schema
-
-6. **Component Rendering**
-   - Access context data at the beginning of components
-   - Provide safe fallbacks for missing or undefined values
-   - Add conditional rendering for potentially missing data
-   - Handle loading states explicitly
-   - Create consistent error displays for data issues
-   - Standardize column visibility between entity and query views
-   - Extract reusable rendering logic for different components
-
-## Required Reading
-1. TECHNICAL_DESCRIPTION.md - Detailed component documentation
-2. SPORTS_API_ENDPOINTS.md - API endpoint specifications
-3. API_ARCHITECTURE.md - System architecture details
-4. PROGRESS.md - Latest updates and status
-
-## Error Handling Protocol
-1. Check validation layer first
-2. Verify entity relationships
-3. Review transaction logs
-4. Confirm client-side state
-5. Validate API responses
-6. Check database backup status
-
-## Recent Features
-1. **UI Component Consolidation** (March 18, 2025)
-   - Consolidated BulkEditModal implementations:
-     - Unified four separate implementations into a single component
-     - Added consistent UI for both entity and query result editing
-     - Enhanced type safety with explicit interfaces for field definitions
-     - Improved relationship field handling with sorted dropdown options
-     - Standardized error handling and state management
-     - Fixed authentication issues with direct API calls
-     - Created more maintainable component while preserving exact UI
-
-   - Refactored DataManagement feature with feature-based architecture:
-     - Reorganized into feature directory with components, hooks, and types
-     - Created focused DataList component for data selection
-     - Enhanced hooks with proper typing and single responsibility
-     - Improved state management with optimized hooks
-     - Added comprehensive documentation for the feature
-     - Used modular pattern with clean separation of concerns
-     - Maintained identical UI and functionality
-     - Created example for future feature migration
-
-2. **Column Management and SmartEntitySearch Optimization** (March 22, 2025)
-   - Implemented persistent column drag-and-drop functionality across EntityList and DatabaseQuery
-   - Added visual feedback during column drag operations with clear hover states
-   - Fixed SmartEntitySearch component to eliminate infinite update loops
-   - Modified column visibility to hide UUID columns by default for improved readability
-   - Implemented column order persistence that survives page navigation and browser restarts
-   - Added unique storage keys for different query types to maintain separate column preferences
-   - Used localStorage instead of sessionStorage for long-term persistence
-   - Enhanced component rendering with optimized memoization strategies
-   - Fixed circular dependency issues in state management hooks
-   - Improved event handlers to prevent redundant state updates
-
-2. **Entity Display and Relationship Field Improvements** (March 21, 2025)
-   - Fixed broadcast rights entity display to show proper names instead of blank fields
-   - Corrected entity type mapping in sports_service.py with proper BroadcastRights model
-   - Implemented consistent Names/IDs toggle behavior across all entity fields
-   - Added dynamic name generation for all entities missing name fields
-   - Fixed entity deletion issues with proper entity type mapping
-   - Removed emergency fixes for UUID confusion and implemented proper type mapping
-   - Enhanced cell rendering for all UUID fields with associated text strings
-   - Improved detection of related name fields across entity types
-   - Fixed entity type display in production services and game broadcasts
-   - Implemented data-driven column generation based directly on API responses
-   - Fixed broadcast rights display to correctly separate company name from territory
-   - Created dedicated handling for relationship fields with smart display logic
-   - Simplified column visibility system with proper data-based initialization
-   - Fixed editing behavior for special fields like broadcast company names
-
-2. **Entity Name Resolution Improvements** (March 20, 2025)
-   - Enhanced entity name resolution in database query results
-   - Improved BroadcastRights entity handling with better name-to-ID resolution
-   - Added automatic column reordering for related fields (entity_id/entity_name)
-   - Implemented descriptive placeholders for unresolved entities
-   - Fixed auto-creation of missing Division/Conference entities
-   - Enhanced validation for entity relationships across entity types
-   - Added support for entity name resolution across all entity types
-   - Improved error handling for entity creation with relationship enforcement
-   - Enhanced UUID-to-name display toggling with better name resolution
-
-2. **Chat File Import & SportDataMapper Enhancements** (March 19, 2025)
-   - Added file upload capabilities to chat interface for CSV and text files
-   - Implemented smart CSV parsing with automatic data structure detection
-   - Enhanced SportDataMapper with intelligent name-to-ID resolution
-   - Improved BroadcastRights entity mapping for hierarchy relationships
-   - Added smart date format handling for year-only input (e.g., "2020" → "2020-01-01")
-   - Implemented flexible entity search with exact and partial matching
-   - Enhanced help texts for complex fields to improve user guidance
-   - Fixed validation issues with relationship fields in mapping workflow
-   - Added support for deriving entity_id from entity_type relationships
-
-2. **UUID Display Toggle & Division/Conference Dropdowns** (March 15, 2025)
-   - Added toggle between showing full UUIDs and human-readable names across app
-   - Fixed Division/Conference dropdown selection in bulk edit operations 
-   - Organized Division/Conference dropdowns by league for better selection
-   - Made all table columns visible by default for better data discoverability
-
-3. **Global Bulk Update Feature** (March 14, 2025)
-   - Comprehensive bulk update system for all entity types
-   - Modal-based interface with field categorization
-   - Smart field input detection with appropriate controls
-   - Foreign key resolution with dropdown selection
-
-4. **Division/Conference Model Addition** (March 13, 2025)
-   - Added DivisionConference model as sub-unit of Leagues 
-   - Created hierarchical relationship: League → Division/Conference → Team
-   - Modified Team model to require division/conference assignment
-
-## System State
-```json
-{
-  "project_name": "SheetGPT",
-  "version": "0.7.2",
-  "last_updated": "2025-03-19",
-  "environment": {
-    "development": "Docker-based",
-    "services": ["frontend", "backend", "db"],
-    "documentation": ["README.md", "PROGRESS.md", "TECHNICAL_DESCRIPTION.md", "API_ARCHITECTURE.md"]
-  },
-  "key_components": {
-    "frontend": {
-      "SportDataMapper": "Maps structured data to sports entities with name-to-ID resolution",
-      "ChatFileImport": "Handles file uploads in chat with smart data detection",
-      "SportsDatabase": "Manages sports entities with validation",
-      "DataTable": "Displays structured data",
-      "EntityFilter": "Advanced filtering system",
-      "AdvancedEditForm": "Smart entity editing with relationship handling",
-      "MessageRepeat": "Allows resending of previous messages",
-      "DatabaseStats": "Admin dashboard for database statistics",
-      "ChatContext": "Manages chat state with optimized streaming",
-      "DataExtraction": "Enhanced extraction services architecture",
-      "DatabaseQuery": "Natural language and SQL database querying"
-    },
-    "backend": {
-      "FastAPI": "REST API framework",
-      "SQLAlchemy": "ORM for database operations",
-      "PostgreSQL": "Primary database",
-      "Alembic": "Database migrations",
-      "DatabaseManagementService": "Backup, archiving, and statistics",
-      "CLITools": "Command-line tools for database management",
-      "AnthropicService": "Claude API integration service",
-      "LoggingConfig": "Enhanced structured logging system",
-      "DatabaseQuerySystem": "SQL and natural language query processing"
-    }
-  }
-}
-```
-
-## Current Priorities
-```json
-{
-  "high_priority": [
-    {
-      "task": "Database Management",
-      "focus": [
-        "Automated backup scheduling",
-        "Backup retention policies",
-        "Growth monitoring",
-        "Recovery testing",
-        "Performance metrics collection"
-      ]
-    },
-    {
-      "task": "Data Management",
-      "focus": [
-        "Entity relationship validation",
-        "Data cleanup procedures",
-        "Advanced editing improvements",
-        "Pagination optimization",
-        "Google Sheets export reliability"
-      ]
-    },
-    {
-      "task": "Testing Coverage",
-      "focus": [
-        "Database management features",
-        "Message repeat functionality",
-        "Pagination implementation",
-        "Bulk operations",
-        "Entity edit components"
-      ]
-    },
-    {
-      "task": "Error Handling",
-      "focus": [
-        "Field validation",
-        "Relationship constraints",
-        "User-friendly error messages",
-        "Edit form validation",
-        "Bulk operation failures",
-        "Export functionality fallbacks"
-      ]
-    }
-  ],
-  "ongoing_maintenance": [
-    "Documentation updates",
-    "Performance optimization",
-    "Data integrity checks",
-    "UI/UX enhancements",
-    "Table-based component refinements",
-    "Conversation list sorting optimizations",
-    "Entity edit improvements",
-    "Pagination refinement",
-    "Database growth monitoring",
-    "Backup verification"
-  ]
-}
-```
+## Essential Documentation
+- TECHNICAL_DESCRIPTION.md - Component details
+- API_ARCHITECTURE.md - Backend structure
+- CLAUDE.md - AI integration specifics
+- PROGRESS.md - Latest updates
 
 ## Development Workflow
-```json
-{
-  "setup": {
-    "initial": "docker-compose up --build -d",
-    "database": "python src/scripts/alembic_wrapper.py upgrade",
-    "sample_data": "docker-compose exec backend python src/scripts/create_sample_sports_data.py"
-  },
-  "database_management": {
-    "backup": "python src/scripts/db_management.py backup",
-    "stats": "python src/scripts/db_management.py stats",
-    "cleanup": "python src/scripts/db_management.py cleanup --older-than=30d"
-  },
-  "development": {
-    "branch_strategy": "feature/{component-name}/{feature-description}",
-    "testing": "./run-tests.sh or docker-compose run --rm frontend-test",
-    "documentation": "Update relevant .md files"
-  }
-}
+```bash
+# Start services
+docker-compose up
+
+# Run backend tests
+docker-compose run --rm backend pytest
+
+# Run frontend tests
+./run-tests.sh
+
+# Apply database migrations
+docker-compose run --rm backend python src/scripts/alembic_wrapper.py upgrade
+
+# Create sample data
+docker-compose run --rm backend python src/scripts/create_sample_sports_data.py
 ```
 
-## Immediate Focus
+## Recent Key Improvements
 
-For any new agent continuing development:
+1. **SportDataMapper Workflow** (March 31, 2025)
+   - Separated mapping from data operations
+   - Made league_id optional for broadcast rights
+   - Added default dates for missing fields
+   - Improved entity type detection from content
+   - Enhanced error handling for constraints
 
-1. Review current architecture in TECHNICAL_DESCRIPTION.md
-2. Focus on high-priority tasks:
-   - Database management system monitoring
-   - Entity relationship handling
-   - Data management scripts
-   - Field validation improvements
+2. **Component Architecture** (March 17-20, 2025)
+   - Refactored large components with hook-based architecture
+   - Consolidated BulkEditModal implementations
+   - Extracted business logic into specialized hooks
+   - Used feature-based folder organization
+   - Created entity-specific field components
+   - Advanced BulkEditModal refactoring (March 20):
+     - Created proper component directory structure with organized files
+     - Implemented single-responsibility hooks for focused concerns
+     - Added proper lifecycle management to prevent infinite loops
+     - Separated UI from business logic for maintainability
+     - Maintained explicit dependency tracking for all effects
 
-3. Key areas requiring attention:
-   - Database growth patterns
-   - Backup scheduling and verification
-   - Entity relationship validation
-   - Documentation maintenance
-   - Test coverage expansion
+3. **UI Enhancements** (March 22, 2025)
+   - Persistent column drag-and-drop functionality
+   - Names/IDs toggle for relationship fields
+   - Fixed circular dependencies in state management
+   - Data-driven column generation from API responses
+   - Division/Conference dropdowns organized by league
 
-4. Development guidelines:
-   - Maintain data integrity
-   - Update documentation
-   - Add comprehensive tests
-   - Follow dependency order
-   - Implement proper validation
-   - Use archiving instead of deletion
+4. **Division/Conference Model** (March 13, 2025)
+   - Added as sub-unit of Leagues with nickname field
+   - Created hierarchy: League → Division/Conference → Team 
+   - Made division_conference required for teams
+   - Added proper constraint handling
+
+## Current Focus
+
+### High Priority
+- Google Sheets export reliability improvements
+- API endpoint testing for sports database
+- Database management monitoring tools
+- Entity relationship validation enhancements
+- Frontend component test coverage
+
+### Technical Debt
+- Mobile responsive design implementation
+- Performance optimization for large datasets
+- Documentation updates for recent changes
+- Improved error handling for edge cases
+- Test coverage expansion
+
+## Quick Reference
+
+### Key Commands
+```bash
+# Backend operations
+python src/scripts/db_management.py backup
+python src/scripts/db_management.py stats
+python src/scripts/db_management.py cleanup --older-than=30d
+python src/scripts/alembic_wrapper.py revision --autogenerate -m "migration_name"
+
+# Frontend operations
+docker-compose run --rm frontend npm run lint
+docker-compose run --rm frontend npm run typecheck
+```
+
+### Development Guidelines
+- Maintain data integrity with proper validation
+- Follow entity dependency order for creation/deletion 
+- Use archiving instead of deletion for important data
+- Add null checks before accessing nested properties
+- Update documentation alongside code changes
+- Write tests for any new functionality
+- Respect the project's modular architecture

@@ -198,6 +198,11 @@ const EntityList: React.FC<EntityListProps> = ({ className = '' }) => {
       });
     }
     
+    // Always ensure league_name is visible for broadcast rights regardless of saved settings
+    if (selectedEntityType === 'broadcast' && availableFields.includes('league_name')) {
+      newVisibility['league_name'] = true;
+    }
+    
     // Column order is now handled directly by the useDragAndDrop hook
     
     // Set visibility state

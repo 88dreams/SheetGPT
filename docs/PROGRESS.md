@@ -2,415 +2,254 @@
 
 ## Project Overview
 
-SheetGPT is a full-stack application that combines AI-powered chat capabilities with structured data management and sports database functionality. The application enables:
+SheetGPT combines AI-powered chat with structured data management and a sports database. Core capabilities:
 
-1. AI-assisted data extraction and structuring
-2. Structured data management and transformation
-3. Sports entity management (leagues, teams, players, etc.)
-4. Google Sheets integration for data export
-5. Database maintenance and backup capabilities
+- Claude-powered chat with data extraction
+- Sports database with comprehensive entity relationships 
+- Interactive data mapping and transformation
+- Natural language database queries
+- Google Sheets integration and CSV export
+- Database maintenance and archiving
 
-## Current Status (March 2025)
+## Latest Improvements (March 2025)
 
-### Latest Features
+### Database & Integration Enhancements
 
-1. SportDataMapper and Broadcast Rights Enhancements (March 31, 2025)
-   - Fixed workflow issue with "Map to Sports" operation:
-     - Separated SportDataMapper from automatic "Send to Data" actions
-     - Made "Send to Data" a distinct, explicit operation requiring user action
-     - Prevented automatic opening of Export page when mapper is closed
-     - Added clear button implementation with proper state management
-     - Improved UX by making operations more predictable and controlled
-   - Enhanced Broadcast Rights functionality:
-     - Made league_id field optional for broadcast rights entities
-     - Added default date handling (April 1, 1976) when dates are missing
-     - Improved error messages for broadcast company creation
-     - Auto-detects entity type from name content (e.g., "Conference")
-     - Displays user-friendly notifications when creating new records
-     - Added better guidance text in error scenarios
-     
-2. Broadcast Rights in SportDataMapper Improvements (March 29, 2025)
-   - Fixed critical issue with name field interpretation in broadcast rights entries:
-     - Correctly interprets name field as the entity being broadcast, not the broadcaster
-     - Added intelligent entity type detection from name content (e.g., "Conference")
-     - Enhanced lookup flow to properly set entity_id and related fields
-     - Fixed duplicate entry handling with user-friendly error messages
-     - Updated field help tooltips with clear explanations of field purposes
-     - Improved UI error notifications with prominent, non-dismissing errors for constraints
-     - Added database constraint error detection with human-readable explanations
-     - Enhanced error display with centered, clearly visible notifications
-     - Implemented better guidance text for users encountering errors
-     
-2. EntityList Column Order Persistence (March 28, 2025)
-   - Fixed infinite render loop in EntityList component:
-     - Completely rewrote the useDragAndDrop hook to eliminate circular dependencies
-     - Used refs to track state and prevent unnecessary re-renders
-     - Added proper dependency management in all hooks
-     - Made the hook the single source of truth for column order
-     - Simplified component-hook interactions to prevent state synchronization issues
-     - Added browser session persistence for column order preferences
-     - Enhanced the hook to properly handle storage key changes for different entity types
-     - Ensured column order persists between page navigation and entity type changes
-     - Improved error handling with proper storage key management
+**Brand-Broadcast Company Integration (April 19)**
+- Implemented dual-ID solution for brand-broadcast company integration
+- Added automatic placeholder broadcast company creation for brands
+- Fixed foreign key constraint issues in broadcast rights
+- Added comprehensive error handling for entity creation failures
+- Implemented lookup fallback from broadcast companies to brands
+- Added tooling for verification and database integrity maintenance
 
-3. Entity Search Component Fix (March 28, 2025)
-   - Fixed critical infinite loop bug in SmartEntitySearch component:
-     - Simplified the search implementation to eliminate complex dependencies
-     - Replaced AutoComplete dropdown with a direct input search
-     - Removed recursive dependency chain that caused maximum update depth error
-     - Eliminated problematic useMemo and useEffect patterns
-     - Improved component stability for entity search across the application
-     - Implemented minimal search solution directly in EntityList component
-     - Added more robust error handling for entity search operations
+**League Association for Broadcast Rights (April 19)**
+- Added visible League column for broadcast rights in entity list
+- Implemented accurate league resolution based on entity relationships
+- Fixed incorrect league display for unrelated broadcast rights
+- Added "Not Associated" designation for standalone broadcast rights
+- Enhanced entity name resolver with robust type checking and relationship traversal
 
-2. Division/Conference Nickname Field (March 25, 2025)
-   - Added nickname field to DivisionConference entity:
-     - Updated SQLAlchemy model with nickname field (String(20), nullable, indexed)
-     - Created Alembic migration for database schema change
-     - Updated Pydantic schemas for all relevant operations
-     - Added TypeScript interface definition with nickname field
-     - Implemented UI components for viewing and editing nicknames
-     - Added inline nickname editing in EntityList with color-coded badges
-     - Enhanced EntitySchema definitions for form building
-     - Updated BulkEditModal to include nickname field
-     - Added comprehensive documentation in CLAUDE.md
+**Year-Only Date Handling (April 19)**
+- Implemented automatic date formatting from year-only inputs
+- Added January 1st/December 31st conversion for start/end dates
+- Enhanced DatePicker with special year-only format detection
+- Added validation for incorrect date formats with smart correction
 
-2. SportDataMapper Fixes (March 24, 2025)
-   - Fixed entity name resolution with special character handling:
-     - Added comprehensive support for handling parentheses in entity names
-     - Implemented fallback mechanism that extracts base name before parentheses
-     - Enhanced entity lookup with exact and partial name matching
-     - Normalized entity types in backend validators to handle variations (e.g., 'conference' → 'division_conference')
-     - Fixed broadcast entity creation with proper API endpoint usage
-     - Improved error logging for troubleshooting entity creation issues
-   
-   - Fixed record navigation in SportDataMapper:
-     - Implemented circular navigation (cycle back to first record after last)
-     - Enhanced record navigation UI to prevent disabled states
-     - Added bounds checking and validation for record indices
-     - Used RequestAnimationFrame for smoother UI transitions
-     - Fixed source field value updates by eliminating conditional checks
-     - Implemented direct state updates to ensure UI refresh
+### Workflow & Interface Enhancements
 
-2. UI Component Consolidation (March 18, 2025)
-   - Consolidated BulkEditModal implementations:
-     - Unified four separate BulkEditModal implementations into a single component
-     - Added consistent UI for both entity and query result editing
-     - Enhanced type safety with explicit interfaces for field definitions
-     - Improved relational field handling with dropdown organization
-     - Standardized error handling and state management
-     - Fixed authentication issues with direct API calls
-     - Created more maintainable component while preserving exact UI
+**SportDataMapper Workflow (March 31)**  
+- Separated "Map to Sports" from automatic "Send to Data" actions
+- Made operations explicit with clearer user interaction flow
+- Added better error guidance and default date handling
+- Made league_id optional for broadcast rights entities
+- Improved entity type detection from content
 
-   - Refactored DataManagement feature with feature-based architecture:
-     - Reorganized into feature directory with components, hooks, and types
-     - Created focused DataList component for data selection
-     - Enhanced hooks with proper typing and single responsibility
-     - Improved state management with optimized hooks
-     - Added comprehensive documentation for the feature
-     - Used modular pattern with clean separation of concerns
-     - Maintained identical UI and functionality
+**UI Component Optimization (March 28-29)**  
+- Fixed broadcast rights name field interpretation
+- Rewrote useDragAndDrop hook to eliminate circular dependencies
+- Implemented column order persistence across navigation
+- Fixed critical infinite loop in SmartEntitySearch component
+- Enhanced error display with non-dismissing notifications for constraints
 
-2. Advanced Component Refactoring (March 17, 2025)
-   - Refactored `SportsDatabaseContext` with hook-based modular architecture:
-     - Split monolithic context into focused custom hooks
-     - Created separate hooks for entity selection, pagination, filtering, sorting, etc.
-     - Improved state management with proper memoization
-     - Enhanced type safety with comprehensive interfaces
-     - Fixed dependency issues in useEffect hooks
-     - Added clean separation between data fetching and UI rendering
+**Data Model & Navigation Improvements (March 24-25)**
+- Added nickname field to DivisionConference entity
+  - Added inline editing with color-coded badges
+  - Updated schemas, forms, and bulk edit functionality
+- Enhanced entity name resolution
+  - Added support for parentheses in entity names
+  - Implemented exact/partial name matching
+  - Normalized entity types in backend validators
+- Fixed record navigation in SportDataMapper
+  - Added circular navigation with smooth transitions
+  - Improved UI with proper state management
 
-   - Refactored `AdvancedEditForm` with component-based architecture:
-     - Split 800+ line component into smaller, focused components
-     - Created entity-specific field components (TeamFields, StadiumFields, etc.)
-     - Extracted data fetching logic into custom hooks
-     - Implemented reusable FormField component for consistent rendering
-     - Created EntityRelatedInfo component for relationships and history
-     - Improved error handling and loading states
-     - Enhanced maintainability while preserving identical UI and functionality
+**Architecture Refactoring (March 17-18)**
+- Consolidated UI components for better maintainability
+  - Unified BulkEditModal implementations into a single component
+  - Standardized field handling and error management
+  - Created feature-based organization pattern for DataManagement
+- Implemented hook-based architecture
+  - Split monolithic contexts into single-responsibility hooks
+  - Separated data fetching from UI rendering
+  - Created dedicated hooks for selection, filtering, pagination
+  - Enhanced type safety with comprehensive interfaces
+- Modularized large components
+  - Split 800+ line AdvancedEditForm into focused components
+  - Created entity-specific field components
+  - Built reusable FormField for consistent rendering
 
-2. Backend and Frontend Refactoring (March 16, 2025)
-   - Refactored `sports_service.py` using object-oriented design principles:
-     - Created `SQLQueryBuilder` for SQL query construction
-     - Added `DatabaseExecutor` for query execution and error handling
-     - Added `Logger` for configurable debug logging
-     - Improved code organization with better separation of concerns
-   - Refactored `SportDataMapperContainer` to improve organization:
-     - Extracted UI components into separate files with single responsibilities
-     - Created reusable `DialogContainer` for modal handling
-     - Extracted view logic into dedicated view components
-     - Added consistent UI elements with `ViewModeSelectorContainer`
-   - Refactored `useImportProcess` hook with modular architecture:
-     - Created utility modules for specific responsibilities
-     - Added `importUtils` for data transformation and entity handling
-     - Created `batchProcessor` for efficient batch operations
-     - Added `notificationManager` for consistent notifications
-     - Reduced duplication between single and batch operations
-     - Improved error handling with standardized patterns
-   - Updated documentation to reflect architectural improvements:
-     - Enhanced `API_ARCHITECTURE.md` with service design details
-     - Updated `TECHNICAL_DESCRIPTION.md` with component organization info
-     - Added documentation on utility modules and facade pattern
+**Backend & Utility Improvements (March 16)**
+- Refactored sports_service.py with OO design principles
+  - Added dedicated classes for SQL building, execution, and logging
+  - Improved separation of concerns for maintainability
+- Enhanced SportDataMapper architecture
+  - Created reusable components and containers
+  - Developed utility modules for specific tasks
+  - Built modular notification system
+- Improved import process with specialized utilities
+  - Created importUtils for data transformation
+  - Implemented efficient batchProcessor
+  - Added standardized error handling
 
-2. Column Drag/Drop and UUID Display Improvements (March 22, 2025)
-   - Implemented robust column drag-and-drop functionality in EntityList and DatabaseQuery
-   - Added visual feedback during drag operations with hover effects
-   - Fixed infinite update loops in SmartEntitySearch component
-   - Modified column visibility to hide UUID-only columns by default
-   - Improved state management in drag-and-drop hooks to prevent circular dependencies
-   - Added persistent column order that survives browser sessions and Docker restarts
-   - Implemented column order caching with hash-based keys for different query types
-   - Enhanced column visibility with localStorage-based persistence
-   - Fixed event handlers in column reordering to prevent redundant state updates
-   - Optimized component rendering with proper memoization
-   - Enhanced visual indicators for column reordering interactions
-   - Added debugging tools for component rendering cycles
-   - Fixed SmartEntitySearch with optimized implementation to avoid Ant Design issues
+**Column Management & Display (March 22)**
+- Added column drag-and-drop with visual feedback
+- Implemented persistent column order across sessions
+- Fixed SmartEntitySearch infinite update loops
+- Created UUID/name toggle for relationship fields
+- Added localStorage persistence for user preferences
+- Optimized rendering with proper memoization
 
-2. Entity Display and Deletion Fixes (March 21, 2025)
-   - Fixed broadcast rights entity display to show proper names instead of blank fields
-   - Corrected entity type mapping in sports_service.py with proper BroadcastRights model
-   - Implemented consistent Names/IDs toggle behavior across all entity fields
-   - Added dynamic name generation for all entities missing name fields
-   - Fixed entity deletion issues with proper entity type mapping
-   - Removed emergency fixes for UUID confusion and implemented proper type mapping
-   - Enhanced cell rendering for all UUID fields with associated text strings
-   - Improved detection of related name fields across entity types
-   - Fixed entity type display in production services and game broadcasts
+**Entity Management Enhancements (March 19-21)**
+- Fixed entity display and type mapping
+  - Corrected broadcast rights display with proper names
+  - Implemented consistent Names/IDs toggle across all fields
+  - Added dynamic name generation for entities missing name fields
+  - Fixed entity type display across all components
+- Enhanced entity name resolution
+  - Improved Division/Conference relationship handling
+  - Added automatic reconciliation for related IDs
+  - Created better placeholder display for unresolved entities
+  - Fixed parent-child relationship enforcement
+- Added file processing capabilities
+  - Integrated file uploads in chat interface
+  - Built smart CSV parsing with structure detection
+  - Implemented year-only date handling (e.g., "2020" → "2020-01-01")
+  - Added flexible entity search with exact/partial matching
 
-2. Entity Name Resolution & Broadcast Rights Improvements (March 20, 2025)
-   - Enhanced entity name resolution in BroadcastRights for Division/Conference relationships
-   - Improved entity_id and division_conference_id handling with automatic reconciliation
-   - Fixed entity name display in Database Query results with proper UUID-to-name mapping
-   - Implemented enhanced placeholder display for unresolved entities with context information
-   - Added support for entity name resolution across various entity types in query results
-   - Optimized entity column ordering in query results for better readability
-   - Improved validation for relationship fields with more robust name-to-ID conversion
-   - Enhanced error handling for entity creation with parent-child relationship enforcement
-   - Fixed auto-creation of missing Division/Conference entities when referenced by name
+**Foundation Improvements (March 13-15)**
+- Added Division/Conference model
+  - Created hierarchical relationship: League → Division/Conference → Team
+  - Required division/conference for teams
+  - Added database constraints and relationships
+  - Created sample data population scripts
+- Implemented global bulk update system
+  - Built interface for updating multiple entities simultaneously
+  - Organized fields by logical categories
+  - Added field-type-aware input controls
+  - Preserved existing values when fields left empty
+  - Implemented batch processing with progress tracking
+- Standardized UI appearance
+  - Unified grid styles across all table components
+  - Added consistent hover effects and interaction patterns
+  - Organized Division/Conference dropdowns by league
+  - Made all table columns visible by default
+  - Added API fallbacks for relationship data loading
 
-2. Chat File Import & SportDataMapper Enhancements (March 19, 2025)
-   - Added file upload capabilities to chat interface for CSV and text files
-   - Implemented smart CSV parsing with automatic data structure detection
-   - Enhanced SportDataMapper with intelligent name-to-ID resolution
-   - Improved BroadcastRights entity mapping for hierarchy relationships
-   - Added smart date format handling for year-only input (e.g., "2020" → "2020-01-01")
-   - Implemented flexible entity search with exact and partial matching
-   - Enhanced help texts for complex fields to improve user guidance
-   - Fixed validation issues with relationship fields in mapping workflow
-   - Added support for deriving entity_id from entity_type relationships
+**Core Systems**
 
-2. UI Standardization & UUID Toggle (March 15, 2025)
-   - Unified grid appearance across EntityList, DatabaseQuery, and DataTable components
-   - Standardized table cell padding, grid lines, and interactive behaviors
-   - Added matching hover effects for both column headers and rows across all data views
-   - Removed unnecessary visual elements for a cleaner, more professional grid style
-   - Added toggle between showing full UUIDs and human-readable names across app
-   - Fixed Division/Conference dropdown selection in bulk edit operations 
-   - Organized Division/Conference dropdowns by league to improve selection experience
-   - Added better UI labels and descriptive help text for relationship fields
-   - Implemented a direct API access approach for key relationship data
-   - Made all table columns visible by default for better data discoverability
-   - Fixed EntityList and DatabaseQuery to always show all columns initially
-   - Added API error handling and fallbacks for relationship data loading
+**Database Query System**
+- Implemented SQL query execution with safety validation
+- Added natural language to SQL conversion via Claude
+- Created side-by-side view of natural language and SQL
+- Added translate-only option to preview SQL without execution
+- Built export functionality to CSV and Google Sheets
 
-2. Global Bulk Update Feature (March 14, 2025)
-   - Implemented comprehensive bulk update system for all entity types
-   - Created modal-based interface for selecting and updating fields across multiple entities
-   - Added intelligent field organization by category (Basic Information, Relationships, etc.)
-   - Built field type detection for appropriate input controls (dropdowns, date pickers, etc.)
-   - Implemented empty field handling that preserves existing values when appropriate
-   - Added clear visual indicators for fields that will be cleared
-   - Created batch processing with progress tracking
-   - Added success/failure reporting with detailed results
-   - Optimized performance with batched update requests
+**Claude Integration**
+- Integrated Claude 3.7 API with streaming responses
+- Implemented buffer management and chunk processing
+- Added robust error handling with retry mechanisms
+- Optimized conversation context for better responses
+- Used Claude for natural language query processing
 
-2. Division/Conference Model Addition (March 13, 2025)
-   - Added DivisionConference model as sub-unit of Leagues 
-   - Created hierarchical relationship: League → Division/Conference → Team
-   - Modified Team model to require division/conference assignment
-   - Added appropriate database constraints and relationships
-   - Created sample data population scripts with sport-specific naming conventions
-
-2. Database Query System
-   - Implemented direct SQL query execution with safety checks
-   - Added natural language to SQL conversion using Claude AI
-   - Built query saving and management functionality
-   - Enhanced UI with side-by-side view of natural language query and SQL
-   - Added "Translate" button to generate SQL without executing queries
-   - Integrated robust CSV export with client-side file generation
-   - Implemented Google Sheets export with authentication flow
-
-3. Claude API Integration
-   - Implemented Anthropic Claude 3 API integration
-   - Enhanced chat streaming capabilities
-   - Created robust error handling with fallbacks
-   - Built conversation state management with context optimization
-   - Leveraged Claude for natural language query processing
-
-4. Enhanced Data Extraction Services
-   - Created modular extraction service architecture
-   - Implemented specialized detection, parsing, and extraction services
-   - Built robust error handling with graceful failure modes
-   - Added session storage fallback for API failures
+**Data Extraction Services**
+- Created modular detection, parsing, and extraction services
+- Built workflow for CSV and structured data processing
+- Implemented session storage fallback for API failures
+- Added error recovery with graceful degradation
 
 ### Known Issues
 
-1. Conversation Reordering
-   - Drag and drop reordering in conversation list is not functioning reliably
-   - Initial implementation with React DnD has UI interactions but state updates inconsistently
-   - Temporary solution uses the up/down arrow buttons for reordering
-   - Planning to revisit with simplified implementation using react-beautiful-dnd library
-   - Current priority: Low (core functionality unaffected)
+**Active Issues**
+- **Conversation Reordering**: Drag-and-drop reordering doesn't update state reliably. Using up/down buttons as temporary solution. *(Low priority)*
+- **Google Sheets Export**: Occasional authentication issues with Google Sheets API. Working on reliability improvements. *(Medium priority)*
 
-2. Entity Type Definition Inconsistencies
-   - Fixed inconsistency between EntityType definitions in different files
-   - Standardized EntityType across the codebase to include all entity types
-   - Previous mismatch caused blank screens in the entity view
-   - Added proper error handling for entity type validation
-   - Current priority: Resolved (fix implemented)
+**Recently Resolved**
+- ✓ **Entity Type Definitions**: Standardized EntityType across codebase
+- ✓ **Column Visibility**: Implemented data-driven column generation from API responses
+- ✓ **Special Character Handling**: Fixed entity name resolution for names with parentheses
+- ✓ **Record Navigation**: Implemented circular navigation with proper state management
 
-3. Entity List Column Visibility
-   - Previously hardcoded columns in EntityList resulted in inconsistent views between Entity List and Query Results
-   - Implemented data-driven column generation based on API response data
-   - Simplified column management and visibility logic
-   - Standardized column display system across entity types
-   - Fixed broadcast rights display to correctly show company name separate from territory
-   - Added special handling for relationship fields with proper ID/name toggle behavior
-   - Eliminated all emergency hacks and workarounds with a clean architecture
-   - Improved relationship field display with smart ID-to-name conversion
-   - Current priority: Resolved (fix implemented)
+### Key Architectural Improvements
 
-4. SportDataMapper Special Character Handling
-   - Fixed issues with special characters (particularly parentheses) in entity names
-   - Implemented smarter entity name resolution with base name extraction
-   - Added fallback mechanism for broadcast entity creation
-   - Enhanced backend validators to handle entity type variations
-   - Normalized entity types to handle cases like 'conference' → 'division_conference'
-   - Current priority: Resolved (fix implemented)
+**Component Architecture**
+- Modular component structure with separation of concerns
+- Custom hooks with single responsibilities:
+  - Data fetching (useEntityData)
+  - Selection management (useEntitySelection)
+  - Filtering (useFiltering)
+  - Sorting (useSorting)
+  - Pagination (useEntityPagination)
+- Feature-based folder organization for complex features
+- Entity-specific field components with standardized rendering
 
-5. SportDataMapper Record Navigation
-   - Fixed record navigation issues that prevented moving between records
-   - Implemented circular navigation with proper bounds checking
-   - Enhanced UI to prevent disabled states on navigation buttons
-   - Used RequestAnimationFrame for smoother transitions
-   - Fixed source field value updates with direct state changes
-   - Current priority: Resolved (fix implemented)
+**Backend Design**
+- Facade pattern for service coordination
+- Modular services with inheritance from base classes
+- Domain-specific API clients with improved maintainability
+- Robust error handling and transaction management
+- Comprehensive database management services
 
-### Recent Improvements
+**Performance Optimization**
+- Strategic memoization to prevent unnecessary renders
+- Reference stability techniques for complex objects
+- Circular dependency elimination in critical components
+- Efficient state management with hook composition
+- Fingerprinting for collection comparison
 
-#### Code Refactoring and Architecture
-- Implemented a modular component structure with clear separation of concerns
-- Refactored large components into smaller, focused components (SportsDatabaseContext, AdvancedEditForm, DataTable, Chat, DataManagement)
-- Extracted business logic into specialized custom hooks with single responsibility
-- Created domain-specific API clients with improved maintainability
-- Reorganized backend services into modular, feature-focused modules
-- Implemented Facade pattern for service coordination
-- Created entity-specific field components with standardized rendering
-- Implemented hook organization pattern with index exports
-- Used optimal folder structure with components/hooks/utils organization
-- Enhanced reusability with common form field components
-- Improved type safety with dedicated type definitions and interfaces
-- Employed consistent memoization patterns to prevent unnecessary renders
-- Reduced file sizes for better maintainability (some files reduced from 800+ lines to under 100)
-- Enhanced error handling with consistent patterns across components
+### Feature Status
 
-#### UI Improvements
-- Fixed navbar that stays at top of screen throughout the application
-- Redesigned conversation list with improved sorting capabilities (by name, date, or manual order)
-- Enhanced conversation item display with contextual action buttons
-- Implemented more efficient selection mechanisms
-- Created responsive design elements that adapt to different screen sizes
+**Complete ✅**
+- User authentication with JWT and role-based access
+- Claude AI chat with streaming and data extraction
+- Sports database with hierarchical entity relationships
+- Natural language database queries with SQL generation
+- Entity management with bulk operations
+- Database maintenance and archiving system
+- Advanced filtering with multiple operators
+- Relationship field handling with UUID/name toggle
+- Column management with drag-and-drop and persistence
 
-#### Database Maintenance
-- Added `DatabaseManagementService` for comprehensive DB operations
-- Implemented conversation archiving with restore capability
-- Created automated backup system with pg_dump integration
-- Added database statistics dashboard for administrators
-- Built CLI tools for database management tasks
-
-#### Data Management
-- Enhanced Teams Advanced Edit functionality
-  - Smart dropdowns for league and stadium selection
-  - Comprehensive field validation
-  - Improved type handling
-- Added support for name-based entity references
-- Verified database schema integrity
-- Improved error handling in data operations
-
-### Core Features Status
-
-#### Completed
-- ✅ User authentication and management
-- ✅ AI chat with data extraction
-- ✅ Sports database with entity models
-- ✅ Advanced filtering system
-- ✅ Bulk operations
-- ✅ Entity relationship management
-- ✅ Admin functionality
-- ✅ Database maintenance and backup system
-- ✅ Conversation archiving
-- ✅ Claude API integration
-- ✅ Enhanced error handling framework
-- ✅ Conversation reordering
-- ✅ Extraction services architecture
-- ✅ Database Query system with natural language support
-
-#### In Progress
-- 🔄 Google Sheets API integration reliability improvements
-- 🔄 API endpoint testing
-- 🔄 Test coverage expansion
-- 🔄 Mobile responsive design
-- 🔄 CSV export fallback mechanism
+**In Progress 🔄**
+- Google Sheets API integration reliability
+- API endpoint testing and coverage
+- Mobile responsive design
+- CSV export fallback mechanism
 
 ### Current Focus
 
-#### High Priority
-1. Data Management
-   - Entity relationship validation
-   - Data cleanup procedures
-   - Advanced editing improvements
-   - Pagination optimization
+**High Priority**
+1. **Data Export & Management**
    - Google Sheets export reliability
+   - CSV export fallback implementation
+   - Entity relationship validation
+   - Pagination optimization
 
-2. Testing
+2. **Testing & Quality**
+   - API endpoint test coverage
    - Database management functionality
-   - Message repeat functionality
-   - Pagination implementation
-   - Bulk operations
-   - Entity edit components
+   - Entity operation validation
+   - Error recovery scenarios
 
-3. Error Handling
-   - Field validation
-   - Relationship constraints
-   - User-friendly messages
-   - Bulk operation failures
-   - Improved error recovery with fallbacks
+3. **User Experience**
+   - Field validation improvements
+   - Relationship constraint messaging
+   - Error recovery fallbacks
    - Multiple export format options
-
-#### Ongoing Maintenance
-- Documentation updates
-- Performance optimization
-- Data integrity checks
-- UI/UX refinements
-- Database growth monitoring
-- Backup validation
 
 ### Next Steps
 
-#### Short-term (1-2 weeks)
-1. Improve Google Sheets API integration reliability
-2. Complete CSV export fallback mechanism
-3. Expand test coverage for export functionality
-4. Optimize bulk operations
-5. Enhance error handling with better fallbacks
-6. Monitor database growth patterns
+**Short-term (1-2 weeks)**
+- Complete Google Sheets integration reliability improvements
+- Implement CSV export fallback for all exports
+- Expand test coverage for critical functionality
+- Enhance error handling with better user guidance
 
-#### Medium-term (1-2 months)
-1. Mobile responsiveness
-2. Advanced search capabilities
-3. Performance optimization
-4. Enhanced data visualization
-5. Database reporting improvements
+**Medium-term (1-2 months)**
+- Mobile responsive design implementation
+- Advanced search capabilities
+- Performance optimization for large datasets
+- Enhanced data visualization components
+- Database growth monitoring tools
 
 This document is updated with each significant change to maintain accuracy.

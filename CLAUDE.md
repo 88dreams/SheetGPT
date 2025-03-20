@@ -32,6 +32,13 @@
 - Scheduled backup: `python src/scripts/scheduled_backup.py`
 - Reset conversation order: `python src/scripts/db_management.py reset-order --user-id=user_uuid`
 
+### Entity Integration Utilities
+- Create broadcast companies from brands: `docker-compose run --rm backend python add_broadcast_constraint.py`
+- Check broadcast rights integrity: `docker-compose run --rm backend python check_broadcast_rights.py`
+- Verify brand-broadcast mappings: `docker-compose run --rm backend python check_record.py`
+- Fix duplicate broadcast rights: `docker-compose run --rm backend python fix_duplicates.py`
+- Fix team division assignments: `docker-compose run --rm backend python fix_team_divisions.py`
+
 ## Code Style
 
 ### General Guidelines
@@ -199,6 +206,12 @@
 - Use optimistic UI updates with recovery patterns
 - Validate data at multiple levels (client, API, database)
 - Implement smart validation with type coercion for partial inputs
+- Handle year-only date inputs with appropriate conversion:
+  - Use January 1st for start dates when only year is provided
+  - Use December 31st for end dates when only year is provided
+- Support flexible relationship resolution with name-based lookups
+- Handle brand/broadcast company interchangeability using dual-ID approach
+- Implement cross-entity type fallback lookup when appropriate
 - Handle year-only date inputs with appropriate conversion
 - Support flexible relationship resolution with name-based lookups
 - Implement intelligent entity search with exact and partial matching

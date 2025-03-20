@@ -28,10 +28,10 @@ export const ENTITY_TYPES: readonly EntityTypeInfo[] = [
   { id: 'player', name: 'Player', description: 'Athletes who play for teams', requiredFields: ['name', 'team_id', 'position'] },
   { id: 'game', name: 'Game', description: 'Individual games between teams', requiredFields: ['name', 'league_id', 'home_team_id', 'away_team_id', 'stadium_id', 'date', 'season_year', 'season_type'] },
   { id: 'stadium', name: 'Stadium', description: 'Venues where games are played', requiredFields: ['name', 'city', 'country'] },
-  { id: 'broadcast', name: 'Broadcast Rights', description: 'Media rights for leagues, teams, or games', requiredFields: ['broadcast_company_id', 'entity_type', 'entity_id', 'territory'] }, // Note: league_id, start_date, end_date are optional for broadcast rights
+  { id: 'broadcast', name: 'Broadcast Rights', description: 'Media rights for leagues, teams, or games', requiredFields: ['broadcast_company_id', 'entity_type', 'entity_id', 'territory'] }, // Note: league_id is optional for broadcast rights
   { id: 'production', name: 'Production Service', description: 'Production services for broadcasts', requiredFields: ['name', 'production_company_id', 'entity_type', 'entity_id', 'service_type', 'start_date'] },
   { id: 'brand', name: 'Brand', description: 'Brand information', requiredFields: ['name', 'industry'] },
-  { id: 'brand_relationship', name: 'Brand Relationship', description: 'Sponsorship and partnership relationships', requiredFields: ['name', 'brand_id', 'entity_type', 'entity_id', 'relationship_type', 'start_date'] },
+  { id: 'brand_relationship', name: 'Brand Relationship', description: 'Sponsorship and partnership relationships', requiredFields: ['brand_id', 'entity_type', 'entity_id', 'relationship_type', 'start_date'] }, // note: brand_id and entity_id can be names that get converted to IDs
   { id: 'game_broadcast', name: 'Game Broadcast', description: 'Broadcast information for specific games', requiredFields: ['name', 'game_id', 'broadcast_company_id', 'broadcast_type', 'territory'] },
   { id: 'league_executive', name: 'League Executive', description: 'Executive personnel for leagues', requiredFields: ['name', 'league_id', 'position', 'start_date'] }
 ] as const;

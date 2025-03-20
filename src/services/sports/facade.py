@@ -228,7 +228,45 @@ class SportsService:
     
     # Entity by name lookup
     async def get_entity_by_name(self, db: AsyncSession, entity_type: str, name: str) -> Optional[dict]:
-        """Get an entity by name."""
+        """
+        Get an entity by name.
+        
+        For broadcast_company entity type, if no broadcast company is found with the given name,
+        will also attempt to look up a brand with the same name as a fallback.
+        """
+        # Handle special case for broadcast_company first
+        if entity_type == 'broadcast_company':
+            # First try to find a broadcast company with this name
+            broadcast_company_query = select(BroadcastCompany).where(
+                func.lower(BroadcastCompany.name) == func.lower(name)
+            )
+            bc_result = await db.execute(broadcast_company_query)
+            broadcast_company = bc_result.scalars().first()
+            
+            if broadcast_company:
+                # Found a broadcast company, convert to dict and return
+                return self._model_to_dict(broadcast_company)
+            
+            # No broadcast company found, try looking up a brand instead
+            logger.info(f"No broadcast company found with name '{name}', checking brands...")
+            brand_query = select(Brand).where(func.lower(Brand.name) == func.lower(name))
+            brand_result = await db.execute(brand_query)
+            brand = brand_result.scalars().first()
+            
+            if brand:
+                # Found a brand, convert to a broadcast company-like dict
+                logger.info(f"Found brand '{brand.name}' with ID {brand.id}, returning as broadcast company")
+                brand_dict = self._model_to_dict(brand)
+                
+                # Add a special field to indicate this is actually a brand
+                brand_dict['_is_brand'] = True
+                
+                return brand_dict
+            
+            # Neither broadcast company nor brand found
+            return None
+        
+        # Handle all other entity types normally
         if entity_type not in self.ENTITY_TYPES:
             raise ValueError(f"Invalid entity type: {entity_type}")
         
@@ -275,3 +313,55 @@ class SportsService:
         """Delete broadcast rights."""
         broadcast_rights_service = BroadcastRightsService()
         return await broadcast_rights_service.delete_broadcast_rights(db, rights_id)
+        
+    # Brand methods
+    async def get_brands(self, db: AsyncSession, industry: Optional[str] = None) -> List[Brand]:
+        """Get all brands, optionally filtered by industry."""
+        brand_service = BrandService()
+        return await brand_service.get_brands(db, industry)
+    
+    async def create_brand(self, db: AsyncSession, brand: BrandCreate) -> Brand:
+        """Create a new brand."""
+        brand_service = BrandService()
+        return await brand_service.create_brand(db, brand)
+    
+    async def get_brand(self, db: AsyncSession, brand_id: UUID) -> Optional[Brand]:
+        """Get a brand by ID."""
+        brand_service = BrandService()
+        return await brand_service.get_brand(db, brand_id)
+    
+    async def update_brand(self, db: AsyncSession, brand_id: UUID, brand_update: BrandUpdate) -> Optional[Brand]:
+        """Update a brand."""
+        brand_service = BrandService()
+        return await brand_service.update_brand(db, brand_id, brand_update)
+    
+    async def delete_brand(self, db: AsyncSession, brand_id: UUID) -> bool:
+        """Delete a brand."""
+        brand_service = BrandService()
+        return await brand_service.delete_brand(db, brand_id)
+        
+    # Brand Relationship methods
+    async def get_brand_relationships(self, db: AsyncSession, brand_id: Optional[UUID] = None, entity_type: Optional[str] = None, entity_id: Optional[UUID] = None, relationship_type: Optional[str] = None) -> List[BrandRelationship]:
+        """Get all brand relationships, optionally filtered."""
+        brand_relationship_service = BrandRelationshipService()
+        return await brand_relationship_service.get_brand_relationships(db, brand_id, entity_type, entity_id)
+    
+    async def create_brand_relationship(self, db: AsyncSession, relationship: BrandRelationshipCreate) -> BrandRelationship:
+        """Create a new brand relationship."""
+        brand_relationship_service = BrandRelationshipService()
+        return await brand_relationship_service.create_brand_relationship(db, relationship)
+    
+    async def get_brand_relationship(self, db: AsyncSession, relationship_id: UUID) -> Optional[BrandRelationship]:
+        """Get a brand relationship by ID."""
+        brand_relationship_service = BrandRelationshipService()
+        return await brand_relationship_service.get_brand_relationship(db, relationship_id)
+    
+    async def update_brand_relationship(self, db: AsyncSession, relationship_id: UUID, relationship_update: BrandRelationshipUpdate) -> Optional[BrandRelationship]:
+        """Update a brand relationship."""
+        brand_relationship_service = BrandRelationshipService()
+        return await brand_relationship_service.update_brand_relationship(db, relationship_id, relationship_update)
+    
+    async def delete_brand_relationship(self, db: AsyncSession, relationship_id: UUID) -> bool:
+        """Delete a brand relationship."""
+        brand_relationship_service = BrandRelationshipService()
+        return await brand_relationship_service.delete_brand_relationship(db, relationship_id)

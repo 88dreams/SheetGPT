@@ -4,7 +4,7 @@ import { Entity } from '../../../../types/sports';
 
 interface LeagueFieldsProps {
   entity: Entity;
-  onChange: (field: string, value: string | number) => void;
+  onChange: (field: string, value: string | number | Date | null) => void;
   isEditing: boolean;
 }
 
@@ -48,6 +48,26 @@ const LeagueFields: React.FC<LeagueFieldsProps> = ({ entity, onChange, isEditing
         onChange={onChange}
         isEditing={isEditing}
         isRequired={true}
+      />
+      <FormField
+        field="broadcast_start_date"
+        label="Broadcast Start Date"
+        type="date"
+        value={entity.broadcast_start_date as string || null}
+        onChange={onChange}
+        isEditing={isEditing}
+        handleYearOnlyInput={true}
+        placeholder="Enter year (e.g., 2025) or select date"
+      />
+      <FormField
+        field="broadcast_end_date"
+        label="Broadcast End Date"
+        type="date"
+        value={entity.broadcast_end_date as string || null}
+        onChange={onChange}
+        isEditing={isEditing}
+        handleYearOnlyInput={true}
+        placeholder="Enter year (e.g., 2025) or select date"
       />
     </>
   );

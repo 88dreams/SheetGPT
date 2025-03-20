@@ -9,12 +9,22 @@ This document provides a technical description of the SheetGPT project architect
 #### Core Components
 ```
 src/
-├── api/              # Domain-specific endpoints
-├── models/           # SQLAlchemy models
-├── schemas/          # Pydantic schemas
-├── services/         # Business logic
-├── scripts/          # Maintenance and migration scripts
-└── utils/            # Shared utilities
+├── api/                  # Domain-specific endpoints
+│   └── routes/           # Feature-focused route modules
+├── models/               # SQLAlchemy models
+├── schemas/              # Pydantic schemas
+├── services/             # Business logic
+│   ├── sports/           # Sports domain services
+│   │   ├── base_service.py           # Generic service functionality
+│   │   ├── league_service.py         # League-specific operations
+│   │   ├── division_conference_service.py # Division/Conference operations
+│   │   ├── entity_name_resolver.py   # Entity reference resolution
+│   │   ├── facade.py                 # Unified API facade
+│   │   ├── validators.py             # Domain validation rules
+│   │   └── utils.py                  # Shared utilities
+│   └── chat/             # Chat and AI services
+├── scripts/              # Maintenance and migration scripts
+└── utils/                # Shared utilities
 ```
 
 #### Key Features
@@ -23,49 +33,79 @@ src/
    - Role-based access control
    - Secure token management
    - Admin privilege verification
+   - Token refresh mechanism
 
 2. **Database Management**
-   - SQLAlchemy ORM with UUID primary keys
-   - Isolated transaction handling
-   - Direct SQL query execution with safety checks
-   - Natural language to SQL conversion via Claude API
-   - Query results export to CSV and Google Sheets
-   - Automated backup and restore
-   - Conversation archiving
-   - Database statistics and monitoring
-   - Order-based conversation management
+   - SQLAlchemy ORM with UUID primary keys and comprehensive relationships
+   - Isolated transaction handling with proper error recovery
+   - Direct SQL query execution with robust safety checks
+   - Natural language to SQL conversion via Claude API with regex extraction
+   - Query results export to CSV and Google Sheets with fallback mechanisms
+   - Automated backup and restore using pg_dump
+   - Conversation archiving with JSON blob storage
+   - Database statistics and monitoring with dashboard integration
+   - Order-based conversation management with manual reordering support
+   - Support for nickname fields with specialized UI components
+   - Brand-broadcast company dual-ID integration with automated placeholder creation
+   - Intelligent league association resolution based on entity relationships
+   - Smart date handling with year-only input formatting
 
 3. **API Organization**
-   - Domain-driven design
-   - Modular routing structure with facade pattern for complex services
-   - Services organized by entity type with base service inheritance
-   - Standardized response formats
-   - Role-based API access
-   - Structured error handling
-   - Enhanced logging system
+   - Domain-driven design with feature-focused modules
+   - Modular routing structure with organized prefixes
+   - Facade pattern implementation with specialized service delegation
+   - Generic type support for base services with inheritance
+   - Standardized response formats with comprehensive error handling
+   - Role-based API access with permission verification
+   - Structured error handling with user-friendly messages
+   - Enhanced logging system with configurable verbosity
+   - Streaming response support for chat interactions
 
 ### Frontend (React + TypeScript)
 
 #### Core Structure
 ```
 frontend/
-├── api/          # API clients
-├── components/   # Reusable UI
-├── contexts/     # State management
-├── hooks/        # Custom hooks
-├── pages/        # Route components
-└── services/     # Business logic
+├── api/                   # API clients
+├── components/            # Reusable UI components
+│   ├── chat/              # Chat-related components
+│   ├── common/            # Shared UI elements
+│   ├── data/              # Data management components
+│   │   ├── DataTable/     # Enhanced data grid implementation
+│   │   │   ├── components/# Table sub-components
+│   │   │   ├── hooks/     # Table-specific hooks
+│   │   │   └── index.tsx  # Main component
+│   │   ├── EntityUpdate/  # Entity edit components
+│   │   │   ├── fields/    # Entity-specific field components
+│   │   │   │   ├── TeamFields.tsx  
+│   │   │   │   ├── LeagueFields.tsx
+│   │   │   │   ├── DivisionConferenceFields.tsx
+│   │   │   │   └── ... other entity fields
+│   │   │   └── ... entity edit components
+│   │   └── SportDataMapper/ # Data mapping components
+│   └── sports/            # Sports database components
+├── contexts/              # Global state management
+├── features/              # Feature-based modules
+│   └── DataManagement/    # Modular feature implementation
+│       ├── components/    # Feature-specific components 
+│       ├── hooks/         # Feature-specific hooks
+│       └── index.tsx      # Feature entry point
+├── hooks/                 # Shared custom hooks
+├── pages/                 # Route components
+├── services/              # Business logic services
+└── utils/                 # Shared utilities
 ```
 
 #### Key Features
 1. **State Management**
-   - React Query for server state
-   - Context API for global state
-   - ChatContext for optimized streaming
-   - DataFlowContext for extraction pipeline
-   - Enhanced error handling for constraint violations
-   - User-friendly notifications for database errors
-   - Persistent state across page navigation
+   - Custom hook-based state management for focused concerns
+   - Refactored context pattern with hook composition
+   - ChatContext for optimized streaming with buffer management
+   - DataFlowContext for structured data extraction pipeline
+   - Enhanced error handling for database constraint violations
+   - User-friendly notifications with severity-based display
+   - Persistent state across page navigation with session storage
+   - Optimized hooks for selection, sorting, and filtering operations
 
 2. **Component Architecture**
    - Modular feature-based organization:
@@ -73,6 +113,7 @@ frontend/
      features/FeatureName/
      ├── index.tsx                # Main container component
      ├── README.md                # Feature documentation
+     ├── MIGRATION.md             # Migration guidelines
      ├── components/              # UI components
      │   ├── SubComponentA.tsx
      │   ├── SubComponentB.tsx
@@ -83,25 +124,41 @@ frontend/
      │   └── index.ts             # Hook exports
      └── types.ts                 # Feature-specific types
      ```
-   - Custom hooks for business logic with clean separation of concerns
-   - Feature-specific utility functions in dedicated modules
-   - Focused components with single responsibility principle
-   - Consolidated component implementations to reduce duplication
-   - Unified modal components with flexible prop interfaces
-   - Fixed navigation bar with consistent layout
-   - Table-based components for structured data
-   - Optimized rendering with React.memo and precise prop comparison
-   - Memoized formatters for efficient cell value rendering
-   - Efficient drag-and-drop with fingerprinting for DOM operations
-   - Sorting mechanisms with dedicated hooks for data organization
-   - Entity-specific field components for improved maintainability
-   - Contextual action buttons for improved UX
-   - UUID display toggle for relationship fields (shows names instead of IDs)
-   - Consistent Names/IDs toggle behavior across all relationship fields
-   - Auto-generated display names for entities without name fields
-   - Smart dropdowns for relationship fields with logical organization
-   - Default visibility for all columns with toggle controls
-   - Domain-specific API clients with targeted functionality
+   - Single-responsibility hooks with focused concerns:
+     - useEntityData for data fetching and retrieval
+     - useEntitySelection for selection management
+     - useFiltering for filter operations
+     - useSorting for type-aware sorting operations
+     - useEntityPagination for pagination controls
+     - useEntityView for view state management
+     - useEntitySchema for field definitions
+     - useDragAndDrop for column reordering with persistent storage
+   - Consolidated component implementations:
+     - Unified BulkEditModal for entity and query editing
+     - Standardized entity field components with common patterns
+     - Reusable FormField component for consistent rendering
+     - Common validation and error handling patterns
+   - UI Enhancement Features:
+     - Fixed navigation bar with consistent application layout
+     - Standardized table styling across all data views
+     - Consistent cell padding and grid lines for all tables
+     - Interactive hover effects for both rows and column headers
+     - Color-coded nickname badges (indigo for League, blue for DivisionConference)
+     - Inline nickname editing with optimistic updates
+     - Column drag-and-drop with visual feedback during operations
+     - Persistent column ordering across application restarts
+     - Toggle between UUID and human-readable names for relationship fields
+     - Entity dropdown organization by parent entity (divisions by league)
+     - Descriptive labels and help text for complex fields
+     - Circular record navigation in SportDataMapper
+   - Performance Optimizations:
+     - React.memo with custom equality checks for expensive components
+     - Strategic use of useMemo and useCallback with proper dependencies
+     - Optimized value comparison for different data types
+     - Reference stability patterns for complex objects
+     - Fingerprinting for efficient collection comparison
+     - Breaking circular dependency chains to prevent render loops
+     - Local storage for persisting UI preferences
    - Feature-focused folder structure:
      ```
      FeatureName/
@@ -221,44 +278,76 @@ src/
 1. **Primary Tables**
    ```
    leagues
-   ├── name, sport, country
-   ├── broadcast_dates
-   └── → broadcast_companies
+   ├── id (UUID)
+   ├── name (String, unique, indexed)
+   ├── nickname (String(20), nullable, indexed)
+   ├── sport, country
+   ├── broadcast_start_date, broadcast_end_date
+   └── → divisions_conferences, teams, games, executives
    
-   division_conferences
-   ├── name, nickname, type (division/conference)
+   divisions_conferences
+   ├── id (UUID)
+   ├── league_id (→ leagues)
+   ├── name (String, unique per league, indexed)
+   ├── nickname (String(20), nullable, indexed)
+   ├── type (division/conference)
    ├── region, description
-   └── → leagues
+   └── → teams, broadcast_rights
    
    teams
-   ├── name, city, state
-   ├── → leagues
-   ├── → division_conferences
-   └── → stadiums
+   ├── id (UUID)
+   ├── name (String, unique, indexed)
+   ├── city, state, country
+   ├── league_id (→ leagues)
+   ├── division_conference_id (→ divisions_conferences)
+   ├── stadium_id (→ stadiums)
+   └── → players, home_games, away_games, records, ownerships
    
    stadiums
-   ├── name, capacity
-   └── → host_broadcaster
+   ├── id (UUID)
+   ├── name (String, unique, indexed)
+   ├── city, state, country, capacity
+   ├── owner, naming_rights_holder
+   ├── host_broadcaster (String)
+   ├── host_broadcaster_id (→ broadcast_companies)
+   └── → teams, games
    
    players
-   ├── name, position
-   └── → teams
+   ├── id (UUID)
+   ├── name, position, jersey_number
+   ├── college
+   └── team_id (→ teams)
    ```
 
 2. **Relationship Tables**
    ```
    games
+   ├── id (UUID)
+   ├── league_id (→ leagues)
+   ├── home_team_id, away_team_id (→ teams)
+   ├── stadium_id (→ stadiums)
    ├── date, time, status
-   ├── → home_team
-   ├── → away_team
-   └── → stadium
+   ├── home_score, away_score
+   ├── season_year, season_type
+   └── → broadcasts
    
    broadcast_rights
-   ├── territory, dates
-   └── → broadcast_company
+   ├── id (UUID)
+   ├── entity_type, entity_id (polymorphic)
+   ├── broadcast_company_id (→ broadcast_companies OR brands)
+   ├── division_conference_id (→ divisions_conferences, nullable)
+   ├── territory
+   ├── start_date, end_date (with year-only formatting)
+   ├── is_exclusive (Boolean)
+   ├── league_name (derived from relationships)
+   └── → broadcast_company, division_conference, derived league
    
    production_services
-   ├── service_type, dates
+   ├── id (UUID)
+   ├── entity_type, entity_id (polymorphic)
+   ├── production_company_id (→ production_companies)
+   ├── service_type
+   ├── start_date, end_date
    └── → production_company
    ```
 
@@ -314,21 +403,36 @@ src/
 
 5. **Entity Name Resolution**
    ```
-   Entity Reference → Type Detection → Database Lookup →
-   Name/ID Resolution → Nickname Resolution → Relationship Validation → UI Display
+   Entity Reference → Type Detection → Entity Type Normalization →
+   Name Processing (Handle Special Characters) → Exact Name Lookup → 
+   Partial Name Fallback → Cross-Type Fallback (brand → broadcast) →
+   Placeholder Entity Creation → UUID Resolution → Nickname Resolution → 
+   Relationship Traversal → League Resolution → Add Related Entity Names → 
+   Generate Display Names → UI Display
    ```
 
 6. **UUID Display System**
    ```
-   Data Retrieval → UUID Detection → Default Hiding →
-   Column Visibility Control → Related Entity Lookup →
-   Display Format Selection (Names/IDs) → Conditional Rendering
+   Data Retrieval → UUID Field Detection → Related Entity Lookup →
+   Name Field Resolution → Default Hiding of UUID-Only Columns →
+   Toggle Control (Names/IDs) → Persistence of Preference →
+   Conditional Rendering Based on Toggle State
    ```
 
 7. **Column Drag and Drop System**
    ```
-   User Interaction → Visual Feedback → State Update →
-   Persistent Storage → UI Rerendering → Browser Survival
+   User Interaction → Visual Feedback During Drag → 
+   Reference-Based State Tracking → Optimized Reordering Logic →
+   Storage Key Generation → LocalStorage Persistence → 
+   Restore on Component Mount → Cross-Session Survival
+   ```
+
+8. **Record Navigation in SportDataMapper**
+   ```
+   Field Mapping → Circular Navigation Implementation →
+   Bounds Checking → Animation Frame Transitions →
+   Source Field Updates → State Synchronization →
+   Field Value Preservation → Display Update
    ```
 
 ## Key Components
@@ -380,84 +484,164 @@ src/
 
 ### SportDataMapper
 - Purpose: Map structured data to sports entities
-- Architecture: Container/Hooks pattern
+- Architecture: Container/Hooks pattern with modular implementation
+- Implementation:
+  - Modular component structure with clear separation of concerns:
+    - SportDataMapperContainer for overall coordination
+    - Dialog container for modal management
+    - View-specific components for different mapping stages
+    - Field mapping components for interactive drag-and-drop
+    - Specialized hooks for focused responsibilities
+  - Custom hooks for focused concerns:
+    - useDataManagement for source data handling
+    - useFieldMapping for field association logic
+    - useImportProcess for record creation and batch processing
+    - useRecordNavigation for record traversal
+    - useUiState for interface state management
+  - Utility modules for specialized functionality:
+    - dataProcessor.ts for field data transformation
+    - batchProcessor.ts for efficient batch operations
+    - notificationManager.ts for consistent user feedback
+    - importUtils.ts for entity resolution and validation
+    - validationUtils.ts for data validation rules
 - Features:
-  - Auto entity detection
-  - Smart field mapping with name-to-ID resolution
-  - Intelligent relationship handling with lookup by name
-  - Advanced date formatting with year-to-date conversion
-  - Smart entity search with exact and partial matching
-  - Flexible entity reference system for hierarchical relationships
+  - Separated workflow between mapping and "Send to Data" operations
+  - Automatic entity type detection from field patterns
+  - Smart entity type inference from name content (e.g., "Conference")
+  - Intelligent name-to-ID resolution with special character handling
+  - Fallback mechanism for entity names with parentheses
+  - Advanced date formatting with flexible input (year-only → date)
+  - Smart entity reference system for hierarchical relationships
   - Entity ID derivation from relationship fields
-  - Context-sensitive help text for complex fields
-  - Batch processing with validation
-  - Progress tracking with error reporting
-  - Intelligent entity type detection from name content
-  - Specialized handling for broadcast rights entity names
-  - Enhanced error handling for duplicate entries
-  - Constraint violation detection with human-readable messages
-  - User-friendly error notifications with guidance
-  - Prominent, non-dismissing error display for critical issues
-  - Smart parsing of database error messages
-  - Record navigation persistence between page views
-  - Circular record navigation with bounds checking
+  - Context-sensitive help text with field-specific guidance
+  - Batch processing with parallel operations
+  - Progress tracking with detailed success/failure reporting
+  - Enhanced error handling for database constraints
+  - User-friendly database error messages with constraint explanation
+  - Non-dismissing error notifications for critical issues
+  - Circular record navigation (cycle to first after last record)
+  - Record navigation persistence across page views
+  - Request animation frame for smooth UI transitions
+  - Default dates (April 1, 1976) when dates are missing
 
 ### DatabaseQuery
 - Purpose: Enable users to query the database directly or using natural language
-- Architecture: Frontend component with backend API integration
-- Features:
-  - Direct SQL query execution with safety filtering
-  - Natural language to SQL conversion using Claude AI
-  - Interactive side-by-side view of natural language query and SQL
-  - Syntax-highlighted, editable SQL with one-click execution
-  - Query translation without execution through "Translate" button
-  - Query saving and management with localStorage persistence
-  - Column drag-and-drop reordering with visual feedback
-  - UUID columns hidden by default for improved readability
-  - Long-term column order persistence through localStorage
-  - Hash-based storage keys for different query types
-  - Session-based state persistence when navigating away from the page
-  - Results display with sorting, column visibility, and row selection
-  - Entity relationship display with UUID-to-name resolution
-  - Smart entity name resolution for relationship fields
-  - Automatic column reordering for related fields (e.g., entity_id next to entity_name)
-  - Toggle between UUID and human-readable name display
-  - Direct client-side CSV export with proper file formatting
-  - Google Sheets export with authentication flow
+- Architecture: Component-based frontend with specialized backend services
+- Implementation:
+  - Frontend components:
+    - Query editor with syntax highlighting
+    - Side-by-side view for natural language and SQL
+    - Results table with enhanced column management
+    - Export controls with format selection
+    - Query history and saved query management
+  - Backend services:
+    - DatabaseQueryService for query execution and validation
+    - EntityNameResolver for enhancing query results with names
+    - Claude API integration for natural language processing
+    - Safety validation with regex pattern matching
+    - Export services for CSV and Google Sheets generation
+- Key Features:
+  - Direct SQL query execution with comprehensive safety checks:
+    - Query validation with pattern-based security rules
+    - Operation whitelisting (SELECT queries only)
+    - Protection against SQL injection attempts
+    - Parameter sanitization and validation
+  - Natural language to SQL conversion:
+    - Schema-aware prompt construction for Claude API
+    - Multi-level SQL extraction from AI responses:
+      1. Regex extraction from SQL code blocks
+      2. Fallback to general code block extraction
+      3. Last resort SELECT statement pattern matching
+    - Low temperature settings for deterministic SQL generation
+    - Interactive query refinement capabilities
+  - Enhanced result display:
+    - Automatic detection of UUID relationship fields
+    - Dynamic addition of human-readable entity names
+    - Support for division_conference relationships in results
+    - Proper handling of broadcast rights with division/conference context
+    - Column drag-and-drop reordering with visual feedback
+    - Long-term column order persistence with localStorage
+    - Session-based state restoration when returning to the page
+    - Toggle control for UUID vs. name display preference
+  - Export capabilities:
+    - Direct client-side CSV generation with Blob API
+    - Google Sheets export with OAuth authentication
+    - Configurable export options with formatting preferences
+    - Fallback mechanisms when primary export fails
+  - Query management:
+    - Saving queries with metadata (name, description, type)
+    - Query history with recent executions
+    - Query categorization and filtering
 
 ### Chat System
-- Purpose: AI interaction and data extraction
-- Features:
-  - Message streaming with real-time processing
-  - Structured data extraction and validation
-  - Conversation management with history and reordering
-  - File import with CSV parsing and data structure detection
-  - Direct text and CSV file uploads with automatic formatting
-  - Error handling and recovery with fallbacks
-  - Background task processing
-  - Rate limiting and timeout handling
-  - Automatic message persistence
+- Purpose: AI interaction with structured data extraction
+- Architecture: Streaming-focused services with modular extraction pipeline
+- Implementation:
+  - Backend services:
+    - ChatService for conversation and message management
+    - AnthropicService for Claude API integration
+    - Extraction services for data processing
+    - Stream formatting for real-time updates
+  - Frontend components:
+    - Chat interface with streaming message display
+    - File upload components for CSV and text
+    - Structured data preview with extraction controls
+    - Conversation management UI with reordering
+- Key Features:
+  - Streaming response architecture:
+    - Server-Sent Events (SSE) format for real-time updates
+    - Optimized buffer management for sentence-based chunking
+    - Special handling for search operations ([SEARCH] prefix)
+    - Stream completion markers for client notification
+    - Exception handling with graceful error messages
+  - Advanced Claude API integration:
+    - Configurable model selection (claude-3-sonnet-20240229)
+    - Retry mechanism with exponential backoff
+    - Rate limit awareness and handling
+    - Streaming response processing with chunk aggregation
+    - Context window optimization for conversation history
+  - Conversation management:
+    - Order-based conversation organization (order_index field)
+    - Manual reordering through drag-drop or button controls
+    - Conversation archiving with JSON blob storage
+    - Title generation and update capabilities
+    - Conversation search and filtering
+  - File processing capabilities:
+    - Direct file uploads (CSV, text) through API
+    - Automatic data structure detection
+    - CSV parsing with column mapping
+    - Smart entity detection and field recognition
+    - Integration with SportDataMapper for advanced mapping
+  - Error handling and recovery:
+    - Automatic retry for transient API errors
+    - Fallback mechanisms for service interruptions
+    - Session storage for preserving data during API failures
+    - Clear user feedback for error states
+    - Rate limit handling with appropriate delays
 
 Components:
 1. **ChatService**
-   - Handles conversation and message management
-   - Integrates with Claude API via AnthropicService
-   - Handles streaming responses with buffer management
-   - Processes structured data extraction
-   - Manages conversation archiving and reordering
+   - Manages conversation lifecycle and message flow
+   - Formats streaming responses with proper SSE encoding
+   - Processes user messages with special command detection
+   - Handles file uploads and data extraction coordination
+   - Implements conversation reordering with database updates
+   - Provides archiving capabilities for conversation management
 
 2. **AnthropicService**
-   - Manages Claude API connections
-   - Handles API key management
-   - Processes streaming responses
-   - Implements retry mechanisms
-   - Handles rate limits and timeouts
+   - Establishes and manages Claude API connections
+   - Implements configurable streaming with buffer management
+   - Provides retry logic with exponential backoff
+   - Handles rate limits and quota restrictions
+   - Offers message formatting for different use cases
+   - Implements error recovery with appropriate fallbacks
 
 3. **Extraction Services**
-   - DataDetectionService for entity identification
-   - DataParserService for schema validation
-   - DataExtractionService for workflow coordination
-   - Session storage fallback mechanism
+   - DataDetectionService for identifying data structures
+   - DataParserService for schema validation and normalization
+   - DataExtractionService for coordinating the extraction pipeline
+   - SessionStorageService for preserving state during API failures
+   - Entity recognition for identifying sports-related data
 
 ## Data Management
 

@@ -84,6 +84,28 @@ export function getTokenExpiryMinutes(): number | null {
 }
 
 /**
+ * Get API URL safely across different environments
+ */
+function getApiUrl(): string {
+  // Handle both browser and test environments safely
+  let apiUrl = 'http://localhost:8000'; // Default value
+  
+  try {
+    // Only access import.meta in a browser environment where it's defined
+    if (typeof window !== 'undefined' && 
+        typeof import !== 'undefined' && 
+        typeof import.meta !== 'undefined' && 
+        import.meta.env) {
+      apiUrl = import.meta.env.VITE_API_URL || apiUrl;
+    }
+  } catch (error) {
+    console.log('Running in non-browser environment, using default API URL');
+  }
+  
+  return apiUrl;
+}
+
+/**
  * Refresh auth token
  * Returns a promise that resolves to true if refresh was successful
  */
@@ -98,10 +120,8 @@ export async function refreshAuthToken(): Promise<boolean> {
     
     console.log('Attempting to refresh auth token');
     
-    // Create a direct axios call instead of using apiClient to avoid circular dependency
-    const API_URL = typeof import.meta !== 'undefined' && import.meta.env 
-      ? import.meta.env.VITE_API_URL || 'http://localhost:8000'
-      : 'http://localhost:8000';
+    // Get API URL safely
+    const API_URL = getApiUrl();
       
     const response = await axios({
       method: 'post',

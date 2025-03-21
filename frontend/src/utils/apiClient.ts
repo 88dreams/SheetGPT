@@ -8,18 +8,25 @@ const isDocker = window.location.hostname !== 'localhost' && window.location.hos
 
 // For browser access, we need to use localhost even when running in Docker
 // This is because the browser can't resolve Docker container names
-// Handle both browser and test environments
+// Handle all environments safely
 const getApiUrl = () => {
+  // Default URL for all environments
+  let apiUrl = 'http://localhost:8000';
+  
   try {
-    // In browser environment
-    if (typeof import.meta !== 'undefined' && import.meta.env) {
-      return import.meta.env.VITE_API_URL || 'http://localhost:8000';
+    // Only access import.meta in a browser environment where it's defined
+    if (typeof window !== 'undefined' && 
+        typeof import !== 'undefined' && 
+        typeof import.meta !== 'undefined' && 
+        import.meta.env) {
+      apiUrl = import.meta.env.VITE_API_URL || apiUrl;
     }
   } catch (e) {
-    // In test environment
-    console.log('Running in test environment, using default API URL');
+    // In test or non-browser environment
+    console.log('Using default API URL for current environment');
   }
-  return 'http://localhost:8000';
+  
+  return apiUrl;
 };
 
 const API_URL = getApiUrl();

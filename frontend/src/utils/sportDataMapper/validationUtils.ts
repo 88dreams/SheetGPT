@@ -21,8 +21,8 @@ export const validateEntityData = (
   
   const errors: string[] = [];
   
-  // Common validation for all entities except broadcast
-  if (entityType !== 'broadcast' && !data.name) {
+  // Common validation for all entities except broadcast and brand_relationship
+  if (entityType !== 'broadcast' && entityType !== 'brand_relationship' && !data.name) {
     errors.push('Name is required');
     console.warn(`${entityType} validation error: Name is required`);
   }
@@ -203,11 +203,21 @@ export const validateEntityData = (
         errors.push('Broadcast Company ID or Name is required');
       } 
       // Check if we're using our special placeholder UUID for a new company
-      else if (data.broadcast_company_id === "00000000-NEW-COMP-ANY0-000000000000") {
+      else if (data.broadcast_company_id === "00000000-NEW-COMP-ANY0-000000000000" && !data._usingBrandAsBroadcastCompany) {
+        // Only show error if we're not using a brand as a broadcast company
         if (data._newBroadcastCompanyName) {
           errors.push(`Broadcast company "${data._newBroadcastCompanyName}" not found in the database. Please create it first using the Entity menu, then try again.`);
         } else {
           errors.push('Broadcast company not found. Please create it first using the Entity menu, then try again.');
+        }
+      }
+      // If we're using a brand as a broadcast company, make sure it's valid
+      else if (data._usingBrandAsBroadcastCompany) {
+        // Make sure we have a valid UUID
+        if (!isValidUUID(data.broadcast_company_id)) {
+          errors.push('Invalid brand ID used for broadcast company');
+        } else {
+          console.log(`Using brand "${data._brandName}" as broadcast company with ID: ${data.broadcast_company_id}`);
         }
       }
       // Handle special characters in broadcast_company_id if it's a string (name)
@@ -337,20 +347,20 @@ export const validateEntityData = (
       
     case 'brand_relationship':
       if (!data.brand_id) {
-        errors.push('Brand ID is required');
-      } else if (!isValidUUID(data.brand_id)) {
-        errors.push('Brand ID must be a valid UUID');
+        errors.push('Brand ID or Brand Name is required');
       }
+      // We don't validate UUID format for brand_id since it can be a name
+      // that will be resolved to an existing brand or create a new one
       
       if (!data.entity_type) {
         errors.push('Entity Type is required');
       }
       
       if (!data.entity_id) {
-        errors.push('Entity ID is required');
-      } else if (!isValidUUID(data.entity_id)) {
-        errors.push('Entity ID must be a valid UUID');
+        errors.push('Entity ID or Entity Name is required');
       }
+      // We don't validate UUID format for entity_id since it can be a name
+      // that will be resolved to an existing entity or create a new one
       
       if (!data.relationship_type) {
         errors.push('Relationship Type is required');

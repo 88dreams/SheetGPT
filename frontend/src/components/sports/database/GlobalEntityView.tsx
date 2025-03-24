@@ -20,6 +20,7 @@ interface EntityMetadata {
 // Define the entity types with their descriptions
 const ENTITY_TYPES: Array<{ id: EntityType; name: string; description: string }> = [
   { id: 'league', name: 'Leagues', description: 'Sports leagues' },
+  { id: 'division_conference', name: 'Divisions/Conferences', description: 'Divisions and conferences within leagues' },
   { id: 'team', name: 'Teams', description: 'Sports teams' },
   { id: 'player', name: 'Players', description: 'Team players' },
   { id: 'game', name: 'Games', description: 'Scheduled games' },
@@ -54,6 +55,9 @@ const GlobalEntityView: React.FC<GlobalEntityViewProps> = ({ className = '' }) =
   useEffect(() => {
     const fetchAllEntityMetadata = async () => {
       try {
+        // First fetch counts to ensure we have the latest data
+        await fetchEntityCounts();
+        
         const metadata: Record<string, EntityMetadata> = {};
         
         for (const entityType of ENTITY_TYPES) {
@@ -77,9 +81,17 @@ const GlobalEntityView: React.FC<GlobalEntityViewProps> = ({ className = '' }) =
       }
     };
 
-    fetchEntityCounts();
+    // Call once when component mounts
     fetchAllEntityMetadata();
-  }, [entityCounts]);
+    
+    // Set up an interval to refresh data every 30 seconds if needed
+    const refreshInterval = setInterval(() => {
+      fetchAllEntityMetadata();
+    }, 30000);
+    
+    // Clean up interval on unmount
+    return () => clearInterval(refreshInterval);
+  }, []); // Remove entityCounts dependency to prevent infinite loop
 
   // Handle view change
   const handleViewEntity = (entityId: EntityType) => {
@@ -119,8 +131,7 @@ const GlobalEntityView: React.FC<GlobalEntityViewProps> = ({ className = '' }) =
   });
 
   return (
-    <div className={`border rounded-lg p-4 ${className}`}>
-      <h4 className="font-medium text-gray-900 mb-3">Global View of All Entities</h4>
+    <div className={`p-4 ${className}`}>
       <div className="overflow-y-auto max-h-[500px]">
         <table className="min-w-full divide-y divide-gray-200">
           <thead className="bg-gray-50 sticky top-0">

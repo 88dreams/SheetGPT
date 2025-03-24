@@ -2,7 +2,16 @@ import { request, getToken, APIError } from '../utils/apiClient';
 import { Conversation, Message, PaginatedResponse } from '../types/api';
 
 // For streaming responses
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+// Safe access to env variables
+let API_URL = 'http://localhost:8000';
+try {
+  const envUrl = import.meta.env.VITE_API_URL;
+  if (envUrl) {
+    API_URL = envUrl;
+  }
+} catch (error) {
+  console.log('Error accessing import.meta.env, using default API URL');
+}
 const API_PREFIX = '/api/v1';
 
 export const chatService = {

@@ -77,7 +77,8 @@ const SportDataMapperContainer: React.FC<SportDataMapperProps> = ({ isOpen, onCl
     isBatchImporting,
     notification,
     saveToDatabase,
-    batchImport
+    batchImport,
+    clearNotification
   } = useImportProcess();
   
   const {
@@ -315,7 +316,7 @@ const SportDataMapperContainer: React.FC<SportDataMapperProps> = ({ isOpen, onCl
       )}
       
       {/* Notification */}
-      <Notification notification={notification} />
+      <Notification notification={notification} onClose={clearNotification} />
       
       {/* Guided Walkthrough */}
       <GuidedWalkthrough

@@ -31,15 +31,28 @@ export const useDataSelection = () => {
         setSelectedDataId(storedDataId);
       }
     }
-  }, []);
+  }, [selectedDataId, selectedFromParams]);
 
   // Handle selection from URL params
   useEffect(() => {
     if (selectedFromParams) {
       console.log('DataManagement: Setting selected data ID from URL parameter:', selectedFromParams);
       setSelectedDataId(selectedFromParams);
+      // Also ensure it's saved to session storage for persistence
+      sessionStorage.setItem('last_selected_data_id', selectedFromParams);
     }
   }, [selectedFromParams]);
+  
+  // Check for recently created data ID from MessageItem
+  useEffect(() => {
+    const recentDataId = sessionStorage.getItem('recent_data_id');
+    if (recentDataId && (!selectedDataId || selectedDataId !== recentDataId)) {
+      console.log('DataManagement: Found recent data ID in session storage:', recentDataId);
+      setSelectedDataId(recentDataId);
+      // Clear the recent data ID to prevent it from being reused
+      sessionStorage.removeItem('recent_data_id');
+    }
+  }, [selectedDataId]);
 
   // Query for all structured data
   const { 

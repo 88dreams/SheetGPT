@@ -55,10 +55,10 @@ class SportsService:
         """Initialize the service with its child services."""
         self.league_service = LeagueService()
         self.team_service = TeamService()
+        self.stadium_service = StadiumService()
         # These will be added as the individual services are created
         # self.player_service = PlayerService()
         # self.game_service = GameService()
-        # self.stadium_service = StadiumService()
         # self.broadcast_service = BroadcastService()
         # self.production_service = ProductionService()
         # self.brand_service = BrandService()
@@ -200,6 +200,27 @@ class SportsService:
     async def delete_league(self, db: AsyncSession, league_id: UUID) -> bool:
         """Delete a league."""
         return await self.league_service.delete_league(db, league_id)
+        
+    # Stadium methods
+    async def get_stadiums(self, db: AsyncSession) -> List[Stadium]:
+        """Get all stadiums."""
+        return await self.stadium_service.get_stadiums(db)
+    
+    async def create_stadium(self, db: AsyncSession, stadium: StadiumCreate) -> Stadium:
+        """Create a new stadium or update if it already exists."""
+        return await self.stadium_service.create_stadium(db, stadium)
+    
+    async def get_stadium(self, db: AsyncSession, stadium_id: UUID) -> Optional[Stadium]:
+        """Get a stadium by ID."""
+        return await self.stadium_service.get_stadium(db, stadium_id)
+    
+    async def update_stadium(self, db: AsyncSession, stadium_id: UUID, stadium_update: StadiumUpdate) -> Optional[Stadium]:
+        """Update a stadium."""
+        return await self.stadium_service.update_stadium(db, stadium_id, stadium_update)
+    
+    async def delete_stadium(self, db: AsyncSession, stadium_id: UUID) -> bool:
+        """Delete a stadium."""
+        return await self.stadium_service.delete_stadium(db, stadium_id)
     
     # Team methods
     async def get_teams(self, db: AsyncSession, league_id: Optional[UUID] = None) -> List[Team]:

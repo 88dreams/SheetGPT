@@ -66,10 +66,11 @@ describe('useImportProcess', () => {
     
     const entityType = 'team';
     const mappedData = { name: 'Test Team', city: 'Test City' };
+    const currentRecord = { name: 'Test Team', city: 'Test City' };
     
     let saveResult;
     await act(async () => {
-      saveResult = await result.current.saveToDatabase(entityType, mappedData);
+      saveResult = await result.current.saveToDatabase(entityType, mappedData, currentRecord);
     });
     
     expect(saveResult).toBe(true);
@@ -88,10 +89,11 @@ describe('useImportProcess', () => {
     
     const entityType = 'team';
     const mappedData = { city: 'Test City' }; // Missing required name field
+    const currentRecord = { city: 'Test City' };
     
     let saveResult;
     await act(async () => {
-      saveResult = await result.current.saveToDatabase(entityType, mappedData);
+      saveResult = await result.current.saveToDatabase(entityType, mappedData, currentRecord);
     });
     
     expect(saveResult).toBe(false);
@@ -108,10 +110,11 @@ describe('useImportProcess', () => {
     
     const entityType = 'team';
     const mappedData = { name: 'Test Team', city: 'Test City' };
+    const currentRecord = { name: 'Test Team', city: 'Test City' };
     
     let saveResult;
     await act(async () => {
-      saveResult = await result.current.saveToDatabase(entityType, mappedData);
+      saveResult = await result.current.saveToDatabase(entityType, mappedData, currentRecord);
     });
     
     expect(saveResult).toBe(false);

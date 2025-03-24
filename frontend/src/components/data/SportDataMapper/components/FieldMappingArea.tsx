@@ -272,9 +272,9 @@ const FieldMappingArea: React.FC<FieldMappingAreaProps> = ({
           <div className="flex items-center space-x-2">
             <button
               onClick={onPreviousRecord}
-              disabled={currentRecordIndex === 0}
+              disabled={totalRecords === 0}
               className={`p-1 rounded ${
-                currentRecordIndex === 0 
+                totalRecords === 0
                   ? 'text-gray-400 cursor-not-allowed' 
                   : 'text-indigo-600 hover:bg-indigo-50'
               }`}
@@ -291,9 +291,9 @@ const FieldMappingArea: React.FC<FieldMappingAreaProps> = ({
             
             <button
               onClick={onNextRecord}
-              disabled={currentRecordIndex === totalRecords - 1}
+              disabled={totalRecords === 0}
               className={`p-1 rounded ${
-                currentRecordIndex === totalRecords - 1 
+                totalRecords === 0
                   ? 'text-gray-400 cursor-not-allowed' 
                   : 'text-indigo-600 hover:bg-indigo-50'
               }`}

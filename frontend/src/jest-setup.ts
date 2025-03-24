@@ -1,6 +1,8 @@
 // This file is imported in jest.config.js as setupFilesAfterEnv
 import '@testing-library/jest-dom';
 
+// Modules with import.meta.env are mocked in moduleNameMapper config
+
 // Mock console.error to filter out specific warnings
 const originalConsoleError = console.error;
 console.error = (...args: any[]) => {

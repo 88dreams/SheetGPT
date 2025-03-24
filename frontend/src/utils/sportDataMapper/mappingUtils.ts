@@ -143,6 +143,76 @@ export const createEntityIfNotExists = async (
 /**
  * Enhanced mapping function that handles name-to-ID lookups and data formatting
  */
+/**
+ * Helper function to process remaining fields for broadcast rights after 
+ * identifying a brand to use as broadcast company
+ */
+const processRemainingFields = async (
+  basicMapped: Record<string, any>,
+  entityType: string,
+  apiClient: any
+): Promise<Record<string, any>> => {
+  // Process division_conference_id by name
+  if (basicMapped.division_conference_id && !isValidUUID(basicMapped.division_conference_id)) {
+    const divisionName = basicMapped.division_conference_id;
+    
+    console.log(`Looking up division/conference ID for name: ${divisionName}`);
+    try {
+      // Use the correct method name from sportsService
+      const divisions = await apiClient.sports.getDivisionConferences();
+      
+      // First try exact match
+      let division = divisions.find(e => e.name?.toLowerCase() === divisionName.toLowerCase());
+      
+      // If no exact match, try partial match for longer names
+      if (!division && divisionName.length > 4) {
+        console.log('No exact match found, trying partial match');
+        division = divisions.find(e => 
+          e.name?.toLowerCase().includes(divisionName.toLowerCase()) ||
+          divisionName.toLowerCase().includes(e.name?.toLowerCase())
+        );
+      }
+      
+      if (division) {
+        basicMapped.division_conference_id = division.id;
+        console.log(`Found division/conference ID: ${division.id} for name: ${divisionName}`);
+      } else {
+        console.log(`Could not find division/conference with name: ${divisionName}`);
+      }
+    } catch (error) {
+      console.error(`Error looking up division/conference with name ${divisionName}:`, error);
+    }
+  }
+  
+  // Format dates for broadcast rights
+  if (entityType === 'broadcast') {
+    // Handle start_date
+    if (basicMapped.start_date && typeof basicMapped.start_date === 'string') {
+      const yearRegex = /^\d{4}$/;
+      if (yearRegex.test(basicMapped.start_date)) {
+        basicMapped.start_date = `${basicMapped.start_date}-01-01`;
+        console.log(`Converted start_date from year to full date: ${basicMapped.start_date}`);
+      }
+    }
+    
+    // Handle end_date
+    if (basicMapped.end_date && typeof basicMapped.end_date === 'string') {
+      const yearRegex = /^\d{4}$/;
+      if (yearRegex.test(basicMapped.end_date)) {
+        basicMapped.end_date = `${basicMapped.end_date}-12-31`;
+        console.log(`Converted end_date from year to full date: ${basicMapped.end_date}`);
+      }
+    } else if (!basicMapped.end_date) {
+      // Set a default end date if missing
+      const now = new Date();
+      basicMapped.end_date = `${now.getFullYear() + 10}-12-31`;
+      console.log(`Missing end_date for broadcast rights, setting default: ${basicMapped.end_date}`);
+    }
+  }
+  
+  return basicMapped;
+};
+
 export const enhancedMapToDatabaseFieldNames = async (
   entityType: EntityType, 
   data: Record<string, any>,
@@ -369,6 +439,145 @@ export const enhancedMapToDatabaseFieldNames = async (
       console.log(`Found team ID: ${teamId} for name: ${data.team_id}`);
     } else {
       console.warn(`Could not find team ID for name: ${basicMapped.team_id}`);
+    }
+  }
+
+  // For brand_relationship, handle brand_id and entity_id lookups
+  if (entityType === 'brand_relationship') {
+    // Handle brand_id lookup by name if provided as a string instead of UUID
+    if (basicMapped.brand_id && !isValidUUID(basicMapped.brand_id)) {
+      console.log(`Looking up brand ID for name: ${basicMapped.brand_id}`);
+      try {
+        // Use the lookup API directly which is more reliable
+        const response = await apiClient.sports.lookup('brand', basicMapped.brand_id);
+        if (response && response.id) {
+          basicMapped.brand_id = response.id;
+          console.log(`Found brand ID: ${response.id} for name: ${basicMapped.brand_id}`);
+        } else {
+          // Try to create a new brand if it doesn't exist
+          try {
+            console.log(`Creating new brand: ${basicMapped.brand_id}`);
+            const industry = data.industry || 'Unknown';
+            
+            // Use generic entity creation instead of specific brand creation
+            const brandData = {
+              name: basicMapped.brand_id,
+              industry: industry
+            };
+            
+            const newBrand = await apiClient.sports.createBrand(brandData);
+            
+            if (newBrand?.id) {
+              basicMapped.brand_id = newBrand.id;
+              console.log(`Created new brand with ID: ${newBrand.id} for name: ${basicMapped.brand_id}`);
+            } else {
+              console.warn(`Could not create brand for name: ${basicMapped.brand_id}`);
+            }
+          } catch (createError) {
+            console.error(`Error creating new brand: ${basicMapped.brand_id}`, createError);
+          }
+        }
+      } catch (error) {
+        console.error(`Error looking up brand with name "${basicMapped.brand_id}":`, error);
+        // If there's an error with the lookup, just continue with the original value
+        // The backend will generate the appropriate error message if needed
+      }
+    }
+    
+    // Handle entity_id lookup based on entity_type if provided as a string instead of UUID
+    if (basicMapped.entity_id && basicMapped.entity_type && !isValidUUID(basicMapped.entity_id)) {
+      const entityName = basicMapped.entity_id;
+      const entityType = basicMapped.entity_type;
+      
+      console.log(`Looking up ${entityType} ID for name: ${entityName}`);
+      
+      // Map entity_type to the correct lookup type (singular form)
+      let lookupType = entityType.toLowerCase();
+      
+      // Remove trailing 's' if present to get singular form
+      if (lookupType.endsWith('s')) {
+        lookupType = lookupType.slice(0, -1);
+      }
+      
+      // Handle special cases and normalize lookupType
+      if (['division', 'conference', 'divisions', 'conferences'].includes(lookupType)) {
+        lookupType = 'division_conference';
+      }
+      
+      console.log(`Normalized lookup type: ${lookupType}`);
+      
+      // Get entity ID by name using the lookup API
+      try {
+        // Use the lookup API directly which is more reliable
+        const response = await apiClient.sports.lookup(lookupType, entityName);
+        if (response && response.id) {
+          basicMapped.entity_id = response.id;
+          console.log(`Found ${entityType} ID: ${response.id} for name: ${entityName}`);
+        } else {
+          console.warn(`Could not find ${entityType} ID for name: ${entityName}`);
+          
+          // Try to create a new entity if appropriate based on entity type
+          if (lookupType === 'league') {
+            try {
+              console.log(`Creating new league: ${entityName}`);
+              const leagueData = {
+                name: entityName,
+                sport: 'Unknown',
+                country: 'Unknown'
+              };
+              
+              const newLeague = await apiClient.sports.createLeague(leagueData);
+              
+              if (newLeague?.id) {
+                basicMapped.entity_id = newLeague.id;
+                console.log(`Created new league with ID: ${newLeague.id} for name: ${entityName}`);
+              }
+            } catch (createError) {
+              console.error(`Error creating new league: ${entityName}`, createError);
+            }
+          } 
+          else if (lookupType === 'division_conference' && basicMapped.league_id) {
+            try {
+              console.log(`Creating new division/conference: ${entityName}`);
+              const divisionData = {
+                name: entityName,
+                league_id: basicMapped.league_id,
+                type: 'Conference'
+              };
+              
+              const newDivision = await apiClient.sports.createDivisionConference(divisionData);
+              
+              if (newDivision?.id) {
+                basicMapped.entity_id = newDivision.id;
+                console.log(`Created new division/conference with ID: ${newDivision.id} for name: ${entityName}`);
+              }
+            } catch (createError) {
+              console.error(`Error creating new division/conference: ${entityName}`, createError);
+            }
+          }
+          else if (lookupType === 'brand') {
+            try {
+              console.log(`Creating new brand: ${entityName}`);
+              const brandData = {
+                name: entityName,
+                industry: 'Unknown'
+              };
+              
+              const newBrand = await apiClient.sports.createBrand(brandData);
+              
+              if (newBrand?.id) {
+                basicMapped.entity_id = newBrand.id;
+                console.log(`Created new brand with ID: ${newBrand.id} for name: ${entityName}`);
+              }
+            } catch (createError) {
+              console.error(`Error creating new brand: ${entityName}`, createError);
+            }
+          }
+        }
+      } catch (error) {
+        console.error(`Error looking up ${entityType} ID for name ${entityName}:`, error);
+        // Continue with the original value, the backend will handle missing entities
+      }
     }
   }
   
@@ -676,28 +885,81 @@ export const enhancedMapToDatabaseFieldNames = async (
           console.log(`Broadcast company name contains parentheses, will try base name "${baseNameToLookup}" if full name fails`);
         }
         
-        // First try the full name
-        let response = await apiClient.sports.lookup('broadcast_company', nameToLookup);
-        
-        // If full name doesn't match and we have a base name, try that
-        if ((!response || !response.id) && baseNameToLookup) {
-          console.log(`Trying lookup with base name: "${baseNameToLookup}"`);
-          response = await apiClient.sports.lookup('broadcast_company', baseNameToLookup);
+        // First try looking it up as a broadcast company
+        let response = null;
+        try {
+          // First try the full name
+          response = await apiClient.sports.lookup('broadcast_company', nameToLookup);
+          
+          // If full name doesn't match and we have a base name, try that
+          if ((!response || !response.id) && baseNameToLookup) {
+            console.log(`Trying lookup with base name: "${baseNameToLookup}"`);
+            response = await apiClient.sports.lookup('broadcast_company', baseNameToLookup);
+          }
+        } catch (lookupError) {
+          console.log(`Broadcast company "${nameToLookup}" not found, will try brand lookup next`);
         }
         
+        // If not found as a broadcast company, try looking it up as a brand
+        if (!response || !response.id) {
+          console.log(`No broadcast company found for "${companyName}", checking if it exists as a brand`);
+          try {
+            // Try to look up as a brand first
+            const brandResponse = await apiClient.sports.lookup('brand', nameToLookup);
+            
+            // If found as a brand
+            if (brandResponse && brandResponse.id) {
+              console.log(`Found "${companyName}" as a brand with ID ${brandResponse.id}`);
+              console.log(`Will use brand ID as broadcast company ID`);
+              
+              // Use the brand ID as the broadcast company ID
+              basicMapped.broadcast_company_id = brandResponse.id;
+              
+              // Add a special field to indicate we're using a brand ID
+              basicMapped._usingBrandAsBroadcastCompany = true;
+              basicMapped._brandName = companyName;
+              
+              // Process the rest of the fields and return
+              return await processRemainingFields(basicMapped, entityType, apiClient);
+            } else if (baseNameToLookup) {
+              // Try base name for brand
+              console.log(`Trying brand lookup with base name: "${baseNameToLookup}"`);
+              try {
+                const baseBrandResponse = await apiClient.sports.lookup('brand', baseNameToLookup);
+                
+                if (baseBrandResponse && baseBrandResponse.id) {
+                  console.log(`Found "${baseNameToLookup}" as a brand with ID ${baseBrandResponse.id}`);
+                  console.log(`Will use brand ID as broadcast company ID`);
+                  
+                  // Use the brand ID as the broadcast company ID
+                  basicMapped.broadcast_company_id = baseBrandResponse.id;
+                  
+                  // Add a special field to indicate we're using a brand ID
+                  basicMapped._usingBrandAsBroadcastCompany = true;
+                  basicMapped._brandName = baseNameToLookup;
+                  
+                  // Process the rest of the fields and return
+                  return await processRemainingFields(basicMapped, entityType, apiClient);
+                }
+              } catch (error) {
+                console.log(`Brand lookup with base name failed: ${error.message}`);
+              }
+            }
+          } catch (brandLookupError) {
+            console.log(`Brand lookup also failed for "${companyName}"`);
+          }
+        }
+        
+        // If found as a broadcast company
         if (response && response.id) {
           basicMapped.broadcast_company_id = response.id;
           console.log(`Found broadcast company ID ${response.id} for name: ${companyName}`);
         } else {
-          // Instead of trying to create a company automatically (which the API doesn't support),
-          // store the company name in a special field we'll use later
-          console.log(`Broadcast company "${companyName}" not found, will use a placeholder UUID`);
+          // Neither broadcast company nor brand was found
+          console.log(`"${companyName}" not found as broadcast company or brand, will use a placeholder UUID`);
           
-          // Use a placeholder UUID - this will trigger validation errors but we'll catch them
-          // in importUtils.ts to provide a better error message
+          // Store the company name in special fields for later use
           basicMapped._pendingBroadcastCompanyName = companyName;
-          
-          // Store the name as a property for later use
           basicMapped._newBroadcastCompanyName = companyName;
           
           // For now, use a known UUID placeholder that will cause a specific error we can catch
@@ -705,7 +967,7 @@ export const enhancedMapToDatabaseFieldNames = async (
           basicMapped.broadcast_company_id = "00000000-NEW-COMP-ANY0-000000000000";
         }
       } catch (error) {
-        console.error(`Error looking up broadcast company ID for name ${companyName}:`, error);
+        console.error(`Error during broadcast company/brand lookup for "${companyName}":`, error);
         
         // Store the company name as a property for later use 
         basicMapped._newBroadcastCompanyName = companyName;
@@ -851,8 +1113,35 @@ export const enhancedMapToDatabaseFieldNames = async (
           console.log(`Converted end_date from year to full date: ${year} -> ${basicMapped.end_date}`);
         }
       }
+    } else if (entityType === 'brand_relationship') {
+      // For brand relationships, handle date formatting similarly to broadcast rights
+      // with default values when missing
+      const DEFAULT_DATE = '1976-04-01';
+      
+      if (!basicMapped.start_date) {
+        basicMapped.start_date = DEFAULT_DATE;
+        console.log(`Missing start_date for brand relationship, setting default: ${DEFAULT_DATE}`);
+      } else {
+        // Check if it's just a year (4 digits)
+        const yearRegex = /^\d{4}$/;
+        if (yearRegex.test(basicMapped.start_date)) {
+          const year = basicMapped.start_date;
+          basicMapped.start_date = `${year}-01-01`;
+          console.log(`Converted start_date from year to full date: ${year} -> ${basicMapped.start_date}`);
+        }
+      }
+      
+      if (basicMapped.end_date) {
+        // Check if it's just a year (4 digits)
+        const yearRegex = /^\d{4}$/;
+        if (yearRegex.test(basicMapped.end_date)) {
+          const year = basicMapped.end_date;
+          basicMapped.end_date = `${year}-12-31`;
+          console.log(`Converted end_date from year to full date: ${year} -> ${basicMapped.end_date}`);
+        }
+      }
     } else {
-      // For non-broadcast entities, just handle year formatting without defaults
+      // For other entities, just handle year formatting without defaults
       // Format start_date and end_date if they are just years
       if (basicMapped.start_date) {
         // Check if it's just a year (4 digits)

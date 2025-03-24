@@ -6,11 +6,12 @@ import {
   StadiumFields, 
   LeagueFields, 
   TeamFields, 
-  DivisionConferenceFields 
+  DivisionConferenceFields,
+  BrandFields,
+  BrandRelationshipFields,
+  BroadcastFields,
+  ProductionFields
 } from './fields';
-import BroadcastFields from './fields/BroadcastFields';
-import ProductionFields from './fields/ProductionFields';
-import BrandFields from './fields/BrandFields';
 
 interface AdvancedEditFormProps {
   entity: Entity;
@@ -30,7 +31,7 @@ export const AdvancedEditForm: React.FC<AdvancedEditFormProps> = ({
   onChange,
 }) => {
   // Simple handler for field changes
-  const handleFieldChange = (field: string, value: string | number) => {
+  const handleFieldChange = (field: string, value: string | number | Date | null) => {
     onChange({
       ...entity,
       [field]: value,
@@ -76,6 +77,13 @@ export const AdvancedEditForm: React.FC<AdvancedEditFormProps> = ({
       
       case 'brand':
         return <BrandFields 
+                entity={entity} 
+                onChange={handleFieldChange} 
+                isEditing={isEditing} 
+              />;
+              
+      case 'brand_relationship':
+        return <BrandRelationshipFields 
                 entity={entity} 
                 onChange={handleFieldChange} 
                 isEditing={isEditing} 

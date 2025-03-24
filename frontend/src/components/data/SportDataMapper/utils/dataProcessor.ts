@@ -24,7 +24,17 @@ export const extractSourceFields = (
       const processedRows = data.rows.map((row: any[]) => {
         const rowObj: Record<string, any> = {};
         data.headers.forEach((header: string, index: number) => {
-          rowObj[header] = row[index];
+          // Sanitize source field values that are strings
+          let value = row[index];
+          if (typeof value === 'string') {
+            // Normalize whitespace
+            value = value.trim();
+            // Handle special cases with empty strings
+            if (value === '') {
+              value = null;
+            }
+          }
+          rowObj[header] = value;
         });
         return rowObj;
       });

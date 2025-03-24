@@ -91,14 +91,17 @@ function getApiUrl(): string {
   let apiUrl = 'http://localhost:8000'; // Default value
   
   try {
-    // Access import.meta only in browser environment
-    // Note: Cannot use typeof import check as import is a keyword
+    // Only attempt to access import.meta in a browser environment
     if (typeof window !== 'undefined') {
-      // Use optional chaining to safely access nested properties
-      // @ts-ignore - TypeScript might complain about import.meta
-      const envUrl = import.meta?.env?.VITE_API_URL;
-      if (envUrl) {
-        apiUrl = envUrl;
+      try {
+        // Using direct property access instead of optional chaining
+        const envUrl = import.meta.env.VITE_API_URL;
+        if (envUrl) {
+          apiUrl = envUrl;
+        }
+      } catch (innerError) {
+        // This is a safe fallback if import.meta is not available
+        console.log('Import.meta not available in tokenRefresh, using default API URL');
       }
     }
   } catch (error) {

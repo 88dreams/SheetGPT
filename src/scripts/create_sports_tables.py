@@ -5,7 +5,7 @@ Script to create sports database tables.
 
 import asyncio
 from src.models.sports_models import (
-    League, Stadium, Team, Player, Game, BroadcastCompany, BroadcastRights,
+    League, DivisionConference, Stadium, Team, Player, Game, BroadcastCompany, BroadcastRights,
     ProductionCompany, ProductionService, Brand, BrandRelationship,
     TeamRecord, TeamOwnership, LeagueExecutive, GameBroadcast
 )

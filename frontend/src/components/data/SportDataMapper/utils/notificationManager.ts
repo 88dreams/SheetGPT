@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 
 export interface NotificationType {
   type: 'success' | 'error' | 'info';
@@ -11,6 +11,16 @@ export interface NotificationType {
  */
 export const useNotificationManager = () => {
   const [notification, setNotification] = useState<NotificationType | null>(null);
+  const timerRef = useRef<number | null>(null);
+  
+  // Clear any existing timers when component unmounts
+  useEffect(() => {
+    return () => {
+      if (timerRef.current) {
+        clearTimeout(timerRef.current);
+      }
+    };
+  }, []);
   
   /**
    * Show a notification message with optional auto-hide
@@ -21,13 +31,22 @@ export const useNotificationManager = () => {
     details?: string,
     autoDismiss: boolean = true
   ) => {
+    // Clear any existing timers
+    if (timerRef.current) {
+      clearTimeout(timerRef.current);
+      timerRef.current = null;
+    }
+    
     setNotification({ type, message, details });
     
-    // Auto-hide notification after 5 seconds
-    if (autoDismiss) {
-      setTimeout(() => {
+    // Auto-hide notification after appropriate time
+    // 3 seconds for success/info, 30 seconds for errors
+    if (autoDismiss || type !== 'error') {
+      const timeoutDuration = type === 'error' ? 30000 : 3000;
+      timerRef.current = window.setTimeout(() => {
         setNotification(null);
-      }, 5000);
+        timerRef.current = null;
+      }, timeoutDuration);
     }
   }, []);
   
@@ -35,6 +54,10 @@ export const useNotificationManager = () => {
    * Clear the current notification
    */
   const clearNotification = useCallback(() => {
+    if (timerRef.current) {
+      clearTimeout(timerRef.current);
+      timerRef.current = null;
+    }
     setNotification(null);
   }, []);
   

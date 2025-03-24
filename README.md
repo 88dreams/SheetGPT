@@ -323,6 +323,34 @@ The Sports Database (SportDB) provides comprehensive management of sports-relate
 
 Each entity type has specific fields and relationships defined in the system.
 
+### Brand and Broadcast Company Integration
+
+The system supports using Brand entities as Broadcast Companies for broadcast rights through a "dual-ID" approach that maintains database integrity:
+
+1. **Implementation**:
+   - When a Brand ID is provided for a broadcast right, the system:
+     - First checks if a Broadcast Company record exists with that ID
+     - If not found, checks if a Brand exists with that ID
+     - Creates a placeholder Broadcast Company with the same ID as the Brand
+
+2. **Benefits**:
+   - Maintains database foreign key constraints
+   - Allows brands to be used directly in broadcast rights
+   - No need for duplicate data entry
+   - Simple UI that feels natural to users
+
+3. **Utilities**:
+   - `add_broadcast_constraint.py`: Creates placeholder broadcast companies for all brands
+   - `check_broadcast_rights.py`: Verifies integrity of broadcast rights data
+
+To run these utilities:
+```bash
+docker-compose run --rm backend python add_broadcast_constraint.py
+docker-compose run --rm backend python check_broadcast_rights.py
+```
+
+This integration is especially useful when brands (like CBS Sports, ESPN) serve as broadcast companies, eliminating the need to maintain duplicate entities.
+
 ## Getting Started
 
 ### Prerequisites

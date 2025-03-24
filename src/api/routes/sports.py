@@ -2,12 +2,15 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from typing import List, Optional, Dict, Any
 from uuid import UUID
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select
+from sqlalchemy.exc import SQLAlchemyError
+from pydantic import ValidationError
 
 from src.models.sports_models import (
     League, Team, Player, Game, Stadium, 
     BroadcastCompany, BroadcastRights, 
     ProductionCompany, ProductionService,
-    Brand, BrandRelationship
+    Brand, BrandRelationship, DivisionConference
 )
 from src.schemas.sports import (
     LeagueCreate, LeagueUpdate, LeagueResponse,
@@ -18,6 +21,7 @@ from src.schemas.sports import (
     BroadcastCompanyCreate, BroadcastCompanyUpdate, BroadcastCompanyResponse,
     BroadcastRightsCreate, BroadcastRightsUpdate, BroadcastRightsResponse,
     ProductionCompanyCreate, ProductionCompanyUpdate, ProductionCompanyResponse,
+    DivisionConferenceCreate, DivisionConferenceUpdate, DivisionConferenceResponse,
     ProductionServiceCreate, ProductionServiceUpdate, ProductionServiceResponse,
     BrandCreate, BrandUpdate, BrandResponse,
     BrandRelationshipCreate, BrandRelationshipUpdate, BrandRelationshipResponse,
@@ -33,6 +37,23 @@ router = APIRouter()
 sports_service = SportsService()
 export_service = ExportService()
 
+# Lookup endpoint for entity by name
+@router.get("/lookup/{entity_type}")
+async def lookup_entity_by_name(
+    entity_type: str,
+    name: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: Dict = Depends(get_current_user)
+):
+    """Look up an entity by name, with case-insensitive matching."""
+    try:
+        entity = await sports_service.get_entity_by_name(db, entity_type, name)
+        if not entity:
+            raise HTTPException(status_code=404, detail=f"{entity_type.capitalize()} with name '{name}' not found")
+        return entity
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
 # Generic entity endpoints
 @router.get("/entities/{entity_type}", response_model=PaginatedResponse[Dict[str, Any]])
 async def get_entities(
@@ -46,7 +67,8 @@ async def get_entities(
 ):
     """Get paginated entities of a specific type."""
     try:
-        return await sports_service.get_entities(
+        # Standard, consistent handling for all entity types
+        return await sports_service.get_entities_with_related_names(
             db=db,
             entity_type=entity_type,
             page=page,
@@ -67,6 +89,146 @@ async def get_leagues(
 ):
     """Get all leagues."""
     return await sports_service.get_leagues(db)
+
+# DivisionsConferences endpoints
+@router.get("/divisions-conferences", response_model=List[DivisionConferenceResponse])
+async def get_divisions_conferences(
+    league_id: Optional[UUID] = None,
+    db: AsyncSession = Depends(get_db),
+    current_user: Dict = Depends(get_current_user)
+):
+    """Get all divisions/conferences, optionally filtered by league."""
+    query = select(DivisionConference)
+    if league_id:
+        query = query.where(DivisionConference.league_id == league_id)
+    result = await db.execute(query)
+    return result.scalars().all()
+
+@router.post("/divisions-conferences", response_model=DivisionConferenceResponse, status_code=status.HTTP_201_CREATED)
+async def create_division_conference(
+    division_conference: DivisionConferenceCreate,
+    db: AsyncSession = Depends(get_db),
+    current_user: Dict = Depends(get_current_user)
+):
+    """Create a new division/conference."""
+    # First check if the league exists
+    league_result = await db.execute(select(League).where(League.id == division_conference.league_id))
+    league = league_result.scalars().first()
+    if not league:
+        raise HTTPException(status_code=404, detail="League not found")
+        
+    # Create the division/conference
+    db_division_conference = DivisionConference(**division_conference.dict())
+    db.add(db_division_conference)
+    
+    try:
+        await db.commit()
+        await db.refresh(db_division_conference)
+        
+        # Attach league name for the response
+        response_obj = {**db_division_conference.__dict__}
+        response_obj["league_name"] = league.name
+        return response_obj
+    except SQLAlchemyError as e:
+        await db.rollback()
+        raise HTTPException(status_code=500, detail=f"Error creating division/conference: {str(e)}")
+
+@router.get("/divisions-conferences/{division_conference_id}", response_model=DivisionConferenceResponse)
+async def get_division_conference(
+    division_conference_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: Dict = Depends(get_current_user)
+):
+    """Get a specific division/conference by ID."""
+    # Join with League to get the league name
+    query = (
+        select(DivisionConference, League.name.label("league_name"))
+        .join(League, DivisionConference.league_id == League.id)
+        .where(DivisionConference.id == division_conference_id)
+    )
+    result = await db.execute(query)
+    record = result.first()
+    
+    if not record:
+        raise HTTPException(status_code=404, detail="Division/Conference not found")
+    
+    # Convert to a response object with league_name
+    division_conference = record[0]
+    league_name = record[1]
+    
+    response_obj = {**division_conference.__dict__}
+    response_obj["league_name"] = league_name
+    
+    return response_obj
+
+@router.put("/divisions-conferences/{division_conference_id}", response_model=DivisionConferenceResponse)
+async def update_division_conference(
+    division_conference_id: UUID,
+    division_conference_update: DivisionConferenceUpdate,
+    db: AsyncSession = Depends(get_db),
+    current_user: Dict = Depends(get_current_user)
+):
+    """Update a specific division/conference."""
+    # First check if the division/conference exists
+    div_conf_query = (
+        select(DivisionConference, League.name.label("league_name"))
+        .join(League, DivisionConference.league_id == League.id)
+        .where(DivisionConference.id == division_conference_id)
+    )
+    result = await db.execute(div_conf_query)
+    record = result.first()
+    
+    if not record:
+        raise HTTPException(status_code=404, detail="Division/Conference not found")
+    
+    db_division_conference = record[0]
+    league_name = record[1]
+    
+    # If league_id is provided, check if it's valid
+    update_data = division_conference_update.dict(exclude_unset=True)
+    if 'league_id' in update_data and update_data['league_id'] is not None:
+        league_result = await db.execute(select(League).where(League.id == update_data['league_id']))
+        league = league_result.scalars().first()
+        if not league:
+            raise HTTPException(status_code=404, detail="League not found")
+        league_name = league.name
+    
+    # Update the division/conference
+    for key, value in update_data.items():
+        setattr(db_division_conference, key, value)
+    
+    try:
+        await db.commit()
+        await db.refresh(db_division_conference)
+        
+        # Return with league name
+        response_obj = {**db_division_conference.__dict__}
+        response_obj["league_name"] = league_name
+        
+        return response_obj
+    except SQLAlchemyError as e:
+        await db.rollback()
+        raise HTTPException(status_code=500, detail=f"Error updating division/conference: {str(e)}")
+
+@router.delete("/divisions-conferences/{division_conference_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_division_conference(
+    division_conference_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: Dict = Depends(get_current_user)
+):
+    """Delete a specific division/conference."""
+    result = await db.execute(select(DivisionConference).where(DivisionConference.id == division_conference_id))
+    db_division_conference = result.scalars().first()
+    if not db_division_conference:
+        raise HTTPException(status_code=404, detail="Division/Conference not found")
+    
+    try:
+        await db.delete(db_division_conference)
+        await db.commit()
+        return None
+    except SQLAlchemyError as e:
+        await db.rollback()
+        raise HTTPException(status_code=500, detail=f"Error deleting division/conference: {str(e)}")
 
 @router.post("/leagues", response_model=LeagueResponse, status_code=status.HTTP_201_CREATED)
 async def create_league(
@@ -131,7 +293,7 @@ async def get_teams(
 
 @router.post("/teams", response_model=TeamResponse, status_code=status.HTTP_201_CREATED)
 async def create_team(
-    team: TeamCreate,
+    team_data: Dict[str, Any],
     db: AsyncSession = Depends(get_db),
     current_user: Dict = Depends(get_current_user)
 ):
@@ -140,8 +302,68 @@ async def create_team(
     If a team with the provided name already exists, its information will be updated
     with any non-null values from the request. This prevents duplicate teams while
     allowing updates to existing ones.
+    
+    Also handles partial updates where only the division_conference_id is provided.
     """
-    return await sports_service.create_team(db, team)
+    # Print the team data for debugging
+    print(f"Received team data: {team_data}")
+    
+    # Check if this could be a partial update (has name and division_conference_id)
+    try:
+        if 'name' in team_data and 'division_conference_id' in team_data:
+            # Check if we're missing required fields - that would indicate this is a partial update
+            required_fields = ['league_id', 'stadium_id', 'city', 'country']
+            missing_fields = [field for field in required_fields if field not in team_data]
+            
+            print(f"Missing fields for team {team_data['name']}: {missing_fields}")
+            
+            # If we're missing some required fields, treat this as a partial update
+            if len(missing_fields) > 0:
+                print(f"Treating as partial update for team: {team_data['name']}")
+                
+                # Look up the existing team by name
+                query = select(Team).where(Team.name == team_data['name'])
+                result = await db.execute(query)
+                existing_team = result.scalars().first()
+            
+            if existing_team:
+                # This is a partial update to an existing team
+                print(f"Detected partial update for team: {team_data['name']}")
+                
+                try:
+                    # Verify division_conference_id exists
+                    div_conf_id = team_data['division_conference_id']
+                    div_result = await db.execute(select(DivisionConference).where(DivisionConference.id == div_conf_id))
+                    div_conf = div_result.scalars().first()
+                    
+                    if not div_conf:
+                        raise HTTPException(status_code=404, detail=f"Division/Conference with ID {div_conf_id} not found")
+                    
+                    # Update just the division_conference_id field
+                    existing_team.division_conference_id = div_conf_id
+                    await db.commit()
+                    await db.refresh(existing_team)
+                    return existing_team
+                except Exception as e:
+                    await db.rollback()
+                    print(f"Error performing partial update: {str(e)}")
+                    raise HTTPException(status_code=500, detail=f"Error performing partial update: {str(e)}")
+    except Exception as e:
+        print(f"Error in partial update check: {str(e)}")
+        # Continue to normal processing
+    
+    # If not a partial update, process as normal create/update
+    # Convert dict to TeamCreate model
+    try:
+        print(f"Creating team with data: {team_data}")
+        team = TeamCreate(**team_data)
+        return await sports_service.create_team(db, team)
+    except ValidationError as e:
+        print(f"Validation error: {str(e)}")
+        raise HTTPException(status_code=422, detail=str(e))
+    except Exception as e:
+        print(f"Unexpected error: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"An unexpected error occurred: {str(e)}")
 
 @router.get("/teams/{team_id}", response_model=TeamResponse)
 async def get_team(
@@ -167,6 +389,122 @@ async def update_team(
     if not team:
         raise HTTPException(status_code=404, detail="Team not found")
     return team
+    
+@router.patch("/teams/{team_id}", response_model=TeamResponse)
+async def partial_update_team(
+    team_id: UUID,
+    team_update: Dict[str, Any],
+    db: AsyncSession = Depends(get_db),
+    current_user: Dict = Depends(get_current_user)
+):
+    """
+    Partially update a specific team. Only the fields provided will be updated.
+    This endpoint is designed for updating specific fields on existing teams.
+    """
+    # First retrieve the existing team
+    result = await db.execute(select(Team).where(Team.id == team_id))
+    db_team = result.scalars().first()
+    
+    if not db_team:
+        raise HTTPException(status_code=404, detail="Team not found")
+        
+    # Update only the fields that are provided
+    for key, value in team_update.items():
+        if hasattr(db_team, key):
+            # Verify foreign key references if needed
+            if key == 'division_conference_id' and value is not None:
+                div_conf_result = await db.execute(select(DivisionConference).where(DivisionConference.id == value))
+                div_conf = div_conf_result.scalars().first()
+                if not div_conf:
+                    raise HTTPException(status_code=404, detail=f"Division/Conference with ID {value} not found")
+                    
+            # Apply the update
+            setattr(db_team, key, value)
+        else:
+            # Skip unknown fields
+            continue
+    
+    try:
+        await db.commit()
+        await db.refresh(db_team)
+        return db_team
+    except SQLAlchemyError as e:
+        await db.rollback()
+        raise HTTPException(status_code=500, detail=f"Error updating team: {str(e)}")
+
+# Generic endpoint for partial updates by name lookup
+@router.post("/update-by-name/{entity_type}")
+async def update_entity_by_name(
+    entity_type: str,
+    update_data: Dict[str, Any],
+    db: AsyncSession = Depends(get_db),
+    current_user: Dict = Depends(get_current_user)
+):
+    """
+    Generic endpoint for partial updates of any entity type by name.
+    
+    Requires:
+    - name: Name of the entity to update
+    - At least one field to update
+    
+    This endpoint is more flexible than the standard update endpoints
+    as it doesn't require all fields to be present - just the ones
+    you want to update.
+    """
+    print(f"Updating {entity_type} by name with data: {update_data}")
+    
+    # Validate required fields
+    if 'name' not in update_data:
+        raise HTTPException(status_code=422, detail="'name' field is required to identify the entity")
+    
+    # Determine which model to use based on entity_type
+    model_class = None
+    if entity_type == 'team':
+        model_class = Team
+    elif entity_type == 'league':
+        model_class = League
+    elif entity_type == 'division_conference':
+        model_class = DivisionConference
+    elif entity_type == 'player':
+        model_class = Player
+    elif entity_type == 'stadium':
+        model_class = Stadium
+    elif entity_type == 'brand':
+        model_class = Brand
+    # Add other entity types as needed
+    else:
+        raise HTTPException(status_code=400, detail=f"Unsupported entity type: {entity_type}")
+    
+    # Look up the entity by name
+    entity_name = update_data.pop('name')  # Remove name from update data
+    lookup_query = select(model_class).where(model_class.name == entity_name)
+    result = await db.execute(lookup_query)
+    entity = result.scalars().first()
+    
+    if not entity:
+        raise HTTPException(status_code=404, detail=f"{entity_type.capitalize()} with name '{entity_name}' not found")
+    
+    # Validate relationship fields if present
+    if entity_type == 'team' and 'division_conference_id' in update_data:
+        div_conf_id = update_data['division_conference_id']
+        div_conf_result = await db.execute(select(DivisionConference).where(DivisionConference.id == div_conf_id))
+        div_conf = div_conf_result.scalars().first()
+        
+        if not div_conf:
+            raise HTTPException(status_code=404, detail=f"Division/Conference with ID '{div_conf_id}' not found")
+    
+    # Update the entity with provided fields
+    for field, value in update_data.items():
+        if hasattr(entity, field):
+            setattr(entity, field, value)
+    
+    try:
+        await db.commit()
+        await db.refresh(entity)
+        return entity
+    except SQLAlchemyError as e:
+        await db.rollback()
+        raise HTTPException(status_code=500, detail=f"Error updating {entity_type}: {str(e)}")
 
 @router.delete("/teams/{team_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_team(
@@ -433,7 +771,21 @@ async def create_broadcast_rights(
     current_user: Dict = Depends(get_current_user)
 ):
     """Create new broadcast rights."""
-    return await sports_service.create_broadcast_rights(db, broadcast_rights)
+    try:
+        # Direct implementation as a workaround for missing method in SportsService
+        from src.services.sports.broadcast_service import BroadcastRightsService
+        
+        # Create a service instance directly
+        broadcast_rights_service = BroadcastRightsService()
+        
+        # Use the service to create broadcast rights
+        return await broadcast_rights_service.create_broadcast_rights(db, broadcast_rights)
+    except Exception as e:
+        # Log the error and re-raise
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.error(f"Error creating broadcast rights: {str(e)}")
+        raise
 
 @router.get("/broadcast-rights/{rights_id}", response_model=BroadcastRightsResponse)
 async def get_broadcast_rights_by_id(
@@ -442,7 +794,7 @@ async def get_broadcast_rights_by_id(
     current_user: Dict = Depends(get_current_user)
 ):
     """Get specific broadcast rights by ID."""
-    rights = await sports_service.get_broadcast_rights_by_id(db, rights_id)
+    rights = await sports_service.get_broadcast_right(db, rights_id)
     if not rights:
         raise HTTPException(status_code=404, detail="Broadcast rights not found")
     return rights

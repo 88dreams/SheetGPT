@@ -19,7 +19,7 @@ export const QuickEditForm: React.FC<QuickEditFormProps> = ({
   isEditing,
   onChange,
 }) => {
-  const handleFieldChange = (field: string, value: any) => {
+  const handleFieldChange = (field: string, value: string | number | Date | null) => {
     onChange({
       ...entity,
       [field]: value,

@@ -41,25 +41,19 @@ const useModalLifecycle = ({ visible, onCleanup }: UseModalLifecycleProps) => {
       console.log("BulkEditModal: Cleaning up modal");
       needsCleanupRef.current = false;
       
-      // Delay cleanup to prevent state updates during render
-      setTimeout(() => {
-        if (!visible) {
-          // Mark component as unmounted
-          isMountedRef.current = false;
-          initStartedRef.current = false;
-          
-          // Reset state
-          if (onCleanup) onCleanup();
-          setShowResults(false);
-        }
-      }, 100);
+      // Mark component as unmounted immediately to prevent further state updates
+      isMountedRef.current = false;
+      initStartedRef.current = false;
+      
+      // Reset state - no onCleanup during this phase to avoid cascading state updates
+      setShowResults(false);
     }
     
     // Cleanup function for when component unmounts
     return () => {
       isMountedRef.current = false;
     };
-  }, [visible, onCleanup]);
+  }, [visible]);
 
   // Safe setState functions that check if component is mounted
   const safeSetIsLoading = useCallback((value: boolean) => {

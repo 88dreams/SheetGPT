@@ -23,6 +23,10 @@ export const useRecordNavigation = (dataToImport: any[] = []) => {
   const goToNextRecord = useCallback(() => {
     if (currentRecordIndex < totalRecords - 1) {
       setCurrentRecordIndex(prev => prev + 1);
+    } else if (totalRecords > 0) {
+      // Loop back to first record if at the end
+      setCurrentRecordIndex(0);
+      console.log('Reached end of records, looping back to first record');
     }
   }, [currentRecordIndex, totalRecords]);
   
@@ -32,8 +36,12 @@ export const useRecordNavigation = (dataToImport: any[] = []) => {
   const goToPreviousRecord = useCallback(() => {
     if (currentRecordIndex > 0) {
       setCurrentRecordIndex(prev => prev - 1);
+    } else if (totalRecords > 0) {
+      // Loop back to last record if at the beginning
+      setCurrentRecordIndex(totalRecords - 1);
+      console.log('Reached start of records, looping back to last record');
     }
-  }, [currentRecordIndex]);
+  }, [currentRecordIndex, totalRecords]);
   
   /**
    * Toggle whether the current record is excluded

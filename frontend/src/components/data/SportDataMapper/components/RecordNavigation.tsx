@@ -24,9 +24,9 @@ const RecordNavigation: React.FC<RecordNavigationProps> = ({
       <div className="flex items-center space-x-2">
         <button
           onClick={onPreviousRecord}
-          disabled={currentRecordIndex === 0}
+          disabled={totalRecords === 0}
           className={`p-1 rounded-md ${
-            currentRecordIndex === 0
+            totalRecords === 0
               ? 'text-gray-400 cursor-not-allowed'
               : 'text-gray-700 hover:bg-gray-200'
           }`}
@@ -41,9 +41,9 @@ const RecordNavigation: React.FC<RecordNavigationProps> = ({
         </div>
         <button
           onClick={onNextRecord}
-          disabled={currentRecordIndex === totalRecords - 1}
+          disabled={totalRecords === 0}
           className={`p-1 rounded-md ${
-            currentRecordIndex === totalRecords - 1
+            totalRecords === 0
               ? 'text-gray-400 cursor-not-allowed'
               : 'text-gray-700 hover:bg-gray-200'
           }`}

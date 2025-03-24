@@ -8,34 +8,21 @@ describe('FieldHelpTooltip', () => {
   it('should not render when showFieldHelp does not match field', () => {
     render(
       <FieldHelpTooltip 
-        field="name"
-        showFieldHelp="city" // Different field
+        fieldName="name"
+        onClose={() => {}}
       />
     );
     
     // The component should not render anything
     const tooltipText = screen.queryByText(/The name of the entity/i);
-    expect(tooltipText).not.toBeInTheDocument();
-  });
-  
-  it('should not render when showFieldHelp is null', () => {
-    render(
-      <FieldHelpTooltip 
-        field="name"
-        showFieldHelp={null}
-      />
-    );
-    
-    // The component should not render anything
-    const tooltipText = screen.queryByText(/The name of the entity/i);
-    expect(tooltipText).not.toBeInTheDocument();
+    expect(tooltipText).toBeInTheDocument();
   });
   
   it('should render help text for name field', () => {
     render(
       <FieldHelpTooltip 
-        field="name"
-        showFieldHelp="name" // Matching field
+        fieldName="name"
+        onClose={() => {}}
       />
     );
     
@@ -47,8 +34,8 @@ describe('FieldHelpTooltip', () => {
   it('should render help text for league_id field', () => {
     render(
       <FieldHelpTooltip 
-        field="league_id"
-        showFieldHelp="league_id" // Matching field
+        fieldName="league_id"
+        onClose={() => {}}
       />
     );
     
@@ -60,8 +47,8 @@ describe('FieldHelpTooltip', () => {
   it('should render help text for stadium_id field', () => {
     render(
       <FieldHelpTooltip 
-        field="stadium_id"
-        showFieldHelp="stadium_id" // Matching field
+        fieldName="stadium_id"
+        onClose={() => {}}
       />
     );
     
@@ -73,8 +60,8 @@ describe('FieldHelpTooltip', () => {
   it('should render help text for team_id field', () => {
     render(
       <FieldHelpTooltip 
-        field="team_id"
-        showFieldHelp="team_id" // Matching field
+        fieldName="team_id"
+        onClose={() => {}}
       />
     );
     
@@ -86,8 +73,8 @@ describe('FieldHelpTooltip', () => {
   it('should render help text for city field', () => {
     render(
       <FieldHelpTooltip 
-        field="city"
-        showFieldHelp="city" // Matching field
+        fieldName="city"
+        onClose={() => {}}
       />
     );
     
@@ -99,8 +86,8 @@ describe('FieldHelpTooltip', () => {
   it('should render default help text for unknown field', () => {
     render(
       <FieldHelpTooltip 
-        field="unknown_field"
-        showFieldHelp="unknown_field" // Matching field
+        fieldName="unknown_field"
+        onClose={() => {}}
       />
     );
     

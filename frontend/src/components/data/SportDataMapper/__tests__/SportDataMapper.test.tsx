@@ -3,6 +3,7 @@ import { render } from '@testing-library/react';
 import { describe, it, expect, jest } from '@jest/globals';
 import SportDataMapper from '../../SportDataMapper';
 import SportDataMapperContainer from '../index';
+import { StandardDataFormat } from '../../../../utils/dataTransformer';
 
 // Mock the SportDataMapperContainer component
 jest.mock('../index', () => {
@@ -16,11 +17,14 @@ describe('SportDataMapper', () => {
   });
 
   it('should render SportDataMapperContainer with passed props', () => {
-    // Define test props
+    // Define test props with proper StandardDataFormat
     const testProps = {
-      isOpen: true,
-      onClose: jest.fn(),
-      structuredData: [{ name: 'Test Data' }]
+      data: {
+        headers: ['name', 'type'],
+        rows: [['Team A', 'team'], ['Team B', 'team']]
+      } as StandardDataFormat,
+      onConfirm: jest.fn(),
+      onClose: jest.fn()
     };
 
     // Render the component
@@ -32,7 +36,7 @@ describe('SportDataMapper', () => {
       expect.objectContaining({
         isOpen: true,
         onClose: expect.any(Function),
-        structuredData: [{ name: 'Test Data' }]
+        structuredData: testProps.data
       }),
       expect.anything()
     );
@@ -42,9 +46,12 @@ describe('SportDataMapper', () => {
     // Define test props with a mock onClose function
     const onCloseMock = jest.fn();
     const testProps = {
-      isOpen: true,
-      onClose: onCloseMock,
-      structuredData: [{ name: 'Test Data' }]
+      data: {
+        headers: ['name', 'type'],
+        rows: [['Team A', 'team'], ['Team B', 'team']]
+      } as StandardDataFormat,
+      onConfirm: jest.fn(),
+      onClose: onCloseMock
     };
 
     // Render the component
@@ -54,7 +61,7 @@ describe('SportDataMapper', () => {
     const passedProps = (SportDataMapperContainer as jest.Mock).mock.calls[0][0] as {
       onClose: () => void;
       isOpen: boolean;
-      structuredData: any[];
+      structuredData: StandardDataFormat;
     };
     
     // Call the onClose function

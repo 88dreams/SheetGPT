@@ -38,6 +38,7 @@ const DataTable: React.FC<DataTableProps> = ({ dataId }) => {
   const [showHeaders, setShowHeaders] = useState(true);
   const [showRowNumbers, setShowRowNumbers] = useState(true);
   const [showExportDialog, setShowExportDialog] = useState(false);
+  const [showColumnSelector, setShowColumnSelector] = useState(false);
   const [hiddenColumns, setHiddenColumns] = useState<Record<string, boolean>>({});
   const [showFullUuids, setShowFullUuids] = useState(false);
   const { showNotification } = useNotification();
@@ -174,12 +175,35 @@ const DataTable: React.FC<DataTableProps> = ({ dataId }) => {
     headers
   });
   
+  // Load saved column visibility on mount
+  React.useEffect(() => {
+    if (!dataId) return;
+    
+    try {
+      const savedVisibility = localStorage.getItem(`dataTable_${dataId}_columnVisibility`);
+      if (savedVisibility) {
+        setHiddenColumns(JSON.parse(savedVisibility));
+      }
+    } catch (error) {
+      console.error('Error loading column visibility from localStorage:', error);
+    }
+  }, [dataId]);
+
   // Function to toggle column visibility
   const toggleColumnVisibility = (header: string) => {
-    setHiddenColumns(prev => ({
-      ...prev,
-      [header]: !prev[header]
-    }));
+    setHiddenColumns(prev => {
+      const updated = {
+        ...prev,
+        [header]: !prev[header]
+      };
+      
+      // Persist to localStorage
+      if (dataId) {
+        localStorage.setItem(`dataTable_${dataId}_columnVisibility`, JSON.stringify(updated));
+      }
+      
+      return updated;
+    });
   };
   
   // Filter visible headers
@@ -227,7 +251,7 @@ const DataTable: React.FC<DataTableProps> = ({ dataId }) => {
     }
   };
 
-  // Use drag and drop for headers
+  // Use drag and drop for headers with localStorage persistence
   const {
     reorderedItems: reorderedHeaders,
     draggedItem: draggedHeader,
@@ -236,7 +260,10 @@ const DataTable: React.FC<DataTableProps> = ({ dataId }) => {
     handleDragOver: handleHeaderDragOver,
     handleDrop: handleHeaderDrop,
     handleDragEnd: handleHeaderDragEnd
-  } = useDragAndDrop<string>({ items: headers });
+  } = useDragAndDrop<string>({ 
+    items: headers,
+    storageKey: `dataTable_${dataId}_columnOrder` // Persist ordering
+  });
 
   // Use drag and drop for rows
   const {
@@ -340,11 +367,53 @@ const DataTable: React.FC<DataTableProps> = ({ dataId }) => {
           toggleExpansion={toggleGridExpansion}
           onExport={() => setShowExportDialog(true)}
           onExportCsv={handleCsvExport}
-          onUnhideAllColumns={() => setHiddenColumns({})}
+          onUnhideAllColumns={() => {
+            setHiddenColumns({});
+            if (dataId) {
+              localStorage.setItem(`dataTable_${dataId}_columnVisibility`, JSON.stringify({}));
+            }
+          }}
           hasHiddenColumns={Object.keys(hiddenColumns).length > 0}
           showFullUuids={showFullUuids}
           onToggleUuidDisplay={() => setShowFullUuids(prev => !prev)}
+          onShowColumnSelector={() => setShowColumnSelector(prev => !prev)}
         />
+        
+        {/* Column selector dropdown */}
+        {showColumnSelector && (
+          <div className="bg-white p-2 border-b border-gray-200 shadow-md">
+            <div className="flex justify-between items-center mb-1">
+              <h4 className="text-sm font-medium">Select visible columns</h4>
+              <button 
+                className="px-2 py-1 text-xs font-medium bg-blue-600 text-white rounded hover:bg-blue-700 flex items-center"
+                onClick={() => {
+                  setHiddenColumns({});
+                  if (dataId) {
+                    localStorage.setItem(`dataTable_${dataId}_columnVisibility`, JSON.stringify({}));
+                  }
+                }}
+              >
+                Show All
+              </button>
+            </div>
+            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-x-4 gap-y-1">
+              {headers.map(header => (
+                <div key={header} className="flex items-center">
+                  <input
+                    type="checkbox"
+                    id={`col-${header}`}
+                    checked={!hiddenColumns[header]}
+                    onChange={() => toggleColumnVisibility(header)}
+                    className="mr-1"
+                  />
+                  <label htmlFor={`col-${header}`} className="text-xs text-gray-700 truncate">
+                    {header.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}
+                  </label>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
         
         {/* Data Grid Table with basic props */}
         <DataGridTable

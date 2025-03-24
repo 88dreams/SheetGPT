@@ -535,6 +535,8 @@ const ConversationList: React.FC<ConversationListProps> = ({
         };
       });
       onSelect(newConversation.id);
+      // Store the new conversation ID in sessionStorage
+      sessionStorage.setItem('selectedConversation', newConversation.id);
       setIsModalOpen(false);
       showNotification('success', 'Conversation created successfully');
     },
@@ -588,6 +590,8 @@ const ConversationList: React.FC<ConversationListProps> = ({
       // If the deleted conversation was selected, clear the selection
       if (selectedId && deletedIds.includes(selectedId)) {
         onSelect('');
+        // Also clear from sessionStorage
+        sessionStorage.removeItem('selectedConversation');
       }
       
       // Clear selected conversations

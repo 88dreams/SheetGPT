@@ -18,9 +18,14 @@ class BrandService(BaseEntityService[Brand]):
     def __init__(self):
         super().__init__(Brand)
     
-    async def get_brands(self, db: AsyncSession) -> List[Brand]:
-        """Get all brands."""
-        result = await db.execute(select(Brand))
+    async def get_brands(self, db: AsyncSession, industry: Optional[str] = None) -> List[Brand]:
+        """Get all brands, optionally filtered by industry."""
+        query = select(Brand)
+        
+        if industry:
+            query = query.where(Brand.industry == industry)
+            
+        result = await db.execute(query)
         return result.scalars().all()
     
     async def create_brand(self, db: AsyncSession, brand: BrandCreate) -> Brand:

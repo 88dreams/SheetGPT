@@ -5,6 +5,7 @@ import DivisionConferenceFields from './DivisionConferenceFields';
 import BroadcastFields from './BroadcastFields';
 import ProductionFields from './ProductionFields';
 import BrandFields from './BrandFields';
+import BrandRelationshipFields from './BrandRelationshipFields';
 import FormField from './FormField';
 
 export {
@@ -15,5 +16,6 @@ export {
   BroadcastFields,
   ProductionFields,
   BrandFields,
+  BrandRelationshipFields,
   FormField
 };

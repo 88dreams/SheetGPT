@@ -75,23 +75,40 @@ export default function useDataManagement() {
     }
     
     setDataValidity(true);
-    setDataToImport(processedData);
     
     // Get all unique field names from the first record
     const fields = Object.keys(firstRecord);
     
-    // If we have headers and they match the number of fields, use them instead
-    if (headers.length > 0 && headers.length === fields.length) {
-      console.log('useDataManagement: Using headers as field names:', headers);
-      setSourceFields(headers);
-    } else {
-      setSourceFields(fields);
-    }
+    // Determine the fields to use (headers or keys from first record)
+    const fieldsToUse = headers.length > 0 && headers.length === fields.length ? headers : fields;
     
-    // Set the source field values from the first record
-    setSourceFieldValues(firstRecord);
+    // Use a single batch update to prevent multiple re-renders
+    // Compare with current state to prevent unnecessary updates
+    setDataToImport(currentData => {
+      // Only update if data has changed
+      if (JSON.stringify(currentData) === JSON.stringify(processedData)) {
+        return currentData;
+      }
+      return processedData;
+    });
     
-    console.log('useDataManagement: Extracted source fields:', fields);
+    setSourceFields(currentFields => {
+      // Only update if fields have changed
+      if (JSON.stringify(currentFields) === JSON.stringify(fieldsToUse)) {
+        return currentFields;
+      }
+      return fieldsToUse;
+    });
+    
+    // Set the source field values from the first record only if it's changed
+    setSourceFieldValues(currentValues => {
+      if (JSON.stringify(currentValues) === JSON.stringify(firstRecord)) {
+        return currentValues;
+      }
+      return firstRecord;
+    });
+    
+    console.log('useDataManagement: Extracted source fields:', fieldsToUse);
     console.log('useDataManagement: First record:', firstRecord);
   }, []);
   
@@ -126,9 +143,26 @@ export default function useDataManagement() {
    */
   const updateSourceFieldValues = useCallback((recordIndex: number) => {
     if (recordIndex >= 0 && recordIndex < dataToImport.length) {
+      console.log(`updateSourceFieldValues called with index ${recordIndex} of ${dataToImport.length} records`);
       const record = dataToImport[recordIndex];
-      console.log('Setting source field values from record:', record);
-      setSourceFieldValues(record);
+      
+      // Create a deep copy of the record to force React to detect state change
+      const recordCopy = {...record};
+      
+      // Always force the update to ensure UI refreshes
+      console.log('Forcing update with source field values from record:', recordCopy);
+      
+      // Immediate update followed by RAF update to ensure both immediate and delayed renders catch the change
+      setSourceFieldValues(recordCopy);
+      
+      // Use requestAnimationFrame for smoother UI updates
+      setTimeout(() => {
+        // Apply a second update to force re-render in case the first one didn't trigger a UI update
+        requestAnimationFrame(() => {
+          console.log('RAF update for source field values');
+          setSourceFieldValues(prev => ({...prev}));
+        });
+      }, 50);
     } else {
       console.warn('Invalid record index:', recordIndex);
     }

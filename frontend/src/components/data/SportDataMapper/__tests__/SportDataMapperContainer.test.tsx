@@ -7,8 +7,17 @@ import { HTML5Backend } from 'react-dnd-html5-backend';
 // Import the interface directly from the file
 import useImportProcess from '../hooks/useImportProcess';
 
-// Import the ImportResults interface
-import { ImportResults } from '../hooks/useImportProcess';
+// Define ImportResults type locally for the test
+interface ImportResults {
+  success: number;
+  failed: number;
+  total: number;
+  errorTypes?: Record<string, number>;
+  newBroadcastCompanies?: Array<{
+    name: string;
+    id: string;
+  }>;
+}
 
 // Define the interfaces needed for mocking
 interface NotificationType {
@@ -133,7 +142,9 @@ describe('SportDataMapperContainer', () => {
   const mockProps = {
     isOpen: true,
     onClose: jest.fn(),
-    structuredData: [{ name: 'Test Record', city: 'Test City' }]
+    structuredData: [{ name: 'Test Record', city: 'Test City' }],
+    data: [{ name: 'Test Team', type: 'team' }],
+    onConfirm: jest.fn()
   };
 
   beforeEach(() => {

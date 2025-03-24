@@ -19,19 +19,19 @@ describe('useUiState', () => {
     // Initial value is 'entity'
     expect(result.current.viewMode).toBe('entity');
     
-    // Toggle to 'global'
+    // Toggle to 'field'
+    act(() => {
+      result.current.toggleViewMode();
+    });
+    
+    expect(result.current.viewMode).toBe('field');
+    
+    // Toggle to 'global'  
     act(() => {
       result.current.toggleViewMode();
     });
     
     expect(result.current.viewMode).toBe('global');
-    
-    // Toggle back to 'entity'
-    act(() => {
-      result.current.toggleViewMode();
-    });
-    
-    expect(result.current.viewMode).toBe('entity');
   });
   
   it('should start and end guided walkthrough', () => {

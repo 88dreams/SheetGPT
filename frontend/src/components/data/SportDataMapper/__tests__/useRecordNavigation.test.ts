@@ -38,13 +38,13 @@ describe('useRecordNavigation', () => {
     
     expect(result.current.currentRecordIndex).toBe(2);
     
-    // Try to navigate past the end
+    // Try to navigate past the end - it should loop back to the first record
     act(() => {
       result.current.goToNextRecord();
     });
     
-    // Should stay at the last record
-    expect(result.current.currentRecordIndex).toBe(2);
+    // Should loop back to the first record (index 0)
+    expect(result.current.currentRecordIndex).toBe(0);
   });
   
   it('should navigate to previous record', () => {
@@ -71,13 +71,13 @@ describe('useRecordNavigation', () => {
     
     expect(result.current.currentRecordIndex).toBe(0);
     
-    // Try to navigate before the beginning
+    // Try to navigate before the beginning - it should loop back to the last record
     act(() => {
       result.current.goToPreviousRecord();
     });
     
-    // Should stay at the first record
-    expect(result.current.currentRecordIndex).toBe(0);
+    // Should loop back to the last record (index 2)
+    expect(result.current.currentRecordIndex).toBe(2);
   });
   
   it('should toggle exclude record', () => {

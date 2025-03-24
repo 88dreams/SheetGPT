@@ -1,10 +1,8 @@
 import React from 'react';
-import PageContainer from '../../components/common/PageContainer';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
 import DataTable from '../../components/data/DataTable';
 import DataPreview from './components/DataPreview';
 import NoDataView from './components/NoDataView';
-import PageActions from './components/PageActions';
 
 // Import hooks
 import { useDataSelection } from './hooks/useDataSelection';
@@ -32,14 +30,22 @@ const DataManagement: React.FC = () => {
 
   const renderContent = () => {
     if (isLoading) {
+      console.log('DataManagement: Loading state active');
       return <LoadingSpinner />;
     }
 
     if (allDataError) {
-      return <div className="text-red-500">Error loading data</div>;
+      console.error('DataManagement: Error loading data:', allDataError);
+      return (
+        <div className="text-red-500 p-4">
+          <h3 className="text-lg font-semibold">Error loading data</h3>
+          <p className="mt-2">{allDataError.message || 'Unknown error occurred'}</p>
+        </div>
+      );
     }
 
     if (extractedData) {
+      console.log('DataManagement: Rendering DataPreview for extracted data');
       return (
         <DataPreview 
           extractedData={extractedData} 
@@ -49,21 +55,31 @@ const DataManagement: React.FC = () => {
       );
     }
 
-    if (structuredData && structuredData.length > 0 && selectedDataId) {
+    // First check for selectedDataId, which is the most important factor
+    if (selectedDataId) {
+      console.log('DataManagement: Selected data ID available:', selectedDataId);
       return <DataTable dataId={selectedDataId} />;
     }
+    
+    // Second check for structured data without a selection
+    if (structuredData && structuredData.length > 0) {
+      console.log('DataManagement: No selection but structured data available, returning NoDataView with selection prompt');
+      return <NoDataView hasData={true} />;
+    }
 
-    return <NoDataView />;
+    // Fallback: No data available
+    console.log('DataManagement: No data available, returning empty NoDataView');
+    return <NoDataView hasData={false} />;
   };
 
+  // Removed PageContainer with header - directly render content
+  // Added classes to ensure proper spacing at the top of the page with fixed navbar
   return (
-    <PageContainer
-      title="Data Management"
-      description="View, manage, and export your structured data"
-      actions={<PageActions selectedDataId={selectedDataId} />}
-    >
-      {renderContent()}
-    </PageContainer>
+    <div className="h-full pt-0">
+      <div className="page-content">
+        {renderContent()}
+      </div>
+    </div>
   );
 };
 

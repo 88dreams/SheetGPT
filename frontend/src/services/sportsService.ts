@@ -17,6 +17,34 @@ export const sportsService = {
         throw error;
       });
   },
+  
+  // Create broadcast company with enhanced logging
+  createBroadcastCompanyWithLogging: (data: any): Promise<any> => {
+    console.log(`Creating broadcast company:`, data);
+    return request('/sports/broadcast-companies', {
+      method: 'POST',
+      body: JSON.stringify(data),
+      requiresAuth: true
+    });
+  },
+  
+  // Create broadcast rights with better error handling
+  createBroadcastRightsWithErrorHandling: (data: any): Promise<any> => {
+    console.log(`Creating broadcast rights:`, data);
+    return request('/sports/broadcast-rights', {
+      method: 'POST',
+      body: JSON.stringify(data),
+      requiresAuth: true
+    })
+    .catch(error => {
+      console.error('Error creating broadcast rights:', error);
+      // Check for unique constraint violation
+      if (error.message && error.message.includes('duplicate key value violates unique constraint')) {
+        throw new Error('A broadcast right with these parameters already exists. Try different parameters or edit the existing record.');
+      }
+      throw error;
+    });
+  },
     
   // Generic entity endpoints
   getEntities: async (
@@ -289,13 +317,6 @@ export const sportsService = {
   getBroadcastCompanies: (): Promise<any[]> =>
     request('/sports/broadcast-companies', { requiresAuth: true }),
     
-  createBroadcastCompany: (data: any): Promise<any> =>
-    request('/sports/broadcast-companies', {
-      method: 'POST',
-      body: JSON.stringify(data),
-      requiresAuth: true
-    }),
-    
   getBroadcastCompany: (id: string): Promise<any> =>
     request(`/sports/broadcast-companies/${id}`, { requiresAuth: true }),
     
@@ -317,13 +338,6 @@ export const sportsService = {
     request('/sports/broadcast-rights', { 
       requiresAuth: true,
       ...(filters && { params: filters })
-    }),
-    
-  createBroadcastRights: (data: any): Promise<any> =>
-    request('/sports/broadcast-rights', {
-      method: 'POST',
-      body: JSON.stringify(data),
-      requiresAuth: true
     }),
     
   getBroadcastRight: (id: string): Promise<any> =>

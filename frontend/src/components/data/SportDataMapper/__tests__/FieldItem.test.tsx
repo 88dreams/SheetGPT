@@ -21,7 +21,8 @@ describe('FieldItem', () => {
       <FieldItem 
         field="name" 
         value="Test Name" 
-        isSource={true} 
+        isSource={true}
+        formatValue={(val) => String(val)}
       />
     );
     
@@ -34,7 +35,8 @@ describe('FieldItem', () => {
       <FieldItem 
         field="name" 
         value="Test Name" 
-        isSource={false} 
+        isSource={false}
+        formatValue={(val) => String(val)}
       />
     );
     
@@ -49,7 +51,13 @@ describe('FieldItem', () => {
       <FieldItem 
         field="complexField" 
         value={objectValue} 
-        isSource={true} 
+        isSource={true}
+        formatValue={(val) => {
+          if (typeof val === 'object') {
+            return JSON.stringify(val).substring(0, 30) + '...';
+          }
+          return String(val);
+        }}
       />
     );
     
@@ -66,6 +74,7 @@ describe('FieldItem', () => {
         value="Target Value" 
         isSource={false} 
         onDrop={onDropMock}
+        formatValue={(val) => String(val)}
       />
     );
     

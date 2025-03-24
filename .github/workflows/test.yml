@@ -2,7 +2,7 @@ name: Run Tests
 
 on:
   push:
-    branches: [ main, develop ]
+    branches: [ main, develop, claude-integration ]
   pull_request:
     branches: [ main, develop ]
   workflow_dispatch:
@@ -26,10 +26,10 @@ jobs:
         cd frontend
         npm ci
     
-    - name: Run Frontend Tests
+    - name: Run Frontend Tests with Coverage
       run: |
         cd frontend
-        npm test -- --watchAll=false
+        npm test -- --watchAll=false --config=jest.coverage.config.js
     
     - name: Run Frontend Type Check
       run: |
@@ -68,11 +68,11 @@ jobs:
         python -m pip install --upgrade pip
         pip install -r requirements.txt
     
-    - name: Run Backend Tests
+    - name: Run Backend Tests with Coverage
       env:
         TEST_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/sheetgpt_test
       run: |
-        pytest tests/backend
+        pytest tests/backend --cov=src --cov-config=.coveragerc --cov-report=xml:coverage.xml
     
     - name: Run Type Check
       run: |

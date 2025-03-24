@@ -11,7 +11,9 @@
     "test:frontend": "cd frontend && npm test",
     "test:integration": "cd frontend && npm test -- tests/integration",
     "test:all": "npm run test:frontend && npm run test:backend",
-    "test:coverage": "cd frontend && npm test -- --coverage && cd .. && pytest tests/backend --cov=src",
+    "test:coverage:frontend": "cd frontend && npm test -- --config=jest.coverage.config.js",
+    "test:coverage:backend": "pytest tests/backend --cov=src --cov-config=.coveragerc --cov-report=html:coverage_report_backend",
+    "test:coverage": "npm run test:coverage:frontend && npm run test:coverage:backend",
     "test:ci": "npm run test:all"
   },
   "devDependencies": {

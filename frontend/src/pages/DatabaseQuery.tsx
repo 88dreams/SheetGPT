@@ -41,6 +41,11 @@ const DatabaseQuery: React.FC = () => {
   const [columnOrder, setColumnOrder] = useState<string[]>([]);
   
   // Initialize column drag and drop
+  // Use a stable reference with useMemo to prevent dependency cycles
+  const dragDropItems = useMemo(() => ({
+    items: columnOrder
+  }), [JSON.stringify(columnOrder)]); // Only re-create when columnOrder changes meaningfully
+  
   const {
     reorderedItems: reorderedColumns,
     draggedItem,
@@ -49,7 +54,7 @@ const DatabaseQuery: React.FC = () => {
     handleDragOver: handleColumnDragOver,
     handleDrop: handleColumnDrop,
     handleDragEnd: handleColumnDragEnd
-  } = useDragAndDrop<string>({ items: columnOrder });
+  } = useDragAndDrop<string>(dragDropItems);
   
   // Set columns visible by default when query results are loaded
   useEffect(() => {
@@ -90,6 +95,7 @@ const DatabaseQuery: React.FC = () => {
   }, [queryResults]);
   
   // Update columnOrder state when reorderedColumns changes from drag and drop
+  // This effect intentionally only depends on reorderedColumns to avoid circular updates
   useEffect(() => {
     if (reorderedColumns.length > 0) {
       // Prevent unnecessary updates with deep equality check
@@ -101,7 +107,8 @@ const DatabaseQuery: React.FC = () => {
         setColumnOrder(reorderedColumns);
       }
     }
-  }, [reorderedColumns, columnOrder]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [reorderedColumns]);
   
   // Save column order to localStorage when it changes
   useEffect(() => {
@@ -302,13 +309,18 @@ const DatabaseQuery: React.FC = () => {
         // If column already has a visibility setting, use it, otherwise set to visible
         visibleColsObj[col] = visibleColumns[col] !== undefined ? visibleColumns[col] : true;
       });
-      setVisibleColumns(visibleColsObj);
+      
+      // Only update if the visibility has actually changed
+      const hasChanged = columns.some(col => visibleColumns[col] === undefined);
+      if (hasChanged) {
+        setVisibleColumns(visibleColsObj);
+      }
       
       // Clear row selections when results change
       setSelectedRows(new Set());
       setSelectAll(false);
     }
-  }, [queryResults]);
+  }, [queryResults, visibleColumns]);
   
   // Save individual state pieces to sessionStorage when they change
   useEffect(() => {

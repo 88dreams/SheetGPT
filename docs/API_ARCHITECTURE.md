@@ -21,7 +21,166 @@ The API is organized into feature-focused modules:
 - **Sports Database**: Sports entity management with comprehensive relationship handling
 - **Export**: Data export to Google Sheets and CSV
 - **Admin**: Administrative functions and monitoring capabilities
-- **DB Management**: Database maintenance, query execution, and administration tools
+- **DB Management**: Database maintenance, natural language queries, and administration tools
+
+## Database Management API
+
+The Database Management API provides advanced database operations including natural language to SQL translation:
+
+### Key Features
+
+1. **Natural Language Query Translation**
+   - Schema-aware SQL generation with foreign key relationship understanding
+   - Entity detection for query customization with specialized templates
+   - Foreign key relationship documentation in schema context
+   - Safety validation with whitelisted operations
+
+2. **Query Execution**
+   - Secure execution with restricted operations
+   - SQL injection prevention
+   - Result normalization for consistent client display
+   - Export options for query results (CSV and Google Sheets)
+
+3. **Database Administration**
+   - Backup and restore operations
+   - Conversation archiving with JSON preservation
+   - Database statistics collection
+   - Entity relationship integrity verification
+
+### Implementation
+
+```python
+# Natural language to SQL translation
+async def translate_natural_language_to_sql(self, nl_query: str) -> str:
+    """Convert a natural language query to SQL without executing it."""
+    # Get the database schema with foreign key relationships
+    schema_info = await self._get_schema_info()
+    
+    # Analyze the query to identify entities mentioned
+    sports_entities = self._detect_entities(nl_query)
+    
+    # Add specialized guidance based on detected entities
+    specialized_guidance = self._generate_entity_guidance(sports_entities)
+    
+    # Build a prompt for Claude to convert natural language to SQL
+    prompt = f"""You are an expert SQL developer. Convert the following natural language query 
+                 to PostgreSQL SQL that handles entity relationships correctly.
+                 
+                 Schema: {schema_info}
+                 Query: {nl_query}{specialized_guidance}
+                 
+                 Rules: [safety instructions, relationship guidelines]"""
+    
+    # Get SQL from Claude with foreign key awareness
+    sql_query = await self.anthropic_service.generate_code(prompt, temperature=0.2)
+    return sql_query
+```
+
+### Special Template Handling
+
+For common query patterns like NCAA sports broadcast rights, specialized templates are used:
+
+```python
+def _is_ncaa_broadcast_query(self, query: str) -> bool:
+    """Check if the query appears to be about NCAA broadcast rights."""
+    ncaa_terms = ['ncaa', 'college', 'collegiate']
+    broadcast_terms = ['broadcast', 'rights', 'tv', 'television']
+    sport_terms = ['basketball', 'football', 'baseball', 'hockey', 'sport']
+    
+    has_ncaa = any(term in query.lower() for term in ncaa_terms)
+    has_broadcast = any(term in query.lower() for term in broadcast_terms)
+    has_sport = any(term in query.lower() for term in sport_terms)
+    
+    return has_ncaa and has_broadcast
+
+def _get_ncaa_broadcast_template(self, query: str) -> str:
+    """Return an optimized template for NCAA broadcast rights queries."""
+    # Extract sports from the query if mentioned
+    sports_filter = ""
+    common_sports = {
+        'basketball': "parent_league.sport ILIKE '%Basketball%'",
+        'football': "parent_league.sport ILIKE '%Football%'",
+        'baseball': "parent_league.sport ILIKE '%Baseball%'",
+        'hockey': "parent_league.sport ILIKE '%Hockey%'"
+    }
+    
+    for sport, condition in common_sports.items():
+        if sport in query.lower():
+            sports_filter = f"AND {condition}"
+            break
+            
+    # Comprehensive template with proper joins for both direct and indirect relationships
+    template = f"""
+    SELECT 
+        br.id, br.entity_type,
+        COALESCE(l.name, parent_league.name) AS league_name,
+        CASE WHEN dc.id IS NOT NULL THEN dc.name ELSE 'League-wide' END AS entity_name,
+        bc.name AS broadcaster, br.territory, br.start_date, br.end_date
+    FROM broadcast_rights br
+    LEFT JOIN leagues l ON br.entity_type = 'league' AND br.entity_id = l.id
+    LEFT JOIN divisions_conferences dc ON br.division_conference_id = dc.id
+    LEFT JOIN leagues parent_league ON dc.league_id = parent_league.id
+    JOIN broadcast_companies bc ON br.broadcast_company_id = bc.id
+    WHERE (
+        (br.entity_type = 'league' AND l.name ILIKE '%NCAA%')
+        OR
+        (br.division_conference_id IS NOT NULL AND parent_league.name ILIKE '%NCAA%')
+    )
+    {sports_filter}
+    AND br.deleted_at IS NULL
+    AND COALESCE(l.deleted_at, parent_league.deleted_at) IS NULL
+    """
+    return template
+```
+
+### Enhanced Schema Information
+
+The schema information includes foreign key relationships for better query generation:
+
+```python
+async def _get_schema_info(self) -> str:
+    """Get comprehensive database schema information including foreign keys."""
+    # Query PostgreSQL information schema to get table and column data
+    schema_query = text("""
+        SELECT 
+            t.table_name, c.column_name, c.data_type,
+            c.is_nullable,
+            pg_catalog.obj_description(...) as table_description
+        FROM information_schema.tables t
+        JOIN information_schema.columns c 
+            ON t.table_schema = c.table_schema 
+            AND t.table_name = c.table_name
+        WHERE t.table_schema = 'public'
+              AND t.table_type = 'BASE TABLE'
+    """)
+    
+    # Query to get foreign key relationships
+    fk_query = text("""
+        SELECT
+            kcu.table_name, kcu.column_name,
+            ccu.table_name AS foreign_table_name,
+            ccu.column_name AS foreign_column_name
+        FROM information_schema.table_constraints AS tc
+        JOIN information_schema.key_column_usage AS kcu
+            ON tc.constraint_name = kcu.constraint_name
+        JOIN information_schema.constraint_column_usage AS ccu
+            ON ccu.constraint_name = tc.constraint_name
+        WHERE tc.constraint_type = 'FOREIGN KEY'
+        AND tc.table_schema = 'public'
+    """)
+    
+    # Add explicit relationship documentation
+    schema_info = []
+    schema_info.append("# Important Entity Relationships:")
+    schema_info.append("1. broadcast_rights can be associated with leagues directly OR with divisions/conferences")
+    schema_info.append("2. divisions_conferences belong to leagues via league_id")
+    schema_info.append("3. When querying NCAA sports, check both direct leagues AND division relationships")
+    
+    # Add detailed table schemas with foreign keys
+    # ... table schema processing with foreign key mappings ...
+    
+    return "\n".join(schema_info)
+```
 
 ## Authentication System
 
@@ -387,11 +546,11 @@ class EntityNameResolver:
 6. System processes updates in batches with progress tracking
 7. System reports success/failure statistics
 
-### Refactored BulkEditModal Architecture
+### Refactored and Simplified BulkEditModal Architecture
 
 The BulkEditModal has been completely refactored to follow best practices and avoid render loop issues:
 
-1. **Component Directory Structure**:
+1. **Original Component Directory Structure**:
    ```
    BulkEditModal/
    ├── components/         # Sub-components
@@ -412,6 +571,46 @@ The BulkEditModal has been completely refactored to follow best practices and av
    ├── types.ts             # Type definitions
    └── index.tsx            # Main component with minimal logic
    ```
+
+2. **Simplified Component Implementation**:
+   After discovering React Hooks rule violations in the complex implementation, a simplified direct implementation was created:
+   ```typescript
+   const BulkEditModal: React.FC<BulkEditModalProps> = ({
+     visible,
+     onCancel,
+     entityType,
+     selectedIds = [],
+     queryResults = [],
+     selectedIndexes = new Set<number>(),
+     onSuccess,
+   }) => {
+     // Directly implemented hooks
+     const [form] = Form.useForm();
+     const [selectedFields, setSelectedFields] = useState<Set<string>>(new Set());
+     const [isProcessing, setIsProcessing] = useState(false);
+     const [isComplete, setIsComplete] = useState(false);
+     
+     // Field grouping and detection
+     const fields = useMemo(() => {
+       // Direct field detection from data
+     }, [queryResults, selectedIndexes]);
+     
+     // Clean lifecycle handling
+     useEffect(() => {
+       if (!visible) {
+         // Reset state when modal closes
+         form.resetFields();
+         setSelectedFields(new Set());
+         setIsProcessing(false);
+         setIsComplete(false);
+       }
+     }, [visible, form]);
+     
+     // ... Other simplified implementations
+   };
+   ```
+
+This simplified approach maintains the same functionality while avoiding the lifecycle and hook rule issues of the more complex implementation.
 
 2. **Key Hook Implementations**:
    - `useFieldManagement`: Manages field selection, values, and categorization
@@ -447,6 +646,60 @@ The BulkEditModal has been completely refactored to follow best practices and av
    - Shows real-time progress with percentage indicator
    - Provides detailed success/failure statistics
    - Implements proper error handling for both entity and query modes
+
+## React Dependency Management
+
+The frontend architecture includes specific patterns to prevent dependency cycles:
+
+1. **Circular Dependency Prevention**
+   ```typescript
+   // Use a stable reference with useMemo to prevent dependency cycles
+   const dragDropItems = useMemo(() => ({
+     items: columnOrder
+   }), [JSON.stringify(columnOrder)]); // Only re-create when columnOrder changes meaningfully
+   
+   // Use this stable reference in the hook
+   const { reorderedItems, handleDrop } = useDragAndDrop<string>(dragDropItems);
+   
+   // Update with conditional state updates to break cycles
+   useEffect(() => {
+     if (reorderedItems.length > 0) {
+       // Only update if the order is actually different
+       const currentOrder = JSON.stringify(columnOrder);
+       const newOrder = JSON.stringify(reorderedItems);
+       
+       if (currentOrder !== newOrder) {
+         setColumnOrder(reorderedItems);
+       }
+     }
+   // eslint-disable-next-line react-hooks/exhaustive-deps
+   }, [reorderedItems]); // Intentionally exclude columnOrder
+   ```
+
+2. **Conditional State Updates**
+   ```typescript
+   // When initializing column visibility, only update if needed
+   useEffect(() => {
+     if (queryResults.length > 0) {
+       const columns = Object.keys(queryResults[0]);
+       const visibleColsObj = {};
+       
+       columns.forEach(col => {
+         visibleColsObj[col] = visibleColumns[col] !== undefined 
+           ? visibleColumns[col] 
+           : true;
+       });
+       
+       // Only update if visibility has actually changed
+       const hasChanged = columns.some(col => visibleColumns[col] === undefined);
+       if (hasChanged) {
+         setVisibleColumns(visibleColsObj);
+       }
+     }
+   }, [queryResults, visibleColumns]);
+   ```
+
+These patterns ensure components remain stable and prevent the infinite render loops that can occur with complex state management and drag-and-drop functionality.
 
 ### Data Management Scripts
 

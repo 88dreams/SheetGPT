@@ -9,6 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.schemas.common import ApiSuccess
 from src.services.database_management import DatabaseManagementService
+from src.services.anthropic_service import AnthropicService
 from src.utils.database import get_db
 from src.utils.security import get_current_user_id, get_current_admin_user
 
@@ -17,6 +18,9 @@ logger = logging.getLogger("db_management")
 
 router = APIRouter()
 
+# Create a shared AnthropicService instance
+anthropic_service = AnthropicService()
+
 @router.post("/conversations/{conversation_id}/archive", response_model=ApiSuccess)
 async def archive_conversation(
     conversation_id: UUID,
@@ -24,7 +28,7 @@ async def archive_conversation(
     db: AsyncSession = Depends(get_db)
 ) -> ApiSuccess:
     """Archive a conversation instead of deleting it permanently."""
-    service = DatabaseManagementService(db)
+    service = DatabaseManagementService(db, anthropic_service)
     
     try:
         # Archive the conversation
@@ -48,7 +52,7 @@ async def restore_archived_conversation(
     db: AsyncSession = Depends(get_db)
 ) -> ApiSuccess:
     """Restore a previously archived conversation."""
-    service = DatabaseManagementService(db)
+    service = DatabaseManagementService(db, anthropic_service)
     
     try:
         # Restore the conversation
@@ -71,7 +75,7 @@ async def get_database_statistics(
     db: AsyncSession = Depends(get_db)
 ) -> dict:
     """Get database statistics (admin only)."""
-    service = DatabaseManagementService(db)
+    service = DatabaseManagementService(db, anthropic_service)
     
     try:
         # Get statistics
@@ -90,7 +94,7 @@ async def create_database_backup(
     db: AsyncSession = Depends(get_db)
 ) -> ApiSuccess:
     """Create a database backup (admin only)."""
-    service = DatabaseManagementService(db)
+    service = DatabaseManagementService(db, anthropic_service)
     
     # Run backup in background to avoid timeout
     async def run_backup():
@@ -114,7 +118,7 @@ async def list_database_backups(
     db: AsyncSession = Depends(get_db)
 ) -> List[dict]:
     """List available database backups (admin only)."""
-    service = DatabaseManagementService(db)
+    service = DatabaseManagementService(db, anthropic_service)
     
     try:
         # List backups
@@ -194,7 +198,7 @@ async def export_data(
     - Exporting data to Google Sheets
     - Custom title for exported data
     """
-    service = DatabaseManagementService(db)
+    service = DatabaseManagementService(db, anthropic_service)
     
     try:
         # Get required parameters
@@ -253,7 +257,7 @@ async def execute_database_query(
     - Natural language to SQL conversion
     - CSV and Google Sheets export of results
     """
-    service = DatabaseManagementService(db)
+    service = DatabaseManagementService(db, anthropic_service)
     
     try:
         # Determine query type (SQL or natural language)

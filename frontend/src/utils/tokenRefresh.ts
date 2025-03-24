@@ -91,12 +91,15 @@ function getApiUrl(): string {
   let apiUrl = 'http://localhost:8000'; // Default value
   
   try {
-    // Only access import.meta in a browser environment where it's defined
-    if (typeof window !== 'undefined' && 
-        typeof import !== 'undefined' && 
-        typeof import.meta !== 'undefined' && 
-        import.meta.env) {
-      apiUrl = import.meta.env.VITE_API_URL || apiUrl;
+    // Access import.meta only in browser environment
+    // Note: Cannot use typeof import check as import is a keyword
+    if (typeof window !== 'undefined') {
+      // Use optional chaining to safely access nested properties
+      // @ts-ignore - TypeScript might complain about import.meta
+      const envUrl = import.meta?.env?.VITE_API_URL;
+      if (envUrl) {
+        apiUrl = envUrl;
+      }
     }
   } catch (error) {
     console.log('Running in non-browser environment, using default API URL');

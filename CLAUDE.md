@@ -135,6 +135,10 @@
   - Include all dependencies used inside the effect
   - Use function dependencies with useCallback when needed
   - Avoid [] empty dependency arrays unless truly independent
+  - Break circular dependencies with explicit conditional checks
+  - Add intentional dependency exclusions with eslint-disable comments when needed
+  - Use ref objects for values that shouldn't trigger re-renders
+  - Implement change detection before updating state to break update cycles
 - Implement explicit memoization for derived state:
   - Use useMemo for expensive calculations
   - Use useCallback for event handlers passed as props
@@ -176,6 +180,11 @@
 - Avoid complex dependency chains in frequently re-rendered components
 - Keep critical UI components as simple as possible to prevent React update exhaustion
 - When a component has circular dependency issues, replace it with a simpler direct implementation
+- Use useMemo with JSON.stringify to create stable references for complex object dependencies
+- Implement explicit change detection before updating state in conditional rendering patterns
+- Break update cycles by checking if a value has actually changed before updating state
+- For drag and drop implementations, ensure component inputs have stable identity across renders
+- When modifying hook implementations, verify with React DevTools that components aren't re-rendering excessively
 
 ## Database Guidelines
 

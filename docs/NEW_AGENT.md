@@ -21,7 +21,11 @@ SheetGPT combines AI-powered chat with structured data management and a sports d
 - Feature-based folder organization for maintainability
 - Single-responsibility components with optimized rendering
 - Advanced data grid with sorting, filtering, and column management
-- Performance optimizations to prevent render loops and dependency issues
+- Performance optimizations to prevent render loops and circular dependencies
+- Memoization strategies with specialized hook implementations
+- Circular dependency prevention with conditional state updates
+- Component update lifecycle management to avoid maximum depth errors
+- Service-driven API integration with token refresh mechanisms
 
 ## Key Components
 
@@ -53,11 +57,16 @@ SheetGPT combines AI-powered chat with structured data management and a sports d
    - Advanced filtering with multiple operators
 
 5. **Database Query System**
-   - Natural language to SQL using Claude AI
-   - Multi-level SQL extraction with fallbacks
+   - Natural language to SQL using Claude AI with context-aware prompting
+   - Schema detection with foreign key relationship analysis
+   - Specialized templates for NCAA and broadcast rights queries
+   - Entity detection for query customization
+   - Multi-level SQL extraction with regex fallbacks
    - Safety validation with whitelisted operations
-   - Entity name resolution in query results
-   - Export to CSV or Google Sheets
+   - Entity name resolution in query results with relationship traversal
+   - Result column management with drag-and-drop reordering
+   - Export to CSV or Google Sheets with flexible formatting
+   - Session persistence for queries and result display preferences
 
 ## Current Status
 
@@ -82,7 +91,17 @@ SheetGPT combines AI-powered chat with structured data management and a sports d
 
 ## Critical Information
 
-1. **Entity Hierarchy**
+1. **React Dependency Management**
+   - Prevent infinite render loops by:
+     - Using conditional state updates with explicit change detection
+     - Breaking circular dependencies with intentional eslint-disabled hook dependencies
+     - Creating stable object references with useMemo and JSON.stringify
+     - Using component splitting to isolate state changes
+     - Implementing proper memoization for expensive components
+     - Validating dependency arrays in useEffect, useMemo, useCallback
+     - Managing drag-and-drop state updates carefully to avoid cycles
+
+2. **Entity Hierarchy**
    ```
    Primary:
    - Leagues (with optional nickname)

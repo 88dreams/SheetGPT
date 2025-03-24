@@ -13,9 +13,31 @@ SheetGPT combines AI-powered chat with structured data management and a sports d
 
 ## Latest Improvements (March 2025)
 
+### Bug Fixes & Critical Improvements
+
+**API & Authentication Error Fixes (March 23)**
+- Fixed critical error in database_management.py service that prevented backend startup
+- Properly initialized AnthropicService for natural language to SQL translation
+- Updated all database management endpoints to include required service dependencies
+- Fixed network errors in chat interface related to backend API connectivity
+
+**React Dependency Cycle Fixes (March 23)**
+- Fixed "Maximum update depth exceeded" error in Query page component
+- Resolved circular dependency between reorderedColumns and columnOrder
+- Implemented proper useEffect dependency arrays with intentional exclusions
+- Added memoization to prevent unstable references triggering re-renders
+- Improved component stability with explicit reference equality checks
+
+**Natural Language Query Enhancement (March 23)**
+- Added foreign key relationship information to schema context for SQL translation
+- Improved entity relationship guidance for broadcast rights queries
+- Added specialized handling for NCAA-related queries with automatic template usage
+- Enhanced database schema information with explicit relationship documentation
+- Implemented context-aware prompting based on query entities mentioned
+
 ### Database & Integration Enhancements
 
-**Brand-Broadcast Company Integration (April 19)**
+**Brand-Broadcast Company Integration (March 19)**
 - Implemented dual-ID solution for brand-broadcast company integration
 - Added automatic placeholder broadcast company creation for brands
 - Fixed foreign key constraint issues in broadcast rights
@@ -23,14 +45,14 @@ SheetGPT combines AI-powered chat with structured data management and a sports d
 - Implemented lookup fallback from broadcast companies to brands
 - Added tooling for verification and database integrity maintenance
 
-**League Association for Broadcast Rights (April 19)**
+**League Association for Broadcast Rights (March 19)**
 - Added visible League column for broadcast rights in entity list
 - Implemented accurate league resolution based on entity relationships
 - Fixed incorrect league display for unrelated broadcast rights
 - Added "Not Associated" designation for standalone broadcast rights
 - Enhanced entity name resolver with robust type checking and relationship traversal
 
-**Year-Only Date Handling (April 19)**
+**Year-Only Date Handling (March 19)**
 - Implemented automatic date formatting from year-only inputs
 - Added January 1st/December 31st conversion for start/end dates
 - Enhanced DatePicker with special year-only format detection
@@ -64,7 +86,7 @@ SheetGPT combines AI-powered chat with structured data management and a sports d
   - Added circular navigation with smooth transitions
   - Improved UI with proper state management
 
-**Architecture Refactoring (March 17-20)**
+**Architecture Refactoring (March 17-23)**
 - Consolidated UI components for better maintainability
   - Unified BulkEditModal implementations into a single component
   - Standardized field handling and error management
@@ -78,7 +100,7 @@ SheetGPT combines AI-powered chat with structured data management and a sports d
   - Split 800+ line AdvancedEditForm into focused components
   - Created entity-specific field components
   - Built reusable FormField for consistent rendering
-- Advanced component refactoring (March 20)
+- Advanced component refactoring (March 20-23)
   - Completely refactored BulkEditModal with proper directory structure
   - Applied single-responsibility principle to all components and hooks
   - Created specialized hooks with focused concerns:
@@ -90,6 +112,10 @@ SheetGPT combines AI-powered chat with structured data management and a sports d
   - Implemented clean separation of UI from business logic
   - Fixed infinite render loop issues with proper lifecycle management
   - Added explicit dependency tracking in all hooks
+  - Simplified BulkEditModal implementation to fix React hook violations
+  - Developed simplified fallback component for critical interface elements
+  - Fixed Rules of Hooks violations in complex component structure
+  - Added proper state transitions and cleanup in modal components
 
 **Backend & Utility Improvements (March 16)**
 - Refactored sports_service.py with OO design principles

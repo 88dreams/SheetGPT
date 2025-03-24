@@ -38,6 +38,9 @@ src/
 2. **Database Management**
    - SQLAlchemy ORM with UUID primary keys and comprehensive relationships
    - Isolated transaction handling with proper error recovery
+   - Natural language to SQL translation using Claude API
+   - Schema-aware query generation with relationship understanding
+   - Template-based query handling for common entity patterns
    - Direct SQL query execution with robust safety checks
    - Natural language to SQL conversion via Claude API with regex extraction
    - Query results export to CSV and Google Sheets with fallback mechanisms
@@ -179,6 +182,21 @@ frontend/
      - Fingerprinting for efficient collection comparison
      - Breaking circular dependency chains to prevent render loops
      - Local storage for persisting UI preferences
+     - Prevention of maximum update depth errors:
+       - Proper dependency tracking in all effect hooks
+       - Avoiding hook calls inside other hooks or effects
+       - Consistent React hooks usage following Rules of Hooks
+       - Clean component unmounting with proper state cleanup
+       - Breaking circular dependency chains with explicit memoization
+       - Stable reference generation with JSON.stringify for complex objects
+       - Conditional state updates to prevent infinite update loops
+       - Careful observation of component update lifecycles
+       - Intentional dependency exclusion with eslint comments when necessary
+     - Simplified implementations for critical UI components:
+       - Direct implementations for complex modal components to avoid hook rule violations
+       - Fallback to standard React patterns when hook architectures cause issues
+       - Clean props interface to maintain API compatibility
+       - Streamlined lifecycle management with proper cleanup
    - Feature-focused folder structure:
      ```
      FeatureName/
@@ -411,8 +429,10 @@ src/
 
 3. **Natural Language Database Query**
    ```
-   User Question → Schema Analysis → Claude AI Processing →
-   SQL Generation → Query Execution → Result Display → Export Options
+   User Question → Entity Detection → Schema Analysis (with FK relations) → 
+   Context-Aware Template Selection → Claude AI Processing →
+   SQL Generation with Relationship Guidance → Validation → 
+   Query Execution → Result Display → Export Options
    ```
    
 4. **Database Maintenance**

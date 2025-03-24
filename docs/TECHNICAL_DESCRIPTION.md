@@ -383,10 +383,13 @@ src/
    production_services
    ├── id (UUID)
    ├── entity_type, entity_id (polymorphic)
-   ├── production_company_id (→ production_companies)
+   ├── production_company_id (→ production_companies OR brands)
    ├── service_type
-   ├── start_date, end_date
-   └── → production_company
+   ├── start_date, end_date (supports year-only input)
+   └── → production_company/brand  
+   Note: Unlike other entity types, Production Services do not have a name field.
+   Supports name-to-ID resolution for both production_company_id and entity_id fields.
+   Special handling for entity types like "Championship" with automatic entity creation.
    ```
 
 3. **System Tables**

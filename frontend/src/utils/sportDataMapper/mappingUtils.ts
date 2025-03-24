@@ -581,6 +581,213 @@ export const enhancedMapToDatabaseFieldNames = async (
     }
   }
   
+  // For production services, handle production_company_id and entity_id lookups
+  if (entityType === 'production') {
+    // Handle production_company_id lookup by name
+    if (basicMapped.production_company_id && !isValidUUID(basicMapped.production_company_id)) {
+      const companyName = basicMapped.production_company_id;
+      
+      console.log(`Looking up production company ID for name: ${companyName}`);
+      try {
+        // First try looking it up as a production company
+        let response = null;
+        try {
+          response = await apiClient.sports.lookup('production_company', companyName);
+        } catch (lookupError) {
+          console.log(`Production company "${companyName}" not found, will try brand lookup next`);
+        }
+        
+        // If not found as a production company, try looking it up as a brand
+        if (!response || !response.id) {
+          console.log(`No production company found for "${companyName}", checking if it exists as a brand`);
+          try {
+            // Try to look up as a brand
+            const brandResponse = await apiClient.sports.lookup('brand', companyName);
+            
+            // If found as a brand
+            if (brandResponse && brandResponse.id) {
+              console.log(`Found "${companyName}" as a brand with ID ${brandResponse.id}`);
+              console.log(`Will use brand ID as production company ID`);
+              
+              // Use the brand ID as the production company ID
+              basicMapped.production_company_id = brandResponse.id;
+              
+              // Add a special field to indicate we're using a brand ID
+              basicMapped._usingBrandAsProductionCompany = true;
+              basicMapped._brandName = companyName;
+            } else {
+              // Try to create a new brand if it doesn't exist
+              try {
+                console.log(`Creating new brand for production company: ${companyName}`);
+                const industry = 'Media Production';
+                
+                const brandData = {
+                  name: companyName,
+                  industry: industry
+                };
+                
+                const newBrand = await apiClient.sports.createBrand(brandData);
+                
+                if (newBrand?.id) {
+                  basicMapped.production_company_id = newBrand.id;
+                  console.log(`Created new brand with ID: ${newBrand.id} to use as production company ID`);
+                  
+                  // Add a special field to indicate we're using a brand ID
+                  basicMapped._usingBrandAsProductionCompany = true;
+                  basicMapped._brandName = companyName;
+                } else {
+                  console.warn(`Could not create brand for production company name: ${companyName}`);
+                }
+              } catch (createError) {
+                console.error(`Error creating new brand for production company: ${companyName}`, createError);
+              }
+            }
+          } catch (brandLookupError) {
+            console.log(`Brand lookup also failed for "${companyName}"`);
+          }
+        }
+        
+        // If found as a production company
+        if (response && response.id) {
+          basicMapped.production_company_id = response.id;
+          console.log(`Found production company ID ${response.id} for name: ${companyName}`);
+        }
+      } catch (error) {
+        console.error(`Error during production company/brand lookup for "${companyName}":`, error);
+      }
+    }
+    
+    // Handle entity_id lookup based on entity_type
+    if (basicMapped.entity_id && basicMapped.entity_type && !isValidUUID(basicMapped.entity_id)) {
+      const entityName = basicMapped.entity_id;
+      const entityType = basicMapped.entity_type;
+      
+      console.log(`Looking up ${entityType} ID for name: ${entityName}`);
+      
+      // Map entity_type to the correct lookup type (singular form)
+      let lookupType = entityType.toLowerCase();
+      
+      // Remove trailing 's' if present to get singular form
+      if (lookupType.endsWith('s')) {
+        lookupType = lookupType.slice(0, -1);
+      }
+      
+      // Handle special cases and normalize lookupType
+      if (['division', 'conference', 'divisions', 'conferences'].includes(lookupType)) {
+        lookupType = 'division_conference';
+      }
+      
+      console.log(`Normalized lookup type: ${lookupType}`);
+      
+      // Get entity ID by name using the lookup API
+      try {
+        // Use the lookup API directly which is more reliable
+        const response = await apiClient.sports.lookup(lookupType, entityName);
+        if (response && response.id) {
+          basicMapped.entity_id = response.id;
+          console.log(`Found ${entityType} ID: ${response.id} for name: ${entityName}`);
+        } else {
+          console.warn(`Could not find ${entityType} ID for name: ${entityName}`);
+          
+          // Try to create the entity if appropriate based on entity type
+          if (lookupType === 'league') {
+            try {
+              console.log(`Creating new league for production service: ${entityName}`);
+              const leagueData = {
+                name: entityName,
+                sport: 'Unknown',
+                country: 'Unknown'
+              };
+              
+              const newLeague = await apiClient.sports.createLeague(leagueData);
+              
+              if (newLeague?.id) {
+                basicMapped.entity_id = newLeague.id;
+                console.log(`Created new league with ID: ${newLeague.id} for production service entity: ${entityName}`);
+              }
+            } catch (createError) {
+              console.error(`Error creating new league: ${entityName}`, createError);
+            }
+          } else if (lookupType === 'championship' || lookupType === 'event') {
+            // For special entity types like "Championship" that don't have a direct model,
+            // create a division/conference to represent them
+            try {
+              console.log(`Creating new entity for "${lookupType}" type: ${entityName}`);
+              
+              // Try to find a default league if needed
+              let league_id = null;
+              try {
+                const leagues = await apiClient.sports.getLeagues();
+                if (leagues && leagues.length > 0) {
+                  // Try to find NCAA league for championships
+                  let ncaaLeague = leagues.find(l => 
+                    l.name.toLowerCase().includes('ncaa') ||
+                    l.name.toLowerCase().includes('collegiate')
+                  );
+                  
+                  // If no NCAA league, use first league
+                  if (!ncaaLeague && leagues.length > 0) {
+                    ncaaLeague = leagues[0];
+                  }
+                  
+                  if (ncaaLeague) {
+                    league_id = ncaaLeague.id;
+                    console.log(`Using league ${ncaaLeague.name} for new ${lookupType}`);
+                  }
+                }
+              } catch (leagueError) {
+                console.error(`Error finding default league: ${leagueError}`);
+              }
+              
+              if (league_id) {
+                // Create a division/conference to represent the championship/event
+                const divisionData = {
+                  name: entityName,
+                  league_id: league_id,
+                  type: lookupType.charAt(0).toUpperCase() + lookupType.slice(1) // Capitalize first letter
+                };
+                
+                const newDivision = await apiClient.sports.createDivisionConference(divisionData);
+                
+                if (newDivision?.id) {
+                  basicMapped.entity_id = newDivision.id;
+                  console.log(`Created division/conference with ID: ${newDivision.id} to represent ${lookupType}: ${entityName}`);
+                }
+              } else {
+                console.warn(`Cannot create entity for ${lookupType} without a league_id`);
+              }
+            } catch (createError) {
+              console.error(`Error creating entity for ${lookupType}: ${entityName}`, createError);
+            }
+          }
+        }
+      } catch (error) {
+        console.error(`Error looking up ${entityType} ID for name ${entityName}:`, error);
+      }
+    }
+    
+    // Format dates for production services
+    if (basicMapped.start_date) {
+      // Check if it's just a year (4 digits)
+      const yearRegex = /^\d{4}$/;
+      if (yearRegex.test(basicMapped.start_date)) {
+        const year = basicMapped.start_date;
+        basicMapped.start_date = `${year}-01-01`;
+        console.log(`Converted start_date from year to full date: ${year} -> ${basicMapped.start_date}`);
+      }
+    }
+    
+    if (basicMapped.end_date) {
+      // Check if it's just a year (4 digits)
+      const yearRegex = /^\d{4}$/;
+      if (yearRegex.test(basicMapped.end_date)) {
+        const year = basicMapped.end_date;
+        basicMapped.end_date = `${year}-12-31`;
+        console.log(`Converted end_date from year to full date: ${year} -> ${basicMapped.end_date}`);
+      }
+    }
+  }
+
   // For broadcast rights, handle entity_id based on entity_type 
   if (entityType === 'broadcast') {
     // For broadcast rights, the name field is usually referring to the ENTITY being broadcast

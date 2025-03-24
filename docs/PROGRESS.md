@@ -73,6 +73,9 @@ SheetGPT combines AI-powered chat with structured data management and a sports d
 - Implemented column order persistence across navigation
 - Fixed critical infinite loop in SmartEntitySearch component
 - Enhanced error display with non-dismissing notifications for constraints
+- Fixed production service entity validation in SportDataMapper
+- Added name-to-ID resolution for production services
+- Implemented backend support for production service creation
 
 **Data Model & Navigation Improvements (March 24-25)**
 - Added nickname field to DivisionConference entity

@@ -361,6 +361,32 @@ class SportsService:
         brand_service = BrandService()
         return await brand_service.delete_brand(db, brand_id)
         
+    # Production Service methods
+    async def get_production_services(self, db: AsyncSession, entity_type: Optional[str] = None, entity_id: Optional[UUID] = None, company_id: Optional[UUID] = None) -> List[ProductionService]:
+        """Get all production services, optionally filtered."""
+        production_service_service = ProductionServiceService()
+        return await production_service_service.get_production_services(db, entity_type, entity_id, company_id)
+    
+    async def create_production_service(self, db: AsyncSession, service: ProductionServiceCreate) -> ProductionService:
+        """Create a new production service."""
+        production_service_service = ProductionServiceService()
+        return await production_service_service.create_production_service(db, service)
+    
+    async def get_production_service(self, db: AsyncSession, service_id: UUID) -> Optional[ProductionService]:
+        """Get a production service by ID."""
+        production_service_service = ProductionServiceService()
+        return await production_service_service.get_production_service(db, service_id)
+    
+    async def update_production_service(self, db: AsyncSession, service_id: UUID, service_update: ProductionServiceUpdate) -> Optional[ProductionService]:
+        """Update a production service."""
+        production_service_service = ProductionServiceService()
+        return await production_service_service.update_production_service(db, service_id, service_update)
+    
+    async def delete_production_service(self, db: AsyncSession, service_id: UUID) -> bool:
+        """Delete a production service."""
+        production_service_service = ProductionServiceService()
+        return await production_service_service.delete_production_service(db, service_id)
+    
     # Brand Relationship methods
     async def get_brand_relationships(self, db: AsyncSession, brand_id: Optional[UUID] = None, entity_type: Optional[str] = None, entity_id: Optional[UUID] = None, relationship_type: Optional[str] = None) -> List[BrandRelationship]:
         """Get all brand relationships, optionally filtered."""

@@ -453,6 +453,9 @@ class EntityNameResolver:
      - Facade methods delegate to specialized services
      - Direct service access is avoided outside the facade
      - Services are instantiated when needed rather than all at initialization
+   - Special Cases:
+     - For missing facade methods (like create_production_service), routes can directly use the specialized service
+     - This approach allows for immediate fixes without requiring complex code changes
 
 ### Entity Field Management
 
@@ -745,7 +748,7 @@ The system maintains strict entity dependencies:
 3. **Relationship Entities**:
    - Games (depends on teams, stadiums)
    - Broadcast Rights (depends on broadcast companies)
-   - Production Services (depends on production companies)
+   - Production Services (depends on production companies/brands) - Note: Unlike most entities, Production Services don't have a name field
    - Brand Relationships (depends on brands)
 
 ## Export Service

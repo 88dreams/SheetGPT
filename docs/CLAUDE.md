@@ -189,6 +189,9 @@ The system implements an advanced streaming architecture:
   - Smart entity type detection from name content
   - Entity type normalization for consistent processing
   - Default date handling with configurable fallbacks
+  - Fixed production entity validation to remove name requirement
+  - Added name-to-ID resolution for production services (production companies and entities)
+  - Added special handling for "Championship" entity types with automatic creation
 
 - **Stream Processing Optimization (March 25, 2025)**
   - Implemented memory-efficient buffer management

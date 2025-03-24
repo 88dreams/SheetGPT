@@ -898,7 +898,21 @@ async def create_production_service(
     current_user: Dict = Depends(get_current_user)
 ):
     """Create a new production service."""
-    return await sports_service.create_production_service(db, production_service)
+    try:
+        # Direct implementation as a workaround for missing method in SportsService
+        from src.services.sports.production_service import ProductionServiceService
+        
+        # Create a service instance directly
+        production_service_service = ProductionServiceService()
+        
+        # Use the service to create production service
+        return await production_service_service.create_production_service(db, production_service)
+    except Exception as e:
+        # Log the error and re-raise
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.error(f"Error creating production service: {str(e)}")
+        raise
 
 @router.get("/production-services/{service_id}", response_model=ProductionServiceResponse)
 async def get_production_service(

@@ -21,8 +21,8 @@ export const validateEntityData = (
   
   const errors: string[] = [];
   
-  // Common validation for all entities except broadcast and brand_relationship
-  if (entityType !== 'broadcast' && entityType !== 'brand_relationship' && !data.name) {
+  // Common validation for all entities except those that don't require name field
+  if (entityType !== 'broadcast' && entityType !== 'brand_relationship' && entityType !== 'production' && !data.name) {
     errors.push('Name is required');
     console.warn(`${entityType} validation error: Name is required`);
   }
@@ -380,6 +380,32 @@ export const validateEntityData = (
       
       if (!data.position) {
         errors.push('Position is required');
+      }
+      
+      if (!data.start_date) {
+        errors.push('Start Date is required');
+      }
+      break;
+      
+    case 'production':
+      if (!data.production_company_id) {
+        errors.push('Production Company ID is required');
+      }
+      // Don't validate UUID format for production_company_id since it can be a name
+      // that will be resolved to an existing company or create a new one
+      
+      if (!data.entity_type) {
+        errors.push('Entity Type is required');
+      }
+      
+      if (!data.entity_id) {
+        errors.push('Entity ID is required');
+      }
+      // Don't validate UUID format for entity_id since it can be a name
+      // that will be resolved to an existing entity or create a new one
+      
+      if (!data.service_type) {
+        errors.push('Service Type is required');
       }
       
       if (!data.start_date) {

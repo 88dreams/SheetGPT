@@ -23,6 +23,21 @@
 - Lint: `docker-compose run --rm frontend npm run lint`
 - TypeCheck: `docker-compose run --rm frontend npm run typecheck`
 
+### Testing Commands
+- Run all tests: `npm run test:all`
+- Run frontend tests: `npm run test:frontend`
+- Run backend tests: `npm run test:backend`
+- Run integration tests: `npm run test:integration`
+- Generate test coverage report: `npm run test:coverage`
+- Run tests in CI environment: `npm run test:ci`
+
+### Test Templates
+- Create component test: `cp tests/frontend/component.test.template.tsx tests/frontend/components/path/to/ComponentName.test.tsx`
+- Create hook test: `cp tests/frontend/hook.test.template.ts tests/frontend/hooks/useHookName.test.ts`
+- Create service test: `cp tests/backend/service.test.template.py tests/backend/services/path/to/test_service_name.py`
+- Create route test: `cp tests/backend/route.test.template.py tests/backend/routes/test_route_name.py`
+- Create integration test: `cp tests/integration/integration.test.template.ts tests/integration/test_feature_name.ts`
+
 ### Database Management
 - Run backup: `python src/scripts/db_management.py backup`
 - View statistics: `python src/scripts/db_management.py stats`

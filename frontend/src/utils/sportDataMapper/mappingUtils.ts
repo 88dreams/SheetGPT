@@ -767,7 +767,13 @@ export const enhancedMapToDatabaseFieldNames = async (
     }
     
     // Format dates for production services
-    if (basicMapped.start_date) {
+    const PROD_DEFAULT_START_DATE = '2000-01-01';
+    const PROD_DEFAULT_END_DATE = '2100-01-01';
+    
+    if (!basicMapped.start_date) {
+      basicMapped.start_date = PROD_DEFAULT_START_DATE;
+      console.log(`Missing start_date for production service, setting default: ${PROD_DEFAULT_START_DATE}`);
+    } else {
       // Check if it's just a year (4 digits)
       const yearRegex = /^\d{4}$/;
       if (yearRegex.test(basicMapped.start_date)) {
@@ -777,7 +783,10 @@ export const enhancedMapToDatabaseFieldNames = async (
       }
     }
     
-    if (basicMapped.end_date) {
+    if (!basicMapped.end_date) {
+      basicMapped.end_date = PROD_DEFAULT_END_DATE;
+      console.log(`Missing end_date for production service, setting default: ${PROD_DEFAULT_END_DATE}`);
+    } else {
       // Check if it's just a year (4 digits)
       const yearRegex = /^\d{4}$/;
       if (yearRegex.test(basicMapped.end_date)) {

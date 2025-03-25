@@ -13,6 +13,15 @@ SheetGPT combines AI-powered chat with structured data management and a sports d
 
 ## Latest Improvements (March 2025)
 
+### Production Services Display Fix (March 24)
+
+- Fixed production service display showing "N/A" for company names
+- Updated backend to properly join ProductionService with Brand
+- Fixed production company creation to match the database schema
+- Ensured the UI properly displays brand names with entity names
+- Added explicit handling for the Brand-based architecture
+- Updated entity display with proper column visibility rules
+
 ### Special Entity Types Support (March 26)
 
 - Added support for Championships and Playoffs as virtual entity types
@@ -104,6 +113,7 @@ SheetGPT combines AI-powered chat with structured data management and a sports d
 - ✓ Special character handling in entity names
 - ✓ Record navigation with proper state management
 - ✓ Production company creation with unified Brand model
+- ✓ Production service display with proper Brand relationships
 - ✓ Database query improvements with multi-level extraction
 
 ## Current Focus

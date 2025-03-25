@@ -51,7 +51,8 @@
 - Add company fields to brands: `docker-compose run --rm backend python add_brand_fields_migration.py`
 - Import companies to brands: `docker-compose run --rm backend python import_companies_to_brands.py`
 - Create broadcast companies from brands (legacy): `docker-compose run --rm backend python add_broadcast_constraint.py`
-- Create production companies from brands (legacy): `docker-compose run --rm backend python add_production_constraint.py`
+- Create production companies from brands (legacy): `docker-compose run --rm backend python add_production_constraint_fixed.py`
+- Fix production company display issue: `docker-compose restart backend frontend`
 - Check broadcast rights integrity: `docker-compose run --rm backend python check_broadcast_rights.py`
 - Verify brand-broadcast mappings: `docker-compose run --rm backend python check_record.py`
 - Fix duplicate broadcast rights: `docker-compose run --rm backend python fix_duplicates.py`

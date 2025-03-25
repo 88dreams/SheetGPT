@@ -363,6 +363,9 @@ class ProductionServiceResponse(ProductionServiceBase):
     id: UUID
     created_at: str
     updated_at: str
+    production_company_name: Optional[str] = None
+    entity_name: Optional[str] = None
+    name: Optional[str] = None
 
     class Config:
         from_attributes = True

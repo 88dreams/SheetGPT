@@ -95,7 +95,13 @@ const EntityList: React.FC<EntityListProps> = ({ className = '' }) => {
     const availableFields = Object.keys(entities[0]);
     
     // Set up default column order
-    const coreFields = ['id', 'name', 'created_at', 'updated_at'];
+    let coreFields = ['id', 'name', 'created_at', 'updated_at'];
+    
+    // For production services, prioritize production_company_name and entity_name
+    if (selectedEntityType === 'production') {
+      coreFields = ['production_company_name', 'entity_name', 'entity_type', 'service_type', 'id', 'created_at', 'updated_at'];
+    }
+    
     return [
       // Core fields first
       ...coreFields.filter(f => availableFields.includes(f)),
@@ -151,6 +157,12 @@ const EntityList: React.FC<EntityListProps> = ({ className = '' }) => {
   useEffect(() => {
     if (!selectedEntityType || !Array.isArray(entities) || entities.length === 0) return;
     
+    // For production services, clear any saved column settings to ensure we're showing the right columns
+    if (selectedEntityType === 'production') {
+      localStorage.removeItem(`entityList_production_columnOrder`);
+      localStorage.removeItem(`entityList_production_columns`);
+    }
+    
     // Get fields directly from the data
     const availableFields = Object.keys(entities[0]);
     
@@ -201,6 +213,26 @@ const EntityList: React.FC<EntityListProps> = ({ className = '' }) => {
     // Always ensure league_name is visible for broadcast rights regardless of saved settings
     if (selectedEntityType === 'broadcast' && availableFields.includes('league_name')) {
       newVisibility['league_name'] = true;
+    }
+    
+    // Always ensure key fields are visible for production services
+    if (selectedEntityType === 'production') {
+      if (availableFields.includes('production_company_name')) {
+        newVisibility['production_company_name'] = true;
+      }
+      if (availableFields.includes('entity_name')) {
+        newVisibility['entity_name'] = true;
+      }
+      if (availableFields.includes('entity_type')) {
+        newVisibility['entity_type'] = true;
+      }
+      if (availableFields.includes('service_type')) {
+        newVisibility['service_type'] = true;
+      }
+      // Hide the generic name field for production services
+      if (availableFields.includes('name')) {
+        newVisibility['name'] = false;
+      }
     }
     
     // Column order is now handled directly by the useDragAndDrop hook
@@ -328,6 +360,18 @@ const EntityList: React.FC<EntityListProps> = ({ className = '' }) => {
       if (parts.length > 1) {
         return parts[0]; // Only show the broadcast company name part
       }
+    }
+    
+    // For production services, don't use the name field at all
+    if (field === 'name' && selectedEntityType === 'production') {
+      // Remove this field from visible columns if it's still showing
+      setTimeout(() => {
+        setVisibleColumns(prev => ({
+          ...prev,
+          name: false
+        }));
+      }, 0);
+      return 'See Production Company';
     }
     
     // Format dates
@@ -470,6 +514,22 @@ const EntityList: React.FC<EntityListProps> = ({ className = '' }) => {
         const parts = entity.name.split(' - ');
         if (parts.length > 1) {
           return formatCellValue(parts[1], field); // Return the territory part
+        }
+      }
+    }
+    
+    // Special case for production services entity name field
+    if (field === 'entity_name' && selectedEntityType === 'production' && !entity.entity_name && entity.entity_type) {
+      // If entity_name is missing but we have entity_type and entity_id, construct a display name
+      if (entity.entity_id) {
+        // For special entity types like Championship/Playoffs that might use string entity_id
+        if (typeof entity.entity_id === 'string' && !entity.entity_id.includes('-')) {
+          return entity.entity_id; // If entity_id is not a UUID, use it as the name
+        }
+        
+        // For Championships/Playoffs with UUID ids
+        if (entity.entity_type.toLowerCase() === 'championship' || entity.entity_type.toLowerCase().includes('playoff')) {
+          return entity.entity_type;
         }
       }
     }

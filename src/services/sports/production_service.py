@@ -4,8 +4,10 @@ from typing import List, Optional, Dict, Any
 from uuid import UUID
 import logging
 from sqlalchemy import select
+import importlib
 
-from src.models.sports_models import ProductionCompany, ProductionService
+from src.models.sports_models import ProductionCompany, ProductionService, Brand
+from src.models import sports_models as models
 from src.schemas.sports import ProductionCompanyCreate, ProductionCompanyUpdate, ProductionServiceCreate, ProductionServiceUpdate
 from src.services.sports.base_service import BaseEntityService
 from src.services.sports.validators import EntityValidator
@@ -94,7 +96,18 @@ class ProductionServiceService(BaseEntityService[ProductionService]):
                                      entity_id: Optional[UUID] = None,
                                      company_id: Optional[UUID] = None) -> List[ProductionService]:
         """Get all production services, optionally filtered."""
-        query = select(ProductionService)
+        # Join with Brand directly to get the production company name
+        # In our model, the production_company_id of ProductionService points to Brand.id
+        query = (
+            select(
+                ProductionService,
+                Brand.name.label("production_company_name")
+            )
+            .outerjoin(
+                Brand,
+                ProductionService.production_company_id == Brand.id
+            )
+        )
         
         if entity_type:
             query = query.where(ProductionService.entity_type == entity_type)
@@ -106,7 +119,93 @@ class ProductionServiceService(BaseEntityService[ProductionService]):
             query = query.where(ProductionService.production_company_id == company_id)
             
         result = await db.execute(query)
-        return result.scalars().all()
+        
+        # Process the results to include the company name
+        services = []
+        for record in result:
+            service = record[0]
+            company_name = record[1]
+            
+            # Add the company name to the service object
+            service_dict = service.__dict__.copy()
+            service_dict["production_company_name"] = company_name
+            
+            # Generate a proper display name for the entity
+            entity_name = None
+            try:
+                if service.entity_type.lower() in ('championship', 'playoff', 'playoffs'):
+                    # For special entity types, use entity_type as the entity_name
+                    entity_name = service.entity_type
+                elif service.entity_type.lower() == 'league':
+                    entity_lookup_result = await db.execute(
+                        select(models.League).where(models.League.id == service.entity_id)
+                    )
+                    entity = entity_lookup_result.scalars().first()
+                    if entity:
+                        entity_name = entity.name
+                elif service.entity_type.lower() == 'team':
+                    entity_lookup_result = await db.execute(
+                        select(models.Team).where(models.Team.id == service.entity_id)
+                    )
+                    entity = entity_lookup_result.scalars().first()
+                    if entity:
+                        entity_name = entity.name
+                elif service.entity_type.lower() == 'game':
+                    entity_lookup_result = await db.execute(
+                        select(models.Game).where(models.Game.id == service.entity_id)
+                    )
+                    entity = entity_lookup_result.scalars().first()
+                    if entity:
+                        entity_name = f"Game {entity.id}"
+                elif service.entity_type.lower() in ('division', 'conference', 'division_conference'):
+                    entity_lookup_result = await db.execute(
+                        select(models.DivisionConference).where(models.DivisionConference.id == service.entity_id)
+                    )
+                    entity = entity_lookup_result.scalars().first()
+                    if entity:
+                        entity_name = entity.name
+                else:
+                    # For any other entity type
+                    entity_name = service.entity_type.capitalize()
+            except Exception as e:
+                logger.warning(f"Error getting entity name: {e}")
+            
+            # Add the entity name
+            service_dict["entity_name"] = entity_name
+            
+            # Create a proper display name that will be shown in the UI
+            if company_name and entity_name:
+                service_dict["name"] = f"{company_name} for {entity_name}"
+            elif company_name:
+                service_dict["name"] = f"{company_name} for {service.entity_type}"
+            else:
+                service_dict["name"] = f"Service for {entity_name or service.entity_type}"
+            
+            # Create a ProductionService object with the core fields
+            updated_service = ProductionService()
+            for key, value in service_dict.items():
+                if hasattr(updated_service, key):
+                    setattr(updated_service, key, value)
+            
+            # Make sure the production_company_name is non-null - it's critical for the UI
+            if not service_dict.get("production_company_name"):
+                # Fallback: directly look up the brand name
+                brand_query = await db.execute(
+                    select(Brand).where(Brand.id == service.production_company_id)
+                )
+                brand = brand_query.scalars().first()
+                if brand:
+                    service_dict["production_company_name"] = brand.name
+            
+            # Dynamically add the additional fields for the response
+            # These will be included in the API response because of our schema
+            setattr(updated_service, "production_company_name", service_dict.get("production_company_name"))
+            setattr(updated_service, "entity_name", service_dict.get("entity_name"))
+            setattr(updated_service, "name", service_dict.get("name"))
+            
+            services.append(updated_service)
+            
+        return services
     
     async def create_production_service(self, db: AsyncSession, service: ProductionServiceCreate) -> ProductionService:
         """Create new production service."""
@@ -155,7 +254,101 @@ class ProductionServiceService(BaseEntityService[ProductionService]):
     
     async def get_production_service(self, db: AsyncSession, service_id: UUID) -> Optional[ProductionService]:
         """Get production service by ID."""
-        return await super().get_entity(db, service_id)
+        # Join with Brand directly to get the production company name
+        # In our model, the production_company_id of ProductionService points to Brand.id
+        query = (
+            select(
+                ProductionService,
+                Brand.name.label("production_company_name")
+            )
+            .outerjoin(
+                Brand,
+                ProductionService.production_company_id == Brand.id
+            )
+            .where(ProductionService.id == service_id)
+        )
+        
+        result = await db.execute(query)
+        record = result.first()
+        
+        if not record:
+            return None
+            
+        service = record[0]
+        company_name = record[1]
+        
+        # Add the company name to the service object
+        service_dict = service.__dict__.copy()
+        service_dict["production_company_name"] = company_name
+        
+        # Generate a proper display name for the entity
+        entity_name = None
+        try:
+            if service.entity_type.lower() in ('championship', 'playoff', 'playoffs'):
+                # For special entity types, use entity_type as the entity_name
+                entity_name = service.entity_type
+            elif service.entity_type.lower() == 'league':
+                entity_lookup_result = await db.execute(
+                    select(models.League).where(models.League.id == service.entity_id)
+                )
+                entity = entity_lookup_result.scalars().first()
+                if entity:
+                    entity_name = entity.name
+            elif service.entity_type.lower() == 'team':
+                entity_lookup_result = await db.execute(
+                    select(models.Team).where(models.Team.id == service.entity_id)
+                )
+                entity = entity_lookup_result.scalars().first()
+                if entity:
+                    entity_name = entity.name
+            elif service.entity_type.lower() == 'game':
+                entity_lookup_result = await db.execute(
+                    select(models.Game).where(models.Game.id == service.entity_id)
+                )
+                entity = entity_lookup_result.scalars().first()
+                if entity:
+                    entity_name = f"Game {entity.id}"
+            elif service.entity_type.lower() in ('division', 'conference', 'division_conference'):
+                entity_lookup_result = await db.execute(
+                    select(models.DivisionConference).where(models.DivisionConference.id == service.entity_id)
+                )
+                entity = entity_lookup_result.scalars().first()
+                if entity:
+                    entity_name = entity.name
+            else:
+                # For any other entity type
+                entity_name = service.entity_type.capitalize()
+        except Exception as e:
+            logger.warning(f"Error getting entity name: {e}")
+        
+        # Add the entity name
+        service_dict["entity_name"] = entity_name
+        
+        # Create a proper display name that will be shown in the UI
+        if company_name and entity_name:
+            service_dict["name"] = f"{company_name} for {entity_name}"
+        elif company_name:
+            service_dict["name"] = f"{company_name} for {service.entity_type}"
+        else:
+            service_dict["name"] = f"Service for {entity_name or service.entity_type}"
+        
+        # Make sure the production_company_name is non-null - it's critical for the UI
+        if not service_dict.get("production_company_name"):
+            # Fallback: directly look up the brand name
+            brand_query = await db.execute(
+                select(Brand).where(Brand.id == service.production_company_id)
+            )
+            brand = brand_query.scalars().first()
+            if brand:
+                service_dict["production_company_name"] = brand.name
+        
+        # Add the additional fields directly to the service object
+        # These fields are defined in the ProductionServiceResponse schema
+        setattr(service, "production_company_name", service_dict.get("production_company_name"))
+        setattr(service, "entity_name", service_dict.get("entity_name"))
+        setattr(service, "name", service_dict.get("name"))
+                
+        return service
     
     async def update_production_service(self, db: AsyncSession, service_id: UUID, service_update: ProductionServiceUpdate) -> Optional[ProductionService]:
         """Update production service."""
@@ -185,7 +378,9 @@ class ProductionServiceService(BaseEntityService[ProductionService]):
         try:
             await db.commit()
             await db.refresh(db_service)
-            return db_service
+            
+            # Get the updated service with enhanced information
+            return await self.get_production_service(db, service_id)
         except SQLAlchemyError as e:
             await db.rollback()
             logger.error(f"Error updating production service: {str(e)}")

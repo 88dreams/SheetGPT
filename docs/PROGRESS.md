@@ -13,6 +13,15 @@ SheetGPT combines AI-powered chat with structured data management and a sports d
 
 ## Latest Improvements (March 2025)
 
+### Entity Persistence Enhancements (March 25)
+
+- Implemented robust column persistence across sessions and logins
+- Added dual storage strategy with both localStorage and sessionStorage
+- Enhanced entity name resolution for Production Services
+- Fixed Entity Name display to show actual entity names instead of types
+- Removed "(Brand)" suffix from company names
+- Ensured column order and visibility preferences persist between logins
+
 ### Production Services Display Fix (March 24)
 
 - Fixed production service display showing "N/A" for company names

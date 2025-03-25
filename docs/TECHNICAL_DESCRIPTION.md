@@ -184,6 +184,7 @@ production_services
 
 ### Performance Optimizations
 - Memoization strategies for expensive operations
+- Dual localStorage/sessionStorage strategy for UI state persistence
 - Column drag-and-drop with visual feedback and stable state
 - Proper dependency tracking in useEffect hooks
 - Breaking circular dependencies in complex components
@@ -191,7 +192,9 @@ production_services
 ### UI Enhancements
 - Color-coded nickname badges with inline editing
 - Toggle between UUID and human-readable names
-- Persistent column ordering with drag-and-drop
+- Persistent column ordering and visibility across sessions
+- Session-resilient user preferences for column configuration
+- Entity name resolution with actual entity names for relationships
 - Circular record navigation in data mapper
 
 ## Current Priorities

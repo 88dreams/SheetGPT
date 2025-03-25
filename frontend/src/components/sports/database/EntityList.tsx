@@ -97,9 +97,18 @@ const EntityList: React.FC<EntityListProps> = ({ className = '' }) => {
     // Set up default column order
     let coreFields = ['id', 'name', 'created_at', 'updated_at'];
     
-    // For production services, prioritize production_company_name and entity_name
+    // For production services, prioritize production_company_name, entity_name and entity_type
     if (selectedEntityType === 'production') {
       coreFields = ['production_company_name', 'entity_name', 'entity_type', 'service_type', 'id', 'created_at', 'updated_at'];
+      
+      // Debug log to see what fields are available
+      console.log('Production Service Available Fields:', availableFields);
+      
+      // Remove name from available fields to prevent it from showing up
+      const nameIndex = availableFields.indexOf('name');
+      if (nameIndex !== -1) {
+        availableFields.splice(nameIndex, 1);
+      }
     }
     
     return [
@@ -132,17 +141,27 @@ const EntityList: React.FC<EntityListProps> = ({ className = '' }) => {
   const resizeStartX = useRef<number>(0);
   const resizeStartWidth = useRef<number>(0);
 
-  // Save column widths to localStorage
+  // Save column widths to both localStorage and sessionStorage
   useEffect(() => {
     if (Object.keys(columnWidths).length > 0) {
+      // Save to localStorage for persistence across sessions
       localStorage.setItem('entityListColumnWidths', JSON.stringify(columnWidths));
+      // Also save to sessionStorage for quick access within the current session
+      sessionStorage.setItem('entityListColumnWidths', JSON.stringify(columnWidths));
     }
   }, [columnWidths]);
   
-  // Save column visibility to localStorage
+  // Save column visibility to both localStorage and sessionStorage
   useEffect(() => {
     if (Object.keys(visibleColumns).length > 0 && selectedEntityType) {
-      localStorage.setItem(`entityList_${selectedEntityType}_columns`, JSON.stringify(visibleColumns));
+      const storageKey = `entityList_${selectedEntityType}_columns`;
+      // Save to localStorage for persistence across sessions
+      localStorage.setItem(storageKey, JSON.stringify(visibleColumns));
+      // Also save to sessionStorage for quick access within the current session
+      sessionStorage.setItem(storageKey, JSON.stringify(visibleColumns));
+      
+      // Log that we're saving the column visibility for debugging
+      console.log(`Saving column visibility for ${selectedEntityType}:`, visibleColumns);
     }
   }, [visibleColumns, selectedEntityType]);
   
@@ -157,17 +176,19 @@ const EntityList: React.FC<EntityListProps> = ({ className = '' }) => {
   useEffect(() => {
     if (!selectedEntityType || !Array.isArray(entities) || entities.length === 0) return;
     
-    // For production services, clear any saved column settings to ensure we're showing the right columns
-    if (selectedEntityType === 'production') {
-      localStorage.removeItem(`entityList_production_columnOrder`);
-      localStorage.removeItem(`entityList_production_columns`);
-    }
+    // For all entity types, ensure we preserve previously saved column settings
+    // Remove this line to keep settings across sessions
     
     // Get fields directly from the data
     const availableFields = Object.keys(entities[0]);
     
-    // Try to load saved column visibility from localStorage first
-    const savedVisibility = localStorage.getItem(`entityList_${selectedEntityType}_columns`);
+    // Try to load saved column visibility from sessionStorage first, then localStorage
+    let savedVisibility = sessionStorage.getItem(`entityList_${selectedEntityType}_columns`);
+    // If not in sessionStorage, try localStorage
+    if (!savedVisibility) {
+      savedVisibility = localStorage.getItem(`entityList_${selectedEntityType}_columns`);
+    }
+    
     let newVisibility: {[key: string]: boolean} = {};
     
     if (savedVisibility) {
@@ -229,9 +250,9 @@ const EntityList: React.FC<EntityListProps> = ({ className = '' }) => {
       if (availableFields.includes('service_type')) {
         newVisibility['service_type'] = true;
       }
-      // Hide the generic name field for production services
-      if (availableFields.includes('name')) {
-        newVisibility['name'] = false;
+      // Completely remove the generic name field for production services
+      if ('name' in newVisibility) {
+        delete newVisibility['name'];
       }
     }
     
@@ -241,9 +262,16 @@ const EntityList: React.FC<EntityListProps> = ({ className = '' }) => {
     setVisibleColumns(newVisibility);
   }, [selectedEntityType, entities]);
 
-  // Load column widths from localStorage
+  // Load column widths from sessionStorage first, then localStorage
   useEffect(() => {
-    const savedWidths = localStorage.getItem('entityListColumnWidths');
+    // Try sessionStorage first for faster access
+    let savedWidths = sessionStorage.getItem('entityListColumnWidths');
+    
+    // If not in sessionStorage, try localStorage
+    if (!savedWidths) {
+      savedWidths = localStorage.getItem('entityListColumnWidths');
+    }
+    
     if (savedWidths) {
       try {
         const parsedWidths = JSON.parse(savedWidths);
@@ -372,6 +400,11 @@ const EntityList: React.FC<EntityListProps> = ({ className = '' }) => {
         }));
       }, 0);
       return 'See Production Company';
+    }
+    
+    // Remove (Brand) text from production company names
+    if (field === 'production_company_name' && typeof value === 'string') {
+      return value.replace(' (Brand)', '');
     }
     
     // Format dates
@@ -635,8 +668,11 @@ const EntityList: React.FC<EntityListProps> = ({ className = '' }) => {
           </div>
           <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-x-4 gap-y-1">
             {Object.keys(entities[0] || {})
-              // Filter out the name field for broadcast rights
-              .filter(field => !(selectedEntityType === 'broadcast' && field === 'name'))
+              // Filter out the name field for broadcast rights and production services
+              .filter(field => !(
+                (selectedEntityType === 'broadcast' && field === 'name') || 
+                (selectedEntityType === 'production' && field === 'name')
+              ))
               .sort((a, b) => {
                 // Sort core fields first
                 const coreFields = ['id', 'name', 'created_at', 'updated_at'];
@@ -751,8 +787,8 @@ const EntityList: React.FC<EntityListProps> = ({ className = '' }) => {
               {/* Data columns */}
               {columnOrder
                 .filter(field => {
-                  // Hide "name" field for broadcast entities (it's redundant with broadcast_company_name)
-                  if (selectedEntityType === 'broadcast' && field === 'name') {
+                  // Hide "name" field for broadcast and production entities
+                  if ((selectedEntityType === 'broadcast' || selectedEntityType === 'production') && field === 'name') {
                     return false;
                   }
                   // Otherwise show fields that are visible and exist in the data

@@ -268,6 +268,12 @@
   - Add hover:bg-gray-100 to all column headers for interactive feedback
   - Make column resize handles invisible when not hovered (w-0)
   - Use hover:bg-blue-500 hover:w-2 transition-all for resize handle hover effects
+- For column persistence across sessions:
+  - Save settings to both localStorage and sessionStorage
+  - Use sessionStorage for quick access within a session
+  - Fall back to localStorage for persistence between sessions
+  - Handle new columns properly when loading saved settings
+  - Implement dual storage strategy in useDragAndDrop hook
 - For nickname display and editing:
   - League nicknames use indigo color (bg-indigo-100 text-indigo-800)
   - Division/Conference nicknames use blue color (bg-blue-100 text-blue-800)

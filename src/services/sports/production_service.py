@@ -3,7 +3,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from typing import List, Optional, Dict, Any
 from uuid import UUID
 import logging
-from sqlalchemy import select
+from sqlalchemy import select, func
 import importlib
 
 from src.models.sports_models import ProductionCompany, ProductionService, Brand
@@ -101,7 +101,7 @@ class ProductionServiceService(BaseEntityService[ProductionService]):
         query = (
             select(
                 ProductionService,
-                Brand.name.label("production_company_name")
+                func.replace(Brand.name, ' (Brand)', '').label("production_company_name")
             )
             .outerjoin(
                 Brand,
@@ -128,7 +128,7 @@ class ProductionServiceService(BaseEntityService[ProductionService]):
             
             # Add the company name to the service object
             service_dict = service.__dict__.copy()
-            service_dict["production_company_name"] = company_name
+            service_dict["production_company_name"] = company_name.replace(" (Brand)", "") if company_name else None
             
             # Generate a proper display name for the entity
             entity_name = None
@@ -171,7 +171,7 @@ class ProductionServiceService(BaseEntityService[ProductionService]):
                 logger.warning(f"Error getting entity name: {e}")
             
             # Add the entity name
-            service_dict["entity_name"] = entity_name
+            service_dict["entity_name"] = entity_name or "Unknown Entity"
             
             # Create a proper display name that will be shown in the UI
             if company_name and entity_name:
@@ -195,7 +195,7 @@ class ProductionServiceService(BaseEntityService[ProductionService]):
                 )
                 brand = brand_query.scalars().first()
                 if brand:
-                    service_dict["production_company_name"] = brand.name
+                    service_dict["production_company_name"] = brand.name.replace(" (Brand)", "")
             
             # Dynamically add the additional fields for the response
             # These will be included in the API response because of our schema
@@ -259,7 +259,7 @@ class ProductionServiceService(BaseEntityService[ProductionService]):
         query = (
             select(
                 ProductionService,
-                Brand.name.label("production_company_name")
+                func.replace(Brand.name, ' (Brand)', '').label("production_company_name")
             )
             .outerjoin(
                 Brand,
@@ -279,7 +279,7 @@ class ProductionServiceService(BaseEntityService[ProductionService]):
         
         # Add the company name to the service object
         service_dict = service.__dict__.copy()
-        service_dict["production_company_name"] = company_name
+        service_dict["production_company_name"] = company_name.replace(" (Brand)", "") if company_name else None
         
         # Generate a proper display name for the entity
         entity_name = None
@@ -322,7 +322,7 @@ class ProductionServiceService(BaseEntityService[ProductionService]):
             logger.warning(f"Error getting entity name: {e}")
         
         # Add the entity name
-        service_dict["entity_name"] = entity_name
+        service_dict["entity_name"] = entity_name or "Unknown Entity"
         
         # Create a proper display name that will be shown in the UI
         if company_name and entity_name:
@@ -340,7 +340,7 @@ class ProductionServiceService(BaseEntityService[ProductionService]):
             )
             brand = brand_query.scalars().first()
             if brand:
-                service_dict["production_company_name"] = brand.name
+                service_dict["production_company_name"] = brand.name.replace(" (Brand)", "")
         
         # Add the additional fields directly to the service object
         # These fields are defined in the ProductionServiceResponse schema

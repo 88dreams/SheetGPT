@@ -73,12 +73,19 @@ export function useDragAndDrop<T>({ items, storageKey }: UseDragAndDropProps<T>)
       return;
     }
     
-    // Try to load from localStorage when:
+    // Try to load from localStorage or sessionStorage when:
     // 1. We have a storage key, and
     // 2. Either we haven't loaded yet, or the storage key has changed
     if (storageKey && (!hasLoadedFromStorage.current || storageKeyChanged)) {
       try {
-        const savedOrder = localStorage.getItem(storageKey);
+        // First try sessionStorage for faster access within the current session
+        let savedOrder = sessionStorage.getItem(storageKey);
+        
+        // If not in sessionStorage, try localStorage for persistence across sessions
+        if (!savedOrder) {
+          savedOrder = localStorage.getItem(storageKey);
+        }
+        
         if (savedOrder) {
           const parsedOrder = JSON.parse(savedOrder);
           
@@ -110,11 +117,14 @@ export function useDragAndDrop<T>({ items, storageKey }: UseDragAndDropProps<T>)
     setReorderedItems([...items]);
   }, [items, storageKey]);
   
-  // Save to localStorage whenever order changes
+  // Save to both localStorage and sessionStorage whenever order changes
   // This is separate from the items initialization effect
   const persistToStorage = useCallback(() => {
     if (storageKey && reorderedItems.length > 0) {
+      // Save to localStorage for persistence across sessions
       localStorage.setItem(storageKey, JSON.stringify(reorderedItems));
+      // Also save to sessionStorage for quick access within the current session
+      sessionStorage.setItem(storageKey, JSON.stringify(reorderedItems));
     }
   }, [reorderedItems, storageKey]);
   

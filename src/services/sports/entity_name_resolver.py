@@ -190,26 +190,74 @@ class EntityNameResolver:
             # Handle production services (has production_company_id, entity_id)
             elif entity_type in ['production', 'production_service', 'production_services']:
                 if 'production_company_id' in entity and entity['production_company_id']:
-                    company_result = await db.execute(select(ProductionCompany.name).where(
-                        ProductionCompany.id == entity['production_company_id']
+                    # First try using the Brand model as production_company_id now points to brands
+                    company_result = await db.execute(select(Brand.name).where(
+                        Brand.id == entity['production_company_id']
                     ))
-                    item_dict["production_company_name"] = company_result.scalar()
+                    production_company = company_result.scalar()
+                    
+                    if production_company:
+                        # Remove any "(Brand)" suffix
+                        item_dict["production_company_name"] = production_company.replace(" (Brand)", "")
+                    else:
+                        # Fallback to old production company table
+                        company_result = await db.execute(select(ProductionCompany.name).where(
+                            ProductionCompany.id == entity['production_company_id']
+                        ))
+                        item_dict["production_company_name"] = company_result.scalar()
                 
                 # Handle entity_id based on entity_type
                 if 'entity_type' in entity and 'entity_id' in entity and entity['entity_id']:
-                    if entity['entity_type'] == "league":
+                    if entity['entity_type'].lower() == "league":
                         entity_result = await db.execute(select(League.name).where(League.id == entity['entity_id']))
                         item_dict["entity_name"] = entity_result.scalar()
-                    elif entity['entity_type'] == "team":
+                    elif entity['entity_type'].lower() == "team":
                         entity_result = await db.execute(select(Team.name).where(Team.id == entity['entity_id']))
                         item_dict["entity_name"] = entity_result.scalar()
-                    elif entity['entity_type'] == "division_conference":
+                    elif entity['entity_type'].lower() in ("division", "conference", "division_conference"):
                         entity_result = await db.execute(select(DivisionConference.name).where(
                             DivisionConference.id == entity['entity_id']
                         ))
                         item_dict["entity_name"] = entity_result.scalar()
-                    elif entity['entity_type'] == "game":
+                    elif entity['entity_type'].lower() == "game":
                         item_dict["entity_name"] = await get_game_display_name(db, entity['entity_id'])
+                    elif entity['entity_type'].lower() in ('championship', 'playoff', 'playoffs'):
+                        # For special entity types, use the entity_type as the entity_name
+                        item_dict["entity_name"] = entity['entity_type'].capitalize()
+                        
+                # Make sure entity_name is never null for production services
+                if 'entity_name' not in item_dict or not item_dict['entity_name']:
+                    # Try to get the actual entity name again based on entity_type and entity_id
+                    if 'entity_type' in entity and 'entity_id' in entity and entity['entity_id']:
+                        try:
+                            if entity['entity_type'].lower() == "league":
+                                entity_result = await db.execute(select(League.name).where(League.id == entity['entity_id']))
+                                entity_name = entity_result.scalar()
+                                if entity_name:
+                                    item_dict["entity_name"] = entity_name
+                            elif entity['entity_type'].lower() == "team":
+                                entity_result = await db.execute(select(Team.name).where(Team.id == entity['entity_id']))
+                                entity_name = entity_result.scalar()
+                                if entity_name:
+                                    item_dict["entity_name"] = entity_name
+                            elif entity['entity_type'].lower() in ("division", "conference", "division_conference"):
+                                entity_result = await db.execute(select(DivisionConference.name).where(DivisionConference.id == entity['entity_id']))
+                                entity_name = entity_result.scalar()
+                                if entity_name:
+                                    item_dict["entity_name"] = entity_name
+                            elif entity['entity_type'].lower() == "game":
+                                game_name = await get_game_display_name(db, entity['entity_id'])
+                                if game_name:
+                                    item_dict["entity_name"] = game_name
+                            elif entity['entity_type'].lower() in ('championship', 'playoff', 'playoffs'):
+                                # For special entity types, use the entity_type as the name since there's no table
+                                item_dict["entity_name"] = entity['entity_type'].capitalize()
+                        except Exception as e:
+                            logger.error(f"Error fetching entity name for {entity['entity_type']} with ID {entity['entity_id']}: {e}")
+                            
+                    # If we still don't have an entity_name, use a fallback
+                    if 'entity_name' not in item_dict or not item_dict['entity_name']:
+                        item_dict["entity_name"] = "Unknown Entity"
                         
                 # Generate a name for production services
                 entity_name = item_dict.get("entity_name")
@@ -344,6 +392,7 @@ class EntityNameResolver:
                         'brand_relationship', 'brand_relationships',
                         'game_broadcast', 'game_broadcasts']:
             allowed_fields.add('entity_name')
+            allowed_fields.add('entity_type')
             
         # For broadcast rights, add league information fields
         if entity_type in ['broadcast_right', 'broadcast_rights', 'broadcast']:

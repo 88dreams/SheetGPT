@@ -13,6 +13,43 @@ SheetGPT combines AI-powered chat with structured data management and a sports d
 
 ## Latest Improvements (March 2025)
 
+### Special Entity Types Support (March 26)
+
+**Championship and Playoffs Entity Support**
+- Added support for Championship and Playoffs as recognized entity types
+- Implemented flexible entity type validation in the EntityValidator
+- Enhanced schema validation to support both UUID and string-based entity IDs
+- Created deterministic UUID generation based on entity name for consistency
+- Removed the need for dedicated database tables for special entity types
+- Added special handling in the entity lookup API for virtual entities
+
+### Universal Company Entity Implementation (March 25)
+
+**Brand as Universal Entity Design**
+- Implemented Brand as the universal entity for all companies (broadcasters, production, etc.)
+- Added `company_type` and `country` fields to Brand model for better categorization
+- Created direct relationships between Brand and production/broadcast services
+- Eliminated temporary entity creation with "(Brand)" suffix
+- Enhanced UI with flexible industry and company type selection
+
+**Production Service Brand Integration**
+- Fixed production services to work directly with Brand entities
+- Modified validators to use Brands directly instead of creating temporary entities
+- Enhanced lookup endpoints to auto-create companies as Brands
+- Added utility scripts for database migration and entity conversion
+
+**Company Name Resolution**
+- Enhanced name-to-ID resolution for dynamic company creation
+- Added flexible free-text entry for industry and company type
+- Updated frontend forms with autocomplete suggestions
+- Provided smart suggestions while allowing custom values
+
+**Migration Utilities**
+- Created `add_brand_fields_migration.py` for database field updates
+- Implemented `import_companies_to_brands.py` for entity conversion
+- Added automated company_type inference from existing records
+- Updated CLAUDE.md with new entity integration commands
+
 ### Bug Fixes & Critical Improvements
 
 **API & Authentication Error Fixes (March 23)**
@@ -210,6 +247,7 @@ SheetGPT combines AI-powered chat with structured data management and a sports d
 - ✓ **Column Visibility**: Implemented data-driven column generation from API responses
 - ✓ **Special Character Handling**: Fixed entity name resolution for names with parentheses
 - ✓ **Record Navigation**: Implemented circular navigation with proper state management
+- ✓ **Production Company Creation**: Fixed with unified Brand entity model
 
 ### Key Architectural Improvements
 

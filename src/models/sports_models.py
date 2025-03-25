@@ -473,6 +473,11 @@ class BroadcastRights(TimestampedBase):
     broadcast_company: Mapped["BroadcastCompany"] = relationship(
         back_populates="broadcast_rights"
     )
+    brand: Mapped["Brand"] = relationship(
+        foreign_keys=[broadcast_company_id],
+        primaryjoin="BroadcastRights.broadcast_company_id == Brand.id",
+        overlaps="broadcast_company,broadcast_rights"
+    )
     division_conference: Mapped[Optional["DivisionConference"]] = relationship(
         back_populates="broadcast_rights"
     )
@@ -494,10 +499,8 @@ class ProductionCompany(TimestampedBase):
     )
 
     # Relationships
-    production_services: Mapped[List["ProductionService"]] = relationship(
-        back_populates="production_company",
-        cascade="all, delete-orphan"
-    )
+    # Note: This relationship is now maintained only for backwards compatibility
+    # Production services now point to brands directly
     game_broadcasts: Mapped[List["GameBroadcast"]] = relationship(
         back_populates="production_company",
         cascade="all, delete-orphan"
@@ -524,7 +527,7 @@ class ProductionService(TimestampedBase):
     )
     production_company_id: Mapped[UUID] = mapped_column(
         SQLUUID,
-        ForeignKey("production_companies.id"),
+        ForeignKey("brands.id"),
         nullable=False
     )
     service_type: Mapped[str] = mapped_column(
@@ -541,15 +544,21 @@ class ProductionService(TimestampedBase):
     )
 
     # Relationships
-    production_company: Mapped["ProductionCompany"] = relationship(
+    production_company: Mapped["Brand"] = relationship(
+        "Brand",
+        foreign_keys=[production_company_id],
         back_populates="production_services"
     )
 
 
 class Brand(TimestampedBase):
-    """Model for brands."""
+    """Model for brands - universal entity for all companies."""
     
     __tablename__ = "brands"
+    __table_args__ = (
+        Index('ix_brands_name', 'name'),
+        Index('ix_brands_industry', 'industry'),
+    )
 
     id: Mapped[UUID] = mapped_column(
         SQLUUID,
@@ -558,17 +567,39 @@ class Brand(TimestampedBase):
     )
     name: Mapped[str] = mapped_column(
         String(100),
-        nullable=False
+        nullable=False,
+        index=True
     )
     industry: Mapped[str] = mapped_column(
         String(100),
-        nullable=False
+        nullable=False,
+        index=True
+    )
+    company_type: Mapped[Optional[str]] = mapped_column(
+        String(50),
+        nullable=True,
+        index=True
+    )
+    country: Mapped[Optional[str]] = mapped_column(
+        String(100),
+        nullable=True
     )
 
     # Relationships
     brand_relationships: Mapped[List["BrandRelationship"]] = relationship(
         back_populates="brand",
         cascade="all, delete-orphan"
+    )
+    production_services: Mapped[List["ProductionService"]] = relationship(
+        back_populates="production_company",
+        foreign_keys="[ProductionService.production_company_id]",
+        primaryjoin="Brand.id == ProductionService.production_company_id"
+    )
+    broadcast_rights: Mapped[List["BroadcastRights"]] = relationship(
+        back_populates="brand",
+        foreign_keys="[BroadcastRights.broadcast_company_id]",
+        overlaps="broadcast_company",
+        primaryjoin="Brand.id == BroadcastRights.broadcast_company_id"
     )
 
 

@@ -59,71 +59,99 @@ class EntityValidator:
         """
         Validate that a broadcast company exists.
         
-        Also accepts a brand ID as fallback - if no broadcast company is found with the given ID,
-        checks if a brand exists with that ID. If a brand exists, creates a temporary broadcast
-        company with the same ID to satisfy the foreign key constraint.
+        First checks if a broadcast company exists, then falls back to checking if a brand exists.
+        Uses the brand directly without creating temporary entities, since brand is now the 
+        universal company entity.
         """
-        # First try looking for a broadcast company
+        # First try looking for a broadcast company for backward compatibility
         result = await db.execute(select(BroadcastCompany).where(BroadcastCompany.id == company_id))
         company = result.scalars().first()
         
         if company:
+            # Find corresponding brand
+            brand_result = await db.execute(select(Brand).where(Brand.id == company_id))
+            brand = brand_result.scalars().first()
+            
+            if brand:
+                logger.info(f"Found both broadcast company and brand with ID {company_id}")
+                if not brand.company_type:
+                    brand.company_type = "Broadcaster"
+                    try:
+                        await db.commit()
+                    except:
+                        await db.rollback()
+                return brand
             return company
             
-        # If no broadcast company is found, try looking for a brand
+        # Check if it's a brand directly
         logger.info(f"No broadcast company found with ID {company_id}, checking if it's a brand ID")
         brand_result = await db.execute(select(Brand).where(Brand.id == company_id))
         brand = brand_result.scalars().first()
         
         if brand:
-            logger.info(f"Found brand '{brand.name}' with ID {company_id}, creating temporary broadcast company")
-            # Create a temporary broadcast company with the same ID as the brand
-            # This is a workaround for the foreign key constraint
-            try:
-                # First check if we already have a temporary broadcast company with this ID
-                # This can happen if a previous request created one
-                existing_check = await db.execute(select(BroadcastCompany).where(BroadcastCompany.id == company_id))
-                existing_company = existing_check.scalars().first()
-                
-                if existing_company:
-                    logger.info(f"Found existing broadcast company with ID {company_id}")
-                    return existing_company
-                
-                # Create a new temporary broadcast company with the same ID as the brand
-                from datetime import datetime
-                temp_company = BroadcastCompany(
-                    id=company_id,  # Use same ID as brand
-                    name=f"{brand.name} (Brand)",
-                    type="Brand",
-                    country="USA",  # Default
-                    created_at=datetime.now(),
-                    updated_at=datetime.now()
-                )
-                db.add(temp_company)
-                await db.commit()
-                await db.refresh(temp_company)
-                
-                logger.info(f"Created temporary broadcast company with ID {company_id} and name '{temp_company.name}'")
-                return temp_company
-            except Exception as e:
-                await db.rollback()
-                logger.error(f"Error creating temporary broadcast company: {str(e)}")
-                # If we couldn't create a temporary company, just return the brand
-                # This will fail later with a foreign key constraint error
-                return brand
+            logger.info(f"Found brand '{brand.name}' with ID {company_id}")
+            # Update brand.company_type if not set
+            if not brand.company_type:
+                brand.company_type = "Broadcaster"
+                try:
+                    await db.commit()
+                    await db.refresh(brand)
+                except:
+                    await db.rollback()
+            return brand
             
         # If neither broadcast company nor brand is found, raise the error
-        raise ValueError(f"Broadcast company with ID {company_id} not found")
+        raise ValueError(f"No brand or broadcast company with ID {company_id} found")
         
     
     @staticmethod
-    async def validate_production_company(db: AsyncSession, company_id: UUID) -> Optional[ProductionCompany]:
-        """Validate that a production company exists."""
+    async def validate_production_company(db: AsyncSession, company_id: UUID) -> Optional[Any]:
+        """
+        Validate that a production company exists.
+        
+        First checks if a production company exists, then falls back to checking if a brand exists.
+        Uses the brand directly without creating temporary entities, since brand is now the 
+        universal company entity.
+        """
+        # First try looking for a production company for backward compatibility
         result = await db.execute(select(ProductionCompany).where(ProductionCompany.id == company_id))
         company = result.scalars().first()
-        if not company:
-            raise ValueError(f"Production company with ID {company_id} not found")
-        return company
+        
+        if company:
+            # Find corresponding brand
+            brand_result = await db.execute(select(Brand).where(Brand.id == company_id))
+            brand = brand_result.scalars().first()
+            
+            if brand:
+                logger.info(f"Found both production company and brand with ID {company_id}")
+                if not brand.company_type:
+                    brand.company_type = "Production Company"
+                    try:
+                        await db.commit()
+                    except:
+                        await db.rollback()
+                return brand
+            return company
+            
+        # Check if it's a brand directly
+        logger.info(f"No production company found with ID {company_id}, checking if it's a brand ID")
+        brand_result = await db.execute(select(Brand).where(Brand.id == company_id))
+        brand = brand_result.scalars().first()
+        
+        if brand:
+            logger.info(f"Found brand '{brand.name}' with ID {company_id}")
+            # Update brand.company_type if not set
+            if not brand.company_type:
+                brand.company_type = "Production Company"
+                try:
+                    await db.commit()
+                    await db.refresh(brand)
+                except:
+                    await db.rollback()
+            return brand
+            
+        # If neither production company nor brand is found, raise the error
+        raise ValueError(f"No brand or production company with ID {company_id} found")
     
     @staticmethod
     async def validate_brand(db: AsyncSession, brand_id: UUID) -> Optional[Brand]:
@@ -211,6 +239,11 @@ class EntityValidator:
         # Handle special cases
         if normalized_type in ('conference', 'division'):
             normalized_type = 'division_conference'
+        # Map Championship and Playoffs to League for validation purposes
+        # They're conceptually similar entities in terms of validation
+        elif normalized_type in ('championship', 'playoff', 'playoffs'):
+            normalized_type = 'championship_playoff'
+            logger.info(f"Mapped {entity_type} to championship_playoff category")
             
         logger.info(f"Validating entity type {normalized_type} with ID {entity_id}")
         
@@ -231,6 +264,11 @@ class EntityValidator:
             await EntityValidator.validate_stadium(db, entity_id)
         elif normalized_type == 'division_conference':
             await EntityValidator.validate_division_conference(db, entity_id)
+        elif normalized_type == 'championship_playoff':
+            # Championships and playoffs are allowed without specific validation
+            # This allows using these entity types even though we don't have a dedicated table
+            logger.info(f"Championship/Playoff entity type accepted: {entity_type}")
+            return True
         else:
             logger.warning(f"Potentially unsupported entity type: {entity_type} (normalized to {normalized_type})")
             # Log warning but continue for broadcast rights to prevent failures

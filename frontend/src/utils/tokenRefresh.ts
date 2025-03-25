@@ -148,8 +148,8 @@ export async function refreshAuthToken(): Promise<boolean> {
     }
   } catch (error) {
     console.error('Token refresh failed:', error);
-    // Remove invalid token
-    removeToken();
+    // Don't remove token on refresh failure - might be a temporary network issue
+    // We'll try again on the next request
     return false;
   }
 }

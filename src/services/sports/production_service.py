@@ -113,12 +113,36 @@ class ProductionServiceService(BaseEntityService[ProductionService]):
         # Validate production company exists
         await EntityValidator.validate_production_company(db, service.production_company_id)
         
-        # Validate that the entity exists
-        await EntityValidator.validate_entity_type_and_id(db, service.entity_type, service.entity_id)
+        # Handle special entity types
+        entity_type = service.entity_type.lower()
+        entity_id = service.entity_id
         
-        # Create new production service
-        db_service = ProductionService(**service.dict())
-        db.add(db_service)
+        # For special entity types, skip validation
+        if entity_type in ('championship', 'playoff', 'playoffs'):
+            logger.info(f"Creating production service for special entity type: {entity_type}, name: {entity_id}")
+            
+            # Create service dict with all fields
+            service_dict = service.dict()
+            
+            # For special types with string IDs, generate a UUID
+            if not isinstance(entity_id, UUID):
+                # Use a deterministic UUID based on the entity type and name
+                import hashlib
+                name_hash = hashlib.md5(f"{entity_type}:{entity_id}".encode()).hexdigest()
+                generated_uuid = UUID(name_hash[:32])
+                logger.info(f"Generated UUID {generated_uuid} for {entity_type}: {entity_id}")
+                service_dict['entity_id'] = generated_uuid
+            
+            # Create new production service with the dict
+            db_service = ProductionService(**service_dict)
+            db.add(db_service)
+        else:
+            # For regular entity types, validate entity exists
+            await EntityValidator.validate_entity_type_and_id(db, service.entity_type, service.entity_id)
+            
+            # Create new production service
+            db_service = ProductionService(**service.dict())
+            db.add(db_service)
         
         try:
             await db.commit()

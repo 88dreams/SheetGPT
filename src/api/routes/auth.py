@@ -4,7 +4,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from src.schemas.auth import UserCreate, UserLogin, UserResponse, TokenResponse
 from src.services.user import UserService
 from src.utils.database import get_db
-from src.utils.security import get_current_user_id
+from src.utils.security import get_current_user_id, create_access_token
+from datetime import timedelta
+from src.utils.config import get_settings
+
+settings = get_settings()
 
 router = APIRouter()
 
@@ -43,3 +47,31 @@ async def get_current_user(
         )
     
     return UserResponse.model_validate(user) 
+
+@router.post("/refresh", response_model=TokenResponse)
+async def refresh_token(
+    current_user_id: str = Depends(get_current_user_id),
+    db: AsyncSession = Depends(get_db)
+) -> TokenResponse:
+    """Refresh authentication token."""
+    user_service = UserService(db)
+    user = await user_service.get_user_by_id(current_user_id)
+    
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found"
+        )
+    
+    # Generate new access token
+    access_token_expires = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
+    access_token = create_access_token(
+        data={"sub": str(user.id)},
+        expires_delta=access_token_expires
+    )
+    
+    return TokenResponse(
+        access_token=access_token, 
+        token_type="bearer",
+        expires_in=settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60
+    )

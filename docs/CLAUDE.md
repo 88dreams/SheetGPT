@@ -11,8 +11,9 @@ SheetGPT leverages Anthropic's Claude for various AI-powered features:
 5. **File Processing**: Analyzing uploaded CSV and text files with automatic structure detection
 6. **Smart Date Handling**: Processing and correcting date formats with contextual intelligence
 7. **Entity Relationship Traversal**: Determining appropriate league associations for broadcast rights
-8. **Web Search Integration**: Processing search operations with special handling
-9. **Code Review**: Analyzing and providing feedback on code
+8. **Virtual Entity Support**: Handling special entity types (Championships, Playoffs) without dedicated tables
+9. **Web Search Integration**: Processing search operations with special handling
+10. **Code Review**: Analyzing and providing feedback on code
 
 ## Implementation Details
 
@@ -183,6 +184,14 @@ The system implements an advanced streaming architecture:
   - Added toggle for translation-only mode
   - Improved error handling for malformed queries
 
+- **Special Entity Type Support (March 25, 2025)**
+  - Added support for Championship and Playoffs as virtual entity types
+  - Implemented flexible schema validation with string or UUID entity IDs
+  - Added deterministic UUID generation for consistency across operations
+  - Created virtual entity resolution in the entity lookup API
+  - Enhanced validators to handle entity types without dedicated tables
+  - Updated documentation across PROGRESS.md, TECHNICAL_DESCRIPTION.md, and API_ARCHITECTURE.md
+
 - **Entity Name Resolution Improvements (March 29, 2025)**
   - Enhanced name processing with special character handling
   - Support for entities with parentheses in names
@@ -191,7 +200,6 @@ The system implements an advanced streaming architecture:
   - Default date handling with configurable fallbacks
   - Fixed production entity validation to remove name requirement
   - Added name-to-ID resolution for production services (production companies and entities)
-  - Added special handling for "Championship" entity types with automatic creation
 
 - **Stream Processing Optimization (March 25, 2025)**
   - Implemented memory-efficient buffer management

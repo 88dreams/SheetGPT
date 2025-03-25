@@ -52,6 +52,8 @@ src/
    - Brand-broadcast company dual-ID integration with automated placeholder creation
    - Intelligent league association resolution based on entity relationships
    - Smart date handling with year-only input formatting
+   - Virtual entity support (Championship, Playoffs) with deterministic UUID generation
+   - Flexible entity validation with special case handling for non-table entity types
 
 3. **API Organization**
    - Domain-driven design with feature-focused modules
@@ -315,6 +317,14 @@ src/
 #### Core Entities
 1. **Primary Tables**
    ```
+   brands
+   ├── id (UUID)
+   ├── name (String, indexed)
+   ├── industry (String, indexed)
+   ├── company_type (String, nullable, indexed)
+   ├── country (String, nullable)
+   └── → brand_relationships, production_services, broadcast_rights
+   
    leagues
    ├── id (UUID)
    ├── name (String, unique, indexed)
@@ -347,7 +357,7 @@ src/
    ├── city, state, country, capacity
    ├── owner, naming_rights_holder
    ├── host_broadcaster (String)
-   ├── host_broadcaster_id (→ broadcast_companies)
+   ├── host_broadcaster_id (→ broadcast_companies/brands)
    └── → teams, games
    
    players
@@ -448,10 +458,19 @@ src/
    ```
    Entity Reference → Type Detection → Entity Type Normalization →
    Name Processing (Handle Special Characters) → Exact Name Lookup → 
-   Partial Name Fallback → Cross-Type Fallback (brand → broadcast) →
-   Placeholder Entity Creation → UUID Resolution → Nickname Resolution → 
+   Partial Name Fallback → Universal Brand Lookup → 
+   Brand Creation (if needed) → UUID Resolution → Nickname Resolution → 
    Relationship Traversal → League Resolution → Add Related Entity Names → 
    Generate Display Names → UI Display
+   ```
+
+6. **Universal Brand System**
+   ```
+   Company Name Lookup → Brand Lookup → Company Type Classification →
+   Brand Creation with Industry/Type → Direct Brand Usage →
+   Relationship References → Form UI with FlexibleEntry →
+   Company Type Suggestion → Industry Classification →
+   Consistent Reference Management → Cross-Entity Resolution
    ```
 
 6. **UUID Display System**

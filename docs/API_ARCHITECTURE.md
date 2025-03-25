@@ -19,6 +19,9 @@ The API is organized into feature-focused modules:
 - **Chat**: Conversation and message management with Claude API integration and streaming responses
 - **Data Management**: Structured data operations with extraction services
 - **Sports Database**: Sports entity management with comprehensive relationship handling
+  - Support for standard entity types (League, Team, Player, etc.)
+  - Special entity handling for Championship and Playoffs without dedicated tables
+  - Virtual entity resolution with deterministic UUID generation
 - **Export**: Data export to Google Sheets and CSV
 - **Admin**: Administrative functions and monitoring capabilities
 - **DB Management**: Database maintenance, natural language queries, and administration tools

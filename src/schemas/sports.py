@@ -1,5 +1,5 @@
 from pydantic import BaseModel, Field, validator
-from typing import List, Optional, Dict, Any
+from typing import List, Optional, Dict, Any, Union
 from uuid import UUID
 from datetime import date, datetime
 
@@ -320,14 +320,36 @@ class ProductionCompanyResponse(ProductionCompanyBase):
 # Base schemas for ProductionService
 class ProductionServiceBase(BaseModel):
     entity_type: str
-    entity_id: UUID
+    entity_id: Union[UUID, str]  # Allow either UUID or string
     production_company_id: UUID
     service_type: str
     start_date: date
     end_date: date
 
 class ProductionServiceCreate(ProductionServiceBase):
-    pass
+    @validator('entity_id')
+    def validate_entity_id(cls, value, values):
+        """Validate entity_id based on context.
+        
+        For normal entity types, ensure it's a UUID.
+        For special types like Championship/Playoff, allow strings.
+        """
+        entity_type = values.get('entity_type', '').lower()
+        
+        # Check if this is a special entity type that allows string IDs
+        if entity_type in ('championship', 'playoff', 'playoffs'):
+            return value  # Allow string entity_id for these types
+            
+        # For regular entity types, ensure it's a UUID
+        if not isinstance(value, UUID):
+            try:
+                return UUID(str(value))
+            except ValueError:
+                raise ValueError(
+                    f"Entity ID must be a valid UUID for entity type '{entity_type}'. "
+                    f"Got: {value}"
+                )
+        return value
 
 class ProductionServiceUpdate(BaseModel):
     entity_type: Optional[str] = None
@@ -355,6 +377,8 @@ class ProductionServiceResponse(ProductionServiceBase):
 class BrandBase(BaseModel):
     name: str
     industry: str
+    company_type: Optional[str] = None
+    country: Optional[str] = None
 
 class BrandCreate(BrandBase):
     pass
@@ -362,6 +386,8 @@ class BrandCreate(BrandBase):
 class BrandUpdate(BaseModel):
     name: Optional[str] = None
     industry: Optional[str] = None
+    company_type: Optional[str] = None
+    country: Optional[str] = None
 
 class BrandResponse(BrandBase):
     id: UUID

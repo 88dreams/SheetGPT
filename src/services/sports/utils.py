@@ -49,7 +49,11 @@ ENTITY_TYPES = {
     "division_conference": DivisionConference,
     # Additional mappings for frontend entity types
     "broadcast": BroadcastRights,
-    "production": ProductionService
+    "production": ProductionService,
+    # Special entity types (handled through mapping)
+    "championship": None,  # Handled in validator
+    "playoff": None,       # Handled in validator
+    "playoffs": None       # Handled in validator
 }
 
 def get_model_for_entity_type(entity_type: str) -> Optional[Type]:

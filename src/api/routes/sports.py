@@ -897,20 +897,54 @@ async def create_production_service(
     db: AsyncSession = Depends(get_db),
     current_user: Dict = Depends(get_current_user)
 ):
-    """Create a new production service."""
+    """
+    Create a new production service.
+    
+    If the production_company_id is a name instead of a UUID, will attempt to find a brand
+    with that name and use its ID. If no brand exists, will create one automatically.
+    """
+    import logging
+    logger = logging.getLogger(__name__)
+    
     try:
-        # Direct implementation as a workaround for missing method in SportsService
         from src.services.sports.production_service import ProductionServiceService
+        from src.services.sports.brand_service import BrandService
+        from uuid import UUID
         
-        # Create a service instance directly
+        # Check if production_company_id is a UUID or a name
+        try:
+            # Try to parse as UUID
+            UUID(str(production_service.production_company_id))
+            # If successful, use as-is
+        except ValueError:
+            # Not a UUID, must be a name - look it up
+            company_name = str(production_service.production_company_id)
+            logger.info(f"Looking up production company by name: {company_name}")
+            
+            # Try to find an existing brand with this name
+            entity = await sports_service.get_entity_by_name(db, "brand", company_name)
+            
+            if not entity:
+                # No brand found, create one
+                logger.info(f"No brand found for '{company_name}', creating new brand")
+                brand_service = BrandService()
+                brand = await brand_service.create_production_company(db, {
+                    "name": company_name,
+                    "industry": "Production",
+                    "company_type": "Production Company",
+                    "country": "USA"  # Default
+                })
+                production_service.production_company_id = brand.id
+            else:
+                # Found a brand, use its ID
+                production_service.production_company_id = entity["id"]
+                logger.info(f"Using brand ID {entity['id']} for company '{company_name}'")
+        
+        # Create the production service
         production_service_service = ProductionServiceService()
-        
-        # Use the service to create production service
         return await production_service_service.create_production_service(db, production_service)
+        
     except Exception as e:
-        # Log the error and re-raise
-        import logging
-        logger = logging.getLogger(__name__)
         logger.error(f"Error creating production service: {str(e)}")
         raise
 

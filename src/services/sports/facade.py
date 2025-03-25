@@ -252,10 +252,10 @@ class SportsService:
         """
         Get an entity by name.
         
-        For broadcast_company entity type, if no broadcast company is found with the given name,
+        For broadcast_company and production_company entity types, if not found with the given name,
         will also attempt to look up a brand with the same name as a fallback.
         """
-        # Handle special case for broadcast_company first
+        # Handle special case for broadcast_company
         if entity_type == 'broadcast_company':
             # First try to find a broadcast company with this name
             broadcast_company_query = select(BroadcastCompany).where(
@@ -282,16 +282,124 @@ class SportsService:
                 # Add a special field to indicate this is actually a brand
                 brand_dict['_is_brand'] = True
                 
+                # Set company type if not already set
+                if not brand.company_type:
+                    brand.company_type = "Broadcaster"
+                    try:
+                        await db.commit()
+                    except:
+                        await db.rollback()
+                
                 return brand_dict
             
             # Neither broadcast company nor brand found
             return None
+            
+        # Handle special case for production_company
+        elif entity_type == 'production_company':
+            # First try to find a production company with this name
+            production_company_query = select(ProductionCompany).where(
+                func.lower(ProductionCompany.name) == func.lower(name)
+            )
+            pc_result = await db.execute(production_company_query)
+            production_company = pc_result.scalars().first()
+            
+            if production_company:
+                # Found a production company, convert to dict and return
+                return self._model_to_dict(production_company)
+            
+            # No production company found, try looking up a brand instead
+            logger.info(f"No production company found with name '{name}', checking brands...")
+            brand_query = select(Brand).where(func.lower(Brand.name) == func.lower(name))
+            brand_result = await db.execute(brand_query)
+            brand = brand_result.scalars().first()
+            
+            if brand:
+                # Found a brand, convert to a production company-like dict
+                logger.info(f"Found brand '{brand.name}' with ID {brand.id}, returning as production company")
+                brand_dict = self._model_to_dict(brand)
+                
+                # Add a special field to indicate this is actually a brand
+                brand_dict['_is_brand'] = True
+                
+                # Set company type if not already set
+                if not brand.company_type:
+                    brand.company_type = "Production Company"
+                    try:
+                        await db.commit()
+                    except:
+                        await db.rollback()
+                
+                return brand_dict
+            
+            # Neither production company nor brand found
+            return None
+            
+        # If entity_type is 'brand', look for any company
+        elif entity_type == 'brand':
+            # Try to find a brand directly
+            brand_query = select(Brand).where(func.lower(Brand.name) == func.lower(name))
+            brand_result = await db.execute(brand_query)
+            brand = brand_result.scalars().first()
+            
+            if brand:
+                return self._model_to_dict(brand)
+                
+            # Try broadcast company
+            broadcast_query = select(BroadcastCompany).where(func.lower(BroadcastCompany.name) == func.lower(name))
+            broadcast_result = await db.execute(broadcast_query)
+            broadcast = broadcast_result.scalars().first()
+            
+            if broadcast:
+                logger.info(f"Found broadcast company '{broadcast.name}', creating brand")
+                # Create a brand from this broadcast company
+                brand_service = BrandService()
+                brand = await brand_service.create_broadcast_company(db, {
+                    "name": broadcast.name,
+                    "industry": "Media",
+                    "country": broadcast.country
+                })
+                return self._model_to_dict(brand)
+                
+            # Try production company
+            production_query = select(ProductionCompany).where(func.lower(ProductionCompany.name) == func.lower(name))
+            production_result = await db.execute(production_query)
+            production = production_result.scalars().first()
+            
+            if production:
+                logger.info(f"Found production company '{production.name}', creating brand")
+                # Create a brand from this production company
+                brand_service = BrandService()
+                brand = await brand_service.create_production_company(db, {
+                    "name": production.name,
+                    "industry": "Production"
+                })
+                return self._model_to_dict(brand)
+                
+            return None
+        
+        # Handle special entity types
+        if entity_type.lower() in ('championship', 'playoff', 'playoffs'):
+            # For championships and playoffs, we return a special object with the name and type
+            # This is a virtual entity that doesn't have a database table
+            logger.info(f"Handling {entity_type} lookup for '{name}'")
+            
+            # Generate a virtual entity that includes the name
+            # This will be converted to a UUID when needed through entity resolution
+            return {
+                "id": None,  # Will be supplied by client or generated
+                "name": name,
+                "entity_type": entity_type,
+                "_virtual": True  # Flag to indicate this is a virtual entity
+            }
         
         # Handle all other entity types normally
         if entity_type not in self.ENTITY_TYPES:
             raise ValueError(f"Invalid entity type: {entity_type}")
         
         model_class = self.ENTITY_TYPES[entity_type]
+        if model_class is None:
+            raise ValueError(f"Entity type {entity_type} does not have a dedicated model")
         
         # Use case-insensitive search
         query = select(model_class).where(func.lower(model_class.name) == func.lower(name))

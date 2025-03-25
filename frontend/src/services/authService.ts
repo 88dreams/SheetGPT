@@ -30,6 +30,23 @@ export const authService = {
     }
   },
 
+  refresh: async (): Promise<TokenResponse> => {
+    console.log('Auth service refresh: attempting to refresh token');
+    try {
+      const response = await request<TokenResponse>('/auth/refresh', {
+        method: 'POST',
+        requiresAuth: true,
+        timeout: 10000 // 10 seconds
+      });
+      console.log('Auth service refresh: token refreshed successfully');
+      setToken(response.access_token);
+      return response;
+    } catch (error) {
+      console.error('Auth service refresh: token refresh failed', error);
+      throw error;
+    }
+  },
+
   logout: (): Promise<void> => {
     removeToken()
     return Promise.resolve()

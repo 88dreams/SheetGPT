@@ -1,133 +1,112 @@
 # Technical Description
 
-This document provides a concise technical description of the SheetGPT project architecture and implementation, focusing on current features and implementation.
+This document provides a concise overview of SheetGPT's architecture and implementation.
 
 ## System Architecture
 
 ### Backend (FastAPI + PostgreSQL)
 
-#### Core Components
+#### Core Organization
 ```
 src/
-├── api/                  # Domain-specific endpoints
-├── models/               # SQLAlchemy models
-├── schemas/              # Pydantic schemas
-├── services/             # Business logic
-│   ├── sports/           # Sports domain services
-│   │   ├── base_service.py           # Generic service functionality
-│   │   ├── entity_name_resolver.py   # Entity reference resolution
-│   │   ├── facade.py                 # Unified API facade
-│   │   ├── validators.py             # Domain validation rules
-│   └── chat/             # Chat and AI services
-├── scripts/              # Maintenance and migration scripts
-└── utils/                # Shared utilities
+├── api/               # Domain-specific endpoints
+├── models/            # SQLAlchemy models
+├── schemas/           # Pydantic schemas
+├── services/          # Business logic
+│   ├── sports/        # Sports domain services
+│   │   ├── facade.py              # Unified API coordination
+│   │   ├── entity_name_resolver.py # Reference resolution
+│   │   ├── brand_service.py       # Universal company handling
+│   └── chat/          # Claude API integration
+├── scripts/           # Maintenance and migrations 
+└── utils/             # Shared utilities
 ```
 
 #### Key Features
-1. **Authentication**
-   - JWT-based system with token refresh
-   - Role-based access control
-   - Admin privilege verification
 
-2. **Database Management**
+1. **API Design**
+   - Domain-driven modules with facade pattern
+   - Standardized responses with comprehensive error handling
+   - Streaming support for chat interactions
+
+2. **Database Architecture**
    - SQLAlchemy ORM with UUID primary keys
-   - Natural language to SQL translation using Claude API
-   - Query results export to CSV and Google Sheets
-   - Automated backup and restore
-   - Support for nickname fields with specialized UI
-   - Universal Brand entity model for companies
-   - Smart date handling with year-only input formatting
-   - Virtual entity support (Championship, Playoffs) with deterministic UUID generation
+   - Natural language to SQL translation via Claude
+   - Universal Brand entity for all company relationships
+   - Virtual entity support with deterministic UUIDs
+   - Smart date handling with contextual defaults
 
-3. **API Organization**
-   - Domain-driven design with feature-focused modules
-   - Facade pattern implementation with specialized service delegation
-   - Standardized response formats with comprehensive error handling
-   - Streaming response support for chat interactions
+3. **Authentication**
+   - JWT with refresh tokens
+   - Role-based access control
 
 ### Frontend (React + TypeScript)
 
 #### Core Structure
 ```
 frontend/
-├── components/            # Reusable UI components
-│   ├── chat/              # Chat-related components
-│   ├── common/            # Shared UI elements
-│   ├── data/              # Data management components
-│   │   ├── DataTable/     # Enhanced data grid implementation
-│   │   ├── EntityUpdate/  # Entity edit components
-│   │   │   ├── fields/    # Entity-specific field components
-│   │   └── SportDataMapper/ # Data mapping components
-│   └── sports/            # Sports database components
-├── contexts/              # Global state management
-├── features/              # Feature-based modules
-├── hooks/                 # Shared custom hooks
-├── pages/                 # Route components
-├── services/              # Business logic services
-└── utils/                 # Shared utilities
+├── components/          # UI components by domain
+│   ├── chat/            # Chat interface
+│   ├── common/          # Shared UI elements
+│   ├── data/            # Data management
+│   │   ├── DataTable/   # Advanced table with persistence
+│   │   ├── EntityUpdate/ # Edit interfaces
+│   │   └── SportDataMapper/ # Data mapping tools
+│   └── sports/          # Sports database interface
+├── contexts/            # Global state management
+├── features/            # Feature-based modules
+├── hooks/               # Custom hooks by functionality
+├── pages/               # Route components
+└── services/            # API client services
 ```
 
 #### Key Features
-1. **State Management**
-   - Custom hook-based state management for focused concerns
-   - ChatContext for optimized streaming
-   - DataFlowContext for structured data extraction
-   - Enhanced error handling for database constraints
-   - Persistent state across page navigation
 
-2. **Component Architecture**
-   - Single-responsibility hooks:
-     - useEntityData (data fetching)
-     - useEntitySelection (selection management)
-     - useFiltering (filter operations)
-     - useSorting (type-aware sorting)
-     - useEntitySchema (field definitions)
-     - useDragAndDrop (column reordering)
-     
-   - UI Enhancement Features:
-     - Color-coded nickname badges (indigo for League, blue for Division/Conference)
-     - Inline nickname editing with optimistic updates
-     - Column drag-and-drop with visual feedback
-     - Toggle between UUID and human-readable names for relationships
-     - Entity dropdown organization by parent entity
-     - Circular record navigation in SportDataMapper
-     
-   - Performance Optimizations:
-     - Strategic use of React.memo, useMemo, and useCallback
-     - Reference stability patterns for complex objects
-     - Breaking circular dependency chains to prevent render loops
-     - Conditional state updates to prevent infinite update loops
+1. **Component Architecture**
+   - Single-responsibility hooks
+   - Feature-focused organization
+   - Component directory structure with clear boundaries
+   - Consistent dual storage persistence
+
+2. **State Management**
+   - Custom hooks for focused concerns
+   - Optimized contexts with memoization
+   - Session-resilient state persistence
+
+3. **UI Enhancements**
+   - Column persistence for all entity types
+   - Toggle between UUIDs and human-readable names
+   - Circular record navigation
+   - Color-coded nickname badges with inline editing
+   - Entity display without "(Brand)" suffix
+
+4. **Performance Optimizations**
+   - Strategic memoization and caching
+   - Dependency tracking in hooks
+   - Circular dependency resolution
+   - Conditional state updates
 
 ## Data Architecture
 
-### Database Schema (Key Tables)
+### Key Database Tables
 
 ```
-brands               # Universal company entity
+brands                   # Universal company entity
 ├── id (UUID)
 ├── name (String)
-├── industry
 ├── company_type
 └── country
 
 leagues
 ├── id (UUID)
-├── name (String)
-├── nickname (String)
+├── name, nickname
 └── sport, country
 
 divisions_conferences
 ├── id (UUID)
 ├── league_id (→ leagues)
-├── name (String)
-├── nickname (String)
+├── name, nickname
 └── type (division/conference)
-
-teams
-├── id (UUID)
-├── name (String)
-├── league_id (→ leagues)
-└── division_conference_id (→ divisions_conferences)
 
 broadcast_rights
 ├── id (UUID)
@@ -142,66 +121,66 @@ production_services
 └── service_type
 ```
 
-### Key Data Flow Patterns
+### Data Flow Patterns
 
-1. **Natural Language Database Query**
+1. **Natural Language Database Queries**
    ```
-   User Question → Schema Analysis → Claude AI Processing →
-   SQL Generation → Validation → Result Display → Export Options
+   Question → Schema Context → Claude AI → SQL Generation → 
+   Validation → Execution → Name Resolution → Display
    ```
-   
-2. **Entity Name Resolution**
+
+2. **Entity Resolution System**
    ```
-   Entity Reference → Type Detection → Exact/Partial Name Lookup → 
-   Universal Brand Lookup → UUID Resolution → Relationship Traversal
+   Reference → Type Detection → Exact/Partial Name Lookup → 
+   Brand Lookup → UUID Resolution → Relationship Traversal
    ```
 
 3. **Universal Brand System**
    ```
-   Company Name Lookup → Brand Lookup → Company Type Classification →
-   Brand Creation → Direct Brand Usage in All Related Entities
+   Company Detection → Brand Lookup/Creation → 
+   Type Classification → Direct Entity Relationships
    ```
 
 4. **Virtual Entity Support**
    ```
-   Special Entity Detection (e.g., "Championship") → Deterministic UUID Generation →
-   Consistent Reference Across System → No Table Storage Required
+   Special Entity Detection → Deterministic UUID Generation →
+   Consistent Reference → No Table Storage Required
    ```
 
-## Recent Key Features
+## Recent Enhancements
 
-### Special Entity Types Support
-- Added support for Championship and Playoffs as recognized entity types
-- Implemented deterministic UUID generation for virtual entities
-- Enhanced schema validation to support both UUID and string-based entity IDs
-- No dedicated database tables needed for special entity types
+### UI Component Improvements
+- Fixed column visibility/ordering persistence for all entity types
+- Implemented consistent entity name display
+- Removed "(Brand)" suffix from company names
+- Enhanced column persistence with dual storage
 
-### Universal Company Entity
-- Implemented Brand as the universal entity for all companies
-- Added company_type and country fields to Brand model
-- Created direct relationships between Brand and services
-- Enhanced name-to-ID resolution for dynamic company creation
+### Data Management
+- Universal Brand entity for all company relationships
+- Virtual entity support for Championships and Playoffs
+- Deterministic UUID generation for special entities
+- Enhanced name resolution with parentheses support
 
 ### Performance Optimizations
-- Memoization strategies for expensive operations
-- Dual localStorage/sessionStorage strategy for UI state persistence
-- Column drag-and-drop with visual feedback and stable state
-- Proper dependency tracking in useEffect hooks
-- Breaking circular dependencies in complex components
+- Optimized useDragAndDrop hook
+- Fixed race conditions in visibility state
+- Improved storage key consistency
+- Enhanced circular dependency resolution
 
-### UI Enhancements
-- Color-coded nickname badges with inline editing
-- Toggle between UUID and human-readable names
-- Persistent column ordering and visibility across sessions
-- Session-resilient user preferences for column configuration
-- Entity name resolution with actual entity names for relationships
-- Circular record navigation in data mapper
+## Current Focus
 
-## Current Priorities
+1. **Data Export Enhancement**
+   - Google Sheets export reliability
+   - CSV fallback implementation
 
-1. Data export reliability improvements
-2. Test coverage expansion
-3. Error handling enhancements
-4. Field validation improvements
+2. **Quality Improvements**
+   - Test coverage expansion
+   - Error handling enhancements
+   - Field validation improvements
 
-This document is maintained alongside code changes to ensure accuracy.
+3. **UI Refinements**
+   - Relationship constraint messaging
+   - Mobile responsive adjustments
+   - Large dataset performance
+
+Updated: March 31, 2025

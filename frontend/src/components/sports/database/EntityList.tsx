@@ -97,30 +97,35 @@ const EntityList: React.FC<EntityListProps> = ({ className = '' }) => {
     // Set up default column order
     let coreFields = ['id', 'name', 'created_at', 'updated_at'];
     
+    // Special handling for broadcast rights
+    if (selectedEntityType === 'broadcast') {
+      coreFields = ['broadcast_company_name', 'entity_name', 'entity_type', 'territory', 'league_name', 'id', 'created_at', 'updated_at'];
+    }
+    
     // For production services, prioritize production_company_name, entity_name and entity_type
     if (selectedEntityType === 'production') {
       coreFields = ['production_company_name', 'entity_name', 'entity_type', 'service_type', 'id', 'created_at', 'updated_at'];
-      
-      // Debug log to see what fields are available
-      console.log('Production Service Available Fields:', availableFields);
-      
-      // Remove name from available fields to prevent it from showing up
-      const nameIndex = availableFields.indexOf('name');
+    }
+    
+    // Filter available fields to remove 'name' for broadcast and production entities
+    let filteredFields = [...availableFields];
+    if (selectedEntityType === 'broadcast' || selectedEntityType === 'production') {
+      const nameIndex = filteredFields.indexOf('name');
       if (nameIndex !== -1) {
-        availableFields.splice(nameIndex, 1);
+        filteredFields.splice(nameIndex, 1);
       }
     }
     
     return [
       // Core fields first
-      ...coreFields.filter(f => availableFields.includes(f)),
+      ...coreFields.filter(f => filteredFields.includes(f)),
       // Then all remaining fields
-      ...availableFields.filter(f => !coreFields.includes(f))
+      ...filteredFields.filter(f => !coreFields.includes(f))
     ];
   };
   
   // Generate a memo of field order to prevent recalculation on every render
-  const initialColumnOrder = useMemo(() => getInitialColumnOrder(), [entities]);
+  const initialColumnOrder = useMemo(() => getInitialColumnOrder(), [entities, selectedEntityType]);
   
   // Initialize useDragAndDrop for column reordering with localStorage persistence
   const {
@@ -177,17 +182,21 @@ const EntityList: React.FC<EntityListProps> = ({ className = '' }) => {
     if (!selectedEntityType || !Array.isArray(entities) || entities.length === 0) return;
     
     // For all entity types, ensure we preserve previously saved column settings
-    // Remove this line to keep settings across sessions
     
     // Get fields directly from the data
     const availableFields = Object.keys(entities[0]);
     
+    // Create a consistent key for storage
+    const storageKey = `entityList_${selectedEntityType}_columns`;
+    
     // Try to load saved column visibility from sessionStorage first, then localStorage
-    let savedVisibility = sessionStorage.getItem(`entityList_${selectedEntityType}_columns`);
+    let savedVisibility = sessionStorage.getItem(storageKey);
     // If not in sessionStorage, try localStorage
     if (!savedVisibility) {
-      savedVisibility = localStorage.getItem(`entityList_${selectedEntityType}_columns`);
+      savedVisibility = localStorage.getItem(storageKey);
     }
+    
+    console.log(`Loading visibility settings for ${selectedEntityType} - Found saved settings:`, !!savedVisibility);
     
     let newVisibility: {[key: string]: boolean} = {};
     
@@ -208,6 +217,8 @@ const EntityList: React.FC<EntityListProps> = ({ className = '' }) => {
             newVisibility[field] = !isUuidField;
           }
         });
+        
+        console.log(`Loaded visibility settings for ${selectedEntityType}:`, newVisibility);
       } catch (e) {
         console.error('Error parsing saved column visibility:', e);
         // Fall back to default visibility if we can't parse saved settings
@@ -231,28 +242,30 @@ const EntityList: React.FC<EntityListProps> = ({ className = '' }) => {
       });
     }
     
-    // Always ensure league_name is visible for broadcast rights regardless of saved settings
-    if (selectedEntityType === 'broadcast' && availableFields.includes('league_name')) {
-      newVisibility['league_name'] = true;
-    }
-    
-    // Always ensure key fields are visible for production services
-    if (selectedEntityType === 'production') {
-      if (availableFields.includes('production_company_name')) {
-        newVisibility['production_company_name'] = true;
-      }
-      if (availableFields.includes('entity_name')) {
-        newVisibility['entity_name'] = true;
-      }
-      if (availableFields.includes('entity_type')) {
-        newVisibility['entity_type'] = true;
-      }
-      if (availableFields.includes('service_type')) {
-        newVisibility['service_type'] = true;
-      }
-      // Completely remove the generic name field for production services
+    // Special handling for entity visibility but respect user preferences
+    if (selectedEntityType === 'broadcast' || selectedEntityType === 'production') {
+      // Remove the generic name field for broadcast and production services
       if ('name' in newVisibility) {
         delete newVisibility['name'];
+      }
+      
+      // If this is a FIRST load (not from saved settings), set default visibility
+      if (Object.keys(newVisibility).length === 0) {
+        if (selectedEntityType === 'broadcast') {
+          // Default visible fields for broadcast rights on first load
+          ['broadcast_company_name', 'territory', 'league_name', 'entity_name', 'entity_type'].forEach(field => {
+            if (availableFields.includes(field)) {
+              newVisibility[field] = true;
+            }
+          });
+        } else if (selectedEntityType === 'production') {
+          // Default visible fields for production services on first load
+          ['production_company_name', 'entity_name', 'entity_type', 'service_type'].forEach(field => {
+            if (availableFields.includes(field)) {
+              newVisibility[field] = true;
+            }
+          });
+        }
       }
     }
     
@@ -390,20 +403,13 @@ const EntityList: React.FC<EntityListProps> = ({ className = '' }) => {
       }
     }
     
-    // For production services, don't use the name field at all
-    if (field === 'name' && selectedEntityType === 'production') {
-      // Remove this field from visible columns if it's still showing
-      setTimeout(() => {
-        setVisibleColumns(prev => ({
-          ...prev,
-          name: false
-        }));
-      }, 0);
-      return 'See Production Company';
+    // For production services or broadcast rights, don't use the name field at all
+    if (field === 'name' && (selectedEntityType === 'production' || selectedEntityType === 'broadcast')) {
+      return selectedEntityType === 'production' ? 'See Production Company' : 'See Broadcast Company';
     }
     
-    // Remove (Brand) text from production company names
-    if (field === 'production_company_name' && typeof value === 'string') {
+    // Remove (Brand) text from company names
+    if ((field === 'production_company_name' || field === 'broadcast_company_name') && typeof value === 'string') {
       return value.replace(' (Brand)', '');
     }
     

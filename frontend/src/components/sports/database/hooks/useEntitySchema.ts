@@ -117,8 +117,12 @@ export function useEntitySchema() {
         case 'production':
           fields.push(
             { name: 'production_company_id', required: true, type: 'string', description: 'ID of the production company' },
+            { name: 'production_company_name', required: false, type: 'string', description: 'Name of the production company' },
+            { name: 'secondary_brand_id', required: false, type: 'string', description: 'ID of the brand hiring the production company (optional)' },
+            { name: 'secondary_brand_name', required: false, type: 'string', description: 'Name of the brand hiring the production company' },
             { name: 'entity_type', required: true, type: 'string', description: 'Type of entity being produced' },
             { name: 'entity_id', required: true, type: 'string', description: 'ID of the entity being produced' },
+            { name: 'entity_name', required: false, type: 'string', description: 'Name of the entity being produced' },
             { name: 'service_type', required: true, type: 'string', description: 'Type of production service' },
             { name: 'start_date', required: true, type: 'date', description: 'Start date of production service' },
             { name: 'end_date', required: true, type: 'date', description: 'End date of production service' }
@@ -187,7 +191,8 @@ export function useEntitySchema() {
                   'entity_name', 'division_conference_id', 'division_conference_name', 'territory', 'start_date', 'end_date', 'is_exclusive'],
       
       // Production fields
-      production: ['id', 'name', 'created_at', 'updated_at', 'production_company_id', 'entity_type', 'entity_id',
+      production: ['id', 'name', 'created_at', 'updated_at', 'production_company_id', 'production_company_name', 
+                   'secondary_brand_id', 'secondary_brand_name', 'entity_type', 'entity_id', 'entity_name',
                    'service_type', 'start_date', 'end_date'],
       
       // Brand fields

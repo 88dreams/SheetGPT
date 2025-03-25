@@ -479,6 +479,17 @@ class EntityNameResolver:
    - Special handling for combined fields (like broadcast rights company names and territories)
    - Smart detection and display for relationship fields with corresponding name fields
    - Provides consistent toggle between UUIDs and human-readable names
+   - Entity name resolution to show actual names instead of just entity types
+   - Persistent column settings across sessions and logins:
+     ```typescript
+     // Load from sessionStorage first, then localStorage
+     let savedVisibility = sessionStorage.getItem(`entityList_${selectedEntityType}_columns`);
+     // If not in sessionStorage, try localStorage
+     if (!savedVisibility) {
+       savedVisibility = localStorage.getItem(`entityList_${selectedEntityType}_columns`);
+     }
+     ```
+   - Dual storage strategy for UI preferences (localStorage + sessionStorage)
 
 ### Frontend Component Architecture
 
@@ -929,6 +940,20 @@ A specialized tool for mapping structured data to sports database entities:
    - Custom hooks for business logic and API interaction
    - Entity-specific field components with standardized rendering
    - Optimized rendering with strategic memoization
+   - Session-resilient state persistence using dual storage strategy:
+     ```typescript
+     // Save to both localStorage and sessionStorage
+     const persistToStorage = useCallback(() => {
+       if (storageKey && reorderedItems.length > 0) {
+         // Save to localStorage for persistence across sessions
+         localStorage.setItem(storageKey, JSON.stringify(reorderedItems));
+         // Also save to sessionStorage for quick access within the current session
+         sessionStorage.setItem(storageKey, JSON.stringify(reorderedItems));
+       }
+     }, [reorderedItems, storageKey]);
+     ```
+   - Preference management for column visibility, ordering, and widths
+   - UI state that persists across logins and browser sessions
    - Consolidated modal components with unified interfaces and advanced directory structure:
      ```
      BulkEditModal/

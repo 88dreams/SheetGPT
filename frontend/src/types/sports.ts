@@ -84,6 +84,9 @@ export interface ProductionService extends BaseEntity {
   service_type: string;
   start_date: string;
   end_date: string;
+  secondary_brand_id?: string; // Optional field for the brand that hired the production company
+  production_company_name?: string; // For display purposes
+  secondary_brand_name?: string; // For display purposes
 }
 
 export interface Brand extends BaseEntity {

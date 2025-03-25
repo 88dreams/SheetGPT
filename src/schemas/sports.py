@@ -336,6 +336,7 @@ class ProductionServiceBase(BaseModel):
     service_type: str
     start_date: date
     end_date: date
+    secondary_brand_id: Optional[UUID] = None
 
 class ProductionServiceCreate(ProductionServiceBase):
     @validator('entity_id')
@@ -369,12 +370,14 @@ class ProductionServiceUpdate(BaseModel):
     service_type: Optional[str] = None
     start_date: Optional[date] = None
     end_date: Optional[date] = None
+    secondary_brand_id: Optional[UUID] = None
 
 class ProductionServiceResponse(ProductionServiceBase):
     id: UUID
     created_at: str
     updated_at: str
     production_company_name: Optional[str] = None
+    secondary_brand_name: Optional[str] = None
     entity_name: Optional[str] = None
     name: Optional[str] = None
     league_id: Optional[UUID] = None

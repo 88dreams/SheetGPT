@@ -543,11 +543,22 @@ class ProductionService(TimestampedBase):
         nullable=False
     )
 
+    secondary_brand_id: Mapped[Optional[UUID]] = mapped_column(
+        SQLUUID,
+        ForeignKey("brands.id"),
+        nullable=True,
+        index=True
+    )
+
     # Relationships
     production_company: Mapped["Brand"] = relationship(
         "Brand",
         foreign_keys=[production_company_id],
         back_populates="production_services"
+    )
+    secondary_brand: Mapped[Optional["Brand"]] = relationship(
+        "Brand",
+        foreign_keys=[secondary_brand_id]
     )
 
 

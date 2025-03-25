@@ -85,6 +85,31 @@ const ProductionFields: React.FC<ProductionFieldsProps> = ({ entity, onChange, i
         </Select>
       </Form.Item>
       
+      {/* Secondary Brand relationship field */}
+      <Form.Item
+        label={
+          <Space>
+            <Text>Employing Brand</Text>
+            {isEditing ? <EditOutlined /> : <LockOutlined />}
+          </Space>
+        }
+        tooltip="The brand that hired this production company (optional)"
+      >
+        <Select
+          value={productionEntity.secondary_brand_id}
+          onChange={(val: string) => onChange('secondary_brand_id', val)}
+          disabled={!isEditing}
+          style={{ width: '100%' }}
+          allowClear
+        >
+          {productionCompanies.map((company) => (
+            <Option key={company.id} value={company.id}>
+              {company.name}
+            </Option>
+          ))}
+        </Select>
+      </Form.Item>
+      
       {/* Entity Type selection */}
       <Form.Item
         label={

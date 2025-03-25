@@ -96,16 +96,24 @@ class ProductionServiceService(BaseEntityService[ProductionService]):
                                      entity_id: Optional[UUID] = None,
                                      company_id: Optional[UUID] = None) -> List[ProductionService]:
         """Get all production services, optionally filtered."""
-        # Join with Brand directly to get the production company name
-        # In our model, the production_company_id of ProductionService points to Brand.id
+        # Join with Brand directly to get the production company name and secondary brand
+        # In our model, the production_company_id and secondary_brand_id of ProductionService point to Brand.id
+        brand_alias = Brand.__table__.alias('production_company')
+        secondary_brand_alias = Brand.__table__.alias('secondary_brand')
+        
         query = (
             select(
                 ProductionService,
-                func.replace(Brand.name, ' (Brand)', '').label("production_company_name")
+                func.replace(brand_alias.c.name, ' (Brand)', '').label("production_company_name"),
+                func.replace(secondary_brand_alias.c.name, ' (Brand)', '').label("secondary_brand_name")
             )
             .outerjoin(
-                Brand,
-                ProductionService.production_company_id == Brand.id
+                brand_alias,
+                ProductionService.production_company_id == brand_alias.c.id
+            )
+            .outerjoin(
+                secondary_brand_alias,
+                ProductionService.secondary_brand_id == secondary_brand_alias.c.id
             )
         )
         
@@ -120,15 +128,17 @@ class ProductionServiceService(BaseEntityService[ProductionService]):
             
         result = await db.execute(query)
         
-        # Process the results to include the company name
+        # Process the results to include the company name and secondary brand
         services = []
         for record in result:
             service = record[0]
             company_name = record[1]
+            secondary_brand_name = record[2]
             
-            # Add the company name to the service object
+            # Add the company name and secondary brand name to the service object
             service_dict = service.__dict__.copy()
             service_dict["production_company_name"] = company_name.replace(" (Brand)", "") if company_name else None
+            service_dict["secondary_brand_name"] = secondary_brand_name.replace(" (Brand)", "") if secondary_brand_name else None
             
             # Generate a proper display name for the entity
             entity_name = None
@@ -200,6 +210,7 @@ class ProductionServiceService(BaseEntityService[ProductionService]):
             # Dynamically add the additional fields for the response
             # These will be included in the API response because of our schema
             setattr(updated_service, "production_company_name", service_dict.get("production_company_name"))
+            setattr(updated_service, "secondary_brand_name", service_dict.get("secondary_brand_name"))
             setattr(updated_service, "entity_name", service_dict.get("entity_name"))
             setattr(updated_service, "name", service_dict.get("name"))
             
@@ -211,6 +222,16 @@ class ProductionServiceService(BaseEntityService[ProductionService]):
         """Create new production service."""
         # Validate production company exists
         await EntityValidator.validate_production_company(db, service.production_company_id)
+        
+        # Validate secondary brand if provided
+        if service.secondary_brand_id:
+            try:
+                await EntityValidator.validate_brand(db, service.secondary_brand_id)
+            except AttributeError:
+                # If validate_brand doesn't exist, fall back to more generic validation
+                brand_result = await db.execute(select(Brand).where(Brand.id == service.secondary_brand_id))
+                if not brand_result.scalars().first():
+                    raise ValueError(f"Secondary brand with ID {service.secondary_brand_id} not found")
         
         # Handle special entity types
         entity_type = service.entity_type.lower()
@@ -254,16 +275,24 @@ class ProductionServiceService(BaseEntityService[ProductionService]):
     
     async def get_production_service(self, db: AsyncSession, service_id: UUID) -> Optional[ProductionService]:
         """Get production service by ID."""
-        # Join with Brand directly to get the production company name
-        # In our model, the production_company_id of ProductionService points to Brand.id
+        # Join with Brand directly to get the production company name and secondary brand
+        # In our model, the production_company_id and secondary_brand_id of ProductionService point to Brand.id
+        brand_alias = Brand.__table__.alias('production_company')
+        secondary_brand_alias = Brand.__table__.alias('secondary_brand')
+        
         query = (
             select(
                 ProductionService,
-                func.replace(Brand.name, ' (Brand)', '').label("production_company_name")
+                func.replace(brand_alias.c.name, ' (Brand)', '').label("production_company_name"),
+                func.replace(secondary_brand_alias.c.name, ' (Brand)', '').label("secondary_brand_name")
             )
             .outerjoin(
-                Brand,
-                ProductionService.production_company_id == Brand.id
+                brand_alias,
+                ProductionService.production_company_id == brand_alias.c.id
+            )
+            .outerjoin(
+                secondary_brand_alias,
+                ProductionService.secondary_brand_id == secondary_brand_alias.c.id
             )
             .where(ProductionService.id == service_id)
         )
@@ -276,10 +305,12 @@ class ProductionServiceService(BaseEntityService[ProductionService]):
             
         service = record[0]
         company_name = record[1]
+        secondary_brand_name = record[2]
         
-        # Add the company name to the service object
+        # Add the company name and secondary brand to the service object
         service_dict = service.__dict__.copy()
         service_dict["production_company_name"] = company_name.replace(" (Brand)", "") if company_name else None
+        service_dict["secondary_brand_name"] = secondary_brand_name.replace(" (Brand)", "") if secondary_brand_name else None
         
         # Generate a proper display name for the entity
         entity_name = None
@@ -345,6 +376,7 @@ class ProductionServiceService(BaseEntityService[ProductionService]):
         # Add the additional fields directly to the service object
         # These fields are defined in the ProductionServiceResponse schema
         setattr(service, "production_company_name", service_dict.get("production_company_name"))
+        setattr(service, "secondary_brand_name", service_dict.get("secondary_brand_name"))
         setattr(service, "entity_name", service_dict.get("entity_name"))
         setattr(service, "name", service_dict.get("name"))
                 
@@ -365,6 +397,16 @@ class ProductionServiceService(BaseEntityService[ProductionService]):
         # Perform validations for updated fields
         if 'production_company_id' in update_data:
             await EntityValidator.validate_production_company(db, update_data['production_company_id'])
+            
+        # Validate secondary brand if provided
+        if 'secondary_brand_id' in update_data and update_data['secondary_brand_id']:
+            try:
+                await EntityValidator.validate_brand(db, update_data['secondary_brand_id'])
+            except AttributeError:
+                # If validate_brand doesn't exist, fall back to more generic validation
+                brand_result = await db.execute(select(Brand).where(Brand.id == update_data['secondary_brand_id']))
+                if not brand_result.scalars().first():
+                    raise ValueError(f"Secondary brand with ID {update_data['secondary_brand_id']} not found")
             
         if 'entity_type' in update_data and 'entity_id' in update_data:
             await EntityValidator.validate_entity_type_and_id(db, update_data['entity_type'], update_data['entity_id'])

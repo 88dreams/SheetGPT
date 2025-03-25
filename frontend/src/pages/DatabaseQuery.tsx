@@ -4,6 +4,7 @@ import { useDataFlow } from '../contexts/DataFlowContext';
 import { useNotification } from '../contexts/NotificationContext';
 import { apiClient, getToken } from '../utils/apiClient';
 import { ensureValidToken } from '../utils/tokenRefresh';
+import usePageTitle from '../hooks/usePageTitle';
 import LoadingSpinner from '../components/common/LoadingSpinner';
 import PageContainer from '../components/common/PageContainer';
 import { Modal } from 'antd';
@@ -18,6 +19,9 @@ import { useDragAndDrop } from '../components/data/DataTable/hooks/useDragAndDro
 // Remove the old modal implementation since we're now using the unified BulkEditModal
 
 const DatabaseQuery: React.FC = () => {
+  // Set the page title
+  usePageTitle('Database Query');
+  
   const { setDestination } = useDataFlow();
   const { showNotification } = useNotification();
   const [naturalLanguageQuery, setNaturalLanguageQuery] = useState<string>('');

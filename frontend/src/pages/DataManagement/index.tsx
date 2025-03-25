@@ -3,6 +3,7 @@ import LoadingSpinner from '../../components/common/LoadingSpinner';
 import DataTable from '../../components/data/DataTable';
 import DataPreview from './components/DataPreview';
 import NoDataView from './components/NoDataView';
+import usePageTitle from '../../hooks/usePageTitle';
 
 // Import hooks
 import { useDataSelection } from './hooks/useDataSelection';
@@ -10,6 +11,9 @@ import { useExtractedData } from './hooks/useExtractedData';
 import { useDataFlowManager } from './hooks/useDataFlow';
 
 const DataManagement: React.FC = () => {
+  // Set the page title
+  usePageTitle('Data Management');
+  
   // Initialize hooks
   useDataFlowManager();
   

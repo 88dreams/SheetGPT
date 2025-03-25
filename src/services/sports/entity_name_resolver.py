@@ -28,8 +28,11 @@ class EntityNameResolver:
             # Handle teams (has league_id, division_conference_id, stadium_id)
             if entity_type in ['team', 'teams']:
                 if 'league_id' in entity and entity['league_id']:
-                    league_result = await db.execute(select(League.name).where(League.id == entity['league_id']))
-                    item_dict["league_name"] = league_result.scalar()
+                    league_result = await db.execute(select(League.name, League.sport).where(League.id == entity['league_id']))
+                    league_data = league_result.first()
+                    if league_data:
+                        item_dict["league_name"] = league_data[0]
+                        item_dict["league_sport"] = league_data[1]
                 
                 if 'division_conference_id' in entity and entity['division_conference_id']:
                     div_conf_result = await db.execute(select(DivisionConference.name).where(
@@ -68,8 +71,11 @@ class EntityNameResolver:
             # Handle division/conference (has league_id)
             elif entity_type in ['division_conference', 'divisions_conferences']:
                 if 'league_id' in entity and entity['league_id']:
-                    league_result = await db.execute(select(League.name).where(League.id == entity['league_id']))
-                    item_dict["league_name"] = league_result.scalar()
+                    league_result = await db.execute(select(League.name, League.sport).where(League.id == entity['league_id']))
+                    league_data = league_result.first()
+                    if league_data:
+                        item_dict["league_name"] = league_data[0]
+                        item_dict["league_sport"] = league_data[1]
             
             # Handle broadcast rights (has broadcast_company_id, entity_id, division_conference_id)
             elif entity_type in ['broadcast', 'broadcast_right', 'broadcast_rights']:
@@ -82,6 +88,7 @@ class EntityNameResolver:
                 # Start with no league association
                 item_dict["league_id"] = None
                 item_dict["league_name"] = "Not Associated"
+                item_dict["league_sport"] = None
                 
                 # Get league info based on entity type and relationships
                 if 'entity_type' in entity and 'entity_id' in entity and entity['entity_id']:
@@ -94,6 +101,7 @@ class EntityNameResolver:
                             # This is a league directly, so set the league fields
                             item_dict["league_id"] = league.id
                             item_dict["league_name"] = league.name
+                            item_dict["league_sport"] = league.sport
                     
                     # If the broadcast right is for a team, get the team's league
                     elif entity['entity_type'].lower() == "team":
@@ -104,14 +112,15 @@ class EntityNameResolver:
                         if team_data:
                             item_dict["entity_name"] = team_data[0]  # Team name
                             if team_data[1]:  # If team has a league_id
-                                # Get the league name
+                                # Get the league name and sport
                                 league_result = await db.execute(
-                                    select(League.name).where(League.id == team_data[1])
+                                    select(League.name, League.sport).where(League.id == team_data[1])
                                 )
-                                league_name = league_result.scalar()
-                                if league_name:
+                                league_data = league_result.first()
+                                if league_data:
                                     item_dict["league_id"] = team_data[1]
-                                    item_dict["league_name"] = league_name
+                                    item_dict["league_name"] = league_data[0]
+                                    item_dict["league_sport"] = league_data[1]
                     
                     # If the broadcast right is for a division/conference
                     elif entity['entity_type'].lower() in ["division", "conference", "division_conference"]:
@@ -123,14 +132,15 @@ class EntityNameResolver:
                         if div_conf_data:
                             item_dict["entity_name"] = div_conf_data[0]  # Division/conference name
                             if div_conf_data[1]:  # If division has a league_id
-                                # Get the league name
+                                # Get the league name and sport
                                 league_result = await db.execute(
-                                    select(League.name).where(League.id == div_conf_data[1])
+                                    select(League.name, League.sport).where(League.id == div_conf_data[1])
                                 )
-                                league_name = league_result.scalar()
-                                if league_name:
+                                league_data = league_result.first()
+                                if league_data:
                                     item_dict["league_id"] = div_conf_data[1]
-                                    item_dict["league_name"] = league_name
+                                    item_dict["league_name"] = league_data[0]
+                                    item_dict["league_sport"] = league_data[1]
                     
                     # If the broadcast right is for a game
                     elif entity['entity_type'].lower() == "game":
@@ -143,14 +153,15 @@ class EntityNameResolver:
                         )
                         game_league_id = game_result.scalar()
                         if game_league_id:
-                            # Get the league name
+                            # Get the league name and sport
                             league_result = await db.execute(
-                                select(League.name).where(League.id == game_league_id)
+                                select(League.name, League.sport).where(League.id == game_league_id)
                             )
-                            league_name = league_result.scalar()
-                            if league_name:
+                            league_data = league_result.first()
+                            if league_data:
                                 item_dict["league_id"] = game_league_id
-                                item_dict["league_name"] = league_name
+                                item_dict["league_name"] = league_data[0]
+                                item_dict["league_sport"] = league_data[1]
                 
                 # If we have a division_conference_id but no league yet, get league from that
                 if 'division_conference_id' in entity and entity['division_conference_id'] and not item_dict["league_id"]:
@@ -168,11 +179,14 @@ class EntityNameResolver:
                             # Store the league_id from the division/conference
                             item_dict["league_id"] = div_conf_row[1]
                             
-                            # Get league name
-                            league_result = await db.execute(select(League.name).where(
+                            # Get league name and sport
+                            league_result = await db.execute(select(League.name, League.sport).where(
                                 League.id == div_conf_row[1]
                             ))
-                            item_dict["league_name"] = league_result.scalar()
+                            league_data = league_result.first()
+                            if league_data:
+                                item_dict["league_name"] = league_data[0]
+                                item_dict["league_sport"] = league_data[1]
                     
                 # Generate a name for broadcast rights
                 entity_name = item_dict.get("entity_name")
@@ -208,19 +222,69 @@ class EntityNameResolver:
                 
                 # Handle entity_id based on entity_type
                 if 'entity_type' in entity and 'entity_id' in entity and entity['entity_id']:
+                    # Initialize league sport fields
+                    item_dict["league_id"] = None
+                    item_dict["league_name"] = None
+                    item_dict["league_sport"] = None
+                    
                     if entity['entity_type'].lower() == "league":
-                        entity_result = await db.execute(select(League.name).where(League.id == entity['entity_id']))
-                        item_dict["entity_name"] = entity_result.scalar()
+                        entity_result = await db.execute(select(League.name, League.id, League.sport).where(League.id == entity['entity_id']))
+                        league_data = entity_result.first()
+                        if league_data:
+                            item_dict["entity_name"] = league_data[0]
+                            item_dict["league_id"] = league_data[1]
+                            item_dict["league_name"] = league_data[0]
+                            item_dict["league_sport"] = league_data[2]
                     elif entity['entity_type'].lower() == "team":
-                        entity_result = await db.execute(select(Team.name).where(Team.id == entity['entity_id']))
-                        item_dict["entity_name"] = entity_result.scalar()
+                        # First get the team name
+                        entity_result = await db.execute(select(Team.name, Team.league_id).where(Team.id == entity['entity_id']))
+                        team_data = entity_result.first()
+                        if team_data:
+                            item_dict["entity_name"] = team_data[0]
+                            if team_data[1]:  # If team has a league_id
+                                # Get the league info
+                                league_result = await db.execute(
+                                    select(League.name, League.id, League.sport).where(League.id == team_data[1])
+                                )
+                                league_data = league_result.first()
+                                if league_data:
+                                    item_dict["league_id"] = league_data[1]
+                                    item_dict["league_name"] = league_data[0]
+                                    item_dict["league_sport"] = league_data[2]
                     elif entity['entity_type'].lower() in ("division", "conference", "division_conference"):
-                        entity_result = await db.execute(select(DivisionConference.name).where(
+                        entity_result = await db.execute(select(DivisionConference.name, DivisionConference.league_id).where(
                             DivisionConference.id == entity['entity_id']
                         ))
-                        item_dict["entity_name"] = entity_result.scalar()
+                        div_conf_data = entity_result.first()
+                        if div_conf_data:
+                            item_dict["entity_name"] = div_conf_data[0]
+                            if div_conf_data[1]:  # If division has a league_id
+                                # Get the league info
+                                league_result = await db.execute(
+                                    select(League.name, League.id, League.sport).where(League.id == div_conf_data[1])
+                                )
+                                league_data = league_result.first()
+                                if league_data:
+                                    item_dict["league_id"] = league_data[1]
+                                    item_dict["league_name"] = league_data[0]
+                                    item_dict["league_sport"] = league_data[2]
                     elif entity['entity_type'].lower() == "game":
                         item_dict["entity_name"] = await get_game_display_name(db, entity['entity_id'])
+                        # Get game's league
+                        game_result = await db.execute(
+                            select(Game.league_id).where(Game.id == entity['entity_id'])
+                        )
+                        game_league_id = game_result.scalar()
+                        if game_league_id:
+                            # Get the league info
+                            league_result = await db.execute(
+                                select(League.name, League.id, League.sport).where(League.id == game_league_id)
+                            )
+                            league_data = league_result.first()
+                            if league_data:
+                                item_dict["league_id"] = league_data[1]
+                                item_dict["league_name"] = league_data[0]
+                                item_dict["league_sport"] = league_data[2]
                     elif entity['entity_type'].lower() in ('championship', 'playoff', 'playoffs'):
                         # For special entity types, use the entity_type as the entity_name
                         item_dict["entity_name"] = entity['entity_type'].capitalize()
@@ -394,10 +458,13 @@ class EntityNameResolver:
             allowed_fields.add('entity_name')
             allowed_fields.add('entity_type')
             
-        # For broadcast rights, add league information fields
-        if entity_type in ['broadcast_right', 'broadcast_rights', 'broadcast']:
+        # Add league sport information to relevant entity types
+        if entity_type in ['broadcast_right', 'broadcast_rights', 'broadcast', 
+                          'production_service', 'production_services', 'production',
+                          'team', 'teams', 'division_conference', 'divisions_conferences']:
             allowed_fields.add('league_id')
             allowed_fields.add('league_name')
+            allowed_fields.add('league_sport')
         
         if entity_type in ['game_broadcast', 'game_broadcasts']:
             allowed_fields.add('game_name')

@@ -62,6 +62,7 @@ class DivisionConferenceResponse(DivisionConferenceBase):
     created_at: str
     updated_at: str
     league_name: Optional[str] = None
+    league_sport: Optional[str] = None
 
     class Config:
         from_attributes = True
@@ -140,6 +141,10 @@ class TeamResponse(TeamBase):
     id: UUID
     created_at: str
     updated_at: str
+    league_name: Optional[str] = None
+    league_sport: Optional[str] = None
+    division_conference_name: Optional[str] = None
+    stadium_name: Optional[str] = None
 
     class Config:
         from_attributes = True
@@ -283,6 +288,12 @@ class BroadcastRightsResponse(BroadcastRightsBase):
     created_at: str
     updated_at: str
     division_conference_name: Optional[str] = None
+    entity_name: Optional[str] = None
+    broadcast_company_name: Optional[str] = None
+    league_id: Optional[UUID] = None
+    league_name: Optional[str] = None
+    league_sport: Optional[str] = None
+    name: Optional[str] = None
 
     class Config:
         from_attributes = True
@@ -366,6 +377,9 @@ class ProductionServiceResponse(ProductionServiceBase):
     production_company_name: Optional[str] = None
     entity_name: Optional[str] = None
     name: Optional[str] = None
+    league_id: Optional[UUID] = None
+    league_name: Optional[str] = None
+    league_sport: Optional[str] = None
 
     class Config:
         from_attributes = True

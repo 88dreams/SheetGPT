@@ -56,6 +56,10 @@ frontend/
 ├── contexts/            # Global state management
 ├── features/            # Feature-based modules
 ├── hooks/               # Custom hooks by functionality
+│   ├── useAuth.ts       # Authentication management
+│   ├── useDataManagement.ts # Data operations
+│   ├── usePageTitle.ts  # Browser title management
+│   └── ...              # Other specialized hooks
 ├── pages/               # Route components
 └── services/            # API client services
 ```
@@ -74,6 +78,7 @@ frontend/
    - Session-resilient state persistence
 
 3. **UI Enhancements**
+   - Descriptive page titles for navigation/history
    - Column persistence for all entity types
    - Toggle between UUIDs and human-readable names
    - Circular record navigation
@@ -150,6 +155,8 @@ production_services
 ## Recent Enhancements
 
 ### UI Component Improvements
+- Implemented descriptive browser page titles
+- Created usePageTitle hook for navigation context
 - Fixed column visibility/ordering persistence for all entity types
 - Implemented consistent entity name display
 - Removed "(Brand)" suffix from company names
@@ -182,5 +189,6 @@ production_services
    - Relationship constraint messaging
    - Mobile responsive adjustments
    - Large dataset performance
+   - Further navigation context improvements
 
-Updated: March 31, 2025
+Updated: April 2, 2025

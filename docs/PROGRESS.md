@@ -13,6 +13,15 @@ SheetGPT integrates AI-powered chat with structured data management and sports d
 
 ## Latest Improvements (March 2025)
 
+### Navigation and Usability Enhancements (April 1-2)
+
+- Implemented descriptive page titles for web navigation
+- Added dynamic entity names to browser history/tabs
+- Created usePageTitle hook for consistent title formatting
+- Enhanced browser navigation with context-specific titles
+- Improved tab identification for multi-tab usage
+- Implemented two-phase entity detail page titles
+
 ### UI Component Optimization (March 29-31)
 
 - Fixed column visibility and ordering issues for Broadcast Rights and Production Services
@@ -78,6 +87,7 @@ SheetGPT integrates AI-powered chat with structured data management and sports d
 - ✓ Company name display consistency (removal of Brand suffix)
 - ✓ Production service display with proper Brand relationships
 - ✓ Broadcast rights column configuration persistence
+- ✓ Page titles in browser navigation and history
 
 ## Current Focus
 
@@ -100,4 +110,4 @@ SheetGPT integrates AI-powered chat with structured data management and sports d
 - Enhance error handling with better user guidance
 - Optimize performance for large datasets
 
-Updated: March 31, 2025
+Updated: April 2, 2025

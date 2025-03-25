@@ -172,7 +172,7 @@ export const chatService = {
       content: fullResponse,
       created_at: new Date().toISOString(),
       conversation_id: conversationId,
-      meta_data: {}
+      meta_data: fileAttachment ? { fileAttachment } : {}
     }
   }
 };

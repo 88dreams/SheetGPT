@@ -3,6 +3,7 @@ import { useNavigate, useSearchParams, useLocation } from 'react-router-dom';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
 import { useNotification } from '../../contexts/NotificationContext';
 import { useAuth } from '../../hooks/useAuth';
+import usePageTitle from '../../hooks/usePageTitle';
 import DataPreviewModal from '../../components/chat/DataPreviewModal';
 import { FileAttachment } from '../../types/chat';
 
@@ -22,6 +23,9 @@ import {
 } from './components';
 
 const ChatPage: React.FC = () => {
+  // Set the page title
+  usePageTitle('Chat');
+  
   const { isAuthenticated, isReady, user } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
   const location = useLocation();

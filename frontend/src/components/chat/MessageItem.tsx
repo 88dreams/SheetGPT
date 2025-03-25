@@ -12,6 +12,9 @@ import { Dialog } from '@headlessui/react'
 import { XMarkIcon, DocumentTextIcon } from '@heroicons/react/24/outline'
 import { useChatContext } from '../../contexts/ChatContext'
 import { FileAttachment } from '../../types/chat'
+
+// Enable debug mode for message component to help diagnose issues
+const DEBUG_MODE = false;
 // Note: Extraction service is now imported dynamically when needed
 
 interface DataExtractionModalProps {
@@ -826,19 +829,21 @@ const MessageItem: React.FC<MessageItemProps> = ({
   }
 
   useEffect(() => {
-    if (message.role === 'assistant') {
+    if (message.role === 'assistant' && DEBUG_MODE) {
       console.log('MessageItem: Assistant message detected, should show buttons', message.id)
+    } else if (message.role === 'user' && DEBUG_MODE) {
+      console.log('MessageItem: User message detected', message.id)
     }
   }, [message.id, message.role])
 
   useEffect(() => {
-    if (message.role === 'assistant' && isLastMessage) {
+    if (isLastMessage) {
       const element = document.getElementById(`message-${message.id}`)
       if (element) {
         element.scrollIntoView({ behavior: 'smooth' })
       }
     }
-  }, [message.id, message.role, isLastMessage])
+  }, [message.id, isLastMessage])
 
   // handleDataPreview function removed as part of workflow streamlining
 
@@ -933,7 +938,7 @@ const MessageItem: React.FC<MessageItemProps> = ({
   return (
     <div className={`flex flex-col gap-2 p-4 rounded-lg ${
       message.role === 'assistant' ? 'bg-blue-50' : 'bg-gray-50'
-    } ${isProcessingTask ? 'opacity-70 pointer-events-none' : ''}`}>
+    } ${isProcessingTask ? 'opacity-70 pointer-events-none' : ''}`} id={`message-${message.id}`}>
       <div className="flex justify-between items-start">
         <div className="font-semibold text-sm text-gray-600">
           {message.role === 'assistant' ? 'Assistant' : 'You'}
@@ -948,7 +953,7 @@ const MessageItem: React.FC<MessageItemProps> = ({
               Repeat
             </button>
           )}
-          {message.content.includes('---DATA---') && (
+          {message.role === 'assistant' && message.content.includes('---DATA---') && (
             <button
               onClick={() => setShowData(!showData)}
               className="text-sm text-blue-600 hover:text-blue-800 flex items-center gap-1"
@@ -981,17 +986,17 @@ const MessageItem: React.FC<MessageItemProps> = ({
       </div>
       
       {/* Display file attachment if present */}
-      {message.metadata?.fileAttachment && (
+      {message.meta_data?.fileAttachment && (
         <div className="mt-2 p-3 bg-gray-100 rounded-lg border border-gray-200">
           <div className="flex items-center gap-2 mb-2">
-            {message.metadata.fileAttachment.type === 'csv' ? (
+            {message.meta_data.fileAttachment.type === 'csv' ? (
               <FaFileCsv className="text-green-600" />
             ) : (
               <FaFileAlt className="text-blue-600" />
             )}
-            <span className="font-semibold">{message.metadata.fileAttachment.name}</span>
+            <span className="font-semibold">{message.meta_data.fileAttachment.name}</span>
             <span className="text-xs text-gray-500">
-              ({(message.metadata.fileAttachment.size / 1024).toFixed(1)} KB)
+              ({(message.meta_data.fileAttachment.size / 1024).toFixed(1)} KB)
             </span>
           </div>
         </div>
@@ -1018,7 +1023,7 @@ const MessageItem: React.FC<MessageItemProps> = ({
         </div>
       )}
       
-      {showData && message.content.includes('---DATA---') && (
+      {showData && message.role === 'assistant' && message.content.includes('---DATA---') && (
         <div className="mt-4 p-4 bg-gray-100 rounded-lg">
           <div className="font-mono text-sm overflow-x-auto">
             <pre className="whitespace-pre-wrap break-all">
@@ -1029,6 +1034,7 @@ const MessageItem: React.FC<MessageItemProps> = ({
       )}
       
       {/* Add debugging information */}
+      {/* 
       <div className="text-xs text-gray-500 mt-1">
         {message.role === 'assistant' && message.content.includes('---DATA---') && (
           <div>
@@ -1037,6 +1043,7 @@ const MessageItem: React.FC<MessageItemProps> = ({
           </div>
         )}
       </div>
+      */}
 
       {message.role === 'assistant' && isDataComplete && !isStreaming && parsedData && (
         <div className="mt-2 flex space-x-2">

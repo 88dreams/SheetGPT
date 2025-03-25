@@ -95,6 +95,7 @@ async def get_streaming_response(self, history, message):
 - **Virtual Entities**: Added support for Championship/Playoffs references
 - **SQL Generation**: Enhanced extraction with multi-level fallbacks
 - **Streaming Performance**: Optimized buffer management
+- **UI Integration**: Proper page titles for navigation context
 
 ## Best Practices
 
@@ -104,4 +105,4 @@ async def get_streaming_response(self, history, message):
 - Add schema validation for all extracted data
 - Use streaming for responsive UI feedback
 
-Updated: March 31, 2025
+Updated: April 2, 2025

@@ -1,5 +1,5 @@
-import React from 'react';
-import { Form, Select, Space, Typography } from 'antd';
+import React, { useEffect, useState } from 'react';
+import { Form, Select, Space, Typography, Tag } from 'antd';
 import { EditOutlined, LockOutlined } from '@ant-design/icons';
 import FormField from './FormField';
 import { DivisionConference } from '../../../../types/sports';
@@ -19,6 +19,20 @@ interface DivisionConferenceFieldsProps {
  */
 const DivisionConferenceFields: React.FC<DivisionConferenceFieldsProps> = ({ entity, onChange, isEditing }) => {
   const { leagues } = useEntityData('division_conference');
+  const [selectedLeagueSport, setSelectedLeagueSport] = useState<string | null>(null);
+  
+  // Update the sport whenever the league changes
+  useEffect(() => {
+    if (entity.league_id) {
+      const selectedLeague = leagues.find(league => league.id === entity.league_id);
+      if (selectedLeague && selectedLeague.sport) {
+        setSelectedLeagueSport(selectedLeague.sport);
+      }
+    } else if (entity.league_sport) {
+      // If we already have the sport from the API response
+      setSelectedLeagueSport(entity.league_sport);
+    }
+  }, [entity.league_id, entity.league_sport, leagues]);
   
   return (
     <>
@@ -65,6 +79,22 @@ const DivisionConferenceFields: React.FC<DivisionConferenceFieldsProps> = ({ ent
         onChange={onChange}
         isEditing={isEditing}
       />
+      
+      {/* Display Sport field (read-only) */}
+      <Form.Item
+        label={
+          <Space>
+            <Text>Sport</Text>
+            <LockOutlined />
+          </Space>
+        }
+      >
+        {selectedLeagueSport ? (
+          <Tag color="blue">{selectedLeagueSport}</Tag>
+        ) : (
+          <Text type="secondary">Not available</Text>
+        )}
+      </Form.Item>
       
       {/* League relationship field */}
       <Form.Item

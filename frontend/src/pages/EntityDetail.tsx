@@ -4,6 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import LoadingSpinner from '../components/common/LoadingSpinner';
 import { useNotification } from '../contexts/NotificationContext';
 import { useAuth } from '../hooks/useAuth';
+import usePageTitle from '../hooks/usePageTitle';
 import SportsDatabaseService, { EntityType } from '../services/SportsDatabaseService';
 import PageContainer from '../components/common/PageContainer';
 // @ts-ignore
@@ -11,6 +12,10 @@ import { FaArrowLeft, FaEdit, FaTrash } from 'react-icons/fa';
 
 const EntityDetail: React.FC = () => {
   const { entityType, id } = useParams<{ entityType: string; id: string }>();
+  
+  // Set the page title with entity type for better navigation
+  usePageTitle(entityType ? `${entityType.charAt(0).toUpperCase() + entityType.slice(1)} Details` : 'Entity Details');
+  
   const { isAuthenticated, isReady } = useAuth();
   const navigate = useNavigate();
   const { showNotification } = useNotification();
@@ -28,6 +33,14 @@ const EntityDetail: React.FC = () => {
     queryFn: () => SportsDatabaseService.getEntityById(entityType as EntityType, id as string),
     enabled: isAuthenticated && isReady && !!entityType && !!id
   });
+  
+  // Update the page title when entity data loads
+  useEffect(() => {
+    if (entity && entity.name) {
+      // Update with actual entity name for better navigation
+      usePageTitle(`${entity.name} | ${entityType?.charAt(0).toUpperCase()}${entityType?.slice(1)}`);
+    }
+  }, [entity, entityType]);
 
   // Redirect if not authenticated
   useEffect(() => {

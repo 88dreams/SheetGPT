@@ -583,6 +583,31 @@ export const enhancedMapToDatabaseFieldNames = async (
   
   // For production services, handle production_company_id and entity_id lookups
   if (entityType === 'production') {
+    // First, check if we have an entity_id but no entity_type
+    if (basicMapped.entity_id && !basicMapped.entity_type) {
+      const entityName = basicMapped.entity_id;
+      console.log(`Production service has entity_id (${entityName}) but no entity_type. Attempting to detect entity type.`);
+      
+      // Try to detect entity type from name
+      if (entityName.toLowerCase().includes('conference') || 
+          entityName.toLowerCase().includes('division')) {
+        basicMapped.entity_type = 'division_conference';
+        console.log(`Auto-detected entity_type as 'division_conference' based on name: ${entityName}`);
+      } else if (entityName.toLowerCase().includes('league') || 
+                entityName.toLowerCase().includes('association')) {
+        basicMapped.entity_type = 'league';
+        console.log(`Auto-detected entity_type as 'league' based on name: ${entityName}`);
+      } else if (entityName.toLowerCase().includes('championship') || 
+                entityName.toLowerCase().includes('playoff')) {
+        basicMapped.entity_type = 'championship';
+        console.log(`Auto-detected entity_type as 'championship' based on name: ${entityName}`);
+      } else {
+        // Default guess as league
+        basicMapped.entity_type = 'league';
+        console.log(`No clear entity type indicators in name, defaulting to 'league' for: ${entityName}`);
+      }
+    }
+    
     // Handle production_company_id lookup by name
     if (basicMapped.production_company_id && !isValidUUID(basicMapped.production_company_id)) {
       const companyName = basicMapped.production_company_id;
@@ -763,6 +788,49 @@ export const enhancedMapToDatabaseFieldNames = async (
         }
       } catch (error) {
         console.error(`Error looking up ${entityType} ID for name ${entityName}:`, error);
+      }
+    }
+    
+    // Handle secondary_brand_id lookup by name
+    if (basicMapped.secondary_brand_id && !isValidUUID(basicMapped.secondary_brand_id)) {
+      const brandName = basicMapped.secondary_brand_id;
+      
+      console.log(`Looking up secondary brand ID for name: ${brandName}`);
+      try {
+        // Try to look up as a brand
+        const brandResponse = await apiClient.sports.lookup('brand', brandName);
+        
+        // If found as a brand
+        if (brandResponse && brandResponse.id) {
+          console.log(`Found "${brandName}" as a brand with ID ${brandResponse.id}`);
+          
+          // Use the brand ID as the secondary brand ID
+          basicMapped.secondary_brand_id = brandResponse.id;
+        } else {
+          // Try to create a new brand if it doesn't exist
+          try {
+            console.log(`Creating new brand for secondary brand: ${brandName}`);
+            const industry = 'Media';
+            
+            const brandData = {
+              name: brandName,
+              industry: industry
+            };
+            
+            const newBrand = await apiClient.sports.createBrand(brandData);
+            
+            if (newBrand?.id) {
+              basicMapped.secondary_brand_id = newBrand.id;
+              console.log(`Created new brand with ID: ${newBrand.id} to use as secondary brand ID`);
+            } else {
+              console.warn(`Could not create brand for secondary brand name: ${brandName}`);
+            }
+          } catch (createError) {
+            console.error(`Error creating new brand for secondary brand: ${brandName}`, createError);
+          }
+        }
+      } catch (error) {
+        console.error(`Error looking up secondary brand with name "${brandName}":`, error);
       }
     }
     

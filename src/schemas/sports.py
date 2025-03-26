@@ -343,25 +343,23 @@ class ProductionServiceCreate(ProductionServiceBase):
     def validate_entity_id(cls, value, values):
         """Validate entity_id based on context.
         
-        For normal entity types, ensure it's a UUID.
+        For normal entity types, if it's a string (not UUID), it will be resolved to an ID later.
         For special types like Championship/Playoff, allow strings.
         """
         entity_type = values.get('entity_type', '').lower()
         
-        # Check if this is a special entity type that allows string IDs
-        if entity_type in ('championship', 'playoff', 'playoffs'):
-            return value  # Allow string entity_id for these types
+        # For UUID values, no validation needed
+        if isinstance(value, UUID):
+            return value
             
-        # For regular entity types, ensure it's a UUID
-        if not isinstance(value, UUID):
-            try:
-                return UUID(str(value))
-            except ValueError:
-                raise ValueError(
-                    f"Entity ID must be a valid UUID for entity type '{entity_type}'. "
-                    f"Got: {value}"
-                )
-        return value
+        # For string values, check if it could be converted to UUID
+        try:
+            # Try to convert to UUID
+            return UUID(str(value))
+        except ValueError:
+            # Not a UUID, will be treated as an entity name to be resolved later
+            # Just return the original value
+            return value
 
 class ProductionServiceUpdate(BaseModel):
     entity_type: Optional[str] = None

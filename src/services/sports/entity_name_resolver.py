@@ -285,7 +285,7 @@ class EntityNameResolver:
                                 item_dict["league_id"] = league_data[1]
                                 item_dict["league_name"] = league_data[0]
                                 item_dict["league_sport"] = league_data[2]
-                    elif entity['entity_type'].lower() in ('championship', 'playoff', 'playoffs'):
+                    elif entity['entity_type'].lower() in ('championship', 'playoff', 'playoffs', 'tournament'):
                         # For special entity types, use the entity_type as the entity_name
                         item_dict["entity_name"] = entity['entity_type'].capitalize()
                         
@@ -313,7 +313,7 @@ class EntityNameResolver:
                                 game_name = await get_game_display_name(db, entity['entity_id'])
                                 if game_name:
                                     item_dict["entity_name"] = game_name
-                            elif entity['entity_type'].lower() in ('championship', 'playoff', 'playoffs'):
+                            elif entity['entity_type'].lower() in ('championship', 'playoff', 'playoffs', 'tournament'):
                                 # For special entity types, use the entity_type as the name since there's no table
                                 item_dict["entity_name"] = entity['entity_type'].capitalize()
                         except Exception as e:

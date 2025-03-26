@@ -64,6 +64,14 @@
 - Fix duplicate broadcast rights: `docker-compose run --rm backend python fix_duplicates.py`
 - Fix team division assignments: `docker-compose run --rm backend python fix_team_divisions.py`
 
+# Entity Resolution Features
+- Cross-entity type search: When looking up by name, the system can try multiple entity types
+- Intelligent fallback: Automated fallback to related entity types when primary lookup fails
+- Special entity types: Support for tournaments, championships, and playoffs without database tables
+- Deterministic UUID generation: Creates consistent IDs for special entities based on type and name
+- Dynamic entity_type correction: Updates entity_type to match where the entity was found
+- Multiple resolution steps: Configurable resolution path through different entity types
+
 ## Code Style
 
 ### General Guidelines
@@ -277,7 +285,12 @@ For all steps, use a system_metadata table with JSONB type for storing maintenan
   - Use December 31st for end dates when only year is provided
 - Support flexible relationship resolution with name-based lookups
 - Handle brand/broadcast company interchangeability using dual-ID approach
-- Implement cross-entity type fallback lookup when appropriate
+- Implement cross-entity type fallback lookup when appropriate:
+  - Try primary requested entity type first (e.g., division_conference)
+  - Fall back to related entity types when lookup fails (league, division_conference)
+  - Automatically update entity_type to match where entity was found
+  - Generate deterministic UUIDs for special entity types (tournaments, championships, playoffs)
+  - Track entity resolution status with boolean flags for maintainable code
 - Handle year-only date inputs with appropriate conversion
 - Support flexible relationship resolution with name-based lookups
 - Implement intelligent entity search with exact and partial matching
@@ -292,7 +305,10 @@ For all steps, use a system_metadata table with JSONB type for storing maintenan
 - Standardize error display components
 - Handle special characters in entity names (e.g., parentheses) with proper parsing and normalization
 - Use exact name matching first, fallback to partial matching for longer names
-- Normalize entity type values in backend services (e.g., 'conference' → 'division_conference')
+- Normalize entity type values in backend services:
+  - Convert 'conference' or 'division' → 'division_conference'
+  - Include 'tournament' as a special entity type alongside championships and playoffs
+  - Properly handle polymorphic entity_type/entity_id fields in production_services and broadcast_rights
 
 ## UI Implementation Guidelines
 

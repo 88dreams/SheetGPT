@@ -76,12 +76,14 @@ SheetGPT integrates AI-powered chat with structured data management and sports d
 - Created direct relationships between Brand and production/broadcast services
 - Enhanced name-to-ID resolution for dynamic company creation
 
-### Special Entity Types Support (March 26)
+### Special Entity Types Support (March 26-27)
 
-- Added support for Championships and Playoffs as virtual entity types
+- Added support for Championships, Playoffs, and Tournaments as virtual entity types
 - Implemented deterministic UUID generation for consistent references
 - Enhanced schema validation for both UUID and string entity IDs
 - Removed the need for dedicated database tables for special entities
+- Added smart entity resolution across entity types for Production Services
+- Implemented intelligent fallback for entity name lookup across different entity types
 
 ### Production Services Display Fix (March 24)
 
@@ -145,4 +147,4 @@ SheetGPT integrates AI-powered chat with structured data management and sports d
 - Enhance error handling with better user guidance
 - Optimize performance for large datasets
 
-Updated: April 8, 2025
+Updated: April 9, 2025

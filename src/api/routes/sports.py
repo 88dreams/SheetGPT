@@ -980,6 +980,12 @@ async def create_production_service(
                 # Not a UUID, must be a name - look it up
                 entity_name = str(production_service.entity_id)
                 entity_type = production_service.entity_type
+                # Normalize entity types
+                if entity_type.lower() in ('division', 'conference'):
+                    entity_type = 'division_conference'
+                # Map tournament type to an appropriate entity type if needed
+                # This handles special cases where frontend may use different terminology
+                    
                 logger.info(f"Looking up {entity_type} by name: {entity_name}")
                 
                 # Try to find an existing entity with this name
@@ -990,8 +996,47 @@ async def create_production_service(
                     production_service.entity_id = entity["id"]
                     logger.info(f"Using entity ID {entity['id']} for {entity_type} '{entity_name}'")
                 else:
-                    # No entity found, raise error
-                    raise ValueError(f"No {entity_type} found with name '{entity_name}'")
+                    # For special entity types, generate a deterministic UUID
+                    if entity_type.lower() in ('championship', 'playoff', 'playoffs', 'tournament'):
+                        import hashlib
+                        from uuid import UUID
+                        
+                        # Generate UUID based on entity type and name
+                        name_hash = hashlib.md5(f"{entity_type}:{entity_name}".encode()).hexdigest()
+                        generated_uuid = UUID(name_hash[:32])
+                        logger.info(f"Generated UUID {generated_uuid} for {entity_type}: {entity_name}")
+                        production_service.entity_id = generated_uuid
+                    else:
+                        # Try to find in any of the supported entity types
+                        found_entity = False
+                        
+                        # Skip lookups if we're already checking division_conference
+                        if entity_type.lower() != 'division_conference':
+                            # Try division_conference first
+                            logger.info(f"Trying to find entity '{entity_name}' as a division_conference")
+                            div_conf_entity = await sports_service.get_entity_by_name(db, "division_conference", entity_name)
+                            if div_conf_entity:
+                                logger.info(f"Found as division_conference with ID {div_conf_entity['id']}")
+                                # Change entity type to division_conference since we found it there
+                                production_service.entity_type = "division_conference"
+                                production_service.entity_id = div_conf_entity["id"]
+                                found_entity = True
+                        
+                        # Try looking up as a league as a fallback if not found yet
+                        if not found_entity:
+                            logger.info(f"Trying to find entity '{entity_name}' as a league")
+                            league_entity = await sports_service.get_entity_by_name(db, "league", entity_name)
+                            if league_entity:
+                                logger.info(f"Found as league with ID {league_entity['id']}")
+                                # Change entity type to league since we found it as a league
+                                production_service.entity_type = "league"
+                                production_service.entity_id = league_entity["id"]
+                                found_entity = True
+                                
+                        # If still not found in any entity type, raise error
+                        if not found_entity:
+                            # No entity found, raise error
+                            raise ValueError(f"No {entity_type} found with name '{entity_name}'")
         
         # Create the production service
         production_service_service = ProductionServiceService()
@@ -1087,6 +1132,12 @@ async def update_production_service(
                 if not entity_type:
                     raise ValueError("Entity type is required to resolve entity name")
                     
+                # Normalize entity types
+                if entity_type.lower() in ('division', 'conference'):
+                    entity_type = 'division_conference'
+                # Map tournament type to an appropriate entity type if needed
+                # This handles special cases where frontend may use different terminology
+                    
                 logger.info(f"Looking up {entity_type} by name: {entity_name}")
                 
                 # Try to find an existing entity with this name
@@ -1097,8 +1148,47 @@ async def update_production_service(
                     service_update.entity_id = entity["id"]
                     logger.info(f"Using entity ID {entity['id']} for {entity_type} '{entity_name}'")
                 else:
-                    # No entity found, raise error
-                    raise ValueError(f"No {entity_type} found with name '{entity_name}'")
+                    # For special entity types, generate a deterministic UUID
+                    if entity_type.lower() in ('championship', 'playoff', 'playoffs', 'tournament'):
+                        import hashlib
+                        from uuid import UUID
+                        
+                        # Generate UUID based on entity type and name
+                        name_hash = hashlib.md5(f"{entity_type}:{entity_name}".encode()).hexdigest()
+                        generated_uuid = UUID(name_hash[:32])
+                        logger.info(f"Generated UUID {generated_uuid} for {entity_type}: {entity_name}")
+                        service_update.entity_id = generated_uuid
+                    else:
+                        # Try to find in any of the supported entity types
+                        found_entity = False
+                        
+                        # Skip lookups if we're already checking division_conference
+                        if entity_type.lower() != 'division_conference':
+                            # Try division_conference first
+                            logger.info(f"Trying to find entity '{entity_name}' as a division_conference")
+                            div_conf_entity = await sports_service.get_entity_by_name(db, "division_conference", entity_name)
+                            if div_conf_entity:
+                                logger.info(f"Found as division_conference with ID {div_conf_entity['id']}")
+                                # Change entity type to division_conference since we found it there
+                                service_update.entity_type = "division_conference"
+                                service_update.entity_id = div_conf_entity["id"]
+                                found_entity = True
+                        
+                        # Try looking up as a league as a fallback if not found yet
+                        if not found_entity:
+                            logger.info(f"Trying to find entity '{entity_name}' as a league")
+                            league_entity = await sports_service.get_entity_by_name(db, "league", entity_name)
+                            if league_entity:
+                                logger.info(f"Found as league with ID {league_entity['id']}")
+                                # Change entity type to league since we found it as a league
+                                service_update.entity_type = "league"
+                                service_update.entity_id = league_entity["id"]
+                                found_entity = True
+                                
+                        # If still not found in any entity type, raise error
+                        if not found_entity:
+                            # No entity found, raise error
+                            raise ValueError(f"No {entity_type} found with name '{entity_name}'")
         
         # Update the production service
         service = await sports_service.update_production_service(db, service_id, service_update)

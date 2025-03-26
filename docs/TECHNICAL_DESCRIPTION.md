@@ -139,6 +139,7 @@ production_services
 2. **Entity Resolution System**
    ```
    Reference → Type Detection → Exact/Partial Name Lookup → 
+   Cross-Entity Type Search → Smart Fallback → 
    Brand Lookup → UUID Resolution → Relationship Traversal
    ```
 
@@ -151,7 +152,8 @@ production_services
 4. **Virtual Entity Support**
    ```
    Special Entity Detection → Deterministic UUID Generation →
-   Consistent Reference → No Table Storage Required
+   Consistent Reference → Multi-Type Resolution →
+   No Table Storage Required
    ```
 
 ## Recent Enhancements
@@ -163,6 +165,10 @@ production_services
 - Added name-to-ID resolution for secondary brands
 - Enhanced field visibility in SportDataMapper and Entity List
 - Improved data validation for relationship fields
+- Added cross-entity type resolution for entity names
+- Implemented smart fallback search across entity types
+- Added support for tournament as a special entity type
+- Improved entity name resolution with multi-type search
 
 ### Chat System Improvements
 - Fixed conversation history to display both user and assistant messages
@@ -181,9 +187,11 @@ production_services
 
 ### Data Management
 - Universal Brand entity for all company relationships
-- Virtual entity support for Championships and Playoffs
+- Virtual entity support for Championships, Playoffs, and Tournaments
 - Deterministic UUID generation for special entities
 - Enhanced name resolution with parentheses support
+- Cross-entity type resolution with intelligent fallback
+- Automatic entity type correction based on name matches
 
 ## Current Focus
 
@@ -202,4 +210,4 @@ production_services
    - Large dataset performance
    - Further navigation context improvements
 
-Updated: April 6, 2025
+Updated: April 9, 2025

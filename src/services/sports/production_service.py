@@ -238,7 +238,7 @@ class ProductionServiceService(BaseEntityService[ProductionService]):
         entity_id = service.entity_id
         
         # For special entity types, skip validation
-        if entity_type in ('championship', 'playoff', 'playoffs'):
+        if entity_type in ('championship', 'playoff', 'playoffs', 'tournament'):
             logger.info(f"Creating production service for special entity type: {entity_type}, name: {entity_id}")
             
             # Create service dict with all fields

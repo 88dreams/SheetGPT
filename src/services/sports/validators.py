@@ -239,9 +239,9 @@ class EntityValidator:
         # Handle special cases
         if normalized_type in ('conference', 'division'):
             normalized_type = 'division_conference'
-        # Map Championship and Playoffs to League for validation purposes
+        # Map Championship, Playoffs and Tournament to special category for validation purposes
         # They're conceptually similar entities in terms of validation
-        elif normalized_type in ('championship', 'playoff', 'playoffs'):
+        elif normalized_type in ('championship', 'playoff', 'playoffs', 'tournament'):
             normalized_type = 'championship_playoff'
             logger.info(f"Mapped {entity_type} to championship_playoff category")
             

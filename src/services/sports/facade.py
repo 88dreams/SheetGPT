@@ -379,8 +379,8 @@ class SportsService:
             return None
         
         # Handle special entity types
-        if entity_type.lower() in ('championship', 'playoff', 'playoffs'):
-            # For championships and playoffs, we return a special object with the name and type
+        if entity_type.lower() in ('championship', 'playoff', 'playoffs', 'tournament'):
+            # For championships, playoffs, and tournaments, we return a special object with the name and type
             # This is a virtual entity that doesn't have a database table
             logger.info(f"Handling {entity_type} lookup for '{name}'")
             

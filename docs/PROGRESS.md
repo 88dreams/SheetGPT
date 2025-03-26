@@ -11,7 +11,23 @@ SheetGPT integrates AI-powered chat with structured data management and sports d
 - Google Sheets/CSV export with fallback options
 - Database maintenance and archiving
 
-## Latest Improvements (March 2025)
+## Latest Improvements (April 2025)
+
+### Production Service Enhancements (April 5-6)
+
+- Added optional secondary brand relationship to Production Services
+- Implemented database model for secondary_brand_id with foreign key
+- Created UI components for selecting the employing brand
+- Enhanced entity type detection with name-based patterns
+- Added automatic field detection for Production Service mappings
+- Included secondary brand in database schema and UI definitions
+
+### Chat System Improvements (April 4)
+
+- Fixed conversation history display to show both user questions and assistant responses
+- Enhanced message rendering with proper metadata handling
+- Improved scrolling and message navigation in chat interface
+- Fixed file attachment display in conversation history
 
 ### Navigation and Usability Enhancements (April 1-2)
 
@@ -86,7 +102,10 @@ SheetGPT integrates AI-powered chat with structured data management and sports d
 - ✓ Column visibility persistence for all entity types
 - ✓ Company name display consistency (removal of Brand suffix)
 - ✓ Production service display with proper Brand relationships
-- ✓ Broadcast rights column configuration persistence
+- ✓ Secondary brand relationship for production services
+- ✓ Chat conversation history display problems
+- ✓ Automatic entity type detection
+- ✓ Default dates for production services
 - ✓ Page titles in browser navigation and history
 
 ## Current Focus
@@ -110,4 +129,4 @@ SheetGPT integrates AI-powered chat with structured data management and sports d
 - Enhance error handling with better user guidance
 - Optimize performance for large datasets
 
-Updated: April 2, 2025
+Updated: April 6, 2025

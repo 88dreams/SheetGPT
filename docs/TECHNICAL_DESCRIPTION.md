@@ -123,7 +123,9 @@ production_services
 ├── id (UUID)
 ├── entity_type, entity_id (polymorphic)
 ├── production_company_id (→ brands)
-└── service_type
+├── secondary_brand_id (→ brands) # Optional employing brand
+├── service_type
+└── start_date, end_date
 ```
 
 ### Data Flow Patterns
@@ -154,6 +156,21 @@ production_services
 
 ## Recent Enhancements
 
+### Production Services Improvements (April 2025)
+- Added secondary brand relationship for employing companies
+- Implemented intelligent entity type detection from entity names
+- Added automatic date defaults (2000-01-01 to 2100-01-01)
+- Added name-to-ID resolution for secondary brands
+- Enhanced field visibility in SportDataMapper and Entity List
+- Improved data validation for relationship fields
+
+### Chat System Improvements
+- Fixed conversation history to display both user and assistant messages
+- Enhanced metadata handling for message rendering
+- Fixed file attachment display in message threads
+- Improved scrolling behavior in conversation history
+- Enhanced message threading with proper role identification
+
 ### UI Component Improvements
 - Implemented descriptive browser page titles
 - Created usePageTitle hook for navigation context
@@ -167,12 +184,6 @@ production_services
 - Virtual entity support for Championships and Playoffs
 - Deterministic UUID generation for special entities
 - Enhanced name resolution with parentheses support
-
-### Performance Optimizations
-- Optimized useDragAndDrop hook
-- Fixed race conditions in visibility state
-- Improved storage key consistency
-- Enhanced circular dependency resolution
 
 ## Current Focus
 
@@ -191,4 +202,4 @@ production_services
    - Large dataset performance
    - Further navigation context improvements
 
-Updated: April 2, 2025
+Updated: April 6, 2025

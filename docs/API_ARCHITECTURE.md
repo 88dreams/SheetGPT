@@ -39,7 +39,9 @@ SQLAlchemy ORM → PostgreSQL → Response Formatting
 ### Entity Management
 
 - **Universal Brand Entity**: Central model for all company relationships
+- **Secondary Brand Relationships**: Hierarchical brand associations for production services
 - **Virtual Entity Support**: Special types without dedicated tables
+- **Entity Type Detection**: Pattern-based classification from entity names
 - **Entity Name Resolution**: Automatic name-to-UUID mapping
 - **Schema Validation**: Strict typing with relationship verification
 - **Batch Operations**: Multi-entity creation and update
@@ -256,4 +258,4 @@ async def update_entity(self, db: AsyncSession, entity_id: UUID, data: dict) -> 
         raise self._handle_db_error(e)
 ```
 
-Updated: March 31, 2025
+Updated: April 6, 2025

@@ -90,12 +90,13 @@ async def get_streaming_response(self, history, message):
 
 ## Recent Enhancements
 
-- **Model Update**: Upgraded to latest Claude 3.7 Sonnet model
-- **Entity Resolution**: Improved special character handling
-- **Virtual Entities**: Added support for Championship/Playoffs references
-- **SQL Generation**: Enhanced extraction with multi-level fallbacks
-- **Streaming Performance**: Optimized buffer management
-- **UI Integration**: Proper page titles for navigation context
+- **Entity Type Detection**: Added pattern-based entity type classification
+- **Relationship Detection**: Intelligent entity resolution for complex relationships
+- **Secondary Brand Support**: Handling of hierarchical brand relationships
+- **Chat History**: Improved message threading and conversation context preservation
+- **File Attachment Handling**: Enhanced metadata handling for uploads in messages
+- **Name-to-ID Resolution**: Smarter entity resolution with automatic creation
+- **Automatic Date Handling**: Default start/end dates for production services
 
 ## Best Practices
 
@@ -105,4 +106,4 @@ async def get_streaming_response(self, history, message):
 - Add schema validation for all extracted data
 - Use streaming for responsive UI feedback
 
-Updated: April 2, 2025
+Updated: April 6, 2025

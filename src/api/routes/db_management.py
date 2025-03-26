@@ -2,6 +2,10 @@ from typing import List, Optional, Dict, Any
 from uuid import UUID
 import logging
 import csv
+import os
+import sys
+from pathlib import Path
+from datetime import datetime
 from io import StringIO
 
 from fastapi import APIRouter, Depends, HTTPException, status, Response, BackgroundTasks
@@ -87,30 +91,34 @@ async def get_database_statistics(
             detail=f"Failed to get database statistics: {str(e)}"
         )
 
-@router.post("/backups", response_model=ApiSuccess)
+@router.post("/backups", response_model=Dict[str, Any])
 async def create_database_backup(
-    background_tasks: BackgroundTasks,
     _: UUID = Depends(get_current_admin_user),
     db: AsyncSession = Depends(get_db)
-) -> ApiSuccess:
+) -> Dict[str, Any]:
     """Create a database backup (admin only)."""
     service = DatabaseManagementService(db, anthropic_service)
     
-    # Run backup in background to avoid timeout
-    async def run_backup():
-        try:
-            await service.backup_database()
-        except Exception as e:
-            # Log the error (can't raise HTTP exception in background task)
-            print(f"ERROR in background backup: {str(e)}")
-    
-    # Schedule the backup
-    background_tasks.add_task(run_backup)
-    
-    return ApiSuccess(
-        success=True, 
-        message="Database backup scheduled. Check logs for completion status."
-    )
+    try:
+        # Create backup immediately (not in background)
+        backup_path = await service.backup_database()
+        
+        # Extract filename from path
+        backup_filename = os.path.basename(backup_path)
+        backup_id = backup_filename.replace("backup_", "").replace(".sql", "")
+        
+        return {
+            "success": True,
+            "message": "Database backup created successfully",
+            "backup_id": backup_id,
+            "filename": backup_filename
+        }
+    except Exception as e:
+        logger.error(f"Error creating backup: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to create backup: {str(e)}"
+        )
 
 @router.get("/backups", response_model=List[dict])
 async def list_database_backups(
@@ -128,6 +136,148 @@ async def list_database_backups(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to list backups: {str(e)}"
+        )
+
+@router.get("/backups/{backup_id}/download", response_class=Response)
+async def download_database_backup(
+    backup_id: str,
+    _: UUID = Depends(get_current_admin_user),
+    db: AsyncSession = Depends(get_db)
+) -> Response:
+    """Download a specific database backup (admin only)."""
+    service = DatabaseManagementService(db, anthropic_service)
+    
+    try:
+        # List all backups
+        backups = service.list_backups()
+        
+        # Find the specified backup
+        backup = None
+        for b in backups:
+            if b["filename"].startswith(f"backup_{backup_id}"):
+                backup = b
+                break
+                
+        # If not found in the regular backups, check the temp directory directly
+        if not backup:
+            backup_path = f"/tmp/sheetgpt_backups/backup_{backup_id}.sql"
+            if os.path.exists(backup_path):
+                backup_file = Path(backup_path)
+                stats = backup_file.stat()
+                backup = {
+                    "filename": backup_file.name,
+                    "path": str(backup_file),
+                    "created_at": datetime.fromtimestamp(stats.st_ctime).isoformat(),
+                    "size_bytes": stats.st_size,
+                    "size_mb": round(stats.st_size / (1024 * 1024), 2)
+                }
+                
+        if not backup:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Backup with ID {backup_id} not found"
+            )
+            
+        # Read the backup file
+        backup_path = backup["path"]
+        
+        try:
+            with open(backup_path, "rb") as file:
+                backup_content = file.read()
+        except Exception as e:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Failed to read backup file: {str(e)}"
+            )
+            
+        # Return the file content
+        return Response(
+            content=backup_content,
+            media_type="application/octet-stream",
+            headers={
+                "Content-Disposition": f"attachment; filename={backup['filename']}",
+                "Content-Length": str(backup["size_bytes"])
+            }
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to download backup: {str(e)}"
+        )
+
+@router.get("/maintenance/status", response_model=Dict[str, Any])
+async def get_maintenance_status(
+    _: UUID = Depends(get_current_admin_user),
+    db: AsyncSession = Depends(get_db)
+) -> Dict[str, Any]:
+    """Get the current status of database maintenance operations (admin only)."""
+    service = DatabaseManagementService(db, anthropic_service)
+    
+    try:
+        # Get maintenance status
+        status = await service.get_maintenance_status()
+        return status
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to get maintenance status: {str(e)}"
+        )
+
+@router.get("/cleanup/dry-run", response_model=Dict[str, Any])
+async def run_cleanup_dry_run(
+    _: UUID = Depends(get_current_admin_user),
+    db: AsyncSession = Depends(get_db)
+) -> Dict[str, Any]:
+    """Run database cleanup in dry-run mode (analysis only, no changes) (admin only)."""
+    service = DatabaseManagementService(db, anthropic_service)
+    
+    try:
+        # Run cleanup dry run
+        results = await service.run_cleanup_dry_run()
+        return results
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to run cleanup dry run: {str(e)}"
+        )
+
+@router.post("/cleanup", response_model=Dict[str, Any])
+async def run_cleanup(
+    _: UUID = Depends(get_current_admin_user),
+    db: AsyncSession = Depends(get_db)
+) -> Dict[str, Any]:
+    """Run database cleanup to fix duplicates and repair relationships (admin only)."""
+    service = DatabaseManagementService(db, anthropic_service)
+    
+    try:
+        # Run cleanup
+        results = await service.run_cleanup()
+        return results
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to run cleanup: {str(e)}"
+        )
+
+@router.post("/vacuum", response_model=Dict[str, Any])
+async def run_vacuum(
+    skip_reindex: bool = False,
+    _: UUID = Depends(get_current_admin_user),
+    db: AsyncSession = Depends(get_db)
+) -> Dict[str, Any]:
+    """Run database optimization (VACUUM ANALYZE and optionally REINDEX) (admin only)."""
+    service = DatabaseManagementService(db, anthropic_service)
+    
+    try:
+        # Run vacuum
+        results = await service.run_vacuum(skip_reindex=skip_reindex)
+        return results
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to run vacuum: {str(e)}"
         )
 @router.post("/download-csv", response_class=Response)
 async def download_csv(

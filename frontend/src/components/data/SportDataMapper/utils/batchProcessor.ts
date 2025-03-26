@@ -5,6 +5,7 @@ import { saveEntityToDatabase, processDivisionConferenceReference, transformMapp
 export interface ImportResults {
   success: number;
   failed: number;
+  skipped: number;  // Count of duplicates that were skipped
   total: number;
   newBroadcastCompanies?: Array<{ name: string; id: string }>;  // Track newly created broadcast companies
   errorTypes?: {
@@ -31,6 +32,7 @@ export const processBatchedData = async (
   const results: ImportResults = {
     success: 0,
     failed: 0,
+    skipped: 0, // Count of duplicates that were skipped
     total: records.length,
     newBroadcastCompanies: [],
     errorTypes: {
@@ -85,9 +87,10 @@ export const processBatchedData = async (
       })
     );
     
-    // Count successes and failures
-    results.success += batchResults.filter(result => result.success).length;
+    // Count successes, failures, and skipped duplicates
+    results.success += batchResults.filter(result => result.success && !result.isDuplicate).length;
     results.failed += batchResults.filter(result => !result.success).length;
+    results.skipped += batchResults.filter(result => result.success && result.isDuplicate).length;
     
     // Collect any new broadcast companies
     batchResults.forEach(result => {
@@ -109,7 +112,7 @@ export const processEntityRecord = async (
   mappings: Record<string, string>,
   isUpdateMode: boolean,
   maxRetries: number = 2  // Reduced default retries since we have better handling
-): Promise<{ success: boolean; newBroadcastCompany?: { name: string; id: string }; error?: string }> => {
+): Promise<{ success: boolean; newBroadcastCompany?: { name: string; id: string }; error?: string; isDuplicate?: boolean }> => {
   let retries = maxRetries;
   let lastError: Error | null = null;
   
@@ -136,6 +139,68 @@ export const processEntityRecord = async (
         api,
         record
       );
+      
+      // If this is a production_service entity, check for duplicates before saving
+      if (entityType === 'production_service') {
+        try {
+          // Import checkDuplicateProductionService function
+          const { checkDuplicateProductionService } = await import('./importUtils');
+          
+          // Check for duplicate
+          const existingService = await checkDuplicateProductionService(databaseMappedData);
+          
+          if (existingService) {
+            // Skip duplicate with informational message
+            const entityName = existingService.entity_name || existingService.entity_type;
+            const companyName = existingService.production_company_name || 'Unknown company';
+            const errorMsg = `Duplicate: Production service already exists for ${companyName} and ${entityName}`;
+            
+            console.log('Skipping duplicate production service:', errorMsg);
+            
+            // Return success=true but flag as duplicate for reporting
+            return { 
+              success: true, 
+              error: errorMsg,
+              isDuplicate: true
+            };
+          }
+        } catch (error) {
+          console.error('Error during duplicate check:', error);
+          // Continue with save operation if duplicate check fails
+        }
+      }
+      
+      // If this is a broadcast entity, check for duplicates before saving
+      if (entityType === 'broadcast') {
+        try {
+          // Import checkDuplicateBroadcastRight function
+          const { checkDuplicateBroadcastRight } = await import('./importUtils');
+          
+          // Check for duplicate
+          const existingRight = await checkDuplicateBroadcastRight(databaseMappedData);
+          
+          if (existingRight) {
+            // Skip duplicate with informational message
+            const entityType = existingRight.entity_type || 'Unknown entity type';
+            const entityName = existingRight.entity_name || existingRight.entity_id;
+            const companyName = existingRight.broadcast_company_name || 'Unknown company';
+            const territory = existingRight.territory || 'Unknown territory';
+            const errorMsg = `Duplicate: Broadcast right already exists for ${companyName} and ${entityName} (${entityType}) in ${territory}`;
+            
+            console.log('Skipping duplicate broadcast right:', errorMsg);
+            
+            // Return success=true but flag as duplicate for reporting
+            return { 
+              success: true, 
+              error: errorMsg,
+              isDuplicate: true
+            };
+          }
+        } catch (error) {
+          console.error('Error during duplicate check:', error);
+          // Continue with save operation if duplicate check fails
+        }
+      }
       
       // Process special fields like division_conference_id
       const processedData = await processDivisionConferenceReference(entityType, databaseMappedData);

@@ -71,6 +71,68 @@ export default function useImportProcess() {
         return false;
       }
       
+      // If this is a production_service entity, check for duplicates before saving
+      if (entityType === 'production_service') {
+        try {
+          // Import the checkDuplicateProductionService function
+          const { checkDuplicateProductionService } = await import('../utils/importUtils');
+          
+          // Check for duplicate production service
+          const existingService = await checkDuplicateProductionService(processedData);
+          
+          if (existingService) {
+            // Found a duplicate - show notification and return true to move to next record
+            const entityName = existingService.entity_name || existingService.entity_type;
+            const companyName = existingService.production_company_name || 'Unknown company';
+            
+            showNotification(
+              'info',
+              `Duplicate production service detected - skipping to next record`,
+              `A production service already exists for ${companyName} and ${entityName}`,
+              false
+            );
+            
+            console.log('Skipping duplicate production service:', existingService);
+            return true; // Return true to continue to next record
+          }
+        } catch (error) {
+          console.error('Error in duplicate check for production service:', error);
+          // Continue with save operation if duplicate check fails
+        }
+      }
+      
+      // If this is a broadcast entity, check for duplicates before saving
+      if (entityType === 'broadcast') {
+        try {
+          // Import the checkDuplicateBroadcastRight function
+          const { checkDuplicateBroadcastRight } = await import('../utils/importUtils');
+          
+          // Check for duplicate broadcast right
+          const existingRight = await checkDuplicateBroadcastRight(processedData);
+          
+          if (existingRight) {
+            // Found a duplicate - show notification and return true to move to next record
+            const entityType = existingRight.entity_type || 'Unknown entity type';
+            const entityName = existingRight.entity_name || existingRight.entity_id;
+            const companyName = existingRight.broadcast_company_name || 'Unknown company';
+            const territory = existingRight.territory || 'Unknown territory';
+            
+            showNotification(
+              'info',
+              `Duplicate broadcast right detected - skipping to next record`,
+              `A broadcast right already exists for ${companyName} and ${entityName} (${entityType}) in ${territory}`,
+              false
+            );
+            
+            console.log('Skipping duplicate broadcast right:', existingRight);
+            return true; // Return true to continue to next record
+          }
+        } catch (error) {
+          console.error('Error in duplicate check for broadcast right:', error);
+          // Continue with save operation if duplicate check fails
+        }
+      }
+      
       // Save to database
       try {
         const success = await saveEntityToDatabase(entityType, processedData, effectiveUpdateMode);
@@ -255,6 +317,16 @@ export default function useImportProcess() {
       
       // Show final results notification with better error reporting
       if (results.failed === 0) {
+        // Create summary message including skipped duplicates
+        let summaryMessage = `Successfully imported ${results.success} records`;
+        let detailMessage = '';
+        
+        // Add information about skipped duplicates if any
+        if (results.skipped > 0) {
+          summaryMessage += `, skipped ${results.skipped} duplicate${results.skipped === 1 ? '' : 's'}`;
+          detailMessage += `${results.skipped} duplicate production service${results.skipped === 1 ? ' was' : 's were'} detected and skipped. `;
+        }
+        
         // Check if any new broadcast companies were created
         if (results.newBroadcastCompanies && results.newBroadcastCompanies.length > 0) {
           const newCompaniesCount = results.newBroadcastCompanies.length;
@@ -267,16 +339,18 @@ export default function useImportProcess() {
             ? ` and ${newCompaniesCount - 3} more` 
             : '';
             
+          detailMessage += `Also created ${newCompaniesCount} new broadcast ${newCompaniesCount === 1 ? 'company' : 'companies'}: ${companiesList}${additionalText}.`;
+          
           showNotification(
             'success', 
-            `Successfully imported ${results.success} records`, 
-            `All records were imported successfully. Also created ${newCompaniesCount} new broadcast ${newCompaniesCount === 1 ? 'company' : 'companies'}: ${companiesList}${additionalText}.`
+            summaryMessage, 
+            detailMessage
           );
         } else {
           showNotification(
             'success', 
-            `Successfully imported ${results.success} records`, 
-            `All records were imported successfully.`
+            summaryMessage, 
+            detailMessage || `${results.success} records were imported successfully.`
           );
         }
       } else {
@@ -307,25 +381,32 @@ export default function useImportProcess() {
         }
         
         // Create notification with different severity based on success/failure ratio
-        const successRatio = results.success / results.total;
+        // Include skipped duplicates in the success count for ratio calculation
+        const effectiveSuccess = results.success + results.skipped;
+        const successRatio = effectiveSuccess / results.total;
+        
+        // Add information about skipped duplicates to the message
+        const skippedText = results.skipped > 0 
+          ? `${results.skipped} duplicate${results.skipped === 1 ? '' : 's'} skipped, ` 
+          : '';
         
         if (successRatio >= 0.8) {  // 80% or more success
           showNotification(
             'info', 
-            `Imported ${results.success} of ${results.total} records`, 
-            `${results.failed} records failed to import:\n${errorSummary}\n${companiesText}See console for details.`
+            `Imported ${results.success} of ${results.total} records${results.skipped > 0 ? `, ${results.skipped} skipped` : ''}`, 
+            `${skippedText}${results.failed} records failed to import:\n${errorSummary}\n${companiesText}See console for details.`
           );
         } else if (successRatio >= 0.5) {  // 50-80% success
           showNotification(
             'info', 
-            `Partially imported ${results.success} of ${results.total} records`, 
-            `${results.failed} records failed to import:\n${errorSummary}\n${companiesText}See console for details.`
+            `Partially imported ${results.success} of ${results.total} records${results.skipped > 0 ? `, ${results.skipped} skipped` : ''}`, 
+            `${skippedText}${results.failed} records failed to import:\n${errorSummary}\n${companiesText}See console for details.`
           );
         } else {  // Less than 50% success
           showNotification(
             'error', 
-            `Only imported ${results.success} of ${results.total} records`, 
-            `${results.failed} records failed to import:\n${errorSummary}\n${companiesText}Check the console for details.`,
+            `Only imported ${results.success} of ${results.total} records${results.skipped > 0 ? `, ${results.skipped} skipped` : ''}`, 
+            `${skippedText}${results.failed} records failed to import:\n${errorSummary}\n${companiesText}Check the console for details.`,
             false  // Don't auto-dismiss serious errors
           );
         }

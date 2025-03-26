@@ -421,6 +421,84 @@ export const saveEntityToDatabase = async (
 };
 
 /**
+ * Check if a production service with the same key fields already exists
+ * @param data The production service data to check for duplicates
+ * @returns The existing service if a duplicate is found, null otherwise
+ */
+export const checkDuplicateProductionService = async (data: Record<string, any>): Promise<any | null> => {
+  try {
+    // We only need to check for duplicates if we have the key fields
+    if (!data.entity_type || !data.entity_id || !data.production_company_id) {
+      return null;
+    }
+    
+    console.log('Checking for duplicate production service with data:', {
+      entity_type: data.entity_type,
+      entity_id: data.entity_id,
+      production_company_id: data.production_company_id
+    });
+    
+    // Query existing production services with the same entity and company
+    const services = await sportsService.getProductionServices({
+      entity_type: data.entity_type,
+      entity_id: data.entity_id,
+      company_id: data.production_company_id
+    });
+    
+    // If any services were found with the same key fields, it's a duplicate
+    if (services && services.length > 0) {
+      console.log('Found duplicate production service:', services[0]);
+      return services[0]; // Return the first matching service
+    }
+    
+    console.log('No duplicate production service found');
+    return null; // No duplicate found
+  } catch (error) {
+    console.error('Error checking for duplicate production service:', error);
+    return null; // Error occurred, continue with save operation
+  }
+};
+
+/**
+ * Check if a broadcast right with the same key fields already exists
+ * @param data The broadcast right data to check for duplicates
+ * @returns The existing broadcast right if a duplicate is found, null otherwise
+ */
+export const checkDuplicateBroadcastRight = async (data: Record<string, any>): Promise<any | null> => {
+  try {
+    // We only need to check for duplicates if we have the key fields
+    if (!data.entity_type || !data.entity_id || !data.broadcast_company_id) {
+      return null;
+    }
+    
+    console.log('Checking for duplicate broadcast right with data:', {
+      entity_type: data.entity_type,
+      entity_id: data.entity_id,
+      broadcast_company_id: data.broadcast_company_id
+    });
+    
+    // Query existing broadcast rights with the same entity and company
+    const rights = await sportsService.getBroadcastRights({
+      entity_type: data.entity_type,
+      entity_id: data.entity_id,
+      company_id: data.broadcast_company_id
+    });
+    
+    // If any rights were found with the same key fields, it's a duplicate
+    if (rights && rights.length > 0) {
+      console.log('Found duplicate broadcast right:', rights[0]);
+      return rights[0]; // Return the first matching right
+    }
+    
+    console.log('No duplicate broadcast right found');
+    return null; // No duplicate found
+  } catch (error) {
+    console.error('Error checking for duplicate broadcast right:', error);
+    return null; // Error occurred, continue with save operation
+  }
+};
+
+/**
  * Format error message from various error types, with special handling for common database errors
  */
 export const formatErrorMessage = (error: unknown): string => {

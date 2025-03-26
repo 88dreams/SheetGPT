@@ -243,6 +243,7 @@ export interface RequestOptions extends Omit<RequestInit, 'headers'> {
   requiresAuth?: boolean
   headers?: Record<string, string>
   timeout?: number // Optional timeout in milliseconds
+  responseType?: 'json' | 'blob' // Response type (default is 'json')
 }
 
 export async function request<T>(endpoint: string, options: RequestOptions = {}): Promise<T> {
@@ -278,11 +279,15 @@ export async function request<T>(endpoint: string, options: RequestOptions = {})
       headers: requestHeaders,
       data: options.body ? JSON.parse(options.body as string) : undefined,
       withCredentials: true,
-      timeout: timeout
+      timeout: timeout,
+      responseType: options.responseType === 'blob' ? 'blob' : 'json'
     });
 
     console.log(`API Response: ${response.status} ${endpoint}`, {
-      dataSize: JSON.stringify(response.data).length,
+      dataType: options.responseType || 'json',
+      dataSize: options.responseType === 'blob' 
+        ? response.data?.size || 'unknown' 
+        : JSON.stringify(response.data).length,
       status: response.status
     });
     

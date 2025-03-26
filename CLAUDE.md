@@ -47,6 +47,12 @@
 - Scheduled backup: `python src/scripts/scheduled_backup.py`
 - Reset conversation order: `python src/scripts/db_management.py reset-order --user-id=user_uuid`
 
+### Database Maintenance
+- Deduplicate records: `python src/scripts/db_cleanup.py --dry-run` (dry run mode)
+- Deduplicate and fix records: `python src/scripts/db_cleanup.py` (actual changes)
+- Database optimization: `python src/scripts/db_vacuum.py` (VACUUM ANALYZE, REINDEX)
+- Database optimization (no REINDEX): `python src/scripts/db_vacuum.py --no-reindex`
+
 ### Entity Integration Utilities
 - Add company fields to brands: `docker-compose run --rm backend python add_brand_fields_migration.py`
 - Import companies to brands: `docker-compose run --rm backend python import_companies_to_brands.py`
@@ -223,6 +229,38 @@
   - Keep TypeScript interfaces in sync with backend models
   - Consider adding helper text for new fields in forms
 
+### Database Maintenance Workflow
+
+The database maintenance workflow follows a step-by-step approach:
+
+1. **Backup Step**
+   - Always create and download a backup before maintenance
+   - Use direct SQL generation for backup reliability
+   - Store backups in a dedicated directory with timestamps
+   - Implement proper error handling and progress feedback
+
+2. **Analysis Step (Dry Run)**
+   - Identify duplicate records across all entity tables
+   - Check for missing or invalid relationships
+   - Find inconsistent entity naming patterns
+   - Identify missing constraints or schema issues
+   - Present findings without making any changes
+
+3. **Cleanup Step**
+   - Remove duplicate records with proper reference updating
+   - Fix broken relationships and standardize entity names
+   - Add missing constraints to prevent future duplication
+   - Implement proper transaction handling for safety
+   - Record all changes in system_metadata for auditing
+
+4. **Optimization Step**
+   - Run VACUUM ANALYZE to reclaim storage and update stats
+   - Run REINDEX to rebuild indexes (optional, can be skipped)
+   - Calculate and display space savings from optimization
+   - Monitor performance improvements with before/after metrics
+
+For all steps, use a system_metadata table with JSONB type for storing maintenance status and results. Ensure proper JSON serialization with custom serializers for non-standard data types and use the ::jsonb type casting in SQL queries.
+
 ## Error Handling Guidelines
 
 - Use structured error types from errors.ts utility
@@ -352,6 +390,33 @@
   - Apply consistent hover effects for interactive elements
   - Use enum fields with dropdown selection controls
   - Create consistent date and time format displays
+
+### Database Maintenance UI Guidelines
+
+- Implement as a step-by-step guided workflow in the Settings page
+- Use a visual timeline with numbered steps to indicate progress
+- Highlight the current active step and disable future steps until prerequisites are met
+- Use icons consistently across steps: backup (save), analysis (search), cleanup (broom), optimize (magic)
+- For each completed step:
+  - Show a checkmark and completion timestamp
+  - Display a summary of results in a concise card layout
+  - Include numerical metrics and findings in a structured format
+  - Provide an option to rerun the step if needed
+- For the active step:
+  - Display clear instructions about what the step does
+  - Use a primary-colored button for the main action
+  - Show a loading indicator during processing
+  - Provide appropriate confirmations for destructive operations
+- For confirmation dialogs:
+  - Use yellow backgrounds for caution (bg-yellow-50, border-yellow-200)
+  - Include a warning icon (FaExclamationTriangle) in amber color
+  - Clearly explain consequences of actions
+  - Provide both confirmation and cancel options
+  - For database operations, explain exactly what will happen
+- After completion of all steps:
+  - Show a complete summary with key metrics
+  - Highlight space recovered and performance improvements
+  - Provide options to download a maintenance report
 
 ## Claude API Integration
 

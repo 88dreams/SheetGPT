@@ -17,6 +17,8 @@ interface FormFieldProps {
   options?: { value: string; label: string }[];
   placeholder?: string;
   handleYearOnlyInput?: boolean;
+  allowCustomEntry?: boolean;
+  helpText?: string;
 }
 
 /**
@@ -81,6 +83,7 @@ const FormField: React.FC<FormFieldProps> = ({
         </Space>
       }
       required={isRequired}
+      help={helpText}
     >
       {type === 'text' && (
         <Input
@@ -106,6 +109,11 @@ const FormField: React.FC<FormFieldProps> = ({
           disabled={!isEditing}
           style={{ width: '100%' }}
           placeholder={placeholder || `Select ${label.toLowerCase()}`}
+          mode={allowCustomEntry ? 'tags' : undefined}
+          showSearch
+          filterOption={(input, option) =>
+            (option?.label?.toString().toLowerCase() ?? '').includes(input.toLowerCase())
+          }
         >
           {options.map((opt) => (
             <Option key={opt.value} value={opt.value}>

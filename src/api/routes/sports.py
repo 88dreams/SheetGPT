@@ -900,7 +900,7 @@ async def create_production_service(
     """
     Create a new production service.
     
-    If the production_company_id is a name instead of a UUID, will attempt to find a brand
+    If the production_company_id or secondary_brand_id is a name instead of a UUID, will attempt to find a brand
     with that name and use its ID. If no brand exists, will create one automatically.
     """
     import logging
@@ -940,6 +940,59 @@ async def create_production_service(
                 production_service.production_company_id = entity["id"]
                 logger.info(f"Using brand ID {entity['id']} for company '{company_name}'")
         
+        # Check if secondary_brand_id is provided and if it's a UUID or a name
+        if production_service.secondary_brand_id:
+            try:
+                # Try to parse as UUID
+                UUID(str(production_service.secondary_brand_id))
+                # If successful, use as-is
+            except ValueError:
+                # Not a UUID, must be a name - look it up
+                brand_name = str(production_service.secondary_brand_id)
+                logger.info(f"Looking up secondary brand by name: {brand_name}")
+                
+                # Try to find an existing brand with this name
+                entity = await sports_service.get_entity_by_name(db, "brand", brand_name)
+                
+                if not entity:
+                    # No brand found, create one
+                    logger.info(f"No brand found for '{brand_name}', creating new brand")
+                    brand_service = BrandService()
+                    brand = await brand_service.create_brand(db, {
+                        "name": brand_name,
+                        "industry": "Media",
+                        "company_type": "Broadcaster",  # Default for secondary brand
+                        "country": "USA"  # Default
+                    })
+                    production_service.secondary_brand_id = brand.id
+                else:
+                    # Found a brand, use its ID
+                    production_service.secondary_brand_id = entity["id"]
+                    logger.info(f"Using brand ID {entity['id']} for secondary brand '{brand_name}'")
+        
+        # Check if entity_id is provided and if it's a UUID or a name
+        if production_service.entity_id:
+            try:
+                # Try to parse as UUID
+                UUID(str(production_service.entity_id))
+                # If successful, use as-is
+            except ValueError:
+                # Not a UUID, must be a name - look it up
+                entity_name = str(production_service.entity_id)
+                entity_type = production_service.entity_type
+                logger.info(f"Looking up {entity_type} by name: {entity_name}")
+                
+                # Try to find an existing entity with this name
+                entity = await sports_service.get_entity_by_name(db, entity_type, entity_name)
+                
+                if entity:
+                    # Found an entity, use its ID
+                    production_service.entity_id = entity["id"]
+                    logger.info(f"Using entity ID {entity['id']} for {entity_type} '{entity_name}'")
+                else:
+                    # No entity found, raise error
+                    raise ValueError(f"No {entity_type} found with name '{entity_name}'")
+        
         # Create the production service
         production_service_service = ProductionServiceService()
         return await production_service_service.create_production_service(db, production_service)
@@ -967,11 +1020,94 @@ async def update_production_service(
     db: AsyncSession = Depends(get_db),
     current_user: Dict = Depends(get_current_user)
 ):
-    """Update a specific production service."""
-    service = await sports_service.update_production_service(db, service_id, service_update)
-    if not service:
-        raise HTTPException(status_code=404, detail="Production service not found")
-    return service
+    """
+    Update a specific production service.
+    
+    If secondary_brand_id or entity_id is provided as a name instead of a UUID,
+    will attempt to find or create the corresponding entity and use its ID.
+    """
+    import logging
+    logger = logging.getLogger(__name__)
+    
+    try:
+        from src.services.sports.brand_service import BrandService
+        from src.services.sports.production_service import ProductionServiceService, ProductionService
+        from sqlalchemy import select
+        from uuid import UUID
+        
+        # Check if secondary_brand_id is provided and if it's a UUID or a name
+        if service_update.secondary_brand_id:
+            try:
+                # Try to parse as UUID
+                UUID(str(service_update.secondary_brand_id))
+                # If successful, use as-is
+            except ValueError:
+                # Not a UUID, must be a name - look it up
+                brand_name = str(service_update.secondary_brand_id)
+                logger.info(f"Looking up secondary brand by name: {brand_name}")
+                
+                # Try to find an existing brand with this name
+                entity = await sports_service.get_entity_by_name(db, "brand", brand_name)
+                
+                if not entity:
+                    # No brand found, create one
+                    logger.info(f"No brand found for '{brand_name}', creating new brand")
+                    brand_service = BrandService()
+                    brand = await brand_service.create_brand(db, {
+                        "name": brand_name,
+                        "industry": "Media",
+                        "company_type": "Broadcaster",  # Default for secondary brand
+                        "country": "USA"  # Default
+                    })
+                    service_update.secondary_brand_id = brand.id
+                else:
+                    # Found a brand, use its ID
+                    service_update.secondary_brand_id = entity["id"]
+                    logger.info(f"Using brand ID {entity['id']} for secondary brand '{brand_name}'")
+        
+        # Check if entity_id is provided and if it's a UUID or a name
+        if service_update.entity_id:
+            try:
+                # Try to parse as UUID
+                UUID(str(service_update.entity_id))
+                # If successful, use as-is
+            except ValueError:
+                # Not a UUID, must be a name - look it up
+                entity_name = str(service_update.entity_id)
+                # Get current entity_type or use the updated one if provided
+                entity_type = service_update.entity_type
+                
+                if not entity_type:
+                    # Need to get the current entity_type
+                    service_result = await db.execute(
+                        select(ProductionService.entity_type).where(ProductionService.id == service_id)
+                    )
+                    entity_type = service_result.scalar_one_or_none()
+                    
+                if not entity_type:
+                    raise ValueError("Entity type is required to resolve entity name")
+                    
+                logger.info(f"Looking up {entity_type} by name: {entity_name}")
+                
+                # Try to find an existing entity with this name
+                entity = await sports_service.get_entity_by_name(db, entity_type, entity_name)
+                
+                if entity:
+                    # Found an entity, use its ID
+                    service_update.entity_id = entity["id"]
+                    logger.info(f"Using entity ID {entity['id']} for {entity_type} '{entity_name}'")
+                else:
+                    # No entity found, raise error
+                    raise ValueError(f"No {entity_type} found with name '{entity_name}'")
+        
+        # Update the production service
+        service = await sports_service.update_production_service(db, service_id, service_update)
+        if not service:
+            raise HTTPException(status_code=404, detail="Production service not found")
+        return service
+    except Exception as e:
+        logger.error(f"Error updating production service: {str(e)}")
+        raise
 
 @router.delete("/production-services/{service_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_production_service(

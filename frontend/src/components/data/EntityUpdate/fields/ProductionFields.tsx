@@ -101,7 +101,21 @@ const ProductionFields: React.FC<ProductionFieldsProps> = ({ entity, onChange, i
           disabled={!isEditing}
           style={{ width: '100%' }}
           allowClear
+          showSearch
+          filterOption={(input, option) =>
+            (option?.children as unknown as string)?.toLowerCase().includes(input.toLowerCase())
+          }
+          optionFilterProp="children"
         >
+          {/* Support direct text input for creating new brands */}
+          {isEditing && (
+            <Option value={productionEntity.secondary_brand_id || ''} key="custom">
+              {productionEntity.secondary_brand_id && !productionEntity.secondary_brand_id.includes('-') 
+                ? productionEntity.secondary_brand_id 
+                : ''}
+            </Option>
+          )}
+          {/* List all brands for secondary brand selection */}
           {productionCompanies.map((company) => (
             <Option key={company.id} value={company.id}>
               {company.name}
@@ -150,7 +164,21 @@ const ProductionFields: React.FC<ProductionFieldsProps> = ({ entity, onChange, i
           onChange={(val: string) => onChange('entity_id', val)}
           disabled={!isEditing}
           style={{ width: '100%' }}
+          showSearch
+          filterOption={(input, option) =>
+            (option?.children as unknown as string)?.toLowerCase().includes(input.toLowerCase())
+          }
+          optionFilterProp="children"
         >
+          {/* Support direct text input for creating new entities */}
+          {isEditing && (
+            <Option value={productionEntity.entity_id || ''} key="custom">
+              {productionEntity.entity_id && !productionEntity.entity_id.includes('-') 
+                ? productionEntity.entity_id 
+                : ''}
+            </Option>
+          )}
+          
           {productionEntity.entity_type === 'league' && leagues.map((entity) => (
             <Option key={entity.id} value={entity.id}>
               {entity.name}

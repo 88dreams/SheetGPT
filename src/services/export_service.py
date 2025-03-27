@@ -34,9 +34,17 @@ class ExportService:
         include_relationships: bool,
         user_id: UUID,
         visible_columns: Optional[List[str]] = None,
-        target_folder: Optional[str] = None
+        target_folder: Optional[str] = None,
+        export_all: bool = False  # New parameter to force exporting all entities
     ) -> Dict[str, Any]:
         """Export sports entities to Google Sheets."""
+        # Log input parameters for debugging
+        logging.info(f"Export request - entity_type: {entity_type}, entity_count: {len(entity_ids)}")
+        logging.info(f"Export request - visible_columns: {visible_columns}")
+        logging.info(f"Export request - include_relationships: {include_relationships}")
+        logging.info(f"Export request - target_folder: {target_folder}")
+        logging.info(f"Export request - export_all: {export_all}")
+        
         # Initialize Google Sheets service
         is_initialized = await self.sheets_service.initialize_from_token(
             token_path=self.sheets_config.TOKEN_PATH
@@ -59,15 +67,33 @@ class ExportService:
         model = self.sports_service.ENTITY_TYPES[entity_type]
         
         # Query the entities - using async SQLAlchemy
-        stmt = select(model).where(model.id.in_(entity_ids))
+        entities = []
+        
+        # CRITICAL CHANGE: Always query ALL entities of this type 
+        # This is the direct fix for the "export only shows paginated entities" issue
+        logging.info(f"EXPLICITLY QUERYING ALL ENTITIES of type {entity_type}")
+        stmt = select(model)
         result = await db.execute(stmt)
         entities = result.scalars().all()
         
         if not entities:
-            raise ValueError(f"No {entity_type} found with the provided IDs")
+            raise ValueError(f"No {entity_type} found to export")
+        
+        # Log entity count
+        logging.info(f"Found {len(entities)} {entity_type} entities to export")
         
         # Convert entities to dictionaries
         entity_dicts = [self._entity_to_dict(entity) for entity in entities]
+        
+        # Add related names to the entities (important for UI columns like broadcast_company_name)
+        from src.services.sports.entity_name_resolver import EntityNameResolver
+        entity_dicts = await EntityNameResolver.get_entities_with_related_names(db, entity_type, entity_dicts)
+        
+        # Clean the entity fields to remove any that shouldn't be included
+        entity_dicts = [
+            EntityNameResolver.clean_entity_fields(entity_type, item)
+            for item in entity_dicts
+        ]
         
         # Include relationships if requested
         if include_relationships:
@@ -80,6 +106,13 @@ class ExportService:
             user_id,
             target_folder  # Pass the target folder name
         )
+        
+        # Debug log for any visible columns type issues
+        if visible_columns is not None:
+            logging.info(f"visible_columns type: {type(visible_columns)}")
+            if isinstance(visible_columns, list) and len(visible_columns) > 0:
+                logging.info(f"First column type: {type(visible_columns[0])}")
+                logging.info(f"Sample column values: {visible_columns[:5]}")
         
         # Format the data for the sheet with visible columns
         headers, rows = self._format_for_sheet(entity_dicts, visible_columns)
@@ -170,18 +203,38 @@ class ExportService:
         for entity_dict in entity_dicts:
             all_keys.update(entity_dict.keys())
         
+        # Debug: log the first entity dict keys
+        if entity_dicts and len(entity_dicts) > 0:
+            logging.info(f"First entity dict keys: {sorted(list(entity_dicts[0].keys()))}")
+            logging.info(f"All unique keys across entities: {sorted(list(all_keys))}")
+        
         # Use visible columns if provided, otherwise use all keys
         if visible_columns and len(visible_columns) > 0:
+            # Log visible columns for debugging
+            logging.info(f"Using visible columns for export: {visible_columns}")
             # Filter to include only valid columns that exist in the data
-            headers = [col for col in visible_columns if col in all_keys]
-            # Add id column if not already included (always include ID)
-            if 'id' not in headers:
-                headers.insert(0, 'id')
+            headers = []
+            for col in visible_columns:
+                if col in all_keys:
+                    headers.append(col)
+                else:
+                    logging.warning(f"Requested visible column '{col}' not found in data")
+                    # Check for similar column names that might be a match
+                    similar_cols = [k for k in all_keys if col.lower() in k.lower()]
+                    if similar_cols:
+                        logging.info(f"Similar columns found: {similar_cols}")
+            
+            # Note: Removed the code that forces the ID column to be included
+            # This way we fully respect the visible columns from the UI
         else:
+            # Log fallback to all columns
+            logging.info(f"No visible columns specified, using all keys for export")
             # Sort keys for consistent output
             headers = sorted(list(all_keys))
         
-        # Create rows
+        logging.info(f"Final export headers: {headers}")
+        
+        # Create rows - including ALL rows, not just paginated ones
         rows = []
         for entity_dict in entity_dicts:
             row = []
@@ -195,4 +248,5 @@ class ExportService:
                 row.append(value)
             rows.append(row)
         
+        logging.info(f"Total rows for export: {len(rows)}")
         return headers, rows 

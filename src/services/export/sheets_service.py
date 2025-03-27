@@ -110,6 +110,10 @@ class GoogleSheetsService:
             )
             
         try:
+            import time
+            import random
+            from googleapiclient.errors import HttpError
+            
             print(f"DEBUG: Creating spreadsheet with title: {title} and pre-populated data")
             print(f"DEBUG: Data length: {len(data)}")
             print(f"DEBUG: First few rows: {data[:2] if data else 'No data'}")
@@ -118,7 +122,87 @@ class GoogleSheetsService:
             col_count = len(data[0]) if data and data[0] else 1
             row_count = len(data)
             
-            # Create a spreadsheet with pre-populated data
+            # Approach 1: Try creating an empty spreadsheet and then adding data in one batch update
+            # This reduces API complexity and potential failure points
+            try:
+                print(f"DEBUG: Trying two-step approach (create empty + batch update)")
+                
+                # First create an empty spreadsheet with proper dimensions
+                sheets_body = {
+                    'properties': {'title': title},
+                    'sheets': [{
+                        'properties': {
+                            'title': 'Sheet1',
+                            'gridProperties': {
+                                'rowCount': max(row_count, 1000),
+                                'columnCount': max(col_count, 26)
+                            }
+                        }
+                    }]
+                }
+                
+                # Implement exponential backoff with retry for rate limiting
+                max_retries = 5
+                retry = 0
+                
+                # Step 1: Create the empty spreadsheet
+                while retry < max_retries:
+                    try:
+                        print(f"DEBUG: Creating empty spreadsheet")
+                        request = self.service.spreadsheets().create(body=sheets_body)
+                        response = request.execute()
+                        spreadsheet_id = response['spreadsheetId']
+                        spreadsheet_url = f"https://docs.google.com/spreadsheets/d/{spreadsheet_id}"
+                        print(f"DEBUG: Created empty spreadsheet with ID: {spreadsheet_id}")
+                        break
+                    except HttpError as error:
+                        if error.resp.status == 429 and retry < max_retries - 1:
+                            wait_time = (2 ** retry) + (random.random() * 0.5)
+                            print(f"DEBUG: Rate limit hit, retrying in {wait_time:.2f}s (retry {retry+1}/{max_retries})")
+                            time.sleep(wait_time)
+                            retry += 1
+                        else:
+                            raise
+                else:
+                    # We've exhausted retries
+                    raise HTTPException(status_code=429, detail="Rate limit exceeded when creating spreadsheet")
+                
+                # Step 2: Add all data in one batch update operation
+                retry = 0
+                while retry < max_retries:
+                    try:
+                        print(f"DEBUG: Adding data with batch update")
+                        batch_body = {
+                            'valueInputOption': 'USER_ENTERED',
+                            'data': [{
+                                'range': f"Sheet1!A1:{chr(65 + col_count - 1)}{row_count}",
+                                'values': data
+                            }]
+                        }
+                        
+                        batch_response = self.service.spreadsheets().values().batchUpdate(
+                            spreadsheetId=spreadsheet_id,
+                            body=batch_body
+                        ).execute()
+                        
+                        print(f"DEBUG: Successfully added data with batch update: {batch_response}")
+                        return spreadsheet_id, spreadsheet_url
+                    except HttpError as error:
+                        if error.resp.status == 429 and retry < max_retries - 1:
+                            wait_time = (2 ** retry) + (random.random() * 0.5)
+                            print(f"DEBUG: Rate limit hit, retrying in {wait_time:.2f}s (retry {retry+1}/{max_retries})")
+                            time.sleep(wait_time)
+                            retry += 1
+                        else:
+                            # For non-rate limit errors or exhausted retries, try the original approach
+                            print(f"DEBUG: Batch update failed: {str(error)}")
+                            print(f"DEBUG: Falling back to original approach")
+                            raise ValueError("Batch update failed")
+            except Exception as two_step_error:
+                print(f"DEBUG: Two-step approach failed: {str(two_step_error)}")
+                print(f"DEBUG: Falling back to original approach (pre-populated creation)")
+            
+            # Original approach: Create spreadsheet with pre-populated data
             sheets_body = {
                 'properties': {
                     'title': title
@@ -151,14 +235,30 @@ class GoogleSheetsService:
             }
             
             print(f"DEBUG: Calling spreadsheets().create() API with pre-populated data")
-            request = self.service.spreadsheets().create(body=sheets_body)
-            print(f"DEBUG: Executing API request")
-            response = request.execute()
-            print(f"DEBUG: API response keys: {response.keys()}")
-            spreadsheet_id = response['spreadsheetId']
-            spreadsheet_url = f"https://docs.google.com/spreadsheets/d/{spreadsheet_id}"
-            print(f"DEBUG: Created spreadsheet with ID: {spreadsheet_id}")
-            return spreadsheet_id, spreadsheet_url
+            # Implement exponential backoff for the original approach
+            max_retries = 5
+            retry = 0
+            
+            while retry < max_retries:
+                try:
+                    request = self.service.spreadsheets().create(body=sheets_body)
+                    print(f"DEBUG: Executing API request")
+                    response = request.execute()
+                    print(f"DEBUG: API response keys: {response.keys()}")
+                    spreadsheet_id = response['spreadsheetId']
+                    spreadsheet_url = f"https://docs.google.com/spreadsheets/d/{spreadsheet_id}"
+                    print(f"DEBUG: Created spreadsheet with ID: {spreadsheet_id}")
+                    return spreadsheet_id, spreadsheet_url
+                except HttpError as error:
+                    if error.resp.status == 429 and retry < max_retries - 1:
+                        wait_time = (2 ** retry) + (random.random() * 0.5)
+                        print(f"DEBUG: Rate limit hit, retrying in {wait_time:.2f}s (retry {retry+1}/{max_retries})")
+                        time.sleep(wait_time)
+                        retry += 1
+                    else:
+                        raise
+            
+            raise HTTPException(status_code=429, detail="Rate limit exceeded after multiple retries")
         except Exception as e:
             print(f"DEBUG: Error in create_spreadsheet_with_data: {str(e)}")
             print(f"DEBUG: Error type: {type(e)}")
@@ -198,8 +298,13 @@ class GoogleSheetsService:
             )
             
         try:
+            import time
+            import random
+            from googleapiclient.errors import HttpError
+            
             folder_id = None
             folder_url = None
+            max_retries = 5
             
             # If folder name is provided, create or get folder in Drive
             if folder_name:
@@ -207,58 +312,106 @@ class GoogleSheetsService:
                     # Build the Drive service
                     drive_service = build('drive', 'v3', credentials=self.credentials)
                     
-                    # Search for the folder first
-                    query = f"name = '{folder_name}' and mimeType = 'application/vnd.google-apps.folder' and trashed = false"
-                    results = drive_service.files().list(q=query, spaces='drive').execute()
-                    items = results.get('files', [])
+                    # Search for the folder first with retry logic
+                    retry = 0
+                    while retry < max_retries:
+                        try:
+                            query = f"name = '{folder_name}' and mimeType = 'application/vnd.google-apps.folder' and trashed = false"
+                            results = drive_service.files().list(q=query, spaces='drive').execute()
+                            items = results.get('files', [])
+                            
+                            if items:
+                                # Use the first matching folder
+                                folder_id = items[0]['id']
+                                print(f"DEBUG: Found existing folder with ID: {folder_id}")
+                                break
+                            else:
+                                # Create a new folder with retry logic
+                                folder_metadata = {
+                                    'name': folder_name,
+                                    'mimeType': 'application/vnd.google-apps.folder'
+                                }
+                                folder = drive_service.files().create(body=folder_metadata, fields='id').execute()
+                                folder_id = folder.get('id')
+                                print(f"DEBUG: Created new folder with ID: {folder_id}")
+                                break
+                        except HttpError as error:
+                            if error.resp.status == 429 and retry < max_retries - 1:
+                                wait_time = (2 ** retry) + (random.random() * 0.5)
+                                print(f"DEBUG: Rate limit hit in folder operation, retrying in {wait_time:.2f}s (retry {retry+1}/{max_retries})")
+                                time.sleep(wait_time)
+                                retry += 1
+                            else:
+                                print(f"DEBUG: Non-recoverable error in folder operation: {str(error)}")
+                                # Continue without folder if there's an error
+                                break
                     
-                    if items:
-                        # Use the first matching folder
-                        folder_id = items[0]['id']
-                        print(f"DEBUG: Found existing folder with ID: {folder_id}")
-                    else:
-                        # Create a new folder
-                        folder_metadata = {
-                            'name': folder_name,
-                            'mimeType': 'application/vnd.google-apps.folder'
-                        }
-                        folder = drive_service.files().create(body=folder_metadata, fields='id').execute()
-                        folder_id = folder.get('id')
-                        print(f"DEBUG: Created new folder with ID: {folder_id}")
-                    
-                    folder_url = f"https://drive.google.com/drive/folders/{folder_id}"
+                    if folder_id:
+                        folder_url = f"https://drive.google.com/drive/folders/{folder_id}"
+                        print(f"DEBUG: Folder URL: {folder_url}")
                 except Exception as folder_error:
                     print(f"DEBUG: Error creating/accessing folder: {str(folder_error)}")
                     # Continue without folder if there's an error
             
+            # Create spreadsheet with retry logic
             print(f"DEBUG: Creating spreadsheet with title: {title}")
             spreadsheet = {
                 'properties': {
                     'title': title
                 }
             }
-            print(f"DEBUG: Calling spreadsheets().create() API")
-            request = self.service.spreadsheets().create(body=spreadsheet)
-            print(f"DEBUG: Executing API request")
-            response = request.execute()
-            print(f"DEBUG: API response: {response}")
-            spreadsheet_id = response['spreadsheetId']
-            spreadsheet_url = f"https://docs.google.com/spreadsheets/d/{spreadsheet_id}"
             
-            # If we have a folder ID, move the spreadsheet to that folder
+            retry = 0
+            while retry < max_retries:
+                try:
+                    print(f"DEBUG: Calling spreadsheets().create() API")
+                    request = self.service.spreadsheets().create(body=spreadsheet)
+                    print(f"DEBUG: Executing API request")
+                    response = request.execute()
+                    print(f"DEBUG: API response: {response}")
+                    spreadsheet_id = response['spreadsheetId']
+                    spreadsheet_url = f"https://docs.google.com/spreadsheets/d/{spreadsheet_id}"
+                    break
+                except HttpError as error:
+                    if error.resp.status == 429 and retry < max_retries - 1:
+                        wait_time = (2 ** retry) + (random.random() * 0.5)
+                        print(f"DEBUG: Rate limit hit, retrying in {wait_time:.2f}s (retry {retry+1}/{max_retries})")
+                        time.sleep(wait_time)
+                        retry += 1
+                    else:
+                        raise
+            else:
+                # We've exhausted retries
+                raise HTTPException(status_code=429, detail="Rate limit exceeded when creating spreadsheet")
+            
+            # If we have a folder ID, move the spreadsheet to that folder with retry logic
             if folder_id:
                 try:
                     # Build the Drive service if not already built
                     if 'drive_service' not in locals():
                         drive_service = build('drive', 'v3', credentials=self.credentials)
                     
-                    # Add file to the folder
-                    drive_service.files().update(
-                        fileId=spreadsheet_id,
-                        addParents=folder_id,
-                        fields='id, parents'
-                    ).execute()
-                    print(f"DEBUG: Moved spreadsheet to folder: {folder_id}")
+                    # Add file to the folder with retry logic
+                    retry = 0
+                    while retry < max_retries:
+                        try:
+                            drive_service.files().update(
+                                fileId=spreadsheet_id,
+                                addParents=folder_id,
+                                fields='id, parents'
+                            ).execute()
+                            print(f"DEBUG: Moved spreadsheet to folder: {folder_id}")
+                            break
+                        except HttpError as error:
+                            if error.resp.status == 429 and retry < max_retries - 1:
+                                wait_time = (2 ** retry) + (random.random() * 0.5)
+                                print(f"DEBUG: Rate limit hit in move operation, retrying in {wait_time:.2f}s (retry {retry+1}/{max_retries})")
+                                time.sleep(wait_time)
+                                retry += 1
+                            else:
+                                print(f"DEBUG: Non-recoverable error in move operation: {str(error)}")
+                                # Continue even if move fails
+                                break
                 except Exception as move_error:
                     print(f"DEBUG: Error moving spreadsheet to folder: {str(move_error)}")
                     # Continue even if move fails
@@ -281,8 +434,12 @@ class GoogleSheetsService:
         values: List[List[Any]],
         value_input_option: str = 'USER_ENTERED'
     ) -> Dict[str, Any]:
-        """Append values to a spreadsheet."""
+        """Append values to a spreadsheet with rate limit handling."""
         try:
+            import time
+            import random
+            from googleapiclient.errors import HttpError
+            
             print(f"DEBUG: Appending values to spreadsheet {spreadsheet_id}")
             print(f"DEBUG: Range: {range_name}")
             print(f"DEBUG: Value input option: {value_input_option}")
@@ -311,19 +468,40 @@ class GoogleSheetsService:
                 'values': filtered_values
             }
             
+            # Try batch append to improve performance if possible
             print(f"DEBUG: Making API request to append values")
-            request = self.service.spreadsheets().values().append(
-                spreadsheetId=spreadsheet_id,
-                range=range_name,
-                valueInputOption=value_input_option,
-                insertDataOption='INSERT_ROWS',
-                body=body
-            )
             
-            print(f"DEBUG: Executing API request")
-            response = request.execute()
-            print(f"DEBUG: API response: {response}")
-            return response
+            # Implement exponential backoff with retry for rate limiting
+            max_retries = 5
+            retry = 0
+            
+            while retry < max_retries:
+                try:
+                    request = self.service.spreadsheets().values().append(
+                        spreadsheetId=spreadsheet_id,
+                        range=range_name,
+                        valueInputOption=value_input_option,
+                        insertDataOption='INSERT_ROWS',
+                        body=body
+                    )
+                    
+                    print(f"DEBUG: Executing API request")
+                    response = request.execute()
+                    print(f"DEBUG: API response: {response}")
+                    return response
+                    
+                except HttpError as error:
+                    if error.resp.status == 429 and retry < max_retries - 1:
+                        # Calculate exponential backoff with jitter
+                        wait_time = (2 ** retry) + (random.random() * 0.5)
+                        print(f"DEBUG: Rate limit hit, retrying in {wait_time:.2f}s (retry {retry+1}/{max_retries})")
+                        time.sleep(wait_time)
+                        retry += 1
+                    else:
+                        # Re-raise the error if it's not a rate limit or we've exceeded retries
+                        raise
+            
+            raise HTTPException(status_code=429, detail="Rate limit exceeded after multiple retries")
         except Exception as e:
             print(f"DEBUG: Error appending values: {str(e)}")
             print(f"DEBUG: Error type: {type(e)}")
@@ -338,8 +516,12 @@ class GoogleSheetsService:
         values: List[List[Any]],
         value_input_option: str = 'USER_ENTERED'
     ) -> Dict[str, Any]:
-        """Update values in a spreadsheet."""
+        """Update values in a spreadsheet with rate limit handling."""
         try:
+            import time
+            import random
+            from googleapiclient.errors import HttpError
+            
             print(f"DEBUG: Updating values in spreadsheet {spreadsheet_id}")
             print(f"DEBUG: Range: {range_name}")
             print(f"DEBUG: Value input option: {value_input_option}")
@@ -368,32 +550,109 @@ class GoogleSheetsService:
                 'values': filtered_values
             }
             
-            print(f"DEBUG: Making API request to update values")
-            request = self.service.spreadsheets().values().update(
-                spreadsheetId=spreadsheet_id,
-                range=range_name,
-                valueInputOption=value_input_option,
-                body=body
-            )
-            
-            print(f"DEBUG: Executing API request")
-            response = request.execute()
-            print(f"DEBUG: API response: {response}")
-            
-            # If no update happened, try using append instead of update
-            if response.get('updatedCells', 0) == 0:
-                print(f"DEBUG: No cells updated, trying append method instead")
-                append_request = self.service.spreadsheets().values().append(
-                    spreadsheetId=spreadsheet_id,
-                    range=range_name,
-                    valueInputOption=value_input_option,
-                    body=body
-                )
-                append_response = append_request.execute()
-                print(f"DEBUG: Append API response: {append_response}")
-                return append_response
+            # Try batch update for better performance
+            try:
+                print(f"DEBUG: Attempting to use batchUpdate for better performance")
+                batch_body = {
+                    'valueInputOption': value_input_option,
+                    'data': [
+                        {
+                            'range': range_name,
+                            'values': filtered_values
+                        }
+                    ]
+                }
                 
-            return response
+                # Implement exponential backoff with retry
+                max_retries = 5
+                retry = 0
+                
+                while retry < max_retries:
+                    try:
+                        batch_response = self.service.spreadsheets().values().batchUpdate(
+                            spreadsheetId=spreadsheet_id,
+                            body=batch_body
+                        ).execute()
+                        print(f"DEBUG: Batch update successful: {batch_response}")
+                        return batch_response
+                    except HttpError as error:
+                        if error.resp.status == 429 and retry < max_retries - 1:
+                            # Calculate exponential backoff with jitter
+                            wait_time = (2 ** retry) + (random.random() * 0.5)
+                            print(f"DEBUG: Rate limit hit, retrying in {wait_time:.2f}s (retry {retry+1}/{max_retries})")
+                            time.sleep(wait_time)
+                            retry += 1
+                        else:
+                            # Only re-raise if it's not a 429 or we've exhausted retries
+                            print(f"DEBUG: HttpError in batch update: {str(error)}")
+                            print(f"DEBUG: Falling back to regular update")
+                            raise ValueError("Batch update failed")
+            except Exception as batch_error:
+                print(f"DEBUG: Error with batch update: {str(batch_error)}")
+                print(f"DEBUG: Falling back to regular update")
+                # Continue to regular update
+            
+            # Regular update with retry logic
+            print(f"DEBUG: Making API request to update values (regular method)")
+            max_retries = 5
+            retry = 0
+            
+            while retry < max_retries:
+                try:
+                    request = self.service.spreadsheets().values().update(
+                        spreadsheetId=spreadsheet_id,
+                        range=range_name,
+                        valueInputOption=value_input_option,
+                        body=body
+                    )
+                    
+                    print(f"DEBUG: Executing API request")
+                    response = request.execute()
+                    print(f"DEBUG: API response: {response}")
+                    
+                    # If no update happened, try using append instead of update
+                    if response.get('updatedCells', 0) == 0:
+                        print(f"DEBUG: No cells updated, trying append method instead")
+                        
+                        # Append with retry logic
+                        append_retry = 0
+                        while append_retry < max_retries:
+                            try:
+                                append_request = self.service.spreadsheets().values().append(
+                                    spreadsheetId=spreadsheet_id,
+                                    range=range_name,
+                                    valueInputOption=value_input_option,
+                                    body=body
+                                )
+                                append_response = append_request.execute()
+                                print(f"DEBUG: Append API response: {append_response}")
+                                return append_response
+                            except HttpError as append_error:
+                                if append_error.resp.status == 429 and append_retry < max_retries - 1:
+                                    wait_time = (2 ** append_retry) + (random.random() * 0.5)
+                                    print(f"DEBUG: Append rate limit hit, retrying in {wait_time:.2f}s")
+                                    time.sleep(wait_time)
+                                    append_retry += 1
+                                else:
+                                    raise
+                            
+                        # If we've exhausted all retries
+                        print(f"DEBUG: Exhausted append retries")
+                    
+                    return response
+                    
+                except HttpError as error:
+                    if error.resp.status == 429 and retry < max_retries - 1:
+                        # Calculate exponential backoff with jitter
+                        wait_time = (2 ** retry) + (random.random() * 0.5)
+                        print(f"DEBUG: Rate limit hit, retrying in {wait_time:.2f}s (retry {retry+1}/{max_retries})")
+                        time.sleep(wait_time)
+                        retry += 1
+                    else:
+                        # Re-raise the error if it's not a rate limit or we've exceeded retries
+                        raise
+            
+            raise HTTPException(status_code=429, detail="Rate limit exceeded after multiple retries")
         except Exception as e:
             print(f"DEBUG: Error updating values: {str(e)}")
             print(f"DEBUG: Error type: {type(e)}")
@@ -423,8 +682,12 @@ class GoogleSheetsService:
         range_name: str,
         format_json: Dict[str, Any]
     ) -> Dict[str, Any]:
-        """Apply formatting to a range in the spreadsheet."""
+        """Apply formatting to a range in the spreadsheet with rate limit handling."""
         try:
+            import time
+            import random
+            from googleapiclient.errors import HttpError
+            
             # Convert A1 notation to GridRange object
             # Parse range like "A1:Z10" into components
             try:
@@ -488,13 +751,34 @@ class GoogleSheetsService:
             }]
             body = {'requests': requests}
             
-            request = self.service.spreadsheets().batchUpdate(
-                spreadsheetId=spreadsheet_id,
-                body=body
-            )
-            response = request.execute()
-            return response
+            # Implement exponential backoff with retry for rate limiting
+            max_retries = 5
+            retry = 0
+            
+            while retry < max_retries:
+                try:
+                    response = self.service.spreadsheets().batchUpdate(
+                        spreadsheetId=spreadsheet_id,
+                        body=body
+                    ).execute()
+                    return response
+                    
+                except HttpError as error:
+                    if error.resp.status == 429 and retry < max_retries - 1:
+                        # Calculate exponential backoff with jitter
+                        wait_time = (2 ** retry) + (random.random() * 0.5)
+                        print(f"DEBUG: Rate limit hit, retrying in {wait_time:.2f}s (retry {retry+1}/{max_retries})")
+                        time.sleep(wait_time)
+                        retry += 1
+                    else:
+                        # Re-raise the error if it's not a rate limit or we've exceeded retries
+                        raise
+            
+            raise HTTPException(status_code=429, detail="Rate limit exceeded after multiple retries")
         except Exception as e:
+            print(f"DEBUG: Error in format_range: {str(e)}")
+            import traceback
+            print(f"DEBUG: Traceback: {traceback.format_exc()}")
             raise HTTPException(status_code=500, detail=f"Failed to format spreadsheet: {str(e)}")
 
     async def create_spreadsheet_with_template(
@@ -857,15 +1141,68 @@ class GoogleSheetsService:
         rows: List[List[Any]],
         value_input_option: str = 'USER_ENTERED'
     ) -> Dict[str, Any]:
-        """Write headers and rows to a sheet."""
+        """Write headers and rows to a sheet using batch operations."""
         try:
+            import time
+            import random
+            from googleapiclient.errors import HttpError
+            
             # Combine headers and rows
             values = [headers] + rows
+            print(f"DEBUG: Writing data with {len(values)} rows, {len(headers)} columns")
             
             # Calculate range
             range_name = f"{sheet_name}!A1:{chr(65 + len(headers) - 1)}{len(rows) + 1}"
+            print(f"DEBUG: Using range: {range_name}")
             
-            # Update values
+            # Implement exponential backoff with retry for rate limiting
+            max_retries = 5
+            retry = 0
+            
+            while retry < max_retries:
+                try:
+                    # Use batch update to improve efficiency - one API call instead of many
+                    batch_body = {
+                        'valueInputOption': value_input_option,
+                        'data': [
+                            {
+                                'range': range_name,
+                                'values': values
+                            }
+                        ]
+                    }
+                    
+                    response = self.service.spreadsheets().values().batchUpdate(
+                        spreadsheetId=spreadsheet_id,
+                        body=batch_body
+                    ).execute()
+                    
+                    print(f"DEBUG: Successfully wrote {len(values)} rows in one batch update")
+                    return response
+                    
+                except HttpError as error:
+                    if error.resp.status == 429 and retry < max_retries - 1:
+                        # Calculate exponential backoff with jitter
+                        wait_time = (2 ** retry) + (random.random() * 0.5)
+                        print(f"DEBUG: Rate limit hit, retrying in {wait_time:.2f}s (retry {retry+1}/{max_retries})")
+                        time.sleep(wait_time)
+                        retry += 1
+                    else:
+                        # Re-raise the error if it's not a rate limit or we've exceeded retries
+                        raise
+                except Exception as e:
+                    print(f"DEBUG: Unexpected error in batch update: {str(e)}")
+                    # Fall back to regular update
+                    print(f"DEBUG: Falling back to regular update method")
+                    return await self.update_values(
+                        spreadsheet_id,
+                        range_name,
+                        values,
+                        value_input_option
+                    )
+            
+            # If we've exhausted retries, fall back to regular update
+            print(f"DEBUG: Exhausted retries, falling back to regular update method")
             return await self.update_values(
                 spreadsheet_id,
                 range_name,
@@ -873,6 +1210,9 @@ class GoogleSheetsService:
                 value_input_option
             )
         except Exception as e:
+            print(f"DEBUG: Error in write_to_sheet: {str(e)}")
+            import traceback
+            print(f"DEBUG: Traceback: {traceback.format_exc()}")
             raise HTTPException(status_code=500, detail=f"Failed to write to sheet: {str(e)}")
     
     async def apply_formatting(
@@ -885,28 +1225,120 @@ class GoogleSheetsService:
     ) -> Dict[str, Any]:
         """Apply formatting to a sheet."""
         try:
+            import time
+            import random
+            from googleapiclient.errors import HttpError
+            
             # Calculate ranges
             header_range = f"{sheet_name}!A1:{chr(65 + column_count - 1)}1"
             data_range = f"{sheet_name}!A2:{chr(65 + column_count - 1)}{row_count}"
             
-            # Apply header formatting
+            # Get all formatting templates at once to reduce API calls
             header_format = await self.template_service.get_formatting(template_name, "header")
-            if header_format:
-                await self.format_range(spreadsheet_id, header_range, header_format)
-            
-            # Apply body formatting
             body_format = await self.template_service.get_formatting(template_name, "body")
-            if body_format:
-                await self.format_range(spreadsheet_id, data_range, body_format)
-            
-            # Apply alternate row formatting if available
             alternate_format = await self.template_service.get_formatting(template_name, "alternateRow")
+            
+            # Create batch update requests array
+            batch_requests = []
+            
+            # Add header formatting to batch
+            if header_format:
+                # Convert A1 notation to GridRange
+                sheet_id = 0  # Default to first sheet
+                start_col, start_row = 0, 0
+                end_col, end_row = column_count, 1
+                
+                batch_requests.append({
+                    'repeatCell': {
+                        'range': {
+                            "sheetId": sheet_id,
+                            "startRowIndex": start_row,
+                            "endRowIndex": end_row,
+                            "startColumnIndex": start_col,
+                            "endColumnIndex": end_col
+                        },
+                        'cell': {'userEnteredFormat': header_format},
+                        'fields': 'userEnteredFormat'
+                    }
+                })
+            
+            # Add body formatting to batch
+            if body_format:
+                # Convert A1 notation to GridRange
+                sheet_id = 0  # Default to first sheet
+                start_col, start_row = 0, 1  # Start from row 2 (index 1)
+                end_col, end_row = column_count, row_count
+                
+                batch_requests.append({
+                    'repeatCell': {
+                        'range': {
+                            "sheetId": sheet_id,
+                            "startRowIndex": start_row,
+                            "endRowIndex": end_row,
+                            "startColumnIndex": start_col,
+                            "endColumnIndex": end_col
+                        },
+                        'cell': {'userEnteredFormat': body_format},
+                        'fields': 'userEnteredFormat'
+                    }
+                })
+            
+            # Add alternate row formatting to batch
             if alternate_format and row_count > 2:
-                # Apply to even rows (starting from row 3, which is index 2)
-                for i in range(3, row_count + 1, 2):
-                    alt_range = f"{sheet_name}!A{i}:{chr(65 + column_count - 1)}{i}"
-                    await self.format_range(spreadsheet_id, alt_range, alternate_format)
+                # Create a single request for all alternate rows using a grid range
+                alt_rows = []
+                
+                # Add alternate row ranges (every other row starting from row 3)
+                for i in range(2, row_count, 2):  # 0-based index, so start at 2 (row 3)
+                    alt_rows.append({
+                        "sheetId": 0,
+                        "startRowIndex": i,
+                        "endRowIndex": i + 1,
+                        "startColumnIndex": 0,
+                        "endColumnIndex": column_count
+                    })
+                
+                # Only add if we have alternate rows to format
+                if alt_rows:
+                    for alt_range in alt_rows:
+                        batch_requests.append({
+                            'repeatCell': {
+                                'range': alt_range,
+                                'cell': {'userEnteredFormat': alternate_format},
+                                'fields': 'userEnteredFormat'
+                            }
+                        })
+            
+            # Execute batch update with exponential backoff retry logic
+            max_retries = 5
+            retry = 0
+            
+            while retry < max_retries:
+                try:
+                    # Make a single API call with all formatting requests
+                    body = {'requests': batch_requests}
+                    response = self.service.spreadsheets().batchUpdate(
+                        spreadsheetId=spreadsheet_id,
+                        body=body
+                    ).execute()
+                    
+                    print(f"DEBUG: Successfully applied batch formatting with {len(batch_requests)} operations")
+                    return {"status": "success", "operations": len(batch_requests)}
+                    
+                except HttpError as error:
+                    if error.resp.status == 429 and retry < max_retries - 1:
+                        # Calculate exponential backoff with jitter
+                        wait_time = (2 ** retry) + (random.random() * 0.5)
+                        print(f"DEBUG: Rate limit hit, retrying in {wait_time:.2f}s (retry {retry+1}/{max_retries})")
+                        time.sleep(wait_time)
+                        retry += 1
+                    else:
+                        # Re-raise the error if it's not a rate limit or we've exceeded retries
+                        raise
             
             return {"status": "success"}
         except Exception as e:
+            print(f"DEBUG: Error in apply_formatting: {str(e)}")
+            import traceback
+            print(f"DEBUG: Traceback: {traceback.format_exc()}")
             raise HTTPException(status_code=500, detail=f"Failed to apply formatting: {str(e)}") 

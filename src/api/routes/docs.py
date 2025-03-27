@@ -5,7 +5,7 @@ import os
 import glob
 from pathlib import Path
 
-from src.utils.auth import get_current_active_user
+from src.utils.auth import get_current_user
 from src.models.models import User
 
 router = APIRouter(prefix="/api/v1/docs", tags=["documentation"])
@@ -14,7 +14,7 @@ router = APIRouter(prefix="/api/v1/docs", tags=["documentation"])
 DOCS_DIR = Path(__file__).parent.parent.parent.parent / "docs"
 
 @router.get("/structure", response_model=List[Dict[str, Any]])
-async def get_documentation_structure(current_user: User = Depends(get_current_active_user)):
+async def get_documentation_structure(current_user: Dict[str, Any] = Depends(get_current_user)):
     """
     Get the structure of all documentation files.
     """
@@ -58,7 +58,7 @@ async def get_documentation_structure(current_user: User = Depends(get_current_a
 @router.get("/content", response_class=PlainTextResponse)
 async def get_documentation_content(
     path: str = Query(..., description="Path to the document relative to the docs directory"),
-    current_user: User = Depends(get_current_active_user)
+    current_user: Dict[str, Any] = Depends(get_current_user)
 ):
     """
     Get the content of a documentation file.

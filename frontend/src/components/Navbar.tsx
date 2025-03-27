@@ -37,6 +37,7 @@ export default function Navbar() {
     { path: '/database', label: 'Query', title: 'Query', requiresAuth: true },
     { path: '/data', label: 'Export', title: 'Export', requiresAuth: true },
     { path: '/settings', label: 'Settings', title: 'Settings', requiresAuth: true },
+    { path: '/help', label: 'Help', title: 'Documentation', requiresAuth: true },
     { path: '/login', label: 'Login', title: '', requiresAuth: false },
     { path: '/register', label: 'Register', title: '', requiresAuth: false },
   ]

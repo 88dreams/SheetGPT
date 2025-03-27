@@ -29,17 +29,21 @@ As of May 2024, the project has implemented:
 
 ## Recent Improvements
 
-### Conversation Persistence
-- Fixed an issue where conversations were not persisting between container restarts
-- Implemented a dedicated PostgreSQL volume (`postgres-data`) in the Docker Compose configuration
-- Ensured that all user conversations and message history are properly stored and retrieved
+### Enhanced Google Sheets Export
+- Implemented column visibility control for targeted exports showing only needed fields
+- Added Google Drive folder selection with support for creating new folders
+- Implemented CSV fallback mechanism when Google authentication fails
+- Enhanced error handling and status reporting during export process
+- Added support for exporting all entity rows (not just visible/paginated ones)
+- Fixed authentication issues with proper token validation and refresh
 
-### Enhanced Data Mapping
-- Improved the "Map to Data" functionality to handle various data formats more robustly
-- Enhanced JSON structure detection and parsing in the data extraction service
-- Added comprehensive error handling and data validation in the data management hooks
-- Improved sports data format detection with more comprehensive field recognition
-- Implemented detailed logging throughout the data extraction and mapping process
+### Database Maintenance Workflow
+- Implemented comprehensive database maintenance workflow with step-by-step interface
+- Added backup, analysis, cleanup, and optimization steps with clear visual progress
+- Enhanced deduplicate functionality with proper relationship handling
+- Optimized database performance with VACUUM ANALYZE and REINDEX operations
+- Added detailed reporting and metrics for maintenance operations
+- Implemented system_metadata tracking for all maintenance activities
 
 ### Hybrid Filtering Approach for Sports Database
 - Implemented a robust filtering system that utilizes backend filtering with client-side fallback
@@ -49,7 +53,6 @@ As of May 2024, the project has implemented:
 - Enhanced client-side filtering activation with intelligent detection
 - Added comprehensive logging and UI updates to display matching entity counts
 - Implemented filter persistence using localStorage
-- Resolved TypeScript linter errors and improved code organization
 
 ## Development Setup
 
@@ -153,12 +156,32 @@ For more detailed information about the CI/CD pipeline, see [CI/CD Pipeline](doc
 
 ## Documentation
 
-For more detailed information, see the following documentation:
+For more detailed information, see our organized documentation:
 
-- [API Architecture](docs/API_ARCHITECTURE.md)
-- [Technical Description](docs/TECHNICAL_DESCRIPTION.md)
-- [Progress](docs/PROGRESS.md)
-- [Progress Summary](docs/PROGRESS_SUMMARY.md)
+- **Architecture**
+  - [API Architecture](docs/architecture/API_ARCHITECTURE.md)
+  - [Technical Description](docs/architecture/TECHNICAL_DESCRIPTION.md)
+  - [Sports API Endpoints](docs/architecture/SPORTS_API_ENDPOINTS.md)
+
+- **Features**
+  - [Claude API Integration](docs/features/CLAUDE_API_INTEGRATION.md)
+  - [Sport Field Feature](docs/features/SPORT_FIELD_FEATURE.md)
+
+- **Maintenance**
+  - [Database Maintenance](docs/maintenance/DATABASE_MAINTENANCE.md)
+  - [Alembic Guide](docs/maintenance/ALEMBIC_GUIDE.md)
+  - [Testing Guide](docs/maintenance/TESTING_GUIDE.md)
+  - [Troubleshooting](docs/maintenance/TROUBLESHOOTING.md)
+
+- **Deployment**
+  - [Deployment Environments](docs/deployment/DEPLOYMENT_ENVIRONMENTS.md)
+  - [AWS Deployment](docs/deployment/AWS_DEPLOYMENT.md)
+  - [CI/CD Pipeline](docs/deployment/CI_CD_PIPELINE.md)
+
+- **Project Status**
+  - [Progress](docs/PROGRESS.md)
+
+See the [Documentation Index](docs/README.md) for a complete list of documents.
 
 ## Database Architecture
 
@@ -216,11 +239,13 @@ For detailed information about the API architecture, see [docs/API_ARCHITECTURE.
 
 ## Google Sheets Integration Setup
 
-To use the Google Sheets integration, follow these steps:
+To use the enhanced Google Sheets integration, follow these steps:
 
 1. Go to the [Google Cloud Console](https://console.cloud.google.com/)
 2. Create a new project or select an existing one
-3. Enable the Google Sheets API for your project
+3. Enable the following APIs for your project:
+   - Google Sheets API
+   - Google Drive API (required for folder operations)
 4. Create OAuth 2.0 credentials:
    - Go to "APIs & Services" > "Credentials"
    - Click "Create Credentials" > "OAuth client ID"
@@ -239,11 +264,19 @@ To use the Google Sheets integration, follow these steps:
 Configure the following environment variables for Google Sheets integration:
 
 ```env
+# Required settings
 GOOGLE_SHEETS_CREDENTIALS_PATH=credentials/google_sheets_credentials.json
 GOOGLE_SHEETS_TOKEN_PATH=credentials/token.json
+
+# Performance tuning
 GOOGLE_SHEETS_BATCH_SIZE=100
 GOOGLE_SHEETS_MAX_RETRIES=3
 GOOGLE_SHEETS_TIMEOUT=30
+
+# New settings for enhanced features
+GOOGLE_DRIVE_ENABLE_FOLDERS=true
+GOOGLE_DRIVE_DEFAULT_FOLDER=SheetGPT Exports
+GOOGLE_SHEETS_ENABLE_CSV_FALLBACK=true
 ```
 
 ### Security Note
@@ -259,7 +292,11 @@ The credentials file contains sensitive information. Make sure to:
 - **Chat Interface**: Engage with an AI assistant to extract structured data from conversations.
 - **Data Management**: View, edit, and manage structured data extracted from conversations.
 - **Data Visualization**: Display structured data in a customizable data grid.
-- **Data Export**: Export structured data to Google Sheets and other formats.
+- **Data Export**: Export structured data to Google Sheets with advanced features:
+  - Column visibility control to export only relevant fields
+  - Google Drive folder selection and automatic creation
+  - CSV fallback when Google authentication is unavailable
+  - Consistent formatting with template support
 - **Sports Database**: Access and manage sports-related data entities.
 - **SportDataMapper**: Map structured data to sports database entities with a modern, modular architecture.
   - **Drag-and-Drop Interface**: Easily map source fields to database fields.

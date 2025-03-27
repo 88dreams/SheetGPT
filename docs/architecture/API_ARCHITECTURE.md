@@ -23,7 +23,7 @@ src/
 - **Chat**: Claude-powered conversations with streaming responses
 - **Sports Database**: Entity management with relationship handling
 - **Data Management**: Structured data operations and transformation
-- **Export**: Google Sheets and CSV export with templating
+- **Export**: Google Sheets and CSV export with templating, folder support, and column filtering
 - **Database Query**: Natural language to SQL translation
 
 ### Request Flow
@@ -46,6 +46,16 @@ SQLAlchemy ORM → PostgreSQL → Response Formatting
 - **Schema Validation**: Strict typing with relationship verification
 - **Batch Operations**: Multi-entity creation and update
 
+### Export System
+
+- **Column Filtering**: Export only selected visible columns
+- **Google Drive Integration**: Support for user-specified folders
+- **Authentication Detection**: Automatic detection of Google Sheets authentication
+- **CSV Fallback**: Automatic fallback to CSV when Google authentication fails
+- **Folder Management**: Auto-creation of folders that don't exist
+- **Async SQLAlchemy**: Proper async database operations for exports
+- **Complete Entity Export**: Export all entities regardless of pagination
+
 ### Natural Language Queries
 
 - **Claude AI Translation**: Convert questions to SQL with context awareness 
@@ -63,6 +73,58 @@ SQLAlchemy ORM → PostgreSQL → Response Formatting
 - **Error Recovery**: Graceful failure handling with session preservation
 
 ## Implementation Highlights
+
+### Enhanced Google Sheets Export
+
+```python
+async def export_sports_entities(
+    self, 
+    db: AsyncSession, 
+    entity_type: str, 
+    entity_ids: List[UUID],
+    include_relationships: bool,
+    user_id: UUID,
+    visible_columns: Optional[List[str]] = None,
+    target_folder: Optional[str] = None
+) -> Dict[str, Any]:
+    """Export sports entities to Google Sheets with folder and column filtering support."""
+    # Initialize Google Sheets service with authentication check
+    is_initialized = await self.sheets_service.initialize_from_token(
+        token_path=self.sheets_config.TOKEN_PATH
+    )
+    
+    if not is_initialized:
+        # Return CSV fallback response when not authenticated
+        return {
+            "csv_export": True,
+            "message": "Google Sheets service is not initialized. Please authenticate first.",
+            "entity_count": len(entity_ids)
+        }
+    
+    # Get entities from database using async SQLAlchemy
+    stmt = select(model).where(model.id.in_(entity_ids))
+    result = await db.execute(stmt)
+    entities = result.scalars().all()
+    
+    # Format data with visible columns filtering
+    headers, rows = self._format_for_sheet(entity_dicts, visible_columns)
+    
+    # Create spreadsheet with optional folder
+    spreadsheet_id, spreadsheet_url, folder_id, folder_url = await self.sheets_service.create_spreadsheet(
+        title=f"{entity_type.capitalize()} Export", 
+        user_id=user_id,
+        folder_name=target_folder
+    )
+    
+    # Return comprehensive response with folder information
+    return {
+        "spreadsheet_id": spreadsheet_id,
+        "spreadsheet_url": spreadsheet_url,
+        "entity_count": len(entities),
+        "folder_id": folder_id,
+        "folder_url": folder_url
+    }
+```
 
 ### Natural Language to SQL Translation
 
@@ -185,6 +247,24 @@ POST /api/v1/db/query/translate - Translate question to SQL only
 POST /api/v1/db/export - Export query results to CSV or Sheets
 POST /api/v1/db/backup - Create database backup
 GET /api/v1/db/stats - Get database statistics
+```
+
+### Export Functionality
+
+```
+POST /api/v1/sports/export - Export entities to Google Sheets
+  Parameters:
+    - entity_type: Type of entity to export
+    - entity_ids: List of UUID strings to export
+    - include_relationships: Whether to include related data
+    - visible_columns: List of column names to include (omitted columns not exported)
+    - target_folder: Optional Google Drive folder for export destination
+  Response:
+    - spreadsheet_id: Google Sheet identifier
+    - spreadsheet_url: Direct URL to the created sheet
+    - entity_count: Number of exported entities
+    - folder_id: ID of the Google Drive folder (if provided)
+    - folder_url: URL to the Google Drive folder (if provided)
 ```
 
 ## Schema System

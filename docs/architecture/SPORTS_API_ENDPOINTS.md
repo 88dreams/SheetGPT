@@ -185,9 +185,63 @@ This request will return teams with "New York" in their name that were founded a
 
 ## Export Endpoints
 
-- `POST /api/v1/export/sheets` - Export data to Google Sheets
-- `GET /api/v1/export/preview/{data_id}` - Preview export data format
-- `GET /api/v1/export/templates` - Get available export templates
+### Google Sheets Export
+`POST /api/v1/export/sheets`
+
+Exports data to Google Sheets with advanced features for column selection and folder organization.
+
+**Request Body:**
+```json
+{
+  "data": "Array of data objects (required)",
+  "sheet_name": "String name for the sheet (required)",
+  "folder_id": "Google Drive folder ID (optional)",
+  "folder_name": "Google Drive folder name to create/use (optional)",
+  "visible_columns": ["Array of column keys to include (optional)"],
+  "format": "Boolean to apply formatting (default: true)"
+}
+```
+
+**Parameters:**
+- `data`: Array of objects to export
+- `sheet_name`: Name for the Google Sheet
+- `folder_id`: Specific Google Drive folder ID to export to
+- `folder_name`: Folder name to export to (will be created if it doesn't exist)
+- `visible_columns`: Array of column keys to include in export (omit to include all columns)
+- `format`: Whether to apply formatting to the sheet (colors, column widths, etc.)
+
+**Response:**
+```json
+{
+  "success": true,
+  "sheet_url": "https://docs.google.com/spreadsheets/d/1x2y3z...",
+  "sheet_id": "1x2y3z...",
+  "column_count": 10,
+  "row_count": 250,
+  "folder_id": "abcd1234...",
+  "folder_url": "https://drive.google.com/drive/folders/abcd1234..."
+}
+```
+
+**Fallback CSV Response (when Google auth fails):**
+```json
+{
+  "success": true,
+  "format": "csv",
+  "data": "CSV data as string",
+  "filename": "export_20250326.csv"
+}
+```
+
+### Preview Export
+`GET /api/v1/export/preview/{data_id}`
+
+Preview how data will be formatted for export without actually exporting.
+
+### Export Templates
+`GET /api/v1/export/templates`
+
+Get available export templates for different entity types.
 
 ## Request and Response Examples
 

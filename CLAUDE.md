@@ -294,8 +294,20 @@ For all steps, use a system_metadata table with JSONB type for storing maintenan
 - Handle year-only date inputs with appropriate conversion
 - Support flexible relationship resolution with name-based lookups
 - Implement intelligent entity search with exact and partial matching
-- Implement CSV fallbacks for export functionality
+
+## Export Functionality Guidelines
+
+- Implement CSV fallbacks for export functionality when Google Sheets fails
 - Provide alternative formats for data export when APIs fail
+- Always initialize authentication services before attempting export
+- For Google Sheets exports:
+  - Always use only currently visible columns to match user expectations
+  - Support export to specific Google Drive folders with auto-creation
+  - Include header rows with human-readable column names
+  - Add folder selection dialog for better user experience
+  - Handle graceful fallback to CSV when authentication fails
+  - Respect all rows in the entity list, not just visible/paginated rows
+  - Apply proper formatting to exported sheets for readability
 - Always validate input/output data structure before processing
 - Ensure type definitions are consistent across the codebase
 - Access context data at the beginning of components

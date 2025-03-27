@@ -158,6 +158,18 @@ production_services
 
 ## Recent Enhancements
 
+### Export Functionality Improvements (April 2025)
+- Enhanced Google Sheets export to use visible columns only
+- Added Google Drive folder selection and creation
+- Fixed async SQLAlchemy issues in export service
+- Implemented Google Sheets authentication detection
+- Added CSV export fallback when Sheets is unauthenticated
+- Modified backend response structure to include folder information
+- Created modular export UI with folder input and relationship toggle
+- Preserved all rows in exports regardless of pagination
+- Enhanced error messaging with more user-friendly feedback
+- Added column name filtering based on visibility state
+
 ### Production Services Improvements (April 2025)
 - Added secondary brand relationship for employing companies
 - Implemented intelligent entity type detection from entity names
@@ -195,19 +207,19 @@ production_services
 
 ## Current Focus
 
-1. **Data Export Enhancement**
-   - Google Sheets export reliability
-   - CSV fallback implementation
+1. **Testing & Quality**
+   - API endpoint test coverage
+   - Entity operation validation
+   - Integration testing for export features
 
-2. **Quality Improvements**
-   - Test coverage expansion
-   - Error handling enhancements
-   - Field validation improvements
+2. **Performance Optimization**
+   - Large dataset handling
+   - Query execution efficiency 
+   - Pagination improvements
 
 3. **UI Refinements**
    - Relationship constraint messaging
    - Mobile responsive adjustments
-   - Large dataset performance
    - Further navigation context improvements
 
 Updated: April 9, 2025

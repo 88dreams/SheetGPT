@@ -2,7 +2,7 @@
 
 ## Overview
 
-This guide provides detailed instructions for using Alembic with the SheetGPT project, particularly when working with the sports database models that have circular dependencies.
+This comprehensive guide provides detailed instructions for using Alembic with the SheetGPT project, particularly when working with complex database models that have circular dependencies.
 
 ## Problem Statement
 
@@ -18,22 +18,13 @@ These circular dependencies cause errors like:
 TypeError: Boolean value of this clause is not defined
 ```
 
-## Solution
+## Solution Tools
 
-We've created a set of tools to handle these issues:
+We've created a set of specialized tools to handle these issues:
 
 1. **Alembic Wrapper Script**: `src/scripts/alembic_wrapper.py` - Bypasses circular dependencies by mocking the sports models
 2. **Database Version Checker**: `src/scripts/check_alembic_status.py` - Checks the current database migration state
 3. **Version Fixer**: `src/scripts/fix_alembic_version.py` - Fixes mismatched revision IDs in the database
-
-## Current Migration State
-
-As of February 2025, the project has the following migrations:
-
-1. `20250221_224338_dd72e89e735e_initial_migration.py` - Initial database schema
-2. `20250225_232614_f626a8bff0f1_add_sports_database_models.py` - Sports database models
-3. `20250227_010000_add_is_admin_field.py` - Added is_admin field to User model
-4. `20250227_034729_12cfdc5c6215_add_missing_fields_to_gamebroadcast_and_.py` - Added fields to GameBroadcast and LeagueExecutive
 
 ## Using the Wrapper Script
 
@@ -68,6 +59,11 @@ python src/scripts/alembic_wrapper.py revision --message "Add new feature" --aut
 ### Docker Environment
 
 When running in a Docker environment, the wrapper script automatically handles the database URL conversion, replacing `db:5432` with `localhost:5432` for local development.
+
+```bash
+# Run migrations in Docker environment
+docker-compose run --rm backend python src/scripts/alembic_wrapper.py upgrade
+```
 
 ## Creating New Migrations
 
@@ -214,4 +210,10 @@ The `fix_alembic_version.py` script:
 3. Add support for more complex migration scenarios
 4. Create a Docker-specific migration script for container environments
 5. Add automated testing for migrations
-6. Implement a rollback mechanism for failed migrations 
+6. Implement a rollback mechanism for failed migrations
+
+## References
+
+- [Alembic Documentation](https://alembic.sqlalchemy.org/en/latest/)
+- [SQLAlchemy Documentation on Circular Dependencies](https://docs.sqlalchemy.org/en/14/orm/self_referential.html)
+- [Database Migration Best Practices](https://docs.sqlalchemy.org/en/14/core/metadata.html)

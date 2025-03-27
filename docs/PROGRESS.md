@@ -13,6 +13,16 @@ SheetGPT integrates AI-powered chat with structured data management and sports d
 
 ## Latest Improvements (April 2025)
 
+### Google Sheets Export Enhancements (April 9)
+
+- Enhanced Google Sheets export with visible columns only functionality
+- Added Google Drive folder selection for export organization
+- Implemented automatic folder creation if target folder doesn't exist
+- Improved error handling with informative user feedback
+- Fixed authentication and SQLAlchemy issues in export service
+- Added CSV export fallback option when Sheets authentication fails
+- Maintained export of all available rows, not just the visible page
+
 ### Database Maintenance Features (April 7-8)
 
 - Implemented step-by-step database maintenance workflow in Settings
@@ -125,20 +135,26 @@ SheetGPT integrates AI-powered chat with structured data management and sports d
 - ✓ Database maintenance workflow and optimization tools
 - ✓ Backup creation and download functionality
 - ✓ Database statistics and analytics dashboard
+- ✓ Google Sheets export functionality and reliability improvements
+- ✓ CSV export fallback implementation
+- ✓ Export to specific Google Drive folders
+- ✓ Export visible columns only feature
 
 ## Current Focus
 
-1. **Data Export & Management**
-   - Google Sheets export reliability
-   - CSV export fallback implementation
-
-2. **Testing & Quality**
+1. **Testing & Quality**
    - API endpoint test coverage
    - Entity operation validation
+   - Integration testing for export features
 
-3. **User Experience**
+2. **User Experience**
    - Field validation improvements
    - Relationship constraint messaging
+   - Mobile responsive adjustments
+
+3. **Performance**
+   - Optimize data loading for large datasets
+   - Implement pagination improvements
 
 ## Next Steps
 

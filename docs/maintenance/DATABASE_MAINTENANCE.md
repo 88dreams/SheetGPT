@@ -164,6 +164,12 @@ We recommend setting up scheduled maintenance tasks:
   python src/scripts/db_management.py stats
   ```
 
+- Export critical data to Google Sheets
+  ```bash
+  # Create a backup of critical entities in Google Drive
+  python src/scripts/export_critical_data.py --folder-name="Database Backups"
+  ```
+
 ### Monthly Tasks
 
 - Run database cleanup
@@ -184,6 +190,12 @@ We recommend setting up scheduled maintenance tasks:
 - Rotate old backups
   ```bash
   python src/scripts/db_management.py rotate-backups --keep=10
+  ```
+
+- Export and archive entity relationships
+  ```bash
+  # Export entity relationship data with full column visibility
+  python src/scripts/export_entity_relationships.py --folder-name="Monthly Archives"
   ```
 
 ### Automation
@@ -215,6 +227,26 @@ python src/scripts/db_management.py backup --name=pre_cleanup
 # Create automatic timestamped backup
 python src/scripts/db_management.py backup
 ```
+
+### Google Sheets Export Backups
+
+For critical entity data, consider using Google Sheets exports as an additional backup method:
+
+```bash
+# Export leagues and teams to Google Sheets
+python src/scripts/export_entity_data.py --entity-type=league --folder-name="Backups"
+python src/scripts/export_entity_data.py --entity-type=team --folder-name="Backups"
+
+# Export broadcast rights with all columns visible
+python src/scripts/export_entity_data.py --entity-type=broadcast_rights --visible-columns=all --folder-name="Backups"
+```
+
+Key benefits of Google Sheets backups:
+- Human-readable format for easy data inspection
+- Cloud storage provides additional backup location
+- Accessible for review without database access
+- Automatic version history through Google Drive
+- Easy sharing with stakeholders for data verification
 
 ### Listing Backups
 

@@ -542,19 +542,61 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
 Content-Type: application/json
 
 {
-    "title": "NFL Teams",
-    "template_name": "sports_teams",
-    "data_id": "123e4567-e89b-12d3-a456-426614174012"
+    "data": [
+        {
+            "name": "Kansas City Chiefs",
+            "city": "Kansas City",
+            "state": "Missouri",
+            "founded_year": 1960
+        },
+        {
+            "name": "San Francisco 49ers",
+            "city": "San Francisco",
+            "state": "California",
+            "founded_year": 1946
+        }
+    ],
+    "sheet_name": "NFL Teams",
+    "visible_columns": ["name", "city", "state", "founded_year"],
+    "format": true,
+    "folder_name": "Sports Database Exports"
 }
 ```
 
 Response (200 OK):
 ```json
 {
-    "spreadsheet_id": "1Xpfp4pRCC-6R_HlnXA7bQqrGbusi6q4gUUG93WJQqio",
-    "title": "NFL Teams",
-    "template": "sports_teams",
-    "url": "https://docs.google.com/spreadsheets/d/1Xpfp4pRCC-6R_HlnXA7bQqrGbusi6q4gUUG93WJQqio/edit"
+    "success": true,
+    "sheet_url": "https://docs.google.com/spreadsheets/d/1Xpfp4pRCC-6R_HlnXA7bQqrGbusi6q4gUUG93WJQqio/edit",
+    "sheet_id": "1Xpfp4pRCC-6R_HlnXA7bQqrGbusi6q4gUUG93WJQqio",
+    "column_count": 4,
+    "row_count": 3,
+    "folder_id": "1Y2Z3456-abcdef",
+    "folder_url": "https://drive.google.com/drive/folders/1Y2Z3456-abcdef"
+}
+```
+
+### 5a. Export with Specific Folder ID
+```http
+POST /api/v1/export/sheets
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+Content-Type: application/json
+
+{
+    "data": [{...}, {...}],
+    "sheet_name": "NFL Teams 2025",
+    "folder_id": "1Y2Z3456-abcdef",
+    "visible_columns": ["name", "city", "state", "founded_year", "league_sport"]
+}
+```
+
+### 5b. Export with CSV Fallback (Authentication Error Response)
+```json
+{
+    "success": true,
+    "format": "csv",
+    "data": "name,city,state,founded_year\nKansas City Chiefs,Kansas City,Missouri,1960\nSan Francisco 49ers,San Francisco,California,1946",
+    "filename": "NFL_Teams_20250326.csv"
 }
 ```
 

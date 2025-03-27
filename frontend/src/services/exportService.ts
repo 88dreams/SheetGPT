@@ -7,6 +7,9 @@ export const exportService = {
 
   getAuthStatus: (): Promise<{ authenticated: boolean }> =>
     request('/export/auth/status', { requiresAuth: true }),
+    
+  getToken: (): Promise<{ token: string }> =>
+    request('/export/auth/token', { requiresAuth: true }),
 
   // Template endpoints
   getTemplates: (): Promise<string[]> => {
@@ -24,15 +27,23 @@ export const exportService = {
   },
 
   // Export endpoints
-  exportToSheets: (dataId: string, templateName: string, title?: string): Promise<any> => {
-    console.log('API: Exporting to sheets with dataId:', dataId, 'template:', templateName, 'title:', title);
+  exportToSheets: (
+    dataId: string, 
+    templateName: string, 
+    title?: string, 
+    folderId?: string, 
+    useDrivePicker: boolean = true
+  ): Promise<any> => {
+    console.log('API: Exporting to sheets with dataId:', dataId, 'template:', templateName, 'title:', title, 'folderId:', folderId);
     // Use a longer timeout for this operation as it can take time due to Google Sheets API
     const options: RequestOptions = {
       method: 'POST',
       body: JSON.stringify({
         data_id: dataId,
         template_name: templateName,
-        title: title || `Exported Data - ${new Date().toLocaleDateString()}`
+        title: title || `Exported Data - ${new Date().toLocaleDateString()}`,
+        folder_id: folderId,
+        use_drive_picker: useDrivePicker
       }),
       requiresAuth: true,
       headers: {
@@ -58,6 +69,41 @@ export const exportService = {
         throw new APIError(
           'There was an issue with the Google Sheets API. Please make sure you have authenticated with Google Sheets and have permission to create spreadsheets.',
           500
+        );
+      }
+      // Pass through the original error
+      throw error;
+    });
+  },
+
+  // Export to CSV file
+  exportToCSV: (
+    dataId: string,
+    fileName?: string
+  ): Promise<{ csvData: string }> => {
+    console.log('API: Exporting to CSV with dataId:', dataId, 'fileName:', fileName);
+    
+    const options: RequestOptions = {
+      method: 'POST',
+      body: JSON.stringify({
+        data_id: dataId,
+        file_name: fileName || `Exported Data - ${new Date().toLocaleDateString()}`
+      }),
+      requiresAuth: true,
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+        'X-Export-Operation': 'true'
+      },
+      timeout: 30000 // 30 seconds
+    };
+    
+    return request('/export/csv', options).catch(error => {
+      console.log('Export to CSV error:', error);
+      if (error.message?.includes('timeout')) {
+        throw new APIError(
+          'The CSV export operation is taking longer than expected.',
+          408
         );
       }
       // Pass through the original error

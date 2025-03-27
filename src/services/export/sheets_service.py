@@ -274,6 +274,7 @@ class GoogleSheetsService:
         title: str, 
         user_id: Optional[Any] = None, 
         folder_name: Optional[str] = None,
+        folder_id: Optional[str] = None,
         use_drive_picker: bool = False
     ) -> Tuple[str, str, Optional[str], Optional[str]]:
         """
@@ -304,18 +305,23 @@ class GoogleSheetsService:
             import random
             from googleapiclient.errors import HttpError
             
-            folder_id = None
+            output_folder_id = None
             folder_url = None
             max_retries = 5
             
             # Handle folder operations based on user preference
-            if use_drive_picker:
+            if folder_id:
+                # Use the provided folder ID directly
+                print(f"DEBUG: Using provided folder ID: {folder_id}")
+                output_folder_id = folder_id
+                folder_url = f"https://drive.google.com/drive/folders/{folder_id}"
+            elif use_drive_picker:
                 # For Google Drive picker implementation, we'll return special URLs that
                 # the frontend can use to trigger the Google Drive picker
                 print(f"DEBUG: Using Google Drive picker for folder selection")
                 # We'll let the actual file creation happen first, then we can move it
                 # to the selected folder via a separate API call after the picker selection
-                folder_id = "USE_PICKER"
+                output_folder_id = "USE_PICKER"
                 folder_url = "https://drive.google.com/drive/my-drive?picker=true"
             elif folder_name:
                 # Traditional folder name approach
@@ -333,8 +339,8 @@ class GoogleSheetsService:
                             
                             if items:
                                 # Use the first matching folder
-                                folder_id = items[0]['id']
-                                print(f"DEBUG: Found existing folder with ID: {folder_id}")
+                                output_folder_id = items[0]['id']
+                                print(f"DEBUG: Found existing folder with ID: {output_folder_id}")
                                 break
                             else:
                                 # Create a new folder with retry logic
@@ -343,8 +349,8 @@ class GoogleSheetsService:
                                     'mimeType': 'application/vnd.google-apps.folder'
                                 }
                                 folder = drive_service.files().create(body=folder_metadata, fields='id').execute()
-                                folder_id = folder.get('id')
-                                print(f"DEBUG: Created new folder with ID: {folder_id}")
+                                output_folder_id = folder.get('id')
+                                print(f"DEBUG: Created new folder with ID: {output_folder_id}")
                                 break
                         except HttpError as error:
                             if error.resp.status == 429 and retry < max_retries - 1:
@@ -357,8 +363,8 @@ class GoogleSheetsService:
                                 # Continue without folder if there's an error
                                 break
                     
-                    if folder_id:
-                        folder_url = f"https://drive.google.com/drive/folders/{folder_id}"
+                    if output_folder_id:
+                        folder_url = f"https://drive.google.com/drive/folders/{output_folder_id}"
                         print(f"DEBUG: Folder URL: {folder_url}")
                 except Exception as folder_error:
                     print(f"DEBUG: Error creating/accessing folder: {str(folder_error)}")
@@ -396,7 +402,7 @@ class GoogleSheetsService:
                 raise HTTPException(status_code=429, detail="Rate limit exceeded when creating spreadsheet")
             
             # If we have a folder ID, move the spreadsheet to that folder with retry logic
-            if folder_id:
+            if output_folder_id:
                 try:
                     # Build the Drive service if not already built
                     if 'drive_service' not in locals():
@@ -408,10 +414,10 @@ class GoogleSheetsService:
                         try:
                             drive_service.files().update(
                                 fileId=spreadsheet_id,
-                                addParents=folder_id,
+                                addParents=output_folder_id,
                                 fields='id, parents'
                             ).execute()
-                            print(f"DEBUG: Moved spreadsheet to folder: {folder_id}")
+                            print(f"DEBUG: Moved spreadsheet to folder: {output_folder_id}")
                             break
                         except HttpError as error:
                             if error.resp.status == 429 and retry < max_retries - 1:
@@ -427,7 +433,7 @@ class GoogleSheetsService:
                     print(f"DEBUG: Error moving spreadsheet to folder: {str(move_error)}")
                     # Continue even if move fails
             
-            return spreadsheet_id, spreadsheet_url, folder_id, folder_url
+            return spreadsheet_id, spreadsheet_url, output_folder_id, folder_url
         except Exception as e:
             print(f"DEBUG: Error in create_spreadsheet: {str(e)}")
             print(f"DEBUG: Error type: {type(e)}")
@@ -797,7 +803,9 @@ class GoogleSheetsService:
         title: str,
         template_name: str = "default",
         data: Optional[List[List[Any]]] = None,
-        user_id: Optional[Any] = None
+        user_id: Optional[Any] = None,
+        folder_id: Optional[str] = None,
+        use_drive_picker: bool = False
     ) -> Dict[str, Any]:
         """Create a new spreadsheet using a template and optionally populate it with data."""
         if not self.service:
@@ -861,7 +869,13 @@ class GoogleSheetsService:
             
             # Regular spreadsheet creation without pre-populated data
             print(f"DEBUG: Creating spreadsheet with title: {title}")
-            spreadsheet_id, spreadsheet_url = await self.create_spreadsheet(title, user_id)
+            print(f"DEBUG: Using folder_id: {folder_id}, use_drive_picker: {use_drive_picker}")
+            spreadsheet_id, spreadsheet_url, created_folder_id, folder_url = await self.create_spreadsheet(
+                title=title, 
+                user_id=user_id,
+                folder_id=folder_id,
+                use_drive_picker=use_drive_picker
+            )
             print(f"DEBUG: Created spreadsheet with ID: {spreadsheet_id}")
             
             # Get the spreadsheet URL

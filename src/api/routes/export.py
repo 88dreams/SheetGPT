@@ -19,6 +19,8 @@ class SpreadsheetCreate(BaseModel):
     template_name: Optional[str] = "default"
     data: Optional[List[List[Any]]] = None
     data_id: Optional[UUID] = None
+    folder_id: Optional[str] = None
+    use_drive_picker: Optional[bool] = False
 
 class SpreadsheetUpdate(BaseModel):
     """Schema for updating spreadsheet data."""
@@ -97,6 +99,32 @@ async def check_auth_status() -> Dict[str, bool]:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to check authorization status: {str(e)}"
+        )
+
+@router.get("/auth/token")
+async def get_auth_token() -> Dict[str, str]:
+    """Get the OAuth access token for Google APIs."""
+    try:
+        # Ensure we're using the most recent token
+        is_authorized = await sheets_service.initialize_from_token(
+            token_path=sheets_config.TOKEN_PATH
+        )
+        
+        if not is_authorized or not sheets_service.credentials:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Not authorized with Google Sheets. Please authenticate first."
+            )
+            
+        # Return the access token for use with Google Drive Picker
+        return {"token": sheets_service.credentials.token}
+    except Exception as e:
+        print(f"DEBUG: Error getting auth token: {str(e)}")
+        import traceback
+        print(f"DEBUG: Traceback: {traceback.format_exc()}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to get auth token: {str(e)}"
         )
 
 @router.get("/preview/{data_id}")
@@ -211,6 +239,121 @@ async def get_export_preview(
             detail=str(e)
         )
 
+@router.post("/csv", response_model=Dict[str, Any])
+async def export_to_csv(
+    data: SpreadsheetCreate,
+    user_id: UUID = Depends(get_current_user_id),
+    db: AsyncSession = Depends(get_db)
+) -> Dict[str, Any]:
+    """Export data to CSV format for download."""
+    try:
+        print(f"DEBUG: CSV export for data_id {data.data_id}")
+        
+        # If data_id is provided, fetch and format the data
+        if data.data_id:
+            data_service = DataManagementService(db)
+            structured_data = await data_service.get_data_by_id(data.data_id, user_id)
+            columns = await data_service.get_columns(data.data_id, user_id)
+            
+            print(f"DEBUG: Got structured data with type: {structured_data.data_type if structured_data else 'No data type'}")
+            
+            # Get active columns in correct order
+            active_columns = sorted(
+                [col for col in columns if col.is_active],
+                key=lambda x: x.order
+            )
+            
+            # Prepare data for export
+            if active_columns:
+                column_names = [col.name for col in active_columns]
+            else:
+                headers_from_data = structured_data.data.get("headers", [])
+                column_names = headers_from_data if headers_from_data else []
+                
+            # Get data rows
+            rows = structured_data.data.get("rows", [])
+            
+            # If we have rows that are dictionaries, use their keys as column names if needed
+            if not column_names and rows and isinstance(rows, list) and len(rows) > 0 and isinstance(rows[0], dict):
+                column_names = list(rows[0].keys())
+            
+            # Create CSV content
+            import csv
+            import io
+            
+            output = io.StringIO()
+            csv_writer = csv.writer(output)
+            
+            # Write header row
+            csv_writer.writerow(column_names)
+            
+            # Write data rows
+            if rows and isinstance(rows, list):
+                # If rows is a list of dictionaries (objects)
+                if rows and isinstance(rows[0], dict):
+                    for row in rows:
+                        export_row = []
+                        for col_name in column_names:
+                            value = row.get(col_name, "")
+                            # Convert any non-primitive values to strings
+                            if isinstance(value, (dict, list, tuple)):
+                                value = str(value)
+                            export_row.append(value)
+                        csv_writer.writerow(export_row)
+                        
+                # If rows is a list of lists (2D array)
+                elif rows and isinstance(rows[0], list):
+                    # If we have headers from data, use them directly
+                    if not active_columns and headers_from_data:
+                        for row in rows:
+                            csv_writer.writerow(row)
+                    else:
+                        # Map data based on column indices
+                        for row in rows:
+                            export_row = []
+                            for i, col_name in enumerate(column_names):
+                                if i < len(row):
+                                    value = row[i]
+                                    # Convert any non-primitive values to strings
+                                    if isinstance(value, (dict, list, tuple)):
+                                        value = str(value)
+                                    export_row.append(value)
+                                else:
+                                    export_row.append("")
+                            csv_writer.writerow(export_row)
+                
+                # Handle primitive value rows (strings, numbers)
+                elif rows and isinstance(rows[0], (str, int, float, bool)):
+                    for value in rows:
+                        csv_writer.writerow([value])
+                        
+                else:
+                    # Try to convert each element to a string and create a single-column row
+                    for item in rows:
+                        csv_writer.writerow([str(item)])
+            
+            # Get the CSV content as a string
+            csv_content = output.getvalue()
+            output.close()
+            
+            return {
+                "csvData": csv_content,
+                "fileName": f"{data.title or 'export'}.csv"
+            }
+        else:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="No data_id provided"
+            )
+    except Exception as e:
+        print(f"DEBUG: Error in CSV export: {str(e)}")
+        import traceback
+        print(f"DEBUG: Traceback: {traceback.format_exc()}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e)
+        )
+
 @router.post("/sheets", response_model=Dict[str, Any])
 async def create_spreadsheet(
     data: SpreadsheetCreate,
@@ -219,6 +362,8 @@ async def create_spreadsheet(
 ) -> Dict[str, Any]:
     """Create a new spreadsheet with structured data."""
     try:
+        print(f"DEBUG: Spreadsheet create parameters: title={data.title}, template={data.template_name}, folder_id={data.folder_id}, use_drive_picker={data.use_drive_picker}")
+        
         # If data_id is provided, fetch and format the data
         if data.data_id:
             print(f"DEBUG: Creating spreadsheet for data_id {data.data_id}")
@@ -464,7 +609,10 @@ async def create_spreadsheet(
             result = await sheets_service.create_spreadsheet_with_template(
                 title=data.title or "Exported Data",
                 template_name=data.template_name,
-                data=export_data
+                data=export_data,
+                user_id=user_id,
+                folder_id=data.folder_id,
+                use_drive_picker=data.use_drive_picker
             )
 
             print(f"DEBUG: Spreadsheet creation result: {result}")

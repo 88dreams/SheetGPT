@@ -5,6 +5,50 @@
     <link rel="icon" type="image/svg+xml" href="/vite.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>SheetGPT</title>
+    <!-- Google API scripts for Drive Picker integration -->
+    <script src="https://apis.google.com/js/api.js"></script>
+    <script src="https://apis.google.com/js/platform.js"></script>
+    <script>
+      // Initialize Google API
+      window.googleApiLoaded = false;
+      window.onGoogleApiLoad = function() {
+        window.googleApiLoaded = true;
+        console.log('Google API loaded successfully');
+      };
+      
+      // Load Google API with proper scopes
+      function loadGoogleApi() {
+        if (typeof gapi !== 'undefined') {
+          // Load the picker API
+          gapi.load('picker', {
+            callback: function() {
+              console.log('Picker API loaded successfully');
+              
+              // Also load auth for safety
+              gapi.load('auth', {
+                callback: function() {
+                  console.log('Auth API loaded successfully');
+                  window.onGoogleApiLoad();
+                }
+              });
+            },
+            onerror: function() {
+              console.error('Failed to load Google Picker API');
+            }
+          });
+        } else {
+          // If not loaded yet, retry after 1 second
+          console.log('gapi not defined yet, retrying in 1s');
+          setTimeout(loadGoogleApi, 1000);
+        }
+      }
+      
+      // Wait for DOM to be ready and start loading Google API
+      document.addEventListener('DOMContentLoaded', function() {
+        console.log('DOM loaded, starting Google API load');
+        loadGoogleApi();
+      });
+    </script>
   </head>
   <body>
     <div id="root"></div>

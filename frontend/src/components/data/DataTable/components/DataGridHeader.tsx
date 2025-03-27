@@ -81,7 +81,7 @@ const DataGridHeader: React.FC<DataGridHeaderProps> = ({
           className="px-2 py-1 text-xs rounded flex items-center bg-green-600 text-white hover:bg-green-700"
         >
           <FaFileExport className="mr-1" size={12} />
-          Sheets
+          Export
         </button>
       </div>
     </div>

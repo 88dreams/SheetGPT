@@ -22,7 +22,7 @@ const DataToolbar: React.FC<DataToolbarProps> = ({ selectedDataId }) => {
           disabled={!selectedDataId}
           className="px-3 py-1 text-sm bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          Export to Sheets
+          Export Data
         </button>
       </div>
 

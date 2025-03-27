@@ -1,4 +1,6 @@
 from sqlalchemy.orm import Session
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 from typing import List, Dict, Any, Optional, Tuple
 from uuid import UUID
 import logging
@@ -6,6 +8,7 @@ import json
 
 from src.services.sports_service import SportsService
 from src.services.export.sheets_service import GoogleSheetsService as SheetsService
+from src.config.sheets_config import GoogleSheetsConfig
 from src.models.sports_models import (
     League, Team, Player, Game, Stadium, 
     BroadcastCompany, BroadcastRights, 
@@ -21,24 +24,45 @@ class ExportService:
     def __init__(self):
         self.sports_service = SportsService()
         self.sheets_service = SheetsService()
+        self.sheets_config = GoogleSheetsConfig()
 
     async def export_sports_entities(
         self, 
-        db: Session, 
+        db: AsyncSession, 
         entity_type: str, 
         entity_ids: List[UUID],
         include_relationships: bool,
-        user_id: UUID
+        user_id: UUID,
+        visible_columns: Optional[List[str]] = None,
+        target_folder: Optional[str] = None
     ) -> Dict[str, Any]:
         """Export sports entities to Google Sheets."""
+        # Initialize Google Sheets service
+        is_initialized = await self.sheets_service.initialize_from_token(
+            token_path=self.sheets_config.TOKEN_PATH
+        )
+        
+        if not is_initialized:
+            # Let's export as CSV instead since Google Sheets is not authenticated
+            return {
+                "csv_export": True,
+                "status": "error",
+                "message": "Google Sheets service is not initialized. Please authenticate with Google Sheets first.",
+                "entity_type": entity_type,
+                "entity_count": len(entity_ids)
+            }
+        
         # Get the entity model class
         if entity_type not in self.sports_service.ENTITY_TYPES:
             raise ValueError(f"Invalid entity type: {entity_type}")
         
         model = self.sports_service.ENTITY_TYPES[entity_type]
         
-        # Query the entities
-        entities = db.query(model).filter(model.id.in_(entity_ids)).all()
+        # Query the entities - using async SQLAlchemy
+        stmt = select(model).where(model.id.in_(entity_ids))
+        result = await db.execute(stmt)
+        entities = result.scalars().all()
+        
         if not entities:
             raise ValueError(f"No {entity_type} found with the provided IDs")
         
@@ -47,17 +71,18 @@ class ExportService:
         
         # Include relationships if requested
         if include_relationships:
-            entity_dicts = self._include_relationships(db, entity_type, entity_dicts, entities)
+            entity_dicts = await self._include_relationships(db, entity_type, entity_dicts, entities)
         
         # Create a Google Sheet
         sheet_title = f"{entity_type.capitalize()} Export"
-        spreadsheet_id, spreadsheet_url = await self.sheets_service.create_spreadsheet(
+        spreadsheet_id, spreadsheet_url, folder_id, folder_url = await self.sheets_service.create_spreadsheet(
             sheet_title, 
-            user_id
+            user_id,
+            target_folder  # Pass the target folder name
         )
         
-        # Format the data for the sheet
-        headers, rows = self._format_for_sheet(entity_dicts)
+        # Format the data for the sheet with visible columns
+        headers, rows = self._format_for_sheet(entity_dicts, visible_columns)
         
         # Write data to the sheet
         await self.sheets_service.write_to_sheet(
@@ -78,7 +103,9 @@ class ExportService:
         return {
             "spreadsheet_id": spreadsheet_id,
             "spreadsheet_url": spreadsheet_url,
-            "entity_count": len(entities)
+            "entity_count": len(entities),
+            "folder_id": folder_id,
+            "folder_url": folder_url
         }
     
     def _entity_to_dict(self, entity: Any) -> Dict[str, Any]:
@@ -96,9 +123,9 @@ class ExportService:
             result[column.name] = value
         return result
     
-    def _include_relationships(
+    async def _include_relationships(
         self, 
-        db: Session, 
+        db: AsyncSession, 
         entity_type: str, 
         entity_dicts: List[Dict[str, Any]], 
         entities: List[Any]
@@ -129,7 +156,11 @@ class ExportService:
         
         return entity_dicts
     
-    def _format_for_sheet(self, entity_dicts: List[Dict[str, Any]]) -> Tuple[List[str], List[List[Any]]]:
+    def _format_for_sheet(
+        self, 
+        entity_dicts: List[Dict[str, Any]], 
+        visible_columns: Optional[List[str]] = None
+    ) -> Tuple[List[str], List[List[Any]]]:
         """Format entity dictionaries for Google Sheets."""
         if not entity_dicts:
             return [], []
@@ -139,8 +170,16 @@ class ExportService:
         for entity_dict in entity_dicts:
             all_keys.update(entity_dict.keys())
         
-        # Sort keys for consistent output
-        headers = sorted(list(all_keys))
+        # Use visible columns if provided, otherwise use all keys
+        if visible_columns and len(visible_columns) > 0:
+            # Filter to include only valid columns that exist in the data
+            headers = [col for col in visible_columns if col in all_keys]
+            # Add id column if not already included (always include ID)
+            if 'id' not in headers:
+                headers.insert(0, 'id')
+        else:
+            # Sort keys for consistent output
+            headers = sorted(list(all_keys))
         
         # Create rows
         rows = []

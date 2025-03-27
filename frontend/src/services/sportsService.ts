@@ -478,7 +478,13 @@ export const sportsService = {
     }),
     
   // Export endpoint
-  exportEntities: (data: { entity_type: string, entity_ids: string[], include_relationships: boolean }): Promise<any> =>
+  exportEntities: (data: { 
+    entity_type: string, 
+    entity_ids: string[], 
+    include_relationships: boolean,
+    visible_columns?: string[],
+    target_folder?: string
+  }): Promise<any> =>
     request('/sports/export', {
       method: 'POST',
       body: JSON.stringify(data),

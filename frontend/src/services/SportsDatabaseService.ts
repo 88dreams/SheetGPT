@@ -267,6 +267,30 @@ class SportsDatabaseService {
       'Authorization': `Bearer ${token}`
     };
   }
+  
+  /**
+   * Export entities to Google Sheets
+   */
+  async exportEntities(
+    entityType: EntityType,
+    entityIds: string[],
+    includeRelationships: boolean = false,
+    visibleColumns?: string[],
+    targetFolder?: string
+  ): Promise<any> {
+    try {
+      return await api.sports.exportEntities({
+        entity_type: entityType,
+        entity_ids: entityIds,
+        include_relationships: includeRelationships,
+        visible_columns: visibleColumns || [],
+        target_folder: targetFolder
+      });
+    } catch (error) {
+      console.error(`Error exporting ${entityType} entities:`, error);
+      throw error;
+    }
+  }
 
   /**
    * Get the prompt template for a specific entity type

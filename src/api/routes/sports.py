@@ -1339,5 +1339,7 @@ async def export_entities(
         export_request.entity_type,
         export_request.entity_ids,
         export_request.include_relationships,
-        current_user["id"]
+        current_user["id"],
+        export_request.visible_columns,
+        export_request.target_folder
     ) 

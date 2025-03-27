@@ -169,8 +169,27 @@ class GoogleSheetsService:
                 detail=f"Failed to create spreadsheet with data: {str(e)}"
             )
 
-    async def create_spreadsheet(self, title: str, user_id: Optional[Any] = None) -> Tuple[str, str]:
-        """Create a new spreadsheet and return its ID and URL."""
+    async def create_spreadsheet(
+        self, 
+        title: str, 
+        user_id: Optional[Any] = None, 
+        folder_name: Optional[str] = None
+    ) -> Tuple[str, str, Optional[str], Optional[str]]:
+        """
+        Create a new spreadsheet and return its ID and URL.
+        
+        Args:
+            title: The title of the spreadsheet
+            user_id: User ID for tracking
+            folder_name: Optional folder name to create/use in Google Drive
+            
+        Returns:
+            Tuple containing:
+                - spreadsheet_id: The ID of the created spreadsheet
+                - spreadsheet_url: The URL of the created spreadsheet
+                - folder_id: The ID of the folder (if folder_name was provided)
+                - folder_url: The URL of the folder (if folder_name was provided)
+        """
         if not self.service:
             print(f"DEBUG: Service not initialized in create_spreadsheet")
             raise HTTPException(
@@ -179,6 +198,39 @@ class GoogleSheetsService:
             )
             
         try:
+            folder_id = None
+            folder_url = None
+            
+            # If folder name is provided, create or get folder in Drive
+            if folder_name:
+                try:
+                    # Build the Drive service
+                    drive_service = build('drive', 'v3', credentials=self.credentials)
+                    
+                    # Search for the folder first
+                    query = f"name = '{folder_name}' and mimeType = 'application/vnd.google-apps.folder' and trashed = false"
+                    results = drive_service.files().list(q=query, spaces='drive').execute()
+                    items = results.get('files', [])
+                    
+                    if items:
+                        # Use the first matching folder
+                        folder_id = items[0]['id']
+                        print(f"DEBUG: Found existing folder with ID: {folder_id}")
+                    else:
+                        # Create a new folder
+                        folder_metadata = {
+                            'name': folder_name,
+                            'mimeType': 'application/vnd.google-apps.folder'
+                        }
+                        folder = drive_service.files().create(body=folder_metadata, fields='id').execute()
+                        folder_id = folder.get('id')
+                        print(f"DEBUG: Created new folder with ID: {folder_id}")
+                    
+                    folder_url = f"https://drive.google.com/drive/folders/{folder_id}"
+                except Exception as folder_error:
+                    print(f"DEBUG: Error creating/accessing folder: {str(folder_error)}")
+                    # Continue without folder if there's an error
+            
             print(f"DEBUG: Creating spreadsheet with title: {title}")
             spreadsheet = {
                 'properties': {
@@ -192,7 +244,26 @@ class GoogleSheetsService:
             print(f"DEBUG: API response: {response}")
             spreadsheet_id = response['spreadsheetId']
             spreadsheet_url = f"https://docs.google.com/spreadsheets/d/{spreadsheet_id}"
-            return spreadsheet_id, spreadsheet_url
+            
+            # If we have a folder ID, move the spreadsheet to that folder
+            if folder_id:
+                try:
+                    # Build the Drive service if not already built
+                    if 'drive_service' not in locals():
+                        drive_service = build('drive', 'v3', credentials=self.credentials)
+                    
+                    # Add file to the folder
+                    drive_service.files().update(
+                        fileId=spreadsheet_id,
+                        addParents=folder_id,
+                        fields='id, parents'
+                    ).execute()
+                    print(f"DEBUG: Moved spreadsheet to folder: {folder_id}")
+                except Exception as move_error:
+                    print(f"DEBUG: Error moving spreadsheet to folder: {str(move_error)}")
+                    # Continue even if move fails
+            
+            return spreadsheet_id, spreadsheet_url, folder_id, folder_url
         except Exception as e:
             print(f"DEBUG: Error in create_spreadsheet: {str(e)}")
             print(f"DEBUG: Error type: {type(e)}")

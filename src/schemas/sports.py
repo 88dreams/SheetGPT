@@ -528,8 +528,12 @@ class EntityExportRequest(BaseModel):
     entity_type: str
     entity_ids: List[UUID]
     include_relationships: bool = False
+    visible_columns: Optional[List[str]] = None
+    target_folder: Optional[str] = None
 
 class EntityExportResponse(BaseModel):
     spreadsheet_id: str
     spreadsheet_url: str
-    entity_count: int 
+    entity_count: int
+    folder_id: Optional[str] = None
+    folder_url: Optional[str] = None 

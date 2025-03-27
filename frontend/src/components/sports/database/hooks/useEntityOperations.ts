@@ -17,7 +17,11 @@ export function useEntityOperations(
   const [includeRelationships, setIncludeRelationships] = useState(false);
 
   // Handle export to Google Sheets
-  const handleExportToSheets = useCallback(async (allEntities: Record<string, unknown>[]) => {
+  const handleExportToSheets = useCallback(async (
+    allEntities: Record<string, unknown>[],
+    visibleColumns?: string[],
+    folderName?: string
+  ) => {
     try {
       setIsExporting(true);
       
@@ -25,6 +29,7 @@ export function useEntityOperations(
       const selectedIds = getSelectedEntityIds();
       
       // Determine which entities to export (selected or all)
+      // We always export ALL available entities, not just the ones visible on the current page
       const entitiesToExport = selectedIds.length > 0
         ? entities.filter(entity => selectedIds.includes(entity.id as string))
         : allEntities;
@@ -35,29 +40,24 @@ export function useEntityOperations(
         return;
       }
 
-      // Use the API endpoint for exporting
-      const result = await fetch(`/api/v1/sports/export`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          entity_type: entityType,
-          entity_ids: entitiesToExport.map(entity => entity.id),
-          include_relationships: includeRelationships
-        }),
-      });
-
-      if (!result.ok) {
-        throw new Error(`Export failed: ${result.statusText}`);
-      }
-
-      const data = await result.json();
+      // Use the SportsDatabaseService for exporting
+      const data = await SportsDatabaseService.exportEntities(
+        entityType,
+        entitiesToExport.map(entity => entity.id as string),
+        includeRelationships,
+        visibleColumns,  // Pass visible columns to the export service
+        folderName       // Pass target folder name if provided
+      );
+      
       showNotification('success', 'Export successful!');
       
-      // If there's a URL in the response, open it
-      if (data.url) {
-        window.open(data.url, '_blank');
+      // Handle different response types
+      if (data.csv_export) {
+        // Google Sheets export failed, show a message about authentication
+        showNotification('info', `${data.message} Please authenticate with Google Sheets.`);
+      } else if (data.spreadsheet_url) {
+        // If there's a URL in the response, open it
+        window.open(data.spreadsheet_url, '_blank');
       }
     } catch (error) {
       console.error('Error exporting to Google Sheets:', error);

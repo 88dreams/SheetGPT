@@ -41,6 +41,8 @@ const EntityList: React.FC<EntityListProps> = ({ className = '' }) => {
   const [isEditModalVisible, setIsEditModalVisible] = useState(false);
   const [isBulkEditModalVisible, setIsBulkEditModalVisible] = useState(false);
   const [includeRelationships, setIncludeRelationships] = useState(false);
+  const [showExportDialog, setShowExportDialog] = useState(false);
+  const [exportFolder, setExportFolder] = useState('');
 
   // Get context data first
   const {
@@ -615,8 +617,8 @@ const EntityList: React.FC<EntityListProps> = ({ className = '' }) => {
           <div className="flex space-x-1">
             <button
               onClick={() => {
-                // Use the handle function from context
-                handleExportToSheets(entities as any[]);
+                // Show folder selection dialog first
+                setShowExportDialog(true);
               }}
               className="px-2 py-1 text-sm font-medium rounded flex items-center bg-green-600 hover:bg-green-700 text-white"
             >
@@ -1169,6 +1171,71 @@ const EntityList: React.FC<EntityListProps> = ({ className = '' }) => {
           deselectAllEntities();
         }}
       />
+      
+      {/* Export Dialog */}
+      {showExportDialog && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 w-96">
+            <h3 className="text-lg font-semibold mb-4">Export to Google Sheets</h3>
+            
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Google Drive Folder (Optional)
+              </label>
+              <input
+                type="text"
+                value={exportFolder}
+                onChange={(e) => setExportFolder(e.target.value)}
+                placeholder="Enter folder name"
+                className="w-full p-2 border border-gray-300 rounded"
+              />
+              <p className="text-xs text-gray-500 mt-1">
+                If the folder doesn't exist, it will be created
+              </p>
+            </div>
+            
+            <div className="mb-4">
+              <label className="flex items-center">
+                <input
+                  type="checkbox"
+                  checked={includeRelationships}
+                  onChange={(e) => setIncludeRelationships(e.target.checked)}
+                  className="mr-2"
+                />
+                <span className="text-sm">Include relationships</span>
+              </label>
+            </div>
+            
+            <div className="flex justify-end space-x-2">
+              <button
+                onClick={() => setShowExportDialog(false)}
+                className="px-4 py-2 text-sm text-gray-600 hover:text-gray-800"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => {
+                  setShowExportDialog(false);
+                  // Get visible column names
+                  const visibleColumnNames = columnOrder.filter(col => 
+                    visibleColumns[col] !== false && entities[0]?.hasOwnProperty(col)
+                  );
+                  
+                  // Call export with visible columns and folder
+                  handleExportToSheets(
+                    entities as any[],
+                    visibleColumnNames,
+                    exportFolder.trim() || undefined
+                  );
+                }}
+                className="px-4 py-2 text-sm font-medium bg-green-600 text-white rounded hover:bg-green-700"
+              >
+                Export
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

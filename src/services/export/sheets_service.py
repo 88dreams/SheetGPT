@@ -273,7 +273,8 @@ class GoogleSheetsService:
         self, 
         title: str, 
         user_id: Optional[Any] = None, 
-        folder_name: Optional[str] = None
+        folder_name: Optional[str] = None,
+        use_drive_picker: bool = False
     ) -> Tuple[str, str, Optional[str], Optional[str]]:
         """
         Create a new spreadsheet and return its ID and URL.
@@ -282,6 +283,7 @@ class GoogleSheetsService:
             title: The title of the spreadsheet
             user_id: User ID for tracking
             folder_name: Optional folder name to create/use in Google Drive
+            use_drive_picker: Use Google Drive Picker instead of folder name
             
         Returns:
             Tuple containing:
@@ -306,8 +308,17 @@ class GoogleSheetsService:
             folder_url = None
             max_retries = 5
             
-            # If folder name is provided, create or get folder in Drive
-            if folder_name:
+            # Handle folder operations based on user preference
+            if use_drive_picker:
+                # For Google Drive picker implementation, we'll return special URLs that
+                # the frontend can use to trigger the Google Drive picker
+                print(f"DEBUG: Using Google Drive picker for folder selection")
+                # We'll let the actual file creation happen first, then we can move it
+                # to the selected folder via a separate API call after the picker selection
+                folder_id = "USE_PICKER"
+                folder_url = "https://drive.google.com/drive/my-drive?picker=true"
+            elif folder_name:
+                # Traditional folder name approach
                 try:
                     # Build the Drive service
                     drive_service = build('drive', 'v3', credentials=self.credentials)

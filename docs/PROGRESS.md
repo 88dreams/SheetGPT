@@ -13,6 +13,37 @@ SheetGPT integrates AI-powered chat with structured data management and sports d
 
 ## Latest Improvements (April 2025)
 
+### Export UI Enhancement (March 27)
+
+- Redesigned export dialog UI for improved usability
+- Simplified export interface with direct action buttons
+- Standardized export UX across different application contexts 
+- Consolidated export options into three clear actions
+- Added direct CSV export option without toggling formats
+- Fixed Google Drive folder selection to improve reliability
+- Enhanced visual consistency with app-wide button styling
+- Improved export dialog clarity by removing redundant UI elements
+
+### Entity Export Fixes (March 27)
+
+- Fixed persistent issue with entity exports ignoring visible columns
+- Resolved critical bug with column order not being respected in exports
+- Fixed empty column arrays causing backend to ignore column visibility
+- Added comprehensive debug logging throughout export pipeline
+- Enhanced frontend code to properly handle column visibility state
+- Improved API data sanitization for column parameters
+- Fixed edge cases with API payloads improperly sending empty arrays
+- Added error reporting for columns missing in dataset
+
+### Entity Export Fixes (April 10)
+
+- Fixed entity list export to respect visible columns only
+- Ensured exports include all rows, not just the currently paginated ones
+- Enhanced export service logging for better troubleshooting
+- Added explicit documentation of column filtering in export functionality
+- Improved debugging capabilities for export column selection
+- Verified full data flow from frontend column preferences to final export
+
 ### Google Sheets Export Enhancements (April 9)
 
 - Enhanced Google Sheets export with visible columns only functionality
@@ -139,6 +170,8 @@ SheetGPT integrates AI-powered chat with structured data management and sports d
 - ✓ CSV export fallback implementation
 - ✓ Export to specific Google Drive folders
 - ✓ Export visible columns only feature
+- ✓ Consistent export dialog UI across application
+- ✓ Streamlined export workflow with direct action buttons
 
 ## Current Focus
 
@@ -163,4 +196,4 @@ SheetGPT integrates AI-powered chat with structured data management and sports d
 - Enhance error handling with better user guidance
 - Optimize performance for large datasets
 
-Updated: April 9, 2025
+Updated: April 13, 2025

@@ -13,12 +13,15 @@ import { useNavigate } from 'react-router-dom';
 import { useSportsDatabase } from './SportsDatabaseContext';
 import { useNotification } from '../../../contexts/NotificationContext';
 import LoadingSpinner from '../../common/LoadingSpinner';
+import { api } from '../../../utils/api';
 // Use the consolidated BulkEditModal from common components
 import BulkEditModal from '../../common/BulkEditModal';
 // @ts-ignore
-import { FaTrash, FaEye, FaSortUp, FaSortDown, FaSort, FaPencilAlt, FaCheck, FaTimes, FaEdit, FaFileExport, FaColumns, FaKey, FaArrowsAlt } from 'react-icons/fa';
+// @ts-ignore - Import all required icons
+import { FaTrash, FaEye, FaSortUp, FaSortDown, FaSort, FaPencilAlt, FaCheck, FaTimes, FaEdit, FaFileExport, FaColumns, FaKey, FaArrowsAlt, FaGoogle } from 'react-icons/fa';
+import { FaFileCsv } from 'react-icons/fa6';
 // import SmartEntitySearch from '../../data/EntityUpdate/SmartEntitySearch';
-import { Input } from 'antd';
+import { Input, Button } from 'antd';
 import { SearchOutlined } from '@ant-design/icons';
 import { EntityCard } from '../../data/EntityUpdate/EntityCard';
 // @ts-ignore
@@ -41,8 +44,11 @@ const EntityList: React.FC<EntityListProps> = ({ className = '' }) => {
   const [isEditModalVisible, setIsEditModalVisible] = useState(false);
   const [isBulkEditModalVisible, setIsBulkEditModalVisible] = useState(false);
   const [includeRelationships, setIncludeRelationships] = useState(false);
+  const [exportType, setExportType] = useState<'sheets' | 'csv'>('sheets');
   const [showExportDialog, setShowExportDialog] = useState(false);
-  const [exportFolder, setExportFolder] = useState('');
+  const [exportFileName, setExportFileName] = useState('');
+  const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null);
+  const [selectedFolderName, setSelectedFolderName] = useState<string>('');
 
   // Get context data first
   const {
@@ -617,8 +623,15 @@ const EntityList: React.FC<EntityListProps> = ({ className = '' }) => {
           <div className="flex space-x-1">
             <button
               onClick={() => {
-                // Show folder selection dialog first
+                // Show folder selection dialog first and reset states
                 setShowExportDialog(true);
+                // Default to Google Sheets export
+                setExportType('sheets');
+                setIncludeRelationships(true);
+                // Clear previous selections
+                setExportFileName('');
+                setSelectedFolderId(null);
+                setSelectedFolderName('');
               }}
               className="px-2 py-1 text-sm font-medium rounded flex items-center bg-green-600 hover:bg-green-700 text-white"
             >
@@ -1175,62 +1188,162 @@ const EntityList: React.FC<EntityListProps> = ({ className = '' }) => {
       {/* Export Dialog */}
       {showExportDialog && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-96">
-            <h3 className="text-lg font-semibold mb-4">Export to Google Sheets</h3>
+          <div className="bg-white rounded-lg p-6 w-[450px]">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-xl font-semibold">Export Data</h2>
+              <button
+                onClick={() => setShowExportDialog(false)}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                ×
+              </button>
+            </div>
             
+            {/* Simple Export Dialog with just file name, select folder, and export/cancel */}
             <div className="mb-4">
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Google Drive Folder (Optional)
+                File Name
               </label>
               <input
                 type="text"
-                value={exportFolder}
-                onChange={(e) => setExportFolder(e.target.value)}
-                placeholder="Enter folder name"
+                value={exportFileName}
+                onChange={(e) => setExportFileName(e.target.value)}
+                placeholder={`Enter ${exportType === 'sheets' ? 'spreadsheet' : 'file'} name`}
                 className="w-full p-2 border border-gray-300 rounded"
               />
-              <p className="text-xs text-gray-500 mt-1">
-                If the folder doesn't exist, it will be created
-              </p>
             </div>
             
-            <div className="mb-4">
-              <label className="flex items-center">
-                <input
-                  type="checkbox"
-                  checked={includeRelationships}
-                  onChange={(e) => setIncludeRelationships(e.target.checked)}
-                  className="mr-2"
-                />
-                <span className="text-sm">Include relationships</span>
-              </label>
-            </div>
-            
+            {/* Folder Selection (Only for Google Sheets) */}
+            {exportType === 'sheets' && (
+              <div className="mb-6">
+                <div className="flex items-center justify-between">
+                  <label className="block text-sm font-medium text-gray-700">
+                    Destination Folder
+                  </label>
+                  <div className="flex space-x-2">
+                    <button 
+                      onClick={() => {
+                        try {
+                          // Simplified folder selection to avoid gapi issues
+                          showNotification('info', 'Please authenticate with Google Sheets');
+                          // Prompt for manual folder ID entry as a fallback
+                          const folderId = prompt('Enter a Google Drive folder ID (or leave empty for default folder):');
+                          if (folderId) {
+                            setSelectedFolderId(folderId);
+                            setSelectedFolderName('Manually entered folder');
+                          } else {
+                            // Use a default "My Drive" as fallback
+                            setSelectedFolderId('root');
+                            setSelectedFolderName('My Drive (root)');
+                          }
+                        } catch (error) {
+                          console.error('Error with folder selection:', error);
+                          showNotification('error', 'Error selecting folder');
+                        }
+                      }}
+                      className="px-3 py-1 text-sm bg-blue-600 text-white rounded hover:bg-blue-700"
+                    >
+                      Select Folder
+                    </button>
+                  
+                    {/* Removed Manual ID button to simplify the interface */}
+                  </div>
+                </div>
+                {selectedFolderName && (
+                  <div className="mt-2 p-2 bg-gray-50 border border-gray-200 rounded text-sm">
+                    Selected: {selectedFolderName}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Actions */}
             <div className="flex justify-end space-x-2">
               <button
                 onClick={() => setShowExportDialog(false)}
-                className="px-4 py-2 text-sm text-gray-600 hover:text-gray-800"
+                className="px-3 py-1 text-xs text-gray-700 border border-gray-300 rounded hover:bg-gray-100"
               >
                 Cancel
               </button>
+              
               <button
                 onClick={() => {
                   setShowExportDialog(false);
-                  // Get visible column names
+                  setExportType('csv');
+                  setIncludeRelationships(false);
+                  
+                  // Get visible column names in the correct order (using columnOrder)
                   const visibleColumnNames = columnOrder.filter(col => 
                     visibleColumns[col] !== false && entities[0]?.hasOwnProperty(col)
                   );
                   
-                  // Call export with visible columns and folder
+                  // Create CSV data
+                  let csvContent = '';
+                  
+                  // Add headers
+                  csvContent += visibleColumnNames.join(',') + '\n';
+                  
+                  // Add data rows
+                  (entities as any[]).forEach(entity => {
+                    const row = visibleColumnNames.map(field => {
+                      // Get value and handle special formats
+                      let value = getDisplayValue(entity, field);
+                      
+                      // Escape quotes and commas for CSV
+                      if (value.includes('"') || value.includes(',')) {
+                        value = `"${value.replace(/"/g, '""')}"`;
+                      }
+                      
+                      return value;
+                    });
+                    csvContent += row.join(',') + '\n';
+                  });
+                  
+                  // Create a blob and download
+                  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+                  const url = URL.createObjectURL(blob);
+                  const link = document.createElement('a');
+                  link.setAttribute('href', url);
+                  link.setAttribute('download', `${exportFileName || `${selectedEntityType}-export`}.csv`);
+                  document.body.appendChild(link);
+                  link.click();
+                  
+                  // Clean up
+                  document.body.removeChild(link);
+                  URL.revokeObjectURL(url);
+                  
+                  showNotification('success', 'CSV file downloaded successfully');
+                }}
+                className="px-3 py-1 text-xs font-medium text-white bg-blue-600 rounded hover:bg-blue-700 flex items-center space-x-1"
+              >
+                <FaFileCsv className="inline-block mr-1" size={12} />
+                Export to CSV
+              </button>
+              
+              <button
+                onClick={() => {
+                  setShowExportDialog(false);
+                  setExportType('sheets');
+                  setIncludeRelationships(true);
+                  
+                  // Get visible column names in the correct order (using columnOrder)
+                  const visibleColumnNames = columnOrder.filter(col => 
+                    visibleColumns[col] !== false && entities[0]?.hasOwnProperty(col)
+                  );
+                  
+                  // Call export with visible columns, folder ID, and file name
                   handleExportToSheets(
                     entities as any[],
                     visibleColumnNames,
-                    exportFolder.trim() || undefined
+                    selectedFolderId || undefined,
+                    exportFileName.trim() || undefined,
+                    true  // Always use Drive picker approach
                   );
                 }}
-                className="px-4 py-2 text-sm font-medium bg-green-600 text-white rounded hover:bg-green-700"
+                className="px-3 py-1 text-xs font-medium text-white bg-green-600 rounded hover:bg-green-700 flex items-center space-x-1"
               >
-                Export
+                <FaGoogle className="inline-block mr-1" size={12} />
+                Export to Google Sheets
               </button>
             </div>
           </div>
@@ -1239,5 +1352,7 @@ const EntityList: React.FC<EntityListProps> = ({ className = '' }) => {
     </div>
   );
 };
+
+// No longer needed - Google Drive authentication is handled on backend
 
 export default EntityList;

@@ -1334,12 +1334,37 @@ async def export_entities(
     current_user: Dict = Depends(get_current_user)
 ):
     """Export selected entities to Google Sheets."""
+    # Log export request details for debugging
+    print(f"Export request received - entity_type: {export_request.entity_type}")
+    print(f"Export request received - entity_ids count: {len(export_request.entity_ids)}")
+    print(f"Export request received - include_relationships: {export_request.include_relationships}")
+    print(f"Export request received - visible_columns: {export_request.visible_columns}")
+    print(f"Export request received - target_folder: {export_request.target_folder}")
+    print(f"Export request received - file_name: {export_request.file_name}")
+    print(f"Export request received - use_drive_picker: {export_request.use_drive_picker}")
+    
+    # If visible_columns is provided as an empty list, set it to None
+    visible_columns = export_request.visible_columns
+    if visible_columns is not None and len(visible_columns) == 0:
+        print("Visible columns is an empty list, setting to None")
+        visible_columns = None
+    
+    # Ensure we're passing a list of strings if visible_columns is provided
+    if visible_columns is not None:
+        visible_columns = [str(col) for col in visible_columns]
+        print(f"Sanitized visible columns: {visible_columns}")
+    
+    # CRITICAL CHANGE: Always export ALL entities by setting export_all=True
+    # This forces the export_service to query all entities regardless of the entity_ids provided
     return await export_service.export_sports_entities(
         db, 
         export_request.entity_type,
         export_request.entity_ids,
         export_request.include_relationships,
         current_user["id"],
-        export_request.visible_columns,
-        export_request.target_folder
+        visible_columns,
+        export_request.target_folder,
+        export_all=True,  # Force exporting all entities, not just the paginated ones
+        file_name=export_request.file_name,  # Pass the custom file name
+        use_drive_picker=export_request.use_drive_picker  # Pass the option to use Drive picker
     ) 

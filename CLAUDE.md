@@ -300,14 +300,46 @@ For all steps, use a system_metadata table with JSONB type for storing maintenan
 - Implement CSV fallbacks for export functionality when Google Sheets fails
 - Provide alternative formats for data export when APIs fail
 - Always initialize authentication services before attempting export
+- For all export dialogs and interfaces:
+  - CRITICAL: Use standardized export dialog UI with consistent layout:
+    - Clean dialog with clear title ("Export Data")
+    - File name input field at the top of the dialog
+    - For Google Sheets exports, show folder selection option
+    - Place action buttons at the bottom of the dialog
+    - Use three distinct buttons: Cancel, Export to CSV, Export to Google Sheets
+    - Style buttons consistently: small (px-3 py-1 text-xs) with proper colors
+    - Use blue for CSV exports and green for Google Sheets exports
+    - Add small icons to export buttons for visual clarity
+  - Provide direct action buttons rather than format toggles
+  - Maintain consistent styling across different export contexts
+  - Use the same component structure in both export dialog implementations
+
 - For Google Sheets exports:
-  - Always use only currently visible columns to match user expectations
+  - CRITICAL: Always use ONLY currently visible columns to match user expectations
+  - CRITICAL: Preserve EXACT column ordering from the UI (using columnOrder array)
+  - CRITICAL: Export ALL matching rows (not just the paginated/visible ones)
+  - Filter export columns to match exactly what's shown in the UI
   - Support export to specific Google Drive folders with auto-creation
   - Include header rows with human-readable column names
   - Add folder selection dialog for better user experience
   - Handle graceful fallback to CSV when authentication fails
-  - Respect all rows in the entity list, not just visible/paginated rows
   - Apply proper formatting to exported sheets for readability
+- Ensure robust handling of visible columns parameter throughout pipeline:
+  - Add detailed logging at each stage (frontend, API service, export service)
+  - Properly handle empty arrays (convert to null/undefined in API request)
+  - Add sanity checks for column existence in the actual data
+  - Always include ID field even if not in visible columns
+  - Log warnings when requested columns don't exist in data
+  - Handle potential type conversion issues (strings vs objects)
+  - Use conditional checks before accessing array properties
+  - Validate requests with proper debug information
+- For debugging column selection issues:
+  - Add detailed logging of columns at each stage (frontend to backend)
+  - Verify the full data path from UI component to final export service
+  - Maintain traceability between displayed columns and exported columns
+  - Log exact JSON payloads being sent to the API
+  - Track column ordering to ensure it's preserved
+  - Verify that no empty arrays are being sent inappropriately
 - Always validate input/output data structure before processing
 - Ensure type definitions are consistent across the codebase
 - Access context data at the beginning of components
@@ -464,3 +496,8 @@ For all steps, use a system_metadata table with JSONB type for storing maintenan
 - Implement safety checks on generated SQL
 - Allow editing of generated SQL before execution
 - Use separate services for translation and execution
+
+## Development Best Practices
+
+- Whenever any edit is done, the feedback here should always end with explicit instructions on whether docker backend or frontend needs to be restarted and/or rebuilt. Since a rebuild always implies a restart, this can be shortened to: (docker rebuild OR restart (frontend AND/OR backend)) OR NoDocker.
+- Do not automatically update git. Wait until any new code has been shown to work before git is updated.

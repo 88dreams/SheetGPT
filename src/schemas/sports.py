@@ -530,6 +530,10 @@ class EntityExportRequest(BaseModel):
     include_relationships: bool = False
     visible_columns: Optional[List[str]] = None
     target_folder: Optional[str] = None
+    # Add custom filename option
+    file_name: Optional[str] = None
+    # Add option to pick drive folder via picker instead of name
+    use_drive_picker: bool = False
 
 class EntityExportResponse(BaseModel):
     spreadsheet_id: str

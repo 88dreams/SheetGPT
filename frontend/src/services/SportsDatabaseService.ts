@@ -276,15 +276,33 @@ class SportsDatabaseService {
     entityIds: string[],
     includeRelationships: boolean = false,
     visibleColumns?: string[],
-    targetFolder?: string
+    targetFolder?: string,
+    fileName?: string,
+    useDrivePicker: boolean = false
   ): Promise<any> {
     try {
+      console.log(`SportsDatabaseService.exportEntities: Preparing to export ${entityType} entities`);
+      console.log(`SportsDatabaseService.exportEntities: Export options:`, {
+        entityType,
+        entityIds: `${entityIds.length} IDs`,
+        includeRelationships,
+        visibleColumns: visibleColumns ? `${visibleColumns?.length} columns` : 'none',
+        targetFolder: targetFolder || 'none',
+        fileName: fileName || 'default',
+        useDrivePicker
+      });
+      
+      // Ensure we only include non-empty visible columns array
+      const columns = visibleColumns && visibleColumns.length > 0 ? visibleColumns : null;
+      
       return await api.sports.exportEntities({
         entity_type: entityType,
         entity_ids: entityIds,
         include_relationships: includeRelationships,
-        visible_columns: visibleColumns || [],
-        target_folder: targetFolder
+        visible_columns: columns,  // Only send if we have columns
+        target_folder: targetFolder,
+        file_name: fileName,  // Include custom filename
+        use_drive_picker: useDrivePicker  // Include drive picker preference
       });
     } catch (error) {
       console.error(`Error exporting ${entityType} entities:`, error);

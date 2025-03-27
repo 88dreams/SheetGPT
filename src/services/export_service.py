@@ -35,7 +35,9 @@ class ExportService:
         user_id: UUID,
         visible_columns: Optional[List[str]] = None,
         target_folder: Optional[str] = None,
-        export_all: bool = False  # New parameter to force exporting all entities
+        export_all: bool = False,  # New parameter to force exporting all entities
+        file_name: Optional[str] = None,  # New parameter for custom file name
+        use_drive_picker: bool = False  # New parameter to use Drive picker instead of folder name
     ) -> Dict[str, Any]:
         """Export sports entities to Google Sheets."""
         # Log input parameters for debugging
@@ -44,6 +46,8 @@ class ExportService:
         logging.info(f"Export request - include_relationships: {include_relationships}")
         logging.info(f"Export request - target_folder: {target_folder}")
         logging.info(f"Export request - export_all: {export_all}")
+        logging.info(f"Export request - file_name: {file_name}")
+        logging.info(f"Export request - use_drive_picker: {use_drive_picker}")
         
         # Initialize Google Sheets service
         is_initialized = await self.sheets_service.initialize_from_token(
@@ -99,12 +103,18 @@ class ExportService:
         if include_relationships:
             entity_dicts = await self._include_relationships(db, entity_type, entity_dicts, entities)
         
-        # Create a Google Sheet
-        sheet_title = f"{entity_type.capitalize()} Export"
+        # Create a custom sheet title if file_name is provided, otherwise use default
+        sheet_title = file_name if file_name else f"{entity_type.capitalize()} Export"
+        
+        # If using Drive picker, pass None as the target_folder to skip folder creation
+        folder_to_use = None if use_drive_picker else target_folder
+        
+        # Create the spreadsheet with the appropriate title and folder settings
         spreadsheet_id, spreadsheet_url, folder_id, folder_url = await self.sheets_service.create_spreadsheet(
             sheet_title, 
             user_id,
-            target_folder  # Pass the target folder name
+            folder_to_use,  # Either pass the target folder name or None for Drive picker
+            use_drive_picker=use_drive_picker  # Pass the picker flag to the sheets service
         )
         
         # Debug log for any visible columns type issues

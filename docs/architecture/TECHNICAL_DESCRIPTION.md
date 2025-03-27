@@ -165,10 +165,14 @@ production_services
 - Implemented Google Sheets authentication detection
 - Added CSV export fallback when Sheets is unauthenticated
 - Modified backend response structure to include folder information
-- Created modular export UI with folder input and relationship toggle
+- Redesigned export UI with simplified direct action buttons
+- Standardized export dialog across application contexts
+- Eliminated format toggle in favor of direct export actions
 - Preserved all rows in exports regardless of pagination
 - Enhanced error messaging with more user-friendly feedback
 - Added column name filtering based on visibility state
+- Improved button styling with consistent size and color coding
+- Added visual icons to export buttons for better recognition
 
 ### Production Services Improvements (April 2025)
 - Added secondary brand relationship for employing companies
@@ -222,4 +226,4 @@ production_services
    - Mobile responsive adjustments
    - Further navigation context improvements
 
-Updated: April 9, 2025
+Updated: April 10, 2025

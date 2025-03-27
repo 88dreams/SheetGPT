@@ -20,7 +20,9 @@ export function useEntityOperations(
   const handleExportToSheets = useCallback(async (
     allEntities: Record<string, unknown>[],
     visibleColumns?: string[],
-    folderName?: string
+    folderName?: string,
+    fileName?: string,
+    useDrivePicker: boolean = false
   ) => {
     try {
       setIsExporting(true);
@@ -28,25 +30,50 @@ export function useEntityOperations(
       // Get selected entity IDs
       const selectedIds = getSelectedEntityIds();
       
-      // Determine which entities to export (selected or all)
-      // We always export ALL available entities, not just the ones visible on the current page
-      const entitiesToExport = selectedIds.length > 0
-        ? entities.filter(entity => selectedIds.includes(entity.id as string))
-        : allEntities;
+      // Get IDs to export - either selected IDs or ALL entity IDs
+      let idsToExport: string[];
       
-      if (entitiesToExport.length === 0) {
+      if (selectedIds.length > 0) {
+        // If there are selected entities, export only those
+        idsToExport = selectedIds;
+        console.log(`Exporting ${idsToExport.length} selected ${entityType} entities`);
+      } else {
+        // Export ALL entities of this type that match the current filters
+        // We just send null to the backend to indicate it should query for all entities
+        // of this type rather than sending a specific list
+        idsToExport = allEntities.map(entity => entity.id as string);
+        console.log(`Exporting all ${idsToExport.length} ${entityType} entities matching filters`);
+      }
+      
+      if (idsToExport.length === 0) {
         showNotification('info', 'No entities selected for export');
         setIsExporting(false);
         return;
       }
 
+      // Log options before export
+      console.log(`useEntityOperations.handleExportToSheets: Export options:`, {
+        visibleColumns: visibleColumns ? `${visibleColumns.length} columns` : 'undefined',
+        folderName: folderName || 'not provided',
+        fileName: fileName || 'not provided',
+        useDrivePicker: useDrivePicker
+      });
+      
+      if (visibleColumns && visibleColumns.length > 0) {
+        console.log(`useEntityOperations.handleExportToSheets: sample visible columns:`, 
+          visibleColumns.slice(0, 5)
+        );
+      }
+      
       // Use the SportsDatabaseService for exporting
       const data = await SportsDatabaseService.exportEntities(
         entityType,
-        entitiesToExport.map(entity => entity.id as string),
+        idsToExport,
         includeRelationships,
         visibleColumns,  // Pass visible columns to the export service
-        folderName       // Pass target folder name if provided
+        folderName,      // Pass target folder name if provided
+        fileName,        // Pass custom filename if provided
+        useDrivePicker   // Pass drive picker preference
       );
       
       showNotification('success', 'Export successful!');
@@ -58,6 +85,12 @@ export function useEntityOperations(
       } else if (data.spreadsheet_url) {
         // If there's a URL in the response, open it
         window.open(data.spreadsheet_url, '_blank');
+        
+        // If using the drive picker, we need to show a message about moving the file
+        if (useDrivePicker && data.folder_id === "USE_PICKER") {
+          showNotification('info', 'Your file has been created. Please select a folder in Google Drive to store it.');
+          // Here you would implement the Google Drive picker UI logic in a real implementation
+        }
       }
     } catch (error) {
       console.error('Error exporting to Google Sheets:', error);

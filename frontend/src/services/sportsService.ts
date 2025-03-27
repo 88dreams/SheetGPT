@@ -482,14 +482,33 @@ export const sportsService = {
     entity_type: string, 
     entity_ids: string[], 
     include_relationships: boolean,
-    visible_columns?: string[],
-    target_folder?: string
-  }): Promise<any> =>
-    request('/sports/export', {
+    visible_columns?: string[] | null,
+    target_folder?: string,
+    file_name?: string,
+    use_drive_picker?: boolean
+  }): Promise<any> => {
+    console.log("sportsService.exportEntities - Request data:", data);
+    
+    // Clean up the data before sending
+    const requestData = {
+      ...data,
+      // Only include visible_columns if it's not null or empty
+      visible_columns: data.visible_columns && data.visible_columns.length > 0 
+        ? data.visible_columns 
+        : undefined,
+      // Include new fields
+      file_name: data.file_name || undefined,
+      use_drive_picker: data.use_drive_picker || false
+    };
+    
+    console.log("sportsService.exportEntities - Sanitized request data:", requestData);
+    
+    return request('/sports/export', {
       method: 'POST',
-      body: JSON.stringify(data),
+      body: JSON.stringify(requestData),
       requiresAuth: true
-    }),
+    });
+  },
 
   // GameBroadcast endpoints
   getGameBroadcasts: (game_id?: string): Promise<any[]> =>

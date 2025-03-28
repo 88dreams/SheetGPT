@@ -13,16 +13,21 @@ SheetGPT integrates AI-powered chat with structured data management and sports d
 
 ## Latest Improvements (April 2025)
 
-### Export UI Enhancement (March 27)
+### Export UI Enhancement (March 28)
 
 - Redesigned export dialog UI for improved usability
 - Simplified export interface with direct action buttons
 - Standardized export UX across different application contexts 
-- Consolidated export options into three clear actions
-- Added direct CSV export option without toggling formats
-- Fixed Google Drive folder selection to improve reliability
+- Consolidated export options into three clear actions (CSV, Google Sheets, Cancel)
+- Added color-coded buttons for visual differentiation (blue for CSV, green for Google Sheets)
+- Implemented Google Drive Picker API for folder selection
+- Enhanced Google Drive integration with OAuth token retrieval
+- Added client-side CSV generation for direct downloads
+- Streamlined folder selection process to reduce errors
 - Enhanced visual consistency with app-wide button styling
+- Added appropriate icons to action buttons for improved recognition
 - Improved export dialog clarity by removing redundant UI elements
+- Fixed Google API loading issues with robust fallback mechanisms
 
 ### Entity Export Fixes (March 27)
 

@@ -309,10 +309,24 @@ For all steps, use a system_metadata table with JSONB type for storing maintenan
     - Use three distinct buttons: Cancel, Export to CSV, Export to Google Sheets
     - Style buttons consistently: small (px-3 py-1 text-xs) with proper colors
     - Use blue for CSV exports and green for Google Sheets exports
-    - Add small icons to export buttons for visual clarity
+    - Use gray/neutral for Cancel button (border-gray-300)
+    - Add small icons to export buttons (FaFileCsv for CSV, FaGoogle for Google Sheets)
+    - Set icon size to 12px for consistent visual appearance
+    - Include spacing between icon and text (mr-1 for icons)
   - Provide direct action buttons rather than format toggles
+  - Handle button states with proper loading indicators
+  - Implement client-side CSV generation with proper quoting/escaping:
+    - Use columnOrder and visibleColumns to match UI display
+    - Generate proper CSV with header row and all visible data
+    - Properly escape quotes and commas in CSV values
+    - Set correct content-type and filename for downloads
   - Maintain consistent styling across different export contexts
   - Use the same component structure in both export dialog implementations
+  - Implement robust Google Drive folder selection:
+    - Handle Google API loading with appropriate error messages
+    - Use simplified folder selection with manual fallback
+    - Add proper authentication status checking
+    - Implement OAuth token retrieval for Google Drive access
 
 - For Google Sheets exports:
   - CRITICAL: Always use ONLY currently visible columns to match user expectations
@@ -320,10 +334,17 @@ For all steps, use a system_metadata table with JSONB type for storing maintenan
   - CRITICAL: Export ALL matching rows (not just the paginated/visible ones)
   - Filter export columns to match exactly what's shown in the UI
   - Support export to specific Google Drive folders with auto-creation
+  - Add folder selection with Google Drive Picker API integration
+  - Support both folder selection via Drive Picker and direct folder ID input:
+    - Implement folder creation when needed
+    - Handle permission errors gracefully
+    - Provide user feedback during folder operations
   - Include header rows with human-readable column names
-  - Add folder selection dialog for better user experience
+  - Add detailed folder selection dialog with clear feedback
   - Handle graceful fallback to CSV when authentication fails
   - Apply proper formatting to exported sheets for readability
+  - Implement server-side error handling with detailed logging
+  - Add folder ID tracking and URL generation for user navigation
 - Ensure robust handling of visible columns parameter throughout pipeline:
   - Add detailed logging at each stage (frontend, API service, export service)
   - Properly handle empty arrays (convert to null/undefined in API request)

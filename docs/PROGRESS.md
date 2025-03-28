@@ -1,204 +1,116 @@
-# SheetGPT Progress Summary
+# SheetGPT Development Progress
 
-## Project Overview
+## Latest Update
 
-SheetGPT integrates AI-powered chat with structured data management and sports database capabilities. Core features:
+### 2025-03-28: System-wide fixes and EntityList Component Refactoring
 
-- Claude-powered chat with data extraction
-- Sports database with comprehensive entity relationships 
-- Interactive data mapping and transformation
-- Natural language database queries
-- Google Sheets/CSV export with fallback options
-- Database maintenance and archiving
+- Fixed Docker containerization issues:
+  - Updated docker-compose.yml to properly mount tests directory
+  - Fixed cross-container API communication with proper proxy configuration
+  - Resolved hostname resolution issues between browser and Docker containers
+  - Updated Vite proxy configuration with better error handling and logging
 
-## Latest Improvements (April 2025)
+- Improved Documentation System:
+  - Fixed documentation endpoints in backend API
+  - Removed unnecessary authentication from docs endpoints
+  - Added debug logging for documentation route troubleshooting
+  - Fixed route prefix duplication in FastAPI routing
 
-### Export UI Enhancement (March 28)
+- Fixed API Client Configuration:
+  - Implemented smarter API URL detection using relative URLs from browser
+  - Enhanced error handling in API requests
+  - Fixed token refresh mechanism in Docker environment
+  - Added better debugging for network failures
 
-- Redesigned export dialog UI for improved usability
-- Simplified export interface with direct action buttons
-- Standardized export UX across different application contexts 
-- Consolidated export options into three clear actions (CSV, Google Sheets, Cancel)
-- Added color-coded buttons for visual differentiation (blue for CSV, green for Google Sheets)
-- Implemented Google Drive Picker API for folder selection
-- Enhanced Google Drive integration with OAuth token retrieval
-- Added client-side CSV generation for direct downloads
-- Streamlined folder selection process to reduce errors
-- Enhanced visual consistency with app-wide button styling
-- Added appropriate icons to action buttons for improved recognition
-- Improved export dialog clarity by removing redundant UI elements
-- Fixed Google API loading issues with robust fallback mechanisms
+- Completed the refactoring of the EntityList component which had grown to over 1300 lines:
+  - Implemented proper component organization pattern with focused components and hooks
+  - Added File System Access API support for saving files natively with browser picker
+  - Fixed CSV export utility to use callback pattern instead of direct imports
+  - Ensured backward compatibility with existing functionality
 
-### Entity Export Fixes (March 27)
+- Added comprehensive test suite for refactored components:
+  - EntityListHeader.test.tsx: Tests for the list header component
+  - EntityTable.test.tsx: Tests for the data table component
+  - Pagination.test.tsx: Tests for the pagination controls
+  - ExportDialog.test.tsx: Tests for the export dialog
+  - useColumnVisibility.test.ts: Tests for the column visibility hook
+  - useEntityExport.test.ts: Tests for the export functionality hook
 
-- Fixed persistent issue with entity exports ignoring visible columns
-- Resolved critical bug with column order not being respected in exports
-- Fixed empty column arrays causing backend to ignore column visibility
-- Added comprehensive debug logging throughout export pipeline
-- Enhanced frontend code to properly handle column visibility state
-- Improved API data sanitization for column parameters
-- Fixed edge cases with API payloads improperly sending empty arrays
-- Added error reporting for columns missing in dataset
+- Improved Testing Infrastructure:
+  - Updated docker-compose.yml to mount tests directory in the frontend-test container
+  - Added custom Jest configuration (jest.entitylist.config.js) for running tests
+  - Created npm script for running EntityList tests: npm run test:entitylist
+  - Created detailed documentation for the testing approach (ENTITYLIST_TESTING.md)
+  - Updated CLAUDE.md with instructions for running tests
 
-### Entity Export Fixes (April 10)
+## Previous Updates
 
-- Fixed entity list export to respect visible columns only
-- Ensured exports include all rows, not just the currently paginated ones
-- Enhanced export service logging for better troubleshooting
-- Added explicit documentation of column filtering in export functionality
-- Improved debugging capabilities for export column selection
-- Verified full data flow from frontend column preferences to final export
+### 2025-03-25: Production Service FK Updates
 
-### Google Sheets Export Enhancements (April 9)
+- Fixed foreign key relationship for production_service entities
+- Updated database schema to ensure consistent referencing
+- Applied migration to fix existing references
+- Added checks to validate data integrity before and after migration
 
-- Enhanced Google Sheets export with visible columns only functionality
-- Added Google Drive folder selection for export organization
-- Implemented automatic folder creation if target folder doesn't exist
-- Improved error handling with informative user feedback
-- Fixed authentication and SQLAlchemy issues in export service
-- Added CSV export fallback option when Sheets authentication fails
-- Maintained export of all available rows, not just the visible page
+### 2025-03-18: Entity Nickname Functionality
 
-### Database Maintenance Features (April 7-8)
+- Added nickname field to division_conference entities
+- Created migration to add the field to the database schema
+- Updated UI components to display and edit nicknames
+- Added badge styling for nickname display (bg-blue-100 text-blue-800)
+- Implemented inline editing with proper validation (max 20 chars)
 
-- Implemented step-by-step database maintenance workflow in Settings
-- Created guided process for eliminating duplicates and optimizing performance
-- Added backup and download functionality with direct SQL generation
-- Built analytics for detecting duplicate records and integrity issues
-- Implemented standardized naming and relationship repairs
-- Added system_metadata table for tracking maintenance operations
-- Created robust error handling for metadata persistence
-- Fixed multi-step workflow progression with proper state management
-- Added detailed stats for optimization results and space reclamation
-- Enhanced UI with interactive step progression and status indicators
+### 2025-03-17: Division Conference Updates
 
-### Production Service Enhancements (April 5-6)
+- Merged multiple migrations for division_conference updates
+- Fixed entity resolution for division_conference entities
+- Updated UI to display division conference information correctly
 
-- Added optional secondary brand relationship to Production Services
-- Implemented database model for secondary_brand_id with foreign key
-- Created UI components for selecting the employing brand
-- Enhanced entity type detection with name-based patterns
-- Added automatic field detection for Production Service mappings
-- Included secondary brand in database schema and UI definitions
+### 2025-03-13: League Nickname Support
 
-### Chat System Improvements (April 4)
+- Added nickname field to leagues for display purposes
+- Created migration to add the field to database schema
+- Added UI support for nickname editing with validation
+- Standardized nickname display across entity types
 
-- Fixed conversation history display to show both user questions and assistant responses
-- Enhanced message rendering with proper metadata handling
-- Improved scrolling and message navigation in chat interface
-- Fixed file attachment display in conversation history
+### 2025-03-10: Conversation Ordering
 
-### Navigation and Usability Enhancements (April 1-2)
+- Added conversation_order field to track conversation priority
+- Implemented UI for drag-and-drop reordering of conversations
+- Created backend support for persisting conversation order
+- Added migration to support the new field
 
-- Implemented descriptive page titles for web navigation
-- Added dynamic entity names to browser history/tabs
-- Created usePageTitle hook for consistent title formatting
-- Enhanced browser navigation with context-specific titles
-- Improved tab identification for multi-tab usage
-- Implemented two-phase entity detail page titles
+### 2025-03-01: Data Export Enhancement
 
-### UI Component Optimization (March 29-31)
+- Implemented Google Sheets API integration for direct exports
+- Added support for selecting Google Drive folders
+- Enabled column visibility filtering for exports
+- Created export dialog with file naming options
+- Added CSV fallback when Google authentication fails
 
-- Fixed column visibility and ordering issues for Broadcast Rights and Production Services
-- Removed "(Brand)" suffix from both Production and Broadcast company names
-- Implemented consistent handling for entity name and entity type columns
-- Enhanced column persistence with dual localStorage/sessionStorage strategy
-- Fixed race conditions in visibility state management
-- Restructured EntityList component to respect user column preferences
+### 2025-02-28: Database Constraints and Cleanup
 
-### Entity Persistence Enhancements (March 25-28)
+- Added unique constraints to prevent duplicate entities
+- Implemented cleanup scripts to deduplicate existing data
+- Fixed relationship references for impacted entities
+- Created migrations to enforce new constraints
 
-- Implemented robust column persistence across sessions and logins
-- Enhanced entity name resolution for Production Services
-- Fixed entity name display to show actual entity names instead of types
-- Improved storage key consistency for user preferences
-- Added debug logging for column visibility troubleshooting
-- Optimized useDragAndDrop hook to eliminate circular dependencies
+### 2025-02-27: Broadcast Data Model Enhancements
 
-### Universal Company Entity Implementation (March 25)
+- Added host_broadcaster column to identify primary broadcasters
+- Updated UI to support the new field with appropriate controls
+- Fixed missing fields in game_broadcast and related models
+- Applied migrations for schema changes
 
-- Implemented Brand as the universal entity for all companies
-- Added `company_type` and `country` fields to Brand model
-- Created direct relationships between Brand and production/broadcast services
-- Enhanced name-to-ID resolution for dynamic company creation
+### 2025-02-25: Sports Database Models
 
-### Special Entity Types Support (March 26-27)
+- Added comprehensive sports entity models
+- Implemented hierarchical relationships between entities
+- Created migrations for all new tables
+- Added admin field for user management
 
-- Added support for Championships, Playoffs, and Tournaments as virtual entity types
-- Implemented deterministic UUID generation for consistent references
-- Enhanced schema validation for both UUID and string entity IDs
-- Removed the need for dedicated database tables for special entities
-- Added smart entity resolution across entity types for Production Services
-- Implemented intelligent fallback for entity name lookup across different entity types
+### 2025-02-21: Initial Migration
 
-### Production Services Display Fix (March 24)
-
-- Fixed production service display showing "N/A" for company names
-- Updated backend to properly join ProductionService with Brand
-- Fixed production company creation to match the database schema
-- Ensured UI properly displays brand names with entity names
-
-## Architecture Improvements
-
-### Component Architecture
-
-- Single-responsibility hooks for focused concerns
-  - Data fetching, selection, filtering, sorting, schema definition
-  - Specialized column reordering with persistence
-- Feature-focused organization with clear boundaries
-- Performance optimizations with proper memoization
-- Circular dependency resolution in complex components
-- Consistent state persistence across sessions
-
-### Backend Design
-
-- Facade pattern for service coordination
-- Universal Brand entity for company relationships
-- Virtual entity support without database tables
-- Enhanced error handling with user-friendly messages
-
-## Recent Resolutions
-
-- ✓ Entity type standardization across codebase
-- ✓ Column visibility persistence for all entity types
-- ✓ Company name display consistency (removal of Brand suffix)
-- ✓ Production service display with proper Brand relationships
-- ✓ Secondary brand relationship for production services
-- ✓ Chat conversation history display problems
-- ✓ Automatic entity type detection
-- ✓ Default dates for production services
-- ✓ Page titles in browser navigation and history
-- ✓ Database maintenance workflow and optimization tools
-- ✓ Backup creation and download functionality
-- ✓ Database statistics and analytics dashboard
-- ✓ Google Sheets export functionality and reliability improvements
-- ✓ CSV export fallback implementation
-- ✓ Export to specific Google Drive folders
-- ✓ Export visible columns only feature
-- ✓ Consistent export dialog UI across application
-- ✓ Streamlined export workflow with direct action buttons
-
-## Current Focus
-
-1. **Testing & Quality**
-   - API endpoint test coverage
-   - Entity operation validation
-   - Integration testing for export features
-
-2. **User Experience**
-   - Field validation improvements
-   - Relationship constraint messaging
-   - Mobile responsive adjustments
-
-3. **Performance**
-   - Optimize data loading for large datasets
-   - Implement pagination improvements
-
-## Next Steps
-
-- Complete export reliability improvements
-- Expand test coverage for critical functionality
-- Enhance error handling with better user guidance
-- Optimize performance for large datasets
-
-Updated: April 13, 2025
+- Set up initial database schema
+- Created alembic configuration for migrations
+- Implemented base models for core functionality

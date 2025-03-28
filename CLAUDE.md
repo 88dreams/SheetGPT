@@ -38,6 +38,25 @@
 - Create route test: `cp tests/backend/route.test.template.py tests/backend/routes/test_route_name.py`
 - Create integration test: `cp tests/integration/integration.test.template.ts tests/integration/test_feature_name.ts`
 
+### Running Frontend Tests
+- All tests in the `/tests` directory are now mounted in the Docker container
+- For component-specific tests: `docker-compose run --rm frontend-test npm test -- --testPathPattern=ComponentName`
+- For EntityList tests: `docker-compose run --rm frontend-test npm run test:entitylist`
+- Custom test configurations can be added in jest.*.config.js files
+
+### Docker API Communication
+- Frontend-to-backend communication in Docker environment:
+  - Always use relative URLs in browser JavaScript (e.g., `/api/v1/endpoint`)
+  - Never use direct container hostnames like `http://backend:8000` in browser code
+  - Set up proper Vite proxy for forwarding API requests to the backend container
+  - Configure CORS properly in FastAPI to accept requests from frontend origin
+- Container-to-container communication:
+  - Use container service names from docker-compose.yml (e.g., `http://backend:8000`)
+  - Ensure network_mode is properly configured for service discovery
+  - For debugging connection issues, use `docker-compose exec backend curl http://backend:8000/api/endpoint`
+- IMPORTANT: The frontend browser code cannot use container hostnames directly
+- Always use the VITE_API_URL environment variable for configuration
+
 ### Database Management
 - Run backup: `python src/scripts/db_management.py backup`
 - View statistics: `python src/scripts/db_management.py stats`
@@ -112,6 +131,30 @@
   │   ├── validation.ts
   │   └── index.ts           # Exports all utilities
   └── types.ts               # Component-specific types
+  ```
+
+For example, the refactored EntityList component follows this pattern:
+  ```
+  EntityList/
+  ├── index.tsx              # Main component with orchestration logic
+  ├── components/            # UI components
+  │   ├── EntityListHeader.tsx  # Header with search and export buttons
+  │   ├── ColumnSelector.tsx    # Column visibility controls
+  │   ├── EntityTable.tsx       # Table with column resizing
+  │   ├── EntityRow.tsx         # Row rendering with cell formatting
+  │   ├── Pagination.tsx        # Page controls
+  │   ├── BulkActionBar.tsx     # Bulk edit/delete controls
+  │   ├── ExportDialog.tsx      # Export configuration dialog
+  │   └── index.ts             
+  ├── hooks/                 # State management
+  │   ├── useColumnVisibility.ts # Column visibility state
+  │   ├── useEntityExport.ts     # Export functionality
+  │   ├── useInlineEdit.ts       # Name/nickname editing
+  │   └── index.ts              
+  └── utils/                 # Utilities
+      ├── csvExport.ts         # CSV generation
+      ├── formatters.ts        # Cell display formatting
+      └── index.ts              
   ```
 - Extract reusable logic into custom hooks with clear boundaries
 - Create a dedicated hook for each distinct responsibility:
@@ -192,6 +235,51 @@
   - Avoid recalculating values that don't change
   - Extract large objects from dependencies when possible
   - Use object destructuring to access only needed properties
+
+## API and Utility Design Patterns
+
+When creating utility functions and API services, follow these patterns:
+- Use callback functions for notifications rather than direct imports
+- Accept success and error handlers as parameters instead of direct dependencies
+- Avoid dependencies on global contexts in utility functions
+- Return meaningful values that callers can use (boolean success, data objects, etc.)
+- Properly handle promises and asynchronous operations
+- Include comprehensive error handling
+- Document parameters and return values clearly
+
+Example callback pattern:
+```typescript
+// Good: Utility with callbacks
+export async function saveCsvFile(
+  data: any[], 
+  columns: string[], 
+  filename: string,
+  onSuccess?: () => void,
+  onError?: (error: Error) => void
+): Promise<boolean> {
+  try {
+    // Implementation...
+    onSuccess?.();
+    return true;
+  } catch (error) {
+    onError?.(error as Error);
+    return false;
+  }
+}
+
+// Bad: Utility with direct dependency
+import { showNotification } from '../utils/api';
+export async function saveCsvFile(data: any[], columns: string[], filename: string): Promise<boolean> {
+  try {
+    // Implementation...
+    showNotification('success', 'CSV saved');
+    return true;
+  } catch (error) {
+    showNotification('error', 'CSV export failed');
+    return false;
+  }
+}
+```
 
 ## React DnD Implementation Notes
 
@@ -315,11 +403,16 @@ For all steps, use a system_metadata table with JSONB type for storing maintenan
     - Include spacing between icon and text (mr-1 for icons)
   - Provide direct action buttons rather than format toggles
   - Handle button states with proper loading indicators
+  - CRITICAL: Use direct mutation calls in button click handlers to prevent race conditions
+  - Avoid relying on state updates before triggering export functions
   - Implement client-side CSV generation with proper quoting/escaping:
     - Use columnOrder and visibleColumns to match UI display
     - Generate proper CSV with header row and all visible data
     - Properly escape quotes and commas in CSV values
     - Set correct content-type and filename for downloads
+    - Use File System Access API for OS-level save-as dialog when supported
+    - Implement fallback download mechanism for older browsers
+    - Ensure all CSV exports use consistent save dialog approach
   - Maintain consistent styling across different export contexts
   - Use the same component structure in both export dialog implementations
   - Implement robust Google Drive folder selection:

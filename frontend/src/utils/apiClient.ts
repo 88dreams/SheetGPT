@@ -10,29 +10,28 @@ const isDocker = window.location.hostname !== 'localhost' && window.location.hos
 // This is because the browser can't resolve Docker container names
 // Handle all environments safely
 const getApiUrl = () => {
-  // Default URL for all environments
-  let apiUrl = 'http://localhost:8000';
-  
-  try {
-    // Only attempt to access import.meta in a browser environment
-    if (typeof window !== 'undefined') {
-      try {
-        // Using direct property access instead of optional chaining
-        const envUrl = import.meta.env.VITE_API_URL;
-        if (envUrl) {
-          apiUrl = envUrl;
-        }
-      } catch (innerError) {
-        // This is a safe fallback if import.meta is not available
-        console.log('Import.meta not available, using default API URL');
-      }
-    }
-  } catch (e) {
-    // In test or non-browser environment
-    console.log('Using default API URL for current environment');
+  // IMPORTANT: From browser context, we always use relative URLs
+  // This ensures we use the same hostname that served the frontend
+  if (typeof window !== 'undefined') {
+    // When running in a browser, just use a relative URL
+    // This will make requests go to the same host serving the frontend
+    console.log('Browser environment detected, using relative URL');
+    return '';
   }
   
-  return apiUrl;
+  // This code will only run in server-side contexts like SSR or tests
+  try {
+    if (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.VITE_API_URL) {
+      console.log('Using VITE_API_URL:', import.meta.env.VITE_API_URL);
+      return import.meta.env.VITE_API_URL;
+    }
+  } catch (e) {
+    console.log('Error accessing import.meta.env:', e);
+  }
+  
+  // Default fallback for server-side
+  console.log('Using default localhost API URL');
+  return 'http://localhost:8000';
 };
 
 const API_URL = getApiUrl();

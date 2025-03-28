@@ -29,12 +29,22 @@ const DocumentationBrowser: React.FC = () => {
   useEffect(() => {
     const fetchDocTree = async () => {
       try {
-        const response = await fetch('/api/v1/docs/structure');
+        // Get token from localStorage
+        const token = localStorage.getItem('auth_token');
+        const headers = token ? { 'Authorization': `Bearer ${token}` } : {};
+        
+        console.log("Fetching documentation structure with token:", !!token);
+        const response = await fetch('/api/v1/docs/structure', { 
+          headers,
+          credentials: 'include'
+        });
+        
         if (response.ok) {
           const data: DocItem[] = await response.json();
+          console.log("Documentation structure loaded successfully:", data);
           setDocTree(data);
         } else {
-          console.error('Failed to fetch documentation structure');
+          console.error('Failed to fetch documentation structure:', response.status, await response.text());
         }
         setIsLoading(false);
       } catch (error) {
@@ -49,13 +59,25 @@ const DocumentationBrowser: React.FC = () => {
   // Fetch document content when path changes
   useEffect(() => {
     const fetchDocument = async () => {
+      // Get token from localStorage
+      const token = localStorage.getItem('auth_token');
+      const headers = token ? { 'Authorization': `Bearer ${token}` } : {};
+      const requestOptions = { 
+        headers,
+        credentials: 'include' as RequestCredentials
+      };
+      
       if (!docPath) {
         // Load README.md as default
         try {
-          const response = await fetch('/api/v1/docs/content?path=README.md');
+          console.log("Loading default README.md");
+          const response = await fetch('/api/v1/docs/content?path=README.md', requestOptions);
           if (response.ok) {
             const content = await response.text();
+            console.log("README.md loaded successfully");
             setDocContent({ content, path: 'README.md' });
+          } else {
+            console.error('Failed to fetch README.md:', response.status, await response.text());
           }
         } catch (error) {
           console.error('Error fetching default document:', error);
@@ -65,12 +87,14 @@ const DocumentationBrowser: React.FC = () => {
 
       setIsLoading(true);
       try {
-        const response = await fetch(`/api/v1/docs/content?path=${encodeURIComponent(docPath)}`);
+        console.log(`Loading document: ${docPath}`);
+        const response = await fetch(`/api/v1/docs/content?path=${encodeURIComponent(docPath)}`, requestOptions);
         if (response.ok) {
           const content = await response.text();
+          console.log(`Document ${docPath} loaded successfully`);
           setDocContent({ content, path: docPath });
         } else {
-          console.error('Failed to fetch document content');
+          console.error('Failed to fetch document content:', response.status, await response.text());
         }
       } catch (error) {
         console.error('Error fetching document content:', error);

@@ -234,21 +234,87 @@ production_services
 - Cross-entity type resolution with intelligent fallback
 - Automatic entity type correction based on name matches
 
+## Testing Architecture
+
+The testing framework is organized into three main categories to ensure comprehensive coverage:
+
+### Frontend Testing
+```
+tests/frontend/
+├── components/       # Component tests with render + interaction validation
+├── hooks/            # Custom React hook tests
+├── contexts/         # Context provider tests  
+├── services/         # Frontend service tests
+└── utils/            # Utility function tests
+```
+
+Key features:
+- Jest + React Testing Library for component testing
+- Custom Jest configurations for specific component suites
+- Specialized coverage reporting and thresholds
+- Mocking strategies for external dependencies
+- Component-specific test suites with dedicated configs
+
+### Backend Testing
+```
+tests/backend/
+├── routes/           # API endpoint tests
+├── services/         # Business logic tests
+├── models/           # Database model tests
+├── schemas/          # Validation schema tests
+└── utils/            # Helper function tests
+```
+
+Key features:
+- Pytest with asyncio support
+- Database transaction isolation
+- Service layer mocking
+- Comprehensive validation testing
+- Error scenario coverage
+
+### Integration Testing
+```
+tests/integration/
+├── data_flow/        # End-to-end data workflow tests
+├── authentication/   # User authentication flows
+└── exports/          # Export feature validations
+```
+
+Key features:
+- Cross-component workflow validation
+- Authentication flow testing
+- API client testing with realistic scenarios
+- Export functionality validation
+- Database interaction verification
+
+### Testing Infrastructure
+
+- Containerized testing environment with Docker
+- GitHub Actions workflow for automated testing
+- Coverage reporting with thresholds
+- Specialized test configurations for component suites
+- Mock implementations for external dependencies
+- Test data factories for consistent test scenarios
+- Custom Jest transformers for TypeScript and assets
+
 ## Current Focus
 
-1. **Testing & Quality**
-   - API endpoint test coverage
-   - Entity operation validation
-   - Integration testing for export features
-
-2. **Performance Optimization**
+1. **Performance Optimization**
    - Large dataset handling
    - Query execution efficiency 
    - Pagination improvements
+   - Virtualization for long lists
 
-3. **UI Refinements**
+2. **UI Refinements**
    - Relationship constraint messaging
    - Mobile responsive adjustments
    - Further navigation context improvements
+   - Accessibility enhancements
 
-Updated: April 10, 2025
+3. **Data Visualization**
+   - Charting capabilities for analytics
+   - Interactive data exploration
+   - Visual relationship mapping
+   - Timeline visualization for historical data
+
+Updated: April 12, 2025

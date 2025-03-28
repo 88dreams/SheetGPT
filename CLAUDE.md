@@ -42,7 +42,25 @@
 - All tests in the `/tests` directory are now mounted in the Docker container
 - For component-specific tests: `docker-compose run --rm frontend-test npm test -- --testPathPattern=ComponentName`
 - For EntityList tests: `docker-compose run --rm frontend-test npm run test:entitylist`
+- For SportDataMapper tests: `docker-compose run --rm frontend-test npm run test:sportdatamapper`
+- For specific test suites: `docker-compose run --rm frontend-test npm run test:suite -- SuiteName`
+- To generate coverage reports: `docker-compose run --rm frontend-test npm run test:coverage`
+- Coverage reports are available in the `coverage/lcov-report/index.html` file
 - Custom test configurations can be added in jest.*.config.js files
+- Run tests in CI mode: `docker-compose run --rm frontend-test npm run test:ci`
+- Run tests with component mocks: `docker-compose run --rm frontend-test npm run test:with-mocks`
+
+### Testing Best Practices
+- Use the AAA pattern (Arrange, Act, Assert) for test organization
+- Mock external dependencies to isolate component behavior
+- Test both success and error paths for async operations
+- Create test data factories for consistent test data
+- Use `data-testid` attributes for querying elements in tests
+- Prefer user-centric queries: getByText, getByLabelText, getByRole
+- Follow the testing pyramid: more unit tests, fewer integration tests
+- Use explicit assertions rather than snapshots when possible
+- Ensure tests are independent and don't rely on global state
+- Use beforeEach/afterEach to reset mocks and test conditions
 
 ### Docker API Communication
 - Frontend-to-backend communication in Docker environment:

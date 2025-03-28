@@ -65,27 +65,68 @@ const ExportDialog: React.FC<ExportDialogProps> = ({ isOpen, onClose, dataId }) 
       dataId,
       spreadsheetName
     ),
-    onSuccess: (data) => {
+    onSuccess: async (data) => {
       if (data?.csvData) {
         // Create a blob from the CSV data
         const blob = new Blob([data.csvData], { type: 'text/csv' });
-        const url = window.URL.createObjectURL(blob);
+        const suggestedName = `${spreadsheetName || 'export'}.csv`;
         
-        // Create a temporary link and trigger download
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `${spreadsheetName || 'export'}.csv`;
-        document.body.appendChild(a);
-        a.click();
+        // Check if the File System Access API is supported
+        if ('showSaveFilePicker' in window) {
+          try {
+            // Use modern File System Access API for OS-level save dialog
+            const options = {
+              suggestedName,
+              types: [{
+                description: 'CSV Files',
+                accept: { 'text/csv': ['.csv'] }
+              }]
+            };
+            
+            // Show OS-level save dialog
+            const fileHandle = await window.showSaveFilePicker(options);
+            const writable = await fileHandle.createWritable();
+            await writable.write(blob);
+            await writable.close();
+            
+            showNotification('success', 'CSV file saved successfully');
+            onClose();
+          } catch (err) {
+            // User cancelled or API failed, fall back to legacy approach
+            if ((err as Error).name !== 'AbortError') {
+              console.error('Error using File System Access API:', err);
+              // Fall back to legacy download method
+              fallbackDownload();
+            } else {
+              // User cancelled the save dialog
+              onClose();
+            }
+          }
+        } else {
+          // Fall back to legacy download method for browsers without File System Access API
+          fallbackDownload();
+        }
         
-        // Cleanup
-        window.URL.revokeObjectURL(url);
-        document.body.removeChild(a);
-        
-        showNotification('success', 'Data exported successfully to CSV')
-        onClose()
+        // Legacy download method as fallback
+        function fallbackDownload() {
+          const url = window.URL.createObjectURL(blob);
+          
+          // Create a temporary link and trigger download
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = suggestedName;
+          document.body.appendChild(a);
+          a.click();
+          
+          // Cleanup
+          window.URL.revokeObjectURL(url);
+          document.body.removeChild(a);
+          
+          showNotification('success', 'Data exported successfully to CSV');
+          onClose();
+        }
       } else {
-        showNotification('error', 'CSV data is empty')
+        showNotification('error', 'CSV data is empty');
       }
     },
     onError: (error: any) => {
@@ -212,17 +253,8 @@ const ExportDialog: React.FC<ExportDialogProps> = ({ isOpen, onClose, dataId }) 
     }
   }
 
-  // Handle the export action based on selected type
-  const handleExport = () => {
-    console.log('ExportDialog handleExport called - selected type:', exportType);
-    if (exportType === 'sheets') {
-      console.log('Executing Google Sheets export');
-      exportSheetsMutation.mutate()
-    } else {
-      console.log('Executing CSV export');
-      exportCsvMutation.mutate()
-    }
-  }
+  // We're now directly calling the respective mutation from each button's onClick handler
+  // rather than using a shared function to avoid race conditions with state updates
 
   if (!isOpen) return null
 
@@ -302,8 +334,9 @@ const ExportDialog: React.FC<ExportDialogProps> = ({ isOpen, onClose, dataId }) 
           </button>
           <button
             onClick={() => {
-              setExportType('csv');
-              handleExport();
+              console.log('CSV export button clicked');
+              // Directly call exportCsvMutation instead of changing state first
+              exportCsvMutation.mutate();
             }}
             disabled={(exportSheetsMutation.isPending || exportCsvMutation.isPending) || !spreadsheetName}
             className="px-3 py-1 text-xs font-medium text-white bg-blue-600 rounded hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-1"
@@ -319,8 +352,9 @@ const ExportDialog: React.FC<ExportDialogProps> = ({ isOpen, onClose, dataId }) 
           </button>
           <button
             onClick={() => {
-              setExportType('sheets');
-              handleExport();
+              console.log('Google Sheets export button clicked');
+              // Directly call exportSheetsMutation instead of changing state first
+              exportSheetsMutation.mutate();
             }}
             disabled={(exportSheetsMutation.isPending || exportCsvMutation.isPending) || !spreadsheetName}
             className="px-3 py-1 text-xs font-medium text-white bg-green-600 rounded hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-1"

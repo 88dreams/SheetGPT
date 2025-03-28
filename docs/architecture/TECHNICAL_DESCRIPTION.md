@@ -67,10 +67,18 @@ frontend/
 #### Key Features
 
 1. **Component Architecture**
-   - Single-responsibility hooks
-   - Feature-focused organization
-   - Component directory structure with clear boundaries
-   - Consistent dual storage persistence
+   - Single-responsibility hooks with focused concerns
+   - Feature-focused organization with modular components
+   - Component directory structure with proper separation:
+     ```
+     ComponentName/
+     ├── index.tsx          # Main component
+     ├── components/        # UI elements
+     ├── hooks/             # State management
+     └── utils/             # Helper functions
+     ```
+   - Consistent dual storage persistence (localStorage/sessionStorage)
+   - Decomposition of large components into manageable pieces
 
 2. **State Management**
    - Custom hooks for focused concerns
@@ -158,6 +166,17 @@ production_services
 
 ## Recent Enhancements
 
+### Component Refactoring (March 2025)
+- Refactored EntityList component from 1300+ lines into modular structure
+- Implemented clean separation of concerns:
+  - 7 focused UI components (EntityListHeader, ColumnSelector, EntityTable, etc.)
+  - 3 custom hooks for specific functionalities (column visibility, export, inline editing)
+  - Utility modules for CSV export and data formatting
+- Improved maintainability with single-responsibility pattern
+- Enhanced performance with better state isolation
+- Preserved 100% of existing functionality and UI appearance
+- Followed component organization best practices for consistency
+
 ### Export Functionality Improvements (April 2025)
 - Enhanced Google Sheets export to use visible columns only
 - Added Google Drive folder selection and creation
@@ -173,6 +192,12 @@ production_services
 - Added column name filtering based on visibility state
 - Improved button styling with consistent size and color coding
 - Added visual icons to export buttons for better recognition
+- Implemented OS-level save-as dialog for CSV exports using File System Access API
+- Created fallback download mechanism for browsers without modern file API support
+- Fixed race conditions in export type selection with direct mutation calls
+- Enhanced TypeScript definitions for File System Access API
+- Improved async/await usage in export click handlers for proper error handling
+- Standardized CSV export behavior across all application contexts
 
 ### Production Services Improvements (April 2025)
 - Added secondary brand relationship for employing companies

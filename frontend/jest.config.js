@@ -18,7 +18,8 @@ export default {
   },
   extensionsToTreatAsEsm: ['.ts', '.tsx'],
   testMatch: [
-    '**/__tests__/**/*.test.(ts|tsx)'
+    '**/__tests__/**/*.test.(ts|tsx)',
+    '../../tests/**/*.test.(ts|tsx)'
   ],
   setupFilesAfterEnv: [
     '<rootDir>/src/jest-setup.ts'

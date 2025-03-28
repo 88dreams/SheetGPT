@@ -210,7 +210,7 @@ const DataTable: React.FC<DataTableProps> = ({ dataId }) => {
   const visibleHeaders = headers.filter(header => !hiddenColumns[header]);
   
   // Simplified CSV export
-  const handleCsvExport = () => {
+  const handleCsvExport = async () => {
     // Basic validation
     if (!rows || rows.length === 0 || !headers || headers.length === 0) {
       showNotification('error', 'No data available for export');
@@ -233,18 +233,55 @@ const DataTable: React.FC<DataTableProps> = ({ dataId }) => {
         csvContent += formattedRow.join(',') + '\n';
       });
       
-      // Download the CSV
+      // Create a blob for the CSV file
       const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.setAttribute('href', url);
       const filename = data?.meta_data?.name || 'export';
-      link.setAttribute('download', `${filename}.csv`);
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
+      const suggestedName = `${filename}.csv`;
       
-      showNotification('success', 'CSV file downloaded successfully');
+      // Check if the File System Access API is supported
+      if ('showSaveFilePicker' in window) {
+        try {
+          // Use modern File System Access API for OS-level save dialog
+          const options = {
+            suggestedName,
+            types: [{
+              description: 'CSV Files',
+              accept: { 'text/csv': ['.csv'] }
+            }]
+          };
+          
+          // Show OS-level save dialog
+          const fileHandle = await window.showSaveFilePicker(options);
+          const writable = await fileHandle.createWritable();
+          await writable.write(blob);
+          await writable.close();
+          
+          showNotification('success', 'CSV file saved successfully');
+        } catch (err) {
+          // User cancelled or API failed, fall back to legacy approach
+          if ((err as Error).name !== 'AbortError') {
+            console.error('Error using File System Access API:', err);
+            // Fall back to legacy download method
+            fallbackDownload();
+          }
+        }
+      } else {
+        // Fall back to legacy download method for browsers without File System Access API
+        fallbackDownload();
+      }
+      
+      // Legacy download method as fallback
+      function fallbackDownload() {
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.setAttribute('href', url);
+        link.setAttribute('download', suggestedName);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        
+        showNotification('success', 'CSV file downloaded successfully');
+      }
     } catch (e) {
       console.error('Error generating CSV:', e);
       showNotification('error', 'Failed to generate CSV file');

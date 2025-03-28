@@ -55,6 +55,9 @@ SQLAlchemy ORM → PostgreSQL → Response Formatting
 - **Folder Management**: Auto-creation of folders that don't exist
 - **Async SQLAlchemy**: Proper async database operations for exports
 - **Complete Entity Export**: Export all entities regardless of pagination
+- **Direct CSV Export**: Dedicated endpoint for CSV data with proper formatting
+- **Client-Side File System Integration**: Support for browsers' File System Access API
+- **Client-Side Fallbacks**: Graceful degradation for browsers without modern APIs
 
 ### Natural Language Queries
 
@@ -259,12 +262,27 @@ POST /api/v1/sports/export - Export entities to Google Sheets
     - include_relationships: Whether to include related data
     - visible_columns: List of column names to include (omitted columns not exported)
     - target_folder: Optional Google Drive folder for export destination
+    - file_name: Optional custom name for the export file
+    - use_drive_picker: Whether to use the Google Drive Picker API (boolean)
   Response:
     - spreadsheet_id: Google Sheet identifier
     - spreadsheet_url: Direct URL to the created sheet
     - entity_count: Number of exported entities
     - folder_id: ID of the Google Drive folder (if provided)
     - folder_url: URL to the Google Drive folder (if provided)
+
+POST /api/v1/export/csv - Export data to CSV format
+  Parameters:
+    - data_id: ID of the structured data to export
+    - file_name: Optional custom name for the CSV file
+  Response:
+    - csvData: Raw CSV content as string for client-side save dialog
+    - file_name: Suggested file name for the download
+
+GET /api/v1/export/auth/token - Get OAuth token for Google Drive integration
+  Response:
+    - token: OAuth token for Google Drive API calls
+    - expires_in: Token expiration time in seconds
 ```
 
 ## Schema System
@@ -338,4 +356,141 @@ async def update_entity(self, db: AsyncSession, entity_id: UUID, data: dict) -> 
         raise self._handle_db_error(e)
 ```
 
-Updated: April 9, 2025
+### Client-Side Component Architecture
+
+The frontend follows a structured component organization pattern:
+
+```typescript
+// Modular component structure example (EntityList)
+// Main component (index.tsx) - orchestration only
+const EntityList: React.FC<EntityListProps> = ({ className = '' }) => {
+  // Core dependencies from context
+  const {
+    selectedEntityType,
+    entities,
+    handleUpdateEntity,
+    // ...other context values
+  } = useSportsDatabase();
+
+  // Specialized hooks for focused functionality
+  const {
+    visibleColumns,
+    showColumnSelector,
+    setShowColumnSelector,
+    // ...other column management
+  } = useColumnVisibility(selectedEntityType, entities);
+
+  const {
+    editingId,
+    startEdit,
+    saveEdit,
+    // ...other editing functionality
+  } = useInlineEdit({ selectedEntityType, handleUpdateEntity });
+
+  // Component rendering with clean separation
+  return (
+    <div className={`bg-white rounded-lg shadow ${className}`}>
+      <EntityListHeader 
+        selectedEntityType={selectedEntityType}
+        showColumnSelector={showColumnSelector}
+        setShowColumnSelector={setShowColumnSelector}
+        // ...other header props
+      />
+      
+      {showColumnSelector && (
+        <ColumnSelector
+          entities={entities}
+          visibleColumns={visibleColumns}
+          // ...other column selector props
+        />
+      )}
+      
+      <EntityTable
+        entities={entities}
+        columnOrder={columnOrder}
+        // ...other table props
+        {...inlineEditHook} // Pass all editing functionality
+      />
+      
+      <Pagination
+        currentPage={currentPage}
+        totalPages={totalPages}
+        // ...other pagination props
+      />
+    </div>
+  );
+};
+```
+
+### Client-Side File System Access Integration
+
+The File System Access API is implemented in reusable utility functions:
+
+```typescript
+// Modular utility implementation (csvExport.ts)
+/**
+ * Save data as CSV file using File System Access API with fallback
+ */
+export async function saveCsvFile(
+  data: any[], 
+  visibleColumns: string[], 
+  suggestedName: string
+): Promise<boolean> {
+  // Generate CSV content
+  const csvContent = generateCsvContent(data, visibleColumns);
+  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+  const fileName = `${suggestedName || 'export'}.csv`;
+  
+  // Use modern File System Access API when available
+  if ('showSaveFilePicker' in window) {
+    try {
+      const options = {
+        suggestedName: fileName,
+        types: [{
+          description: 'CSV Files',
+          accept: { 'text/csv': ['.csv'] }
+        }]
+      };
+      
+      const fileHandle = await window.showSaveFilePicker(options);
+      const writable = await fileHandle.createWritable();
+      await writable.write(blob);
+      await writable.close();
+      
+      return true; // Success
+    } catch (err) {
+      if ((err as Error).name !== 'AbortError') {
+        // Fall back to legacy download method
+        return fallbackDownload(blob, fileName);
+      }
+      return false; // User cancelled
+    }
+  }
+  
+  // Fallback for browsers without File System Access API
+  return fallbackDownload(blob, fileName);
+}
+
+// Private helper function for legacy browsers
+function fallbackDownload(blob: Blob, fileName: string): boolean {
+  try {
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.setAttribute('href', url);
+    link.setAttribute('download', fileName);
+    document.body.appendChild(link);
+    link.click();
+    
+    // Clean up
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+    
+    return true; // Success with fallback
+  } catch (error) {
+    console.error('Error with fallback download:', error);
+    return false; // Failure
+  }
+}
+```
+
+Updated: April 13, 2025

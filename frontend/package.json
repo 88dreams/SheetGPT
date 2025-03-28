@@ -11,7 +11,8 @@
     "test": "jest",
     "test:fixed": "jest -t 'FieldItem|FieldHelpTooltip|useRecordNavigation|useUiState|useFieldMapping|useDataManagement'",
     "test:coverage": "jest --coverage -t 'FieldItem|FieldHelpTooltip|useRecordNavigation|useUiState|useFieldMapping|useDataManagement'",
-    "test:no-types": "jest --no-typecheck"
+    "test:no-types": "jest --no-typecheck",
+    "test:entitylist": "jest --config=jest.entitylist.config.js --testPathPattern=/tests"
   },
   "dependencies": {
     "@headlessui/react": "^1.7.17",

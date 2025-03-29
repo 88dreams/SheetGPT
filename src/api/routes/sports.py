@@ -32,6 +32,11 @@ from src.services.sports_service import SportsService
 from src.services.export_service import ExportService
 from src.utils.auth import get_current_user
 from src.schemas.common import PaginatedResponse
+from src.utils.errors import (
+    EntityNotFoundError, 
+    EntityValidationError,
+    DatabaseOperationError
+)
 
 router = APIRouter()
 sports_service = SportsService()
@@ -46,13 +51,25 @@ async def lookup_entity_by_name(
     current_user: Dict = Depends(get_current_user)
 ):
     """Look up an entity by name, with case-insensitive matching."""
+    # With our new error handling, we don't need try/except here
+    # EntityNotFoundError will be caught by middleware
     try:
+        # Validate entity_type before proceeding
+        if entity_type not in sports_service.ENTITY_TYPES:
+            raise EntityValidationError(
+                message=f"Invalid entity type: {entity_type}",
+                entity_type=entity_type,
+                details={"valid_types": list(sports_service.ENTITY_TYPES.keys())}
+            )
+            
         entity = await sports_service.get_entity_by_name(db, entity_type, name)
-        if not entity:
-            raise HTTPException(status_code=404, detail=f"{entity_type.capitalize()} with name '{name}' not found")
         return entity
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        # Map legacy ValueError to our new error types
+        raise EntityValidationError(
+            message=str(e),
+            entity_type=entity_type
+        )
 
 # Generic entity endpoints
 @router.get("/entities/{entity_type}", response_model=PaginatedResponse[Dict[str, Any]])

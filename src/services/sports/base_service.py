@@ -6,6 +6,12 @@ import logging
 from sqlalchemy import select, delete, update, func
 import math
 
+from src.utils.errors import (
+    DatabaseOperationError, 
+    EntityNotFoundError,
+    handle_database_errors
+)
+
 logger = logging.getLogger(__name__)
 
 # Generic type for model classes
@@ -59,66 +65,77 @@ class BaseEntityService(Generic[T]):
             "pages": math.ceil(total_count / limit)
         }
     
+    @handle_database_errors
     async def get_entity(self, db: AsyncSession, entity_id: UUID) -> Optional[T]:
         """Get a specific entity by ID."""
         result = await db.execute(select(self.model_class).where(self.model_class.id == entity_id))
-        return result.scalars().first()
+        entity = result.scalars().first()
+        
+        if entity is None:
+            # Use standardized entity not found error
+            entity_type = self.model_class.__name__.lower()
+            raise EntityNotFoundError(entity_type=entity_type, entity_id=str(entity_id))
+            
+        return entity
     
+    @handle_database_errors
     async def get_entity_by_name(self, db: AsyncSession, name: str) -> Optional[T]:
         """Get an entity by name (case-insensitive)."""
         if not hasattr(self.model_class, 'name'):
+            entity_type = self.model_class.__name__.lower()
+            logger.warning(f"{entity_type} model does not have a 'name' attribute")
             return None
             
         # Use case-insensitive search
         query = select(self.model_class).where(func.lower(self.model_class.name) == func.lower(name))
         result = await db.execute(query)
-        return result.scalars().first()
+        entity = result.scalars().first()
+        
+        if entity is None:
+            # Use standardized entity not found error
+            entity_type = self.model_class.__name__.lower()
+            raise EntityNotFoundError(entity_type=entity_type, entity_name=name)
+            
+        return entity
     
-    async def create_entity(self, db: AsyncSession, data: Dict[str, Any]) -> Optional[T]:
+    @handle_database_errors
+    async def create_entity(self, db: AsyncSession, data: Dict[str, Any]) -> T:
         """Create a new entity."""
-        try:
-            entity = self.model_class(**data)
-            db.add(entity)
-            await db.commit()
-            await db.refresh(entity)
-            return entity
-        except SQLAlchemyError as e:
-            await db.rollback()
-            logger.error(f"Error creating entity: {str(e)}")
-            raise
+        entity = self.model_class(**data)
+        db.add(entity)
+        await db.commit()
+        await db.refresh(entity)
+        return entity
     
-    async def update_entity(self, db: AsyncSession, entity_id: UUID, data: Dict[str, Any]) -> Optional[T]:
+    @handle_database_errors
+    async def update_entity(self, db: AsyncSession, entity_id: UUID, data: Dict[str, Any]) -> T:
         """Update an entity."""
         result = await db.execute(select(self.model_class).where(self.model_class.id == entity_id))
         entity = result.scalars().first()
-        if not entity:
-            return None
         
+        if not entity:
+            entity_type = self.model_class.__name__.lower()
+            raise EntityNotFoundError(entity_type=entity_type, entity_id=str(entity_id))
+        
+        # Update entity attributes
         for key, value in data.items():
             if hasattr(entity, key):
                 setattr(entity, key, value)
         
-        try:
-            await db.commit()
-            await db.refresh(entity)
-            return entity
-        except SQLAlchemyError as e:
-            await db.rollback()
-            logger.error(f"Error updating entity: {str(e)}")
-            raise
+        await db.commit()
+        await db.refresh(entity)
+        return entity
     
+    @handle_database_errors
     async def delete_entity(self, db: AsyncSession, entity_id: UUID) -> bool:
         """Delete an entity."""
         result = await db.execute(select(self.model_class).where(self.model_class.id == entity_id))
         entity = result.scalars().first()
-        if not entity:
-            return False
         
-        try:
-            await db.delete(entity)
-            await db.commit()
-            return True
-        except SQLAlchemyError as e:
-            await db.rollback()
-            logger.error(f"Error deleting entity: {str(e)}")
-            raise
+        if not entity:
+            entity_type = self.model_class.__name__.lower()
+            raise EntityNotFoundError(entity_type=entity_type, entity_id=str(entity_id))
+        
+        await db.delete(entity)
+        await db.commit()
+        return True

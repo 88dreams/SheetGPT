@@ -9,8 +9,10 @@ from starlette.exceptions import HTTPException
 from typing import Dict
 
 from src.api.routes import api as api_router
+from src.api.middleware.error_handlers import setup_error_handlers
 from src.utils.config import get_settings
 from src.config.logging_config import app_logger, api_logger
+from src.utils.errors import EntityValidationError
 
 settings = get_settings()
 
@@ -61,10 +63,26 @@ async def errors_handling(request: Request, call_next):
 @app.exception_handler(RequestValidationError)
 async def validation_exception_handler(request: Request, exc: RequestValidationError):
     api_logger.error(f"Validation error: {str(exc)}", exc_info=True)
-    response = JSONResponse(
-        status_code=422,
-        content={"detail": str(exc)},
+    
+    # Convert validation errors to our standardized format
+    field_errors = {}
+    for error in exc.errors():
+        field_path = '.'.join(str(loc) for loc in error['loc'])
+        field_errors[field_path] = error['msg']
+    
+    # Create a standardized validation error
+    error = EntityValidationError(
+        message="Request validation failed",
+        field_errors=field_errors,
+        details={"validation_errors": exc.errors()}
     )
+    
+    response = JSONResponse(
+        status_code=error.status_code,
+        content=error.to_dict(),
+    )
+    
+    # Add CORS headers
     origin = request.headers.get('origin')
     if origin in origins:
         response.headers['Access-Control-Allow-Origin'] = origin
@@ -74,15 +92,29 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
 @app.exception_handler(HTTPException)
 async def http_exception_handler(request: Request, exc: HTTPException):
     api_logger.error(f"HTTP error: {str(exc.detail)}", exc_info=True)
+    
+    # Map to our standardized format
+    error_response = {
+        "error": "HTTPException",
+        "message": str(exc.detail),
+        "details": {},
+        "status_code": exc.status_code
+    }
+    
     response = JSONResponse(
         status_code=exc.status_code,
-        content={"detail": str(exc.detail)},
+        content=error_response,
     )
+    
+    # Add CORS headers
     origin = request.headers.get('origin')
     if origin in origins:
         response.headers['Access-Control-Allow-Origin'] = origin
         response.headers['Access-Control-Allow-Credentials'] = 'true'
     return response
+
+# Setup our customized error handlers
+setup_error_handlers(app)
 
 # Include API Router
 app.include_router(

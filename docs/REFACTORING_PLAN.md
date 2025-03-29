@@ -93,6 +93,8 @@ This document outlines the phased approach for refactoring the SheetGPT codebase
   - [ ] Add tests for critical paths
   - [ ] Focus on high-value business logic
   - [ ] Create test factories for consistent test data
+  - [ ] Implement isolated unit tests for error handling components
+  - [ ] Add mocking strategies for SQLAlchemy interactions
 
 - [ ] **Implement integration testing**
   - [ ] Develop more robust integration test framework

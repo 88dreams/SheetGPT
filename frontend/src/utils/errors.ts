@@ -204,6 +204,20 @@ export function isNetworkError(error: unknown): error is NetworkError {
 }
 
 /**
+ * Type guards for data validation errors
+ */
+export function isDataValidationError(error: unknown): error is DataValidationError {
+  return error instanceof DataValidationError;
+}
+
+/**
+ * Type guards for data extraction errors
+ */
+export function isDataExtractionError(error: unknown): error is DataExtractionError {
+  return error instanceof DataExtractionError;
+}
+
+/**
  * Get a user-friendly error message
  * @param error The error to process
  * @returns A human-readable error message

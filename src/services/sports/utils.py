@@ -56,9 +56,57 @@ ENTITY_TYPES = {
     "playoffs": None       # Handled in validator
 }
 
+def normalize_entity_type(entity_type: str) -> str:
+    """
+    Standardize entity type strings.
+    
+    Examples:
+        'division' or 'conference' -> 'division_conference'
+        'broadcast_right' -> 'broadcast_rights' 
+        'Team' -> 'team'
+    """
+    if not entity_type:
+        return ""
+    
+    # Convert to lowercase and remove any trailing 's'
+    normalized = entity_type.lower()
+    
+    # Handle specific mappings
+    if normalized in ['division', 'conference']:
+        return 'division_conference'
+    elif normalized == 'broadcast':
+        return 'broadcast_rights'
+    elif normalized == 'production':
+        return 'production_services'
+    elif normalized in ['championship', 'playoff', 'playoffs', 'tournament']:
+        return normalized  # Keep these as is for special handling
+    
+    # Check if it's a valid entity type (handles pluralization)
+    if normalized in ENTITY_TYPES:
+        # Return the normalized form based on the model class name
+        model_class = ENTITY_TYPES[normalized]
+        if model_class:
+            return model_class.__name__.lower()
+        return normalized
+    
+    # Handle plural forms not in the mapping
+    if normalized.endswith('s') and normalized[:-1] in ENTITY_TYPES:
+        model_class = ENTITY_TYPES[normalized[:-1]]
+        if model_class:
+            return model_class.__name__.lower()
+    
+    # Return as is if we can't normalize it
+    return entity_type
+
 def get_model_for_entity_type(entity_type: str) -> Optional[Type]:
     """Get the model class for a given entity type string."""
-    return ENTITY_TYPES.get(entity_type)
+    # First try with the provided entity type
+    if entity_type in ENTITY_TYPES:
+        return ENTITY_TYPES.get(entity_type)
+    
+    # If not found, try normalizing the entity type
+    normalized = normalize_entity_type(entity_type)
+    return ENTITY_TYPES.get(normalized)
     
 async def get_entity_name(db: AsyncSession, entity_type: str, entity_id: UUID) -> Optional[str]:
     """Get the name of an entity by its type and ID."""

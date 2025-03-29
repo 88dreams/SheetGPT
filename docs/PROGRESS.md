@@ -2,6 +2,60 @@
 
 ## Latest Update
 
+### 2025-03-31: Brand Entity Integration Complete
+
+- Completed Phase 2 of the refactoring plan:
+  - Finalized Brand model as the unified entity for all company types (broadcast, production)
+  - Updated BroadcastCompanyService to use Brand with company_type='Broadcaster'
+  - Updated ProductionCompanyService to use Brand with company_type='Production Company'
+  - Enhanced BroadcastRightsService to use the enhanced base service
+  - Enhanced ProductionServiceService with better error handling and pagination
+  - Added migration script to update BroadcastRights to reference Brand model directly
+  - Created supporting utilities for entity type normalization
+  - Used common patterns across services for consistent code structure
+  - Added comprehensive docstrings with argument and return type documentation
+
+- Key improvements in refactored services:
+  - Consistent error handling with the @handle_database_errors decorator
+  - Flexible entity lookup with exact ID, exact name, and partial name matching
+  - Support for both Pydantic models and plain dictionaries in all APIs
+  - Better validation with entity type normalization
+  - Improved pagination and filtering in all list endpoints
+  - Consistent bulk operation support for more efficient data management
+
+### 2025-03-30: Refactoring Plan Implementation
+
+- Completed Phase 1 of the refactoring plan:
+  - Standardized backend error handling with comprehensive error hierarchy
+  - Improved TypeScript typing across the frontend codebase
+  - Added missing database indexes for performance optimization
+  - Created database migration for the new indexes
+  - Added proper error handling decorators for consistent transaction management
+
+- Initial progress on Phase 2 of the refactoring plan:
+  - Enhanced BaseEntityService with improved error handling and validation
+  - Added flexible entity lookup methods with smart search capabilities
+  - Implemented entity type normalization for consistent handling
+  - Updated LeagueService as example of enhanced base service implementation
+  - Added comprehensive docstrings with proper argument and return type documentation
+  - Created bulk operation support for more efficient data management
+
+### 2025-04-14: Database Maintenance Bug Fixes
+
+- Fixed critical bug in database maintenance name standardization:
+  - Identified and fixed regex backreference syntax error in entity name standardization
+  - Corrected Python regex replacement patterns from JavaScript-style `$1` to Python-style `\1`
+  - Implemented recovery script to repair affected NCAA league names
+  - Added validation and verification steps to confirm data integrity after fixes
+  - Created data backup strategy for maintenance operations
+  - Improved spacing in repaired NCAA entity names
+
+- Enhanced database maintenance workflow:
+  - Added better state management to ensure workflow steps progress properly
+  - Improved transaction handling with explicit rollbacks in error cases
+  - Added proper TEXT vs JSONB type handling for system_metadata updates
+  - Fixed maintenance status persistence with more reliable status tracking
+
 ### 2025-04-12: Testing Infrastructure Enhancements
 
 - Expanded testing infrastructure with improved configuration and test patterns:

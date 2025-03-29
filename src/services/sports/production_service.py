@@ -1,8 +1,9 @@
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.exc import SQLAlchemyError
-from typing import List, Optional, Dict, Any
+from typing import List, Optional, Dict, Any, Union
 from uuid import UUID
 import logging
+import math
 from sqlalchemy import select, func
 import importlib
 
@@ -11,78 +12,208 @@ from src.models import sports_models as models
 from src.schemas.sports import ProductionCompanyCreate, ProductionCompanyUpdate, ProductionServiceCreate, ProductionServiceUpdate
 from src.services.sports.base_service import BaseEntityService
 from src.services.sports.validators import EntityValidator
+from src.utils.errors import handle_database_errors
 
 logger = logging.getLogger(__name__)
 
-class ProductionCompanyService(BaseEntityService[ProductionCompany]):
-    """Service for managing production companies."""
+class ProductionCompanyService(BaseEntityService[Brand]):
+    """
+    Service for managing production companies.
+    
+    Note: Uses the Brand model as the unified company entity, filtering by company_type='Production Company'.
+    Legacy ProductionCompany model will be deprecated in favor of using the Brand model directly.
+    """
     
     def __init__(self):
-        super().__init__(ProductionCompany)
+        super().__init__(Brand)
+        self.entity_type = "production_company"  # Override entity_type for error messages
     
-    async def get_production_companies(self, db: AsyncSession) -> List[ProductionCompany]:
-        """Get all production companies."""
-        result = await db.execute(select(ProductionCompany))
-        return result.scalars().all()
-    
-    async def create_production_company(self, db: AsyncSession, company: ProductionCompanyCreate) -> ProductionCompany:
-        """Create a new production company or update if it already exists."""
-        # Check if a company with the same name already exists
-        existing_company = await db.execute(
-            select(ProductionCompany).where(ProductionCompany.name == company.name)
-        )
-        db_company = existing_company.scalars().first()
-
-        if db_company:
-            # Update existing company
-            for key, value in company.dict().items():
-                if value is not None:  # Only update non-None values
-                    setattr(db_company, key, value)
-        else:
-            # Create new company
-            db_company = ProductionCompany(**company.dict())
-            db.add(db_company)
+    @handle_database_errors
+    async def get_production_companies(self, db: AsyncSession, 
+                                     filters: Optional[Dict[str, Any]] = None,
+                                     page: int = 1, 
+                                     limit: int = 50,
+                                     sort_by: str = "name", 
+                                     sort_direction: str = "asc") -> Dict[str, Any]:
+        """
+        Get all production company brands with optional filtering.
         
-        try:
-            await db.commit()
-            await db.refresh(db_company)
-            return db_company
-        except SQLAlchemyError as e:
-            await db.rollback()
-            logger.error(f"Error creating/updating production company: {str(e)}")
-            raise
+        Args:
+            db: Database session
+            filters: Optional dictionary of field:value pairs to filter on
+            page: Page number to retrieve
+            limit: Number of items per page
+            sort_by: Field to sort by
+            sort_direction: Sort direction ("asc" or "desc")
+            
+        Returns:
+            Dictionary with paginated results and metadata
+        """
+        # Add the production company filter to any existing filters
+        if not filters:
+            filters = {}
+        filters["company_type"] = "Production Company"
+        
+        # Use the enhanced get_entities method from BaseEntityService
+        return await super().get_entities(
+            db, 
+            filters=filters, 
+            page=page, 
+            limit=limit, 
+            sort_by=sort_by, 
+            sort_direction=sort_direction
+        )
     
-    async def get_production_company(self, db: AsyncSession, company_id: UUID) -> Optional[ProductionCompany]:
-        """Get a production company by ID."""
+    @handle_database_errors
+    async def create_production_company(self, db: AsyncSession, company_data: Union[ProductionCompanyCreate, Dict[str, Any]]) -> Brand:
+        """
+        Create a new production company brand or update if it already exists.
+        
+        Args:
+            db: Database session
+            company_data: Company data (either ProductionCompanyCreate schema or dict)
+            
+        Returns:
+            The created or updated brand
+        """
+        # Convert to dict if it's a Pydantic model
+        if hasattr(company_data, "dict"):
+            data = company_data.dict(exclude_unset=True)
+        else:
+            data = company_data
+        
+        # Add production company defaults
+        if "industry" not in data:
+            data["industry"] = "Production"
+        
+        data["company_type"] = "Production Company"
+        
+        # Use the enhanced create_entity method with update_if_exists=True
+        return await super().create_entity(db, data, update_if_exists=True)
+    
+    @handle_database_errors
+    async def get_production_company(self, db: AsyncSession, company_id: UUID) -> Brand:
+        """
+        Get a production company by ID.
+        
+        Args:
+            db: Database session
+            company_id: UUID of the company to get
+            
+        Returns:
+            The brand if found
+            
+        Raises:
+            EntityNotFoundError: If brand doesn't exist
+        """
         return await super().get_entity(db, company_id)
     
-    async def update_production_company(self, db: AsyncSession, company_id: UUID, company_update: ProductionCompanyUpdate) -> Optional[ProductionCompany]:
-        """Update a production company."""
-        # First get the company
-        result = await db.execute(select(ProductionCompany).where(ProductionCompany.id == company_id))
-        db_company = result.scalars().first()
+    @handle_database_errors
+    async def get_production_company_by_name(self, db: AsyncSession, name: str) -> Brand:
+        """
+        Get a production company by name (case-insensitive).
         
-        if not db_company:
-            return None
-        
-        # Update company attributes
-        update_data = company_update.dict(exclude_unset=True)
-        
-        # Apply updates
-        for key, value in update_data.items():
-            setattr(db_company, key, value)
-        
-        try:
-            await db.commit()
-            await db.refresh(db_company)
-            return db_company
-        except SQLAlchemyError as e:
-            await db.rollback()
-            logger.error(f"Error updating production company: {str(e)}")
-            raise
+        Args:
+            db: Database session
+            name: Name of the company to get
+            
+        Returns:
+            The brand if found
+            
+        Raises:
+            EntityNotFoundError: If brand doesn't exist
+        """
+        return await super().get_entity_by_name(db, name)
     
+    @handle_database_errors
+    async def find_production_company(self, db: AsyncSession, search_term: str, raise_not_found: bool = False) -> Optional[Brand]:
+        """
+        Find a production company by name (partial match) or ID.
+        
+        Args:
+            db: Database session
+            search_term: Name fragment or UUID string to search for
+            raise_not_found: Whether to raise EntityNotFoundError if company doesn't exist
+            
+        Returns:
+            The brand if found, None otherwise (if raise_not_found is False)
+            
+        Raises:
+            EntityNotFoundError: If brand doesn't exist and raise_not_found is True
+        """
+        # First try finding with the base method
+        brand = await super().find_entity(db, search_term, raise_not_found=False)
+        
+        # If found, check if it's a production company or try to filter by company_type
+        if brand:
+            if brand.company_type == "Production Company":
+                return brand
+            elif not brand.company_type:
+                # If no company_type is set, update it
+                brand.company_type = "Production Company"
+                await db.commit()
+                await db.refresh(brand)
+                return brand
+            
+        # If not found or not a production company, search specifically for production companies
+        query = select(self.model_class).where(
+            (self.model_class.company_type == "Production Company") &
+            (self.model_class.name.ilike(f"%{search_term}%"))
+        )
+        result = await db.execute(query)
+        brands = result.scalars().all()
+        
+        if brands:
+            return brands[0]
+        
+        if raise_not_found:
+            from src.utils.errors import EntityNotFoundError
+            raise EntityNotFoundError(entity_type=self.entity_type, entity_name=search_term)
+            
+        return None
+    
+    @handle_database_errors
+    async def update_production_company(self, db: AsyncSession, company_id: UUID, company_update: Union[ProductionCompanyUpdate, Dict[str, Any]]) -> Brand:
+        """
+        Update a production company.
+        
+        Args:
+            db: Database session
+            company_id: UUID of the company to update
+            company_update: Company data to update (either ProductionCompanyUpdate schema or dict)
+            
+        Returns:
+            The updated brand
+            
+        Raises:
+            EntityNotFoundError: If brand doesn't exist
+        """
+        # Convert to dict if it's a Pydantic model
+        if hasattr(company_update, "dict"):
+            update_data = company_update.dict(exclude_unset=True)
+        else:
+            update_data = company_update
+            
+        # Ensure company_type remains 'Production Company'
+        update_data["company_type"] = "Production Company"
+            
+        return await super().update_entity(db, company_id, update_data)
+    
+    @handle_database_errors
     async def delete_production_company(self, db: AsyncSession, company_id: UUID) -> bool:
-        """Delete a production company."""
+        """
+        Delete a production company.
+        
+        Args:
+            db: Database session
+            company_id: UUID of the company to delete
+            
+        Returns:
+            True if the company was deleted
+            
+        Raises:
+            EntityNotFoundError: If brand doesn't exist
+        """
         return await super().delete_entity(db, company_id)
 
 class ProductionServiceService(BaseEntityService[ProductionService]):
@@ -91,11 +222,33 @@ class ProductionServiceService(BaseEntityService[ProductionService]):
     def __init__(self):
         super().__init__(ProductionService)
     
+    @handle_database_errors
     async def get_production_services(self, db: AsyncSession, 
+                                     filters: Optional[Dict[str, Any]] = None,
                                      entity_type: Optional[str] = None, 
                                      entity_id: Optional[UUID] = None,
-                                     company_id: Optional[UUID] = None) -> List[ProductionService]:
-        """Get all production services, optionally filtered."""
+                                     company_id: Optional[UUID] = None,
+                                     page: int = 1, 
+                                     limit: int = 50,
+                                     sort_by: str = "id", 
+                                     sort_direction: str = "desc") -> Dict[str, Any]:
+        """
+        Get all production services with optional filtering.
+        
+        Args:
+            db: Database session
+            filters: Optional dictionary of field:value pairs to filter on
+            entity_type: Optional entity type to filter by
+            entity_id: Optional entity ID to filter by
+            company_id: Optional company ID to filter by
+            page: Page number to retrieve
+            limit: Number of items per page
+            sort_by: Field to sort by
+            sort_direction: Sort direction ("asc" or "desc")
+            
+        Returns:
+            Dictionary with paginated results and metadata
+        """
         # Join with Brand directly to get the production company name and secondary brand
         # In our model, the production_company_id and secondary_brand_id of ProductionService point to Brand.id
         brand_alias = Brand.__table__.alias('production_company')
@@ -117,15 +270,59 @@ class ProductionServiceService(BaseEntityService[ProductionService]):
             )
         )
         
+        # Create filters dictionary if not provided
+        if not filters:
+            filters = {}
+            
+        # Add specific filters if provided
         if entity_type:
-            query = query.where(ProductionService.entity_type == entity_type)
-            
+            filters["entity_type"] = entity_type
         if entity_id:
-            query = query.where(ProductionService.entity_id == entity_id)
-            
+            filters["entity_id"] = entity_id
         if company_id:
-            query = query.where(ProductionService.production_company_id == company_id)
+            filters["production_company_id"] = company_id
             
+        # Apply filters to query
+        conditions = []
+        for key, value in filters.items():
+            if hasattr(ProductionService, key):
+                # Handle None values (IS NULL in SQL)
+                if value is None:
+                    conditions.append(getattr(ProductionService, key).is_(None))
+                # Handle list values (IN operator in SQL)
+                elif isinstance(value, list):
+                    conditions.append(getattr(ProductionService, key).in_(value))
+                # Handle string values with optional case-insensitive search
+                elif isinstance(value, str) and key in ['entity_type']:
+                    conditions.append(func.lower(getattr(ProductionService, key)) == value.lower())
+                # Default exact match
+                else:
+                    conditions.append(getattr(ProductionService, key) == value)
+        
+        if conditions:
+            query = query.where(*conditions)
+            
+        # Add sorting
+        if hasattr(ProductionService, sort_by):
+            sort_column = getattr(ProductionService, sort_by)
+            if sort_direction.lower() == "desc":
+                query = query.order_by(sort_column.desc())
+            else:
+                query = query.order_by(sort_column.asc())
+        else:
+            # Default to id sorting if requested column doesn't exist
+            query = query.order_by(ProductionService.id.desc())
+            
+        # Count total records
+        count_query = select(func.count()).select_from(ProductionService)
+        if conditions:
+            count_query = count_query.where(*conditions)
+        total_count = await db.scalar(count_query)
+        
+        # Apply pagination
+        query = query.offset((page - 1) * limit).limit(limit)
+        
+        # Execute query
         result = await db.execute(query)
         
         # Process the results to include the company name and secondary brand
@@ -135,189 +332,48 @@ class ProductionServiceService(BaseEntityService[ProductionService]):
             company_name = record[1]
             secondary_brand_name = record[2]
             
-            # Add the company name and secondary brand name to the service object
-            service_dict = service.__dict__.copy()
-            service_dict["production_company_name"] = company_name.replace(" (Brand)", "") if company_name else None
-            service_dict["secondary_brand_name"] = secondary_brand_name.replace(" (Brand)", "") if secondary_brand_name else None
+            # Process the service to enrich it with additional data
+            enriched_service = await self._enrich_production_service(db, service, company_name, secondary_brand_name)
+            services.append(enriched_service)
             
-            # Generate a proper display name for the entity
-            entity_name = None
-            try:
-                if service.entity_type.lower() in ('championship', 'playoff', 'playoffs'):
-                    # For special entity types, use entity_type as the entity_name
-                    entity_name = service.entity_type
-                elif service.entity_type.lower() == 'league':
-                    entity_lookup_result = await db.execute(
-                        select(models.League).where(models.League.id == service.entity_id)
-                    )
-                    entity = entity_lookup_result.scalars().first()
-                    if entity:
-                        entity_name = entity.name
-                elif service.entity_type.lower() == 'team':
-                    entity_lookup_result = await db.execute(
-                        select(models.Team).where(models.Team.id == service.entity_id)
-                    )
-                    entity = entity_lookup_result.scalars().first()
-                    if entity:
-                        entity_name = entity.name
-                elif service.entity_type.lower() == 'game':
-                    entity_lookup_result = await db.execute(
-                        select(models.Game).where(models.Game.id == service.entity_id)
-                    )
-                    entity = entity_lookup_result.scalars().first()
-                    if entity:
-                        entity_name = f"Game {entity.id}"
-                elif service.entity_type.lower() in ('division', 'conference', 'division_conference'):
-                    entity_lookup_result = await db.execute(
-                        select(models.DivisionConference).where(models.DivisionConference.id == service.entity_id)
-                    )
-                    entity = entity_lookup_result.scalars().first()
-                    if entity:
-                        entity_name = entity.name
-                else:
-                    # For any other entity type
-                    entity_name = service.entity_type.capitalize()
-            except Exception as e:
-                logger.warning(f"Error getting entity name: {e}")
-            
-            # Add the entity name
-            service_dict["entity_name"] = entity_name or "Unknown Entity"
-            
-            # Create a proper display name that will be shown in the UI
-            if company_name and entity_name:
-                service_dict["name"] = f"{company_name} for {entity_name}"
-            elif company_name:
-                service_dict["name"] = f"{company_name} for {service.entity_type}"
-            else:
-                service_dict["name"] = f"Service for {entity_name or service.entity_type}"
-            
-            # Create a ProductionService object with the core fields
-            updated_service = ProductionService()
-            for key, value in service_dict.items():
-                if hasattr(updated_service, key):
-                    setattr(updated_service, key, value)
-            
-            # Make sure the production_company_name is non-null - it's critical for the UI
-            if not service_dict.get("production_company_name"):
-                # Fallback: directly look up the brand name
-                brand_query = await db.execute(
-                    select(Brand).where(Brand.id == service.production_company_id)
-                )
-                brand = brand_query.scalars().first()
-                if brand:
-                    service_dict["production_company_name"] = brand.name.replace(" (Brand)", "")
-            
-            # Dynamically add the additional fields for the response
-            # These will be included in the API response because of our schema
-            setattr(updated_service, "production_company_name", service_dict.get("production_company_name"))
-            setattr(updated_service, "secondary_brand_name", service_dict.get("secondary_brand_name"))
-            setattr(updated_service, "entity_name", service_dict.get("entity_name"))
-            setattr(updated_service, "name", service_dict.get("name"))
-            
-            services.append(updated_service)
-            
-        return services
+        return {
+            "items": services,
+            "total": total_count or 0,
+            "page": page,
+            "size": limit,
+            "pages": math.ceil((total_count or 0) / limit) if limit > 0 else 0
+        }
     
-    async def create_production_service(self, db: AsyncSession, service: ProductionServiceCreate) -> ProductionService:
-        """Create new production service."""
-        # Validate production company exists
-        await EntityValidator.validate_production_company(db, service.production_company_id)
+    async def _enrich_production_service(self, db: AsyncSession, service: ProductionService, 
+                                        company_name: Optional[str] = None, 
+                                        secondary_brand_name: Optional[str] = None) -> ProductionService:
+        """
+        Enrich a production service with additional fields like entity name and display name.
         
-        # Validate secondary brand if provided
-        if service.secondary_brand_id:
-            try:
-                await EntityValidator.validate_brand(db, service.secondary_brand_id)
-            except AttributeError:
-                # If validate_brand doesn't exist, fall back to more generic validation
-                brand_result = await db.execute(select(Brand).where(Brand.id == service.secondary_brand_id))
-                if not brand_result.scalars().first():
-                    raise ValueError(f"Secondary brand with ID {service.secondary_brand_id} not found")
-        
-        # Handle special entity types
-        entity_type = service.entity_type.lower()
-        entity_id = service.entity_id
-        
-        # For special entity types, skip validation
-        if entity_type in ('championship', 'playoff', 'playoffs', 'tournament'):
-            logger.info(f"Creating production service for special entity type: {entity_type}, name: {entity_id}")
+        Args:
+            db: Database session
+            service: The production service to enrich
+            company_name: Optional preloaded company name
+            secondary_brand_name: Optional preloaded secondary brand name
             
-            # Create service dict with all fields
-            service_dict = service.dict()
-            
-            # For special types with string IDs, generate a UUID
-            if not isinstance(entity_id, UUID):
-                # Use a deterministic UUID based on the entity type and name
-                import hashlib
-                name_hash = hashlib.md5(f"{entity_type}:{entity_id}".encode()).hexdigest()
-                generated_uuid = UUID(name_hash[:32])
-                logger.info(f"Generated UUID {generated_uuid} for {entity_type}: {entity_id}")
-                service_dict['entity_id'] = generated_uuid
-            
-            # Create new production service with the dict
-            db_service = ProductionService(**service_dict)
-            db.add(db_service)
-        else:
-            # For regular entity types, validate entity exists
-            await EntityValidator.validate_entity_type_and_id(db, service.entity_type, service.entity_id)
-            
-            # Create new production service
-            db_service = ProductionService(**service.dict())
-            db.add(db_service)
-        
-        try:
-            await db.commit()
-            await db.refresh(db_service)
-            return db_service
-        except SQLAlchemyError as e:
-            await db.rollback()
-            logger.error(f"Error creating production service: {str(e)}")
-            raise
-    
-    async def get_production_service(self, db: AsyncSession, service_id: UUID) -> Optional[ProductionService]:
-        """Get production service by ID."""
-        # Join with Brand directly to get the production company name and secondary brand
-        # In our model, the production_company_id and secondary_brand_id of ProductionService point to Brand.id
-        brand_alias = Brand.__table__.alias('production_company')
-        secondary_brand_alias = Brand.__table__.alias('secondary_brand')
-        
-        query = (
-            select(
-                ProductionService,
-                func.replace(brand_alias.c.name, ' (Brand)', '').label("production_company_name"),
-                func.replace(secondary_brand_alias.c.name, ' (Brand)', '').label("secondary_brand_name")
-            )
-            .outerjoin(
-                brand_alias,
-                ProductionService.production_company_id == brand_alias.c.id
-            )
-            .outerjoin(
-                secondary_brand_alias,
-                ProductionService.secondary_brand_id == secondary_brand_alias.c.id
-            )
-            .where(ProductionService.id == service_id)
-        )
-        
-        result = await db.execute(query)
-        record = result.first()
-        
-        if not record:
-            return None
-            
-        service = record[0]
-        company_name = record[1]
-        secondary_brand_name = record[2]
-        
-        # Add the company name and secondary brand to the service object
+        Returns:
+            The enriched production service
+        """
+        # Create a copy of the service dict for modification
         service_dict = service.__dict__.copy()
+        
+        # Add the company name and secondary brand
         service_dict["production_company_name"] = company_name.replace(" (Brand)", "") if company_name else None
         service_dict["secondary_brand_name"] = secondary_brand_name.replace(" (Brand)", "") if secondary_brand_name else None
         
         # Generate a proper display name for the entity
         entity_name = None
         try:
-            if service.entity_type.lower() in ('championship', 'playoff', 'playoffs'):
+            # Handle special entity types
+            if service.entity_type.lower() in ('championship', 'playoff', 'playoffs', 'tournament'):
                 # For special entity types, use entity_type as the entity_name
                 entity_name = service.entity_type
+            # Handle standard entity types
             elif service.entity_type.lower() == 'league':
                 entity_lookup_result = await db.execute(
                     select(models.League).where(models.League.id == service.entity_id)
@@ -382,17 +438,134 @@ class ProductionServiceService(BaseEntityService[ProductionService]):
                 
         return service
     
-    async def update_production_service(self, db: AsyncSession, service_id: UUID, service_update: ProductionServiceUpdate) -> Optional[ProductionService]:
-        """Update production service."""
-        # First get the production service
-        result = await db.execute(select(ProductionService).where(ProductionService.id == service_id))
-        db_service = result.scalars().first()
+    @handle_database_errors
+    async def create_production_service(self, db: AsyncSession, 
+                                       service_data: Union[ProductionServiceCreate, Dict[str, Any]]) -> ProductionService:
+        """
+        Create new production service.
         
-        if not db_service:
-            return None
+        Args:
+            db: Database session
+            service_data: Production service data (either ProductionServiceCreate schema or dict)
+            
+        Returns:
+            The created production service
+            
+        Raises:
+            ValidationError: If validation fails
+        """
+        # Convert to dict if it's a Pydantic model
+        if hasattr(service_data, "dict"):
+            data = service_data.dict()
+        else:
+            data = service_data
+            
+        # Validate production company exists (now a Brand)
+        await EntityValidator.validate_production_company(db, data["production_company_id"])
         
-        # Update attributes
-        update_data = service_update.dict(exclude_unset=True)
+        # Validate secondary brand if provided
+        if data.get("secondary_brand_id"):
+            await EntityValidator.validate_brand(db, data["secondary_brand_id"])
+        
+        # Handle special entity types
+        entity_type = data["entity_type"].lower()
+        entity_id = data["entity_id"]
+        
+        # For special entity types, create a deterministic UUID
+        if entity_type in ('championship', 'playoff', 'playoffs', 'tournament'):
+            logger.info(f"Creating production service for special entity type: {entity_type}, name: {entity_id}")
+            
+            # For special types with string IDs, generate a UUID
+            if not isinstance(entity_id, UUID):
+                # Use a deterministic UUID based on the entity type and name
+                import hashlib
+                name_hash = hashlib.md5(f"{entity_type}:{entity_id}".encode()).hexdigest()
+                generated_uuid = UUID(name_hash[:32])
+                logger.info(f"Generated UUID {generated_uuid} for {entity_type}: {entity_id}")
+                data['entity_id'] = generated_uuid
+        else:
+            # For regular entity types, validate entity exists
+            await EntityValidator.validate_entity_type_and_id(db, data["entity_type"], data["entity_id"])
+        
+        # Create the entity using the base service method
+        service = await super().create_entity(db, data)
+        
+        # Return enriched service
+        return await self.get_production_service(db, service.id)
+    
+    @handle_database_errors
+    async def get_production_service(self, db: AsyncSession, service_id: UUID) -> ProductionService:
+        """
+        Get production service by ID with enriched fields.
+        
+        Args:
+            db: Database session
+            service_id: UUID of the service to get
+            
+        Returns:
+            The production service if found
+            
+        Raises:
+            EntityNotFoundError: If service doesn't exist
+        """
+        # First get the basic service using the base method
+        service = await super().get_entity(db, service_id)
+        
+        # Now join with brands to get names
+        brand_alias = Brand.__table__.alias('production_company')
+        secondary_brand_alias = Brand.__table__.alias('secondary_brand')
+        
+        query = (
+            select(
+                func.replace(brand_alias.c.name, ' (Brand)', '').label("production_company_name"),
+                func.replace(secondary_brand_alias.c.name, ' (Brand)', '').label("secondary_brand_name")
+            )
+            .outerjoin(
+                brand_alias,
+                service.production_company_id == brand_alias.c.id
+            )
+            .outerjoin(
+                secondary_brand_alias,
+                service.secondary_brand_id == secondary_brand_alias.c.id
+            )
+        )
+        
+        result = await db.execute(query)
+        record = result.first()
+        
+        company_name = record[0] if record else None
+        secondary_brand_name = record[1] if record else None
+        
+        # Enrich the service with additional fields
+        return await self._enrich_production_service(db, service, company_name, secondary_brand_name)
+    
+    @handle_database_errors
+    async def update_production_service(self, db: AsyncSession, 
+                                       service_id: UUID, 
+                                       service_update: Union[ProductionServiceUpdate, Dict[str, Any]]) -> ProductionService:
+        """
+        Update production service.
+        
+        Args:
+            db: Database session
+            service_id: UUID of the service to update
+            service_update: Service data to update (either ProductionServiceUpdate schema or dict)
+            
+        Returns:
+            The updated production service
+            
+        Raises:
+            EntityNotFoundError: If service doesn't exist
+            ValidationError: If validation fails
+        """
+        # Get the current service to check entity_type later
+        db_service = await self.get_entity(db, service_id)
+        
+        # Convert to dict if it's a Pydantic model
+        if hasattr(service_update, "dict"):
+            update_data = service_update.dict(exclude_unset=True)
+        else:
+            update_data = service_update
         
         # Perform validations for updated fields
         if 'production_company_id' in update_data:
@@ -400,34 +573,46 @@ class ProductionServiceService(BaseEntityService[ProductionService]):
             
         # Validate secondary brand if provided
         if 'secondary_brand_id' in update_data and update_data['secondary_brand_id']:
-            try:
-                await EntityValidator.validate_brand(db, update_data['secondary_brand_id'])
-            except AttributeError:
-                # If validate_brand doesn't exist, fall back to more generic validation
-                brand_result = await db.execute(select(Brand).where(Brand.id == update_data['secondary_brand_id']))
-                if not brand_result.scalars().first():
-                    raise ValueError(f"Secondary brand with ID {update_data['secondary_brand_id']} not found")
+            await EntityValidator.validate_brand(db, update_data['secondary_brand_id'])
             
+        # Validate entity type/id if provided
         if 'entity_type' in update_data and 'entity_id' in update_data:
-            await EntityValidator.validate_entity_type_and_id(db, update_data['entity_type'], update_data['entity_id'])
+            entity_type = update_data['entity_type'].lower()
+            entity_id = update_data['entity_id']
+            
+            # For special entity types
+            if entity_type in ('championship', 'playoff', 'playoffs', 'tournament'):
+                if not isinstance(entity_id, UUID):
+                    # Generate deterministic UUID
+                    import hashlib
+                    name_hash = hashlib.md5(f"{entity_type}:{entity_id}".encode()).hexdigest()
+                    generated_uuid = UUID(name_hash[:32])
+                    update_data['entity_id'] = generated_uuid
+            else:
+                # For regular entity types
+                await EntityValidator.validate_entity_type_and_id(db, update_data['entity_type'], update_data['entity_id'])
         elif 'entity_id' in update_data:
             await EntityValidator.validate_entity_type_and_id(db, db_service.entity_type, update_data['entity_id'])
         
-        # Apply updates
-        for key, value in update_data.items():
-            setattr(db_service, key, value)
+        # Update the entity using the base service method
+        updated_service = await super().update_entity(db, service_id, update_data)
         
-        try:
-            await db.commit()
-            await db.refresh(db_service)
-            
-            # Get the updated service with enhanced information
-            return await self.get_production_service(db, service_id)
-        except SQLAlchemyError as e:
-            await db.rollback()
-            logger.error(f"Error updating production service: {str(e)}")
-            raise
+        # Return enriched service
+        return await self.get_production_service(db, service_id)
     
+    @handle_database_errors
     async def delete_production_service(self, db: AsyncSession, service_id: UUID) -> bool:
-        """Delete production service."""
+        """
+        Delete production service.
+        
+        Args:
+            db: Database session
+            service_id: UUID of the service to delete
+            
+        Returns:
+            True if the service was deleted
+            
+        Raises:
+            EntityNotFoundError: If service doesn't exist
+        """
         return await super().delete_entity(db, service_id)

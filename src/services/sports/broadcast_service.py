@@ -1,86 +1,217 @@
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.exc import SQLAlchemyError
-from typing import List, Optional, Dict, Any
+from typing import List, Optional, Dict, Any, Union
 from uuid import UUID
 import logging
+import math
 from sqlalchemy import select
 
-from src.models.sports_models import BroadcastCompany, BroadcastRights, DivisionConference
+from src.models.sports_models import Brand, BroadcastRights, DivisionConference
 from src.schemas.sports import BroadcastCompanyCreate, BroadcastCompanyUpdate, BroadcastRightsCreate, BroadcastRightsUpdate
 from src.services.sports.base_service import BaseEntityService
 from src.services.sports.validators import EntityValidator
+from src.utils.errors import handle_database_errors
 
 logger = logging.getLogger(__name__)
 
-class BroadcastCompanyService(BaseEntityService[BroadcastCompany]):
-    """Service for managing broadcast companies."""
+class BroadcastCompanyService(BaseEntityService[Brand]):
+    """
+    Service for managing broadcast companies.
+    
+    Note: Uses the Brand model as the unified company entity, filtering by company_type='Broadcaster'.
+    Legacy BroadcastCompany model will be deprecated in favor of using the Brand model directly.
+    """
     
     def __init__(self):
-        super().__init__(BroadcastCompany)
+        super().__init__(Brand)
+        self.entity_type = "broadcast_company"  # Override entity_type for error messages
     
-    async def get_broadcast_companies(self, db: AsyncSession) -> List[BroadcastCompany]:
-        """Get all broadcast companies."""
-        result = await db.execute(select(BroadcastCompany))
-        return result.scalars().all()
-    
-    async def create_broadcast_company(self, db: AsyncSession, company: BroadcastCompanyCreate) -> BroadcastCompany:
-        """Create a new broadcast company or update if it already exists."""
-        # Check if a company with the same name already exists
-        existing_company = await db.execute(
-            select(BroadcastCompany).where(BroadcastCompany.name == company.name)
-        )
-        db_company = existing_company.scalars().first()
-
-        if db_company:
-            # Update existing company
-            for key, value in company.dict().items():
-                if value is not None:  # Only update non-None values
-                    setattr(db_company, key, value)
-        else:
-            # Create new company
-            db_company = BroadcastCompany(**company.dict())
-            db.add(db_company)
+    @handle_database_errors
+    async def get_broadcast_companies(self, db: AsyncSession, 
+                                     filters: Optional[Dict[str, Any]] = None,
+                                     page: int = 1, 
+                                     limit: int = 50,
+                                     sort_by: str = "name", 
+                                     sort_direction: str = "asc") -> Dict[str, Any]:
+        """
+        Get all broadcast company brands with optional filtering.
         
-        try:
-            await db.commit()
-            await db.refresh(db_company)
-            return db_company
-        except SQLAlchemyError as e:
-            await db.rollback()
-            logger.error(f"Error creating/updating broadcast company: {str(e)}")
-            raise
+        Args:
+            db: Database session
+            filters: Optional dictionary of field:value pairs to filter on
+            page: Page number to retrieve
+            limit: Number of items per page
+            sort_by: Field to sort by
+            sort_direction: Sort direction ("asc" or "desc")
+            
+        Returns:
+            Dictionary with paginated results and metadata
+        """
+        # Add the broadcaster filter to any existing filters
+        if not filters:
+            filters = {}
+        filters["company_type"] = "Broadcaster"
+        
+        # Use the enhanced get_entities method from BaseEntityService
+        return await super().get_entities(
+            db, 
+            filters=filters, 
+            page=page, 
+            limit=limit, 
+            sort_by=sort_by, 
+            sort_direction=sort_direction
+        )
     
-    async def get_broadcast_company(self, db: AsyncSession, company_id: UUID) -> Optional[BroadcastCompany]:
-        """Get a broadcast company by ID."""
+    @handle_database_errors
+    async def create_broadcast_company(self, db: AsyncSession, company_data: Union[BroadcastCompanyCreate, Dict[str, Any]]) -> Brand:
+        """
+        Create a new broadcast company brand or update if it already exists.
+        
+        Args:
+            db: Database session
+            company_data: Company data (either BroadcastCompanyCreate schema or dict)
+            
+        Returns:
+            The created or updated brand
+        """
+        # Convert to dict if it's a Pydantic model
+        if hasattr(company_data, "dict"):
+            data = company_data.dict(exclude_unset=True)
+        else:
+            data = company_data
+        
+        # Add broadcast company defaults
+        if "industry" not in data:
+            data["industry"] = "Media"
+        
+        data["company_type"] = "Broadcaster"
+        
+        # Use the enhanced create_entity method with update_if_exists=True
+        return await super().create_entity(db, data, update_if_exists=True)
+    
+    @handle_database_errors
+    async def get_broadcast_company(self, db: AsyncSession, company_id: UUID) -> Brand:
+        """
+        Get a broadcast company by ID.
+        
+        Args:
+            db: Database session
+            company_id: UUID of the company to get
+            
+        Returns:
+            The brand if found
+            
+        Raises:
+            EntityNotFoundError: If brand doesn't exist
+        """
         return await super().get_entity(db, company_id)
     
-    async def update_broadcast_company(self, db: AsyncSession, company_id: UUID, company_update: BroadcastCompanyUpdate) -> Optional[BroadcastCompany]:
-        """Update a broadcast company."""
-        # First get the company
-        result = await db.execute(select(BroadcastCompany).where(BroadcastCompany.id == company_id))
-        db_company = result.scalars().first()
+    @handle_database_errors
+    async def get_broadcast_company_by_name(self, db: AsyncSession, name: str) -> Brand:
+        """
+        Get a broadcast company by name (case-insensitive).
         
-        if not db_company:
-            return None
-        
-        # Update company attributes
-        update_data = company_update.dict(exclude_unset=True)
-        
-        # Apply updates
-        for key, value in update_data.items():
-            setattr(db_company, key, value)
-        
-        try:
-            await db.commit()
-            await db.refresh(db_company)
-            return db_company
-        except SQLAlchemyError as e:
-            await db.rollback()
-            logger.error(f"Error updating broadcast company: {str(e)}")
-            raise
+        Args:
+            db: Database session
+            name: Name of the company to get
+            
+        Returns:
+            The brand if found
+            
+        Raises:
+            EntityNotFoundError: If brand doesn't exist
+        """
+        return await super().get_entity_by_name(db, name)
     
+    @handle_database_errors
+    async def find_broadcast_company(self, db: AsyncSession, search_term: str, raise_not_found: bool = False) -> Optional[Brand]:
+        """
+        Find a broadcast company by name (partial match) or ID.
+        
+        Args:
+            db: Database session
+            search_term: Name fragment or UUID string to search for
+            raise_not_found: Whether to raise EntityNotFoundError if company doesn't exist
+            
+        Returns:
+            The brand if found, None otherwise (if raise_not_found is False)
+            
+        Raises:
+            EntityNotFoundError: If brand doesn't exist and raise_not_found is True
+        """
+        # First try finding with the base method
+        brand = await super().find_entity(db, search_term, raise_not_found=False)
+        
+        # If found, check if it's a broadcaster or try to filter by company_type
+        if brand:
+            if brand.company_type == "Broadcaster":
+                return brand
+            elif not brand.company_type:
+                # If no company_type is set, update it
+                brand.company_type = "Broadcaster"
+                await db.commit()
+                await db.refresh(brand)
+                return brand
+            
+        # If not found or not a broadcaster, search specifically for broadcasters
+        query = select(self.model_class).where(
+            (self.model_class.company_type == "Broadcaster") &
+            (self.model_class.name.ilike(f"%{search_term}%"))
+        )
+        result = await db.execute(query)
+        brands = result.scalars().all()
+        
+        if brands:
+            return brands[0]
+        
+        if raise_not_found:
+            from src.utils.errors import EntityNotFoundError
+            raise EntityNotFoundError(entity_type=self.entity_type, entity_name=search_term)
+            
+        return None
+    
+    @handle_database_errors
+    async def update_broadcast_company(self, db: AsyncSession, company_id: UUID, company_update: Union[BroadcastCompanyUpdate, Dict[str, Any]]) -> Brand:
+        """
+        Update a broadcast company.
+        
+        Args:
+            db: Database session
+            company_id: UUID of the company to update
+            company_update: Company data to update (either BroadcastCompanyUpdate schema or dict)
+            
+        Returns:
+            The updated brand
+            
+        Raises:
+            EntityNotFoundError: If brand doesn't exist
+        """
+        # Convert to dict if it's a Pydantic model
+        if hasattr(company_update, "dict"):
+            update_data = company_update.dict(exclude_unset=True)
+        else:
+            update_data = company_update
+            
+        # Ensure company_type remains 'Broadcaster'
+        update_data["company_type"] = "Broadcaster"
+            
+        return await super().update_entity(db, company_id, update_data)
+    
+    @handle_database_errors
     async def delete_broadcast_company(self, db: AsyncSession, company_id: UUID) -> bool:
-        """Delete a broadcast company."""
+        """
+        Delete a broadcast company.
+        
+        Args:
+            db: Database session
+            company_id: UUID of the company to delete
+            
+        Returns:
+            True if the company was deleted
+            
+        Raises:
+            EntityNotFoundError: If brand doesn't exist
+        """
         return await super().delete_entity(db, company_id)
 
 class BroadcastRightsService(BaseEntityService[BroadcastRights]):
@@ -89,65 +220,134 @@ class BroadcastRightsService(BaseEntityService[BroadcastRights]):
     def __init__(self):
         super().__init__(BroadcastRights)
     
+    @handle_database_errors
     async def get_broadcast_rights(self, db: AsyncSession, 
-                                   entity_type: Optional[str] = None, 
-                                   entity_id: Optional[UUID] = None,
-                                   company_id: Optional[UUID] = None) -> List[BroadcastRights]:
-        """Get all broadcast rights, optionally filtered."""
-        query = select(BroadcastRights)
+                                  filters: Optional[Dict[str, Any]] = None,
+                                  entity_type: Optional[str] = None, 
+                                  entity_id: Optional[UUID] = None,
+                                  company_id: Optional[UUID] = None,
+                                  page: int = 1, 
+                                  limit: int = 50,
+                                  sort_by: str = "start_date", 
+                                  sort_direction: str = "desc") -> Dict[str, Any]:
+        """
+        Get broadcast rights with optional filtering.
         
+        Args:
+            db: Database session
+            filters: Optional dictionary of field:value pairs to filter on
+            entity_type: Optional entity type to filter by
+            entity_id: Optional entity ID to filter by
+            company_id: Optional company ID to filter by
+            page: Page number to retrieve
+            limit: Number of items per page
+            sort_by: Field to sort by
+            sort_direction: Sort direction ("asc" or "desc")
+            
+        Returns:
+            Dictionary with paginated results and metadata
+        """
+        # Create filters dictionary if not provided
+        if not filters:
+            filters = {}
+            
+        # Add specific filters if provided
         if entity_type:
-            query = query.where(BroadcastRights.entity_type == entity_type)
-            
+            filters["entity_type"] = entity_type
         if entity_id:
-            query = query.where(BroadcastRights.entity_id == entity_id)
-            
+            filters["entity_id"] = entity_id
         if company_id:
-            query = query.where(BroadcastRights.broadcast_company_id == company_id)
+            filters["broadcast_company_id"] = company_id
             
-        result = await db.execute(query)
-        return result.scalars().all()
+        # Use the enhanced get_entities method from BaseEntityService
+        return await super().get_entities(
+            db, 
+            filters=filters, 
+            page=page, 
+            limit=limit, 
+            sort_by=sort_by, 
+            sort_direction=sort_direction
+        )
     
-    async def create_broadcast_rights(self, db: AsyncSession, rights: BroadcastRightsCreate) -> BroadcastRights:
-        """Create new broadcast rights."""
-        # Validate broadcast company exists
-        await EntityValidator.validate_broadcast_company(db, rights.broadcast_company_id)
+    @handle_database_errors
+    async def create_broadcast_rights(self, db: AsyncSession, 
+                                     rights_data: Union[BroadcastRightsCreate, Dict[str, Any]]) -> BroadcastRights:
+        """
+        Create new broadcast rights.
+        
+        Args:
+            db: Database session
+            rights_data: Broadcast rights data (either BroadcastRightsCreate schema or dict)
+            
+        Returns:
+            The created broadcast rights
+            
+        Raises:
+            ValidationError: If validation fails
+        """
+        # Convert to dict if it's a Pydantic model
+        if hasattr(rights_data, "dict"):
+            data = rights_data.dict()
+        else:
+            data = rights_data
+            
+        # Validate broadcast company exists (now a Brand)
+        await EntityValidator.validate_broadcast_company(db, data["broadcast_company_id"])
         
         # Validate division/conference if provided
-        if rights.division_conference_id:
-            await EntityValidator.validate_division_conference(db, rights.division_conference_id)
+        if data.get("division_conference_id"):
+            await EntityValidator.validate_division_conference(db, data["division_conference_id"])
         
         # Validate that the entity exists
-        await EntityValidator.validate_entity_type_and_id(db, rights.entity_type, rights.entity_id)
+        await EntityValidator.validate_entity_type_and_id(db, data["entity_type"], data["entity_id"])
         
-        # Create new broadcast rights
-        db_rights = BroadcastRights(**rights.dict())
-        db.add(db_rights)
-        
-        try:
-            await db.commit()
-            await db.refresh(db_rights)
-            return db_rights
-        except SQLAlchemyError as e:
-            await db.rollback()
-            logger.error(f"Error creating broadcast rights: {str(e)}")
-            raise
+        # Use the enhanced create_entity method
+        return await super().create_entity(db, data)
     
-    async def get_broadcast_right(self, db: AsyncSession, rights_id: UUID) -> Optional[BroadcastRights]:
-        """Get broadcast rights by ID."""
+    @handle_database_errors
+    async def get_broadcast_right(self, db: AsyncSession, rights_id: UUID) -> BroadcastRights:
+        """
+        Get broadcast rights by ID.
+        
+        Args:
+            db: Database session
+            rights_id: UUID of the rights to get
+            
+        Returns:
+            The broadcast rights if found
+            
+        Raises:
+            EntityNotFoundError: If rights don't exist
+        """
         return await super().get_entity(db, rights_id)
     
-    async def update_broadcast_rights(self, db: AsyncSession, rights_id: UUID, rights_update: BroadcastRightsUpdate) -> Optional[BroadcastRights]:
-        """Update broadcast rights."""
-        # First get the broadcast rights
-        result = await db.execute(select(BroadcastRights).where(BroadcastRights.id == rights_id))
-        db_rights = result.scalars().first()
+    @handle_database_errors
+    async def update_broadcast_rights(self, db: AsyncSession, 
+                                     rights_id: UUID, 
+                                     rights_update: Union[BroadcastRightsUpdate, Dict[str, Any]]) -> BroadcastRights:
+        """
+        Update broadcast rights.
         
-        if not db_rights:
-            return None
+        Args:
+            db: Database session
+            rights_id: UUID of the rights to update
+            rights_update: Rights data to update (either BroadcastRightsUpdate schema or dict)
+            
+        Returns:
+            The updated broadcast rights
+            
+        Raises:
+            EntityNotFoundError: If rights don't exist
+            ValidationError: If validation fails
+        """
+        # Get the current rights to check entity_type later
+        db_rights = await self.get_entity(db, rights_id)
         
-        # Update attributes
-        update_data = rights_update.dict(exclude_unset=True)
+        # Convert to dict if it's a Pydantic model
+        if hasattr(rights_update, "dict"):
+            update_data = rights_update.dict(exclude_unset=True)
+        else:
+            update_data = rights_update
         
         # Perform validations for updated fields
         if 'broadcast_company_id' in update_data:
@@ -161,19 +361,22 @@ class BroadcastRightsService(BaseEntityService[BroadcastRights]):
         elif 'entity_id' in update_data:
             await EntityValidator.validate_entity_type_and_id(db, db_rights.entity_type, update_data['entity_id'])
         
-        # Apply updates
-        for key, value in update_data.items():
-            setattr(db_rights, key, value)
-        
-        try:
-            await db.commit()
-            await db.refresh(db_rights)
-            return db_rights
-        except SQLAlchemyError as e:
-            await db.rollback()
-            logger.error(f"Error updating broadcast rights: {str(e)}")
-            raise
+        # Use the enhanced update_entity method
+        return await super().update_entity(db, rights_id, update_data)
     
+    @handle_database_errors
     async def delete_broadcast_rights(self, db: AsyncSession, rights_id: UUID) -> bool:
-        """Delete broadcast rights."""
+        """
+        Delete broadcast rights.
+        
+        Args:
+            db: Database session
+            rights_id: UUID of the rights to delete
+            
+        Returns:
+            True if the rights were deleted
+            
+        Raises:
+            EntityNotFoundError: If rights don't exist
+        """
         return await super().delete_entity(db, rights_id)

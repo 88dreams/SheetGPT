@@ -155,8 +155,25 @@ class AuthorizationError(SportsDatabaseError):
         
         if required_role:
             error_details["required_role"] = required_role
-            
+        
         super().__init__(message, error_details, status_code=403)
+
+
+class ValidationError(SportsDatabaseError):
+    """Error raised for general validation issues."""
+    
+    def __init__(self, message: str, field_errors: Optional[Dict[str, str]] = None, 
+                details: Optional[Dict[str, Any]] = None):
+        self.field_errors = field_errors or {}
+        
+        error_details = {
+            **(details or {})
+        }
+        
+        if field_errors:
+            error_details["field_errors"] = field_errors
+        
+        super().__init__(message, error_details, status_code=400)
 
 
 class ExternalServiceError(SportsDatabaseError):
@@ -176,21 +193,51 @@ class ExternalServiceError(SportsDatabaseError):
 # Error handling decorators and utilities
 
 def handle_database_errors(func):
-    """Decorator to standardize database error handling in services."""
+    """
+    Decorator to standardize database error handling in services.
+    
+    This decorator takes care of:
+    1. Exception wrapping for consistent API responses
+    2. Transaction handling (rollback on error)
+    3. Proper error logging with context
+    """
     import functools
+    import inspect
     from sqlalchemy.exc import SQLAlchemyError, IntegrityError
     
     @functools.wraps(func)
     async def wrapper(*args, **kwargs):
+        # Try to identify the db session parameter
+        db = None
+        # Check if we have a db session in the arguments
+        # Most service methods have the db session as the 2nd parameter (after self)
+        if len(args) >= 2 and hasattr(args[1], 'rollback'):
+            db = args[1]
+        # Otherwise check kwargs
+        elif 'db' in kwargs and hasattr(kwargs['db'], 'rollback'):
+            db = kwargs['db']
+            
         try:
             return await func(*args, **kwargs)
         except SportsDatabaseError:
-            # Don't wrap already properly typed errors
+            # Don't wrap already properly typed errors, but still rollback if possible
+            if db:
+                try:
+                    await db.rollback()
+                except Exception as rollback_error:
+                    logger.warning(f"Error during rollback: {str(rollback_error)}")
             raise
         except IntegrityError as e:
             # Handle constraint violations
             operation_name = func.__name__
             error_message = str(e)
+            
+            # Rollback the transaction if possible
+            if db:
+                try:
+                    await db.rollback()
+                except Exception as rollback_error:
+                    logger.warning(f"Error during rollback: {str(rollback_error)}")
             
             # Extract constraint information if available
             details = {"original_error": error_message}
@@ -223,6 +270,13 @@ def handle_database_errors(func):
             operation_name = func.__name__
             error_message = str(e)
             
+            # Rollback the transaction if possible
+            if db:
+                try:
+                    await db.rollback()
+                except Exception as rollback_error:
+                    logger.warning(f"Error during rollback: {str(rollback_error)}")
+            
             err = DatabaseOperationError(
                 f"Database operation failed: {operation_name}", 
                 operation=operation_name,
@@ -237,6 +291,13 @@ def handle_database_errors(func):
             # Handle other unexpected errors
             operation_name = func.__name__
             error_message = str(e)
+            
+            # Rollback the transaction if possible
+            if db:
+                try:
+                    await db.rollback()
+                except Exception as rollback_error:
+                    logger.warning(f"Error during rollback: {str(rollback_error)}")
             
             # Log unexpected errors at a higher level
             logger.exception(f"Unexpected error in {operation_name}: {error_message}")

@@ -132,9 +132,26 @@ This document outlines the phased approach for refactoring the SheetGPT codebase
 |-------|---------|-----------|-------|
 | Phase 1 | 2025-03-28 | 2025-03-29 | Error handling, TypeScript typing, and database indexes completed |
 | Phase 2 | 2025-03-29 | 2025-03-31 | Base service class enhanced, entity type standardized, Brand model integration completed |
-| Phase 3 | | | |
+| Phase 3 | 2025-03-31 | In progress | Identifying components with circular dependencies and UI state issues |
 | Phase 4 | | | |
 | Phase 5 | | | |
 | Phase 6 | | | |
 
-Last updated: 2025-03-30
+## Next Steps (Phase 3)
+
+1. Identify React components and hooks with circular dependencies:
+   - Look for hooks that reference each other
+   - Check components that maintain complex UI state with data operations
+   - Analyze the SportDataMapper components for best patterns to apply
+
+2. Create a plan for reworking the hook architecture:
+   - Define clear boundaries between data operation and UI state hooks
+   - Design a new hook structure that separates concerns properly
+   - Apply lessons learned from the EntityList refactoring
+
+3. Begin refactoring hooks one component at a time:
+   - Start with simpler components
+   - Document patterns for others to follow
+   - Maintain backward compatibility with existing API
+
+Last updated: 2025-03-31

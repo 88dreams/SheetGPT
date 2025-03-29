@@ -1,5 +1,35 @@
 # SheetGPT Development Guide
 
+## Refactoring Progress
+The codebase is currently undergoing a planned refactoring effort described in docs/REFACTORING_PLAN.md:
+
+### Phase 1: Foundation Improvements (COMPLETED)
+- ✅ Standardized backend error handling with comprehensive error hierarchy
+- ✅ Improved TypeScript typing across the frontend codebase
+- ✅ Added missing database indexes for performance optimization
+
+### Phase 2: Service Layer Consolidation (COMPLETED)
+- ✅ Enhanced BaseEntityService with improved error handling and validation
+- ✅ Standardized entity type handling with normalization functions
+- ✅ Completed Brand entity integration
+  - ✅ Updated BroadcastCompanyService to use Brand model with company_type='Broadcaster'
+  - ✅ Updated ProductionCompanyService to use Brand model with company_type='Production Company'
+  - ✅ Created migration scripts for foreign key updates
+  - ✅ Fixed and improved error handling with automatic rollback
+
+### Phase 3: Hook Dependency Management (NEXT)
+- ⬜ Resolve circular hook dependencies
+- ⬜ Extract UI state from business logic hooks
+- ⬜ Standardize error handling in hooks
+
+Implementation details:
+- The base service now has standardized methods for CRUD operations
+- Added smart entity lookup with ID, exact name, and partial name matching
+- Improved error handling decorator with auto-session rollback
+- Services now support both Pydantic models and dictionaries
+- Services have improved filtering capability for list operations
+- Comprehensive docstrings document all parameters and return types
+
 ## Build/Test/Lint Commands
 
 ### Docker Environment
@@ -352,6 +382,7 @@ The database maintenance workflow follows a step-by-step approach:
    - Use direct SQL generation for backup reliability
    - Store backups in a dedicated directory with timestamps
    - Implement proper error handling and progress feedback
+   - Create entity-specific backups for high-risk operations like name standardization
 
 2. **Analysis Step (Dry Run)**
    - Identify duplicate records across all entity tables
@@ -359,21 +390,42 @@ The database maintenance workflow follows a step-by-step approach:
    - Find inconsistent entity naming patterns
    - Identify missing constraints or schema issues
    - Present findings without making any changes
+   - Log proposed changes with before/after examples for verification
 
 3. **Cleanup Step**
    - Remove duplicate records with proper reference updating
    - Fix broken relationships and standardize entity names
    - Add missing constraints to prevent future duplication
-   - Implement proper transaction handling for safety
+   - Implement proper transaction handling with explicit rollbacks in error cases
+   - Use isolated transactions for constraint operations to prevent cascading failures
    - Record all changes in system_metadata for auditing
+   - IMPORTANT: When UI state tracking is needed, set step completion state in frontend proactively
+   - Allow manual validation of proposed name standardization changes
 
 4. **Optimization Step**
    - Run VACUUM ANALYZE to reclaim storage and update stats
    - Run REINDEX to rebuild indexes (optional, can be skipped)
    - Calculate and display space savings from optimization
    - Monitor performance improvements with before/after metrics
+   - Properly qualify table names in SQL queries to avoid column ambiguity
 
-For all steps, use a system_metadata table with JSONB type for storing maintenance status and results. Ensure proper JSON serialization with custom serializers for non-standard data types and use the ::jsonb type casting in SQL queries.
+For system_metadata storage:
+- Prefer TEXT type over JSONB for simpler and more reliable updates
+- When using JSONB, follow the pattern `:value::jsonb` with proper parameter binding
+- Add fallback query execution mechanisms that try both positional and named parameters
+- Ensure proper serialization of complex objects before storage
+- Implement status update functions that handle multiple storage patterns
+
+### Regex Pattern Standardization
+
+When implementing regex-based text standardization in Python:
+- Remember that Python uses `\1`, `\2` for backreferences in replacement strings, NOT `$1`, `$2` (which is JavaScript syntax)
+- Always test regex replacements on sample data before applying to production
+- Consider using raw strings (r"pattern") for regex patterns to avoid double escaping
+- When standardizing entity names, ensure spacing is preserved where needed (e.g., "NCAA Division" not "NCAADivision")
+- Write verification scripts to validate the results of text replacements
+- Combine multiple text standardization rules into logical groups based on entity type
+- Create test cases that cover edge cases like names with special characters or mixed capitalization
 
 ## Error Handling Guidelines
 

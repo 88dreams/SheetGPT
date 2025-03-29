@@ -49,6 +49,58 @@ export class ValidationError extends AppError {
 }
 
 /**
+ * Error for data structure validation failures
+ */
+export class DataValidationError extends AppError {
+  public fields: Record<string, string>;
+  
+  constructor(message: string, fields: Record<string, string> = {}) {
+    super(message, 'data_validation_error');
+    this.name = 'DataValidationError';
+    this.fields = fields;
+  }
+  
+  /**
+   * Get a formatted string of all validation errors
+   */
+  getFormattedErrors(): string {
+    if (Object.keys(this.fields).length === 0) {
+      return this.message;
+    }
+    
+    const errors = Object.entries(this.fields)
+      .map(([field, error]) => `${field}: ${error}`)
+      .join(', ');
+      
+    return `${this.message}: ${errors}`;
+  }
+}
+
+/**
+ * Error for data extraction failures
+ */
+export class DataExtractionError extends AppError {
+  public details: string;
+  
+  constructor(message: string, details: string = '') {
+    super(message, 'data_extraction_error');
+    this.name = 'DataExtractionError';
+    this.details = details;
+  }
+  
+  /**
+   * Get a formatted error message including details
+   */
+  getFormattedError(): string {
+    if (!this.details) {
+      return this.message;
+    }
+    
+    return `${this.message}: ${this.details}`;
+  }
+}
+
+/**
  * Error for authentication-related failures
  */
 export class AuthError extends AppError {

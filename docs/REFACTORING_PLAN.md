@@ -133,7 +133,7 @@ This document outlines the phased approach for refactoring the SheetGPT codebase
 | Phase 1 | 2025-03-28 | 2025-03-29 | Error handling, TypeScript typing, and database indexes completed |
 | Phase 2 | 2025-03-29 | 2025-03-31 | Base service class enhanced, entity type standardized, Brand model integration completed |
 | Phase 3 | 2025-03-31 | 2025-04-14 | Circular hook dependencies resolved, UI state separated from business logic, new component patterns implemented |
-| Phase 4 | | | |
+| Phase 4 | 2025-04-16 | In progress | Performance optimization, memoization strategy, virtualization for large datasets |
 | Phase 5 | | | |
 | Phase 6 | | | |
 
@@ -155,22 +155,56 @@ This document outlines the phased approach for refactoring the SheetGPT codebase
    - ✅ New SportDataMapperV2 component showcases proper hook composition
    - ✅ Maintained backward compatibility with existing components
 
-## Next Steps (Phase 4)
+## Phase 4 Detailed Plan
 
-1. Apply performance optimization strategies:
-   - Apply consistent memoization patterns using our new hook structure
-   - Identify components that would benefit from React.memo
-   - Add virtualization for large data sets in data tables
-   - Profile components before and after changes to measure improvement
+### 1. Fingerprinting Utility Implementation
+- Create utility for consistent object comparison via "fingerprinting"
+- Design API for generating stable hash-like strings for objects and arrays
+- Implement shallow and deep comparison options
+- Add specialized comparators for dates, UUIDs, and nested objects
+- Apply in critical components with complex object dependencies
 
-2. Implement fingerprinting for complex object comparisons:
-   - Create utility for generating consistent "fingerprints" of complex data structures
-   - Apply in useMemo and useEffect dependencies
-   - Use in React.memo equality functions
+### 2. Component Memoization Strategy
+- Implement React.memo for expensive components with comprehensive equality checks
+- Apply useCallback and useMemo consistently with proper dependency arrays
+- Create higher-order components for automatic memoization where appropriate
+- Document performance gains with before/after measurements
+- Focus on high-impact components like DataTable, EntityList, and SportDataMapper
 
-3. Apply optimization patterns across the codebase:
-   - Start with data-heavy components like EntityList and DataTable
-   - Document performance improvements
-   - Create consistent patterns for complex data handling
+### 3. Large Dataset Handling
+- Implement virtualization for large data tables
+- Add windowing for long lists to minimize DOM elements
+- Implement efficient pagination with cache preloading
+- Create optimized rendering for large collections
+- Apply dynamic loading patterns for relationship data
 
-Last updated: 2025-04-14
+### 4. API and Cache Optimization
+- Implement efficient cache invalidation strategy
+- Add request deduplication for parallel identical requests
+- Improve relationship data loading with multi-fetch operations
+- Implement local storage persistence for session-level data
+- Design prefetching for anticipated user interactions
+
+### 5. Component-Specific Optimizations
+- **DataTable Component**: 
+  - Virtualize rows for large datasets
+  - Implement progressive cell rendering
+  - Add intelligent column management
+  
+- **EntityList Component**:
+  - Optimize selection state management
+  - Improve filter performance
+  - Add specialized renderers for different entity types
+  
+- **SportDataMapper Component**:
+  - Enhance field mapping performance
+  - Optimize record navigation and processing
+  - Improve drag-and-drop operations
+
+### 6. Performance Testing Framework
+- Implement consistent performance measurement
+- Create benchmarks for common operations
+- Set up monitoring for regression detection
+- Add performance tests to CI pipeline
+
+Last updated: 2025-04-16

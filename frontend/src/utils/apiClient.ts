@@ -73,12 +73,12 @@ export function removeToken() {
 let isRefreshing = false;
 // Store pending requests that are waiting for token refresh
 let pendingRequests: Array<{
-  resolve: (value?: any) => void;
-  reject: (reason?: any) => void;
+  resolve: (value?: unknown) => void;
+  reject: (reason?: Error) => void;
 }> = [];
 
 // Process pending requests after token refresh
-const processPendingRequests = (error: any = null) => {
+const processPendingRequests = (error: Error | null = null) => {
   if (error) {
     // If refresh failed, reject all pending requests
     pendingRequests.forEach(request => {
@@ -157,7 +157,8 @@ apiClient.interceptors.response.use(
     (response) => {
         console.log('Response:', {
             status: response.status,
-            data: response.data
+            url: response.config.url,
+            method: response.config.method,
         });
         return response;
     },
@@ -166,8 +167,8 @@ apiClient.interceptors.response.use(
         if (error.response && 
             error.response.status === 401 && 
             error.config && 
-            !error.config.url.includes('/auth/refresh') && 
-            !error.config.url.includes('/auth/login')) {
+            !error.config.url?.includes('/auth/refresh') && 
+            !error.config.url?.includes('/auth/login')) {
             
             console.log('Received 401 error, attempting to refresh token');
             
@@ -183,7 +184,8 @@ apiClient.interceptors.response.use(
                         
                         // Retry the original request with new token
                         const token = getToken();
-                        if (token) {
+                        if (token && error.config) {
+                            error.config.headers = error.config.headers || {};
                             error.config.headers.Authorization = `Bearer ${token}`;
                         }
                         
@@ -200,12 +202,13 @@ apiClient.interceptors.response.use(
                     }
                 } else {
                     // Token refresh already in progress, add to pending queue
-                    return new Promise((resolve, reject) => {
+                    return new Promise<unknown>((resolve, reject) => {
                         pendingRequests.push({ resolve, reject });
                     }).then(() => {
                         // After token refresh completes successfully, retry request
                         const token = getToken();
-                        if (token) {
+                        if (token && error.config) {
+                            error.config.headers = error.config.headers || {};
                             error.config.headers.Authorization = `Bearer ${token}`;
                         }
                         return axios(error.config);
@@ -223,26 +226,35 @@ apiClient.interceptors.response.use(
             }
         }
         
-        console.error('Response error:', error.response || error);
+        // Log detailed error information
+        if (error.response) {
+            console.error('API Error Response:', {
+                status: error.response.status,
+                url: error.config?.url,
+                method: error.config?.method,
+                data: error.response.data,
+            });
+        } else if (error.request) {
+            console.error('API Request Error (No Response):', {
+                url: error.config?.url,
+                method: error.config?.method,
+            });
+        } else {
+            console.error('API Error:', error.message);
+        }
+        
         return Promise.reject(error);
     }
 );
 
-// Custom error class for API errors
-export class APIError extends Error {
-  status: number
-  constructor(message: string, status: number) {
-    super(message)
-    this.name = 'APIError'
-    this.status = status
-  }
-}
+// Import our new standardized error utilities
+import { ApiError, handleError } from './errors';
 
 export interface RequestOptions extends Omit<RequestInit, 'headers'> {
-  requiresAuth?: boolean
-  headers?: Record<string, string>
-  timeout?: number // Optional timeout in milliseconds
-  responseType?: 'json' | 'blob' // Response type (default is 'json')
+  requiresAuth?: boolean;
+  headers?: Record<string, string>;
+  timeout?: number; // Optional timeout in milliseconds
+  responseType?: 'json' | 'blob'; // Response type (default is 'json')
 }
 
 export async function request<T>(endpoint: string, options: RequestOptions = {}): Promise<T> {
@@ -286,24 +298,15 @@ export async function request<T>(endpoint: string, options: RequestOptions = {})
       dataType: options.responseType || 'json',
       dataSize: options.responseType === 'blob' 
         ? response.data?.size || 'unknown' 
-        : JSON.stringify(response.data).length,
+        : typeof response.data === 'object' ? JSON.stringify(response.data).length : 'unknown',
       status: response.status
     });
     
-    return response.status === 204 ? undefined as T : response.data as T
+    return response.status === 204 ? undefined as unknown as T : response.data as T;
   } catch (error) {
-    if (error instanceof AxiosError) {
-      console.error(`API Error: ${options.method || 'GET'} ${endpoint}`, {
-        status: error.response?.status,
-        statusText: error.response?.statusText,
-        data: error.response?.data,
-        message: error.message
-      });
-      
-      const errorDetail = error.response?.data?.detail || error.message;
-      throw new APIError(errorDetail, error.response?.status || 500);
-    }
-    console.error(`Non-Axios API Error: ${endpoint}`, error);
-    throw error;
+    // Use our standardized error handling
+    const appError = handleError(error);
+    console.error(`API Request failed: ${options.method || 'GET'} ${endpoint}`, appError);
+    throw appError;
   }
 }

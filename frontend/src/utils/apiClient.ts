@@ -250,6 +250,9 @@ apiClient.interceptors.response.use(
 // Import our new standardized error utilities
 import { ApiError, handleError } from './errors';
 
+// Re-export ApiError as APIError for backward compatibility
+export { ApiError as APIError };
+
 export interface RequestOptions extends Omit<RequestInit, 'headers'> {
   requiresAuth?: boolean;
   headers?: Record<string, string>;

@@ -25,6 +25,7 @@ interface EntityTableProps {
   handleDeleteEntity: (entityId: string) => void;
   handleView: (entityId: string) => void;
   searchQuery?: string; // Added search query for highlighting
+  isLoading?: boolean; // Added loading state
   
   // Column drag and drop props
   draggedHeader: string | null;
@@ -72,6 +73,7 @@ const EntityTable: React.FC<EntityTableProps> = ({
   handleDeleteEntity,
   handleView,
   searchQuery = '', // Default to empty string
+  isLoading = false, // Default to not loading
   // Column drag and drop props
   draggedHeader,
   dragOverHeader,
@@ -267,7 +269,17 @@ const EntityTable: React.FC<EntityTableProps> = ({
   }, [searchQuery, entities]);
 
   return (
-    <div className="overflow-auto border border-gray-200 rounded-md">
+    <div className="overflow-auto border border-gray-200 rounded-md relative">
+      {/* Loading overlay */}
+      {isLoading && (
+        <div className="absolute inset-0 bg-white bg-opacity-60 z-20 flex items-center justify-center">
+          <div className="flex flex-col items-center">
+            <div className="w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+            <p className="mt-2 text-blue-600 text-sm font-medium">Loading data...</p>
+          </div>
+        </div>
+      )}
+      
       {searchQuery && searchQuery.length >= 3 && (
         <div className="py-2 px-4 bg-blue-50 border-b border-blue-100">
           <p className="text-blue-700 text-sm">

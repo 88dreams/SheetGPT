@@ -213,8 +213,8 @@ const EntityList: React.FC<EntityListProps> = ({ className = '' }) => {
     [selectedEntitiesFingerprint]
   );
 
-  // Loading state
-  if (isLoading) {
+  // Loading state - only show full loading screen on initial load (when no entities data)
+  if (isLoading && (!entities || entities.length === 0)) {
     return (
       <div className={`flex justify-center items-center h-64 ${className}`}>
         <LoadingSpinner size="medium" />
@@ -309,6 +309,7 @@ const EntityList: React.FC<EntityListProps> = ({ className = '' }) => {
         handleDeleteEntity={handleDeleteEntity}
         handleView={(entityId) => navigate(`/sports/${selectedEntityType}/${entityId}`)}
         searchQuery={searchQuery} // Pass the search query for highlighting
+        isLoading={isLoading} // Pass loading state to show loading overlay
         // Column drag and drop props
         draggedHeader={draggedItem}
         dragOverHeader={dragOverItem}
@@ -328,6 +329,7 @@ const EntityList: React.FC<EntityListProps> = ({ className = '' }) => {
         pageSize={pageSize}
         setPageSize={setPageSize}
         totalItems={totalItems}
+        isLoading={isLoading}
       />
 
       {/* Entity Edit Modal */}

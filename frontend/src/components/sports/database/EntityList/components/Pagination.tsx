@@ -7,6 +7,7 @@ interface PaginationProps {
   pageSize: number;
   setPageSize: (size: number) => void;
   totalItems: number;
+  isLoading?: boolean; // Optional loading indicator
 }
 
 /**
@@ -18,16 +19,16 @@ export default function Pagination({
   totalPages, 
   pageSize, 
   setPageSize, 
-  totalItems 
+  totalItems,
+  isLoading = false
 }: PaginationProps) {
   // Inline handler for page size changes
   function onPageSizeChange(e: React.ChangeEvent<HTMLSelectElement>) {
     // Get new size from dropdown
     const newPageSize = parseInt(e.target.value, 10);
     
-    // First set page to 1, then change page size
-    // This order prevents any confusion in state updates
-    setCurrentPage(1);
+    // Let parent component handle the complex pagination state
+    // It will reset page to 1 and update appropriate query state
     setPageSize(newPageSize);
   }
   
@@ -90,7 +91,7 @@ export default function Pagination({
         <div className="flex items-center space-x-2">
           <button
             onClick={handleFirstPage}
-            disabled={currentPage <= 1}
+            disabled={currentPage <= 1 || isLoading}
             className="px-3 py-1 border rounded-md text-sm disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
             data-testid="first-page"
           >
@@ -98,18 +99,21 @@ export default function Pagination({
           </button>
           <button
             onClick={handlePrevPage}
-            disabled={currentPage <= 1}
+            disabled={currentPage <= 1 || isLoading}
             className="px-3 py-1 border rounded-md text-sm disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
             data-testid="prev-page"
           >
             Previous
           </button>
-          <span className="px-3 py-1 text-sm text-gray-700">
+          <span className="px-3 py-1 text-sm text-gray-700 flex items-center">
+            {isLoading && (
+              <span className="mr-2 inline-block h-4 w-4 animate-spin rounded-full border-2 border-solid border-blue-500 border-r-transparent"></span>
+            )}
             Page {currentPage} of {totalPages || 1}
           </span>
           <button
             onClick={handleNextPage}
-            disabled={currentPage >= totalPages}
+            disabled={currentPage >= totalPages || isLoading}
             className="px-3 py-1 border rounded-md text-sm disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
             data-testid="next-page"
           >
@@ -117,7 +121,7 @@ export default function Pagination({
           </button>
           <button
             onClick={handleLastPage}
-            disabled={currentPage >= totalPages}
+            disabled={currentPage >= totalPages || isLoading}
             className="px-3 py-1 border rounded-md text-sm disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
             data-testid="last-page"
           >

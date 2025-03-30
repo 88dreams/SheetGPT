@@ -136,34 +136,39 @@ export const SportsDatabaseProvider: React.FC<SportsDatabaseProviderProps> = ({ 
   // Calculate total pages
   const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
   
-  // Expose a safe setPageSize that always resets to page 1
+  // Expose a safe setPageSize that resets to page 1
   const handleSetPageSize = useCallback((newSize: number) => {
     if (newSize !== pageSize) {
       console.log(`SportsDatabaseContext: Setting page size to ${newSize} and resetting to page 1`);
-      // First set page to 1, then change size
+      
+      // Update both values in a single render cycle to avoid stale state issues
+      // React batches these updates in React 18+
+      setPageSize(newSize);
       setCurrentPage(1);
-      // Use timeout to ensure state updates are separated
-      setTimeout(() => {
-        setPageSize(newSize);
-      }, 10);
+      
+      // Notify QueryClient about the change to ensure proper refetching
+      // This helps the query system know that we've made an important parameter change
+      if (queryClient) {
+        queryClient.invalidateQueries({
+          queryKey: ['sportsEntities', selectedEntityType],
+          // Don't refetch immediately - let the effect of state changes trigger that
+          refetchType: 'none'
+        });
+      }
     }
-  }, [pageSize]);
+  }, [pageSize, queryClient, selectedEntityType]);
   
-  // Create a proper page change handler that invalidates the cache
+  // Create a proper page change handler that works with optimized caching
   const handleSetCurrentPage = useCallback((page: number) => {
     console.log(`SportsDatabaseContext: Setting current page to ${page}`);
     
-    // First invalidate the cache
-    if (queryClient) {
-      // This ensures that when we navigate between pages,
-      // the cache doesn't prevent a refetch
-      queryClient.removeQueries(['sportsEntities', selectedEntityType, page]);
-    }
+    // We no longer need to manually invalidate cache with the updated React Query config
+    // that uses keepPreviousData: true for smooth transitions
     
-    // Then update the state directly
+    // Just update the state directly - React Query will handle the data fetching
     setCurrentPage(page);
     
-  }, [queryClient, selectedEntityType]);
+  }, []);
   
   // Update data flow when component mounts
   useEffect(() => {
@@ -261,10 +266,15 @@ export const SportsDatabaseProvider: React.FC<SportsDatabaseProviderProps> = ({ 
       }
     },
     enabled: isAuthenticated && isReady,
-    staleTime: 0,
-    cacheTime: 0, // Disable caching completely
+    // Use a short staleTime for entity data to ensure it's mostly fresh
+    staleTime: 1000 * 30, // 30 seconds
+    // Keep data in cache for at least a few minutes to help with pagination
+    gcTime: 1000 * 60 * 5, // 5 minutes
     refetchOnWindowFocus: false,
-    refetchOnMount: true
+    refetchOnMount: true,
+    // These settings improve pagination UX
+    keepPreviousData: true, // Shows previous page data while loading new page
+    useErrorBoundary: false // Handle errors gracefully
   });
 
   const entities = response || [];

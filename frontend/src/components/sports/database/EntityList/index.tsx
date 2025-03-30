@@ -201,10 +201,11 @@ const EntityList: React.FC<EntityListProps> = ({ className = '' }) => {
     [selectedEntities]
   );
 
-  // Filtered entities from context - memoized to prevent recalculation on every render
+  // Use entities directly from the API without additional client-side sorting
+  // The server is already sorting the entire dataset properly
   const filteredEntities = useMemo(
-    () => getSortedEntities() as BaseEntity[],
-    [entitiesFingerprint, sortStateFingerprint]
+    () => entities as BaseEntity[],
+    [entitiesFingerprint]
   );
   
   const hasActiveFilters = activeFilters && activeFilters.length > 0;

@@ -419,17 +419,40 @@ export async function saveCsvFile(data: any[], columns: string[], filename: stri
 - Create specialized comparison utilities for deep equality checks of complex objects
 - Avoid nested ternary expressions for conditional rendering as they're harder to debug
 
-### Pagination and List Specific Guidance 
+### Pagination and React Query Integration
 
-- Handle pagination state centrally to avoid synchronization issues
-- Implement defensive logic when changing page size to reset current page appropriately
-- Use setTimeout(0) to sequence state updates that must happen in a specific order
-- Store pagination settings in both URL params and localStorage for proper state restoration
-- Add validation before applying pagination values from external sources (URL, storage)
-- Create clear separations between UI-level pagination and data-level pagination
-- Apply optimistic UI updates with proper rollback mechanisms for pagination actions
-- For drag and drop implementations, ensure component inputs have stable identity across renders
-- Monitor pagination-related re-renders with React DevTools to identify performance issues
+- Properly configure React Query for pagination:
+  - Disable or reduce cache time when using paginated data (set `cacheTime: 0`)
+  - Include page number and page size in query keys to ensure proper cache separation
+  - Use `removeQueries()` when navigating between pages to ensure fresh data
+  - Include `selectedEntityType` in dependencies for page change handlers
+
+- Implement robust pagination event handlers:
+  - Always use explicit handler functions instead of inline arrow functions
+  - Call preventDefault() on pagination button events to ensure proper processing
+  - Add data-testid attributes to pagination controls for better testing
+  - Add conditional checks to prevent unnecessary state updates
+
+- Handle pagination state coherently:
+  - Manage pagination state centrally to avoid synchronization issues
+  - Use queryClient invalidation for reliable cache management
+  - Implement proper dependencies in useCallback hooks for pagination functions
+  - Avoid state batching issues with explicit state updates
+  - Add proper error handling for edge cases (empty results, invalid pages)
+
+- Ensure proper cache invalidation for pagination:
+  - Use explicit cache invalidation when changing pages
+  - Set appropriate staleTime and cacheTime for your data requirements
+  - Include all relevant parameters in query keys
+  - Monitor query cache behavior with React Query DevTools
+  - Use refetchOnMount and other flags consistently
+
+- Additional pagination best practices:
+  - Store pagination settings in URL params or localStorage for proper state restoration
+  - Add validation before applying pagination values from external sources
+  - Create clear separations between UI-level pagination and data-level pagination
+  - Apply optimistic UI updates with proper rollback mechanisms
+  - Monitor pagination-related re-renders with React DevTools
 
 ### Context Design
 

@@ -2,6 +2,22 @@
 
 ## Latest Update
 
+### 2025-05-14: Entity List Pagination Bug Fixes
+
+- Fixed critical pagination issues in the EntityList component:
+  - Resolved issue where decrementing page numbers didn't update the UI or fetch new data
+  - Addressed React Query caching problems preventing proper data reloads
+  - Fixed inconsistencies when changing page size dropdown selections
+  - Implemented proper cache invalidation for consistent pagination behavior
+  - Added robust event handling for pagination controls
+
+- Key improvements to the pagination implementation:
+  - Disabled excessive caching in React Query configuration
+  - Added explicit cache invalidation during page changes
+  - Implemented proper event handlers with preventDefault()
+  - Improved page size change handling to ensure clean state transitions
+  - Fixed React Query dependency tracking for reliable cache invalidation
+
 ### 2025-05-10: SportDataMapper Component Bug Fixes
 
 - Fixed critical issues with the SportDataMapper component's field mapping functionality:

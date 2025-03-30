@@ -149,6 +149,22 @@ export const SportsDatabaseProvider: React.FC<SportsDatabaseProviderProps> = ({ 
     }
   }, [pageSize]);
   
+  // Create a proper page change handler that invalidates the cache
+  const handleSetCurrentPage = useCallback((page: number) => {
+    console.log(`SportsDatabaseContext: Setting current page to ${page}`);
+    
+    // First invalidate the cache
+    if (queryClient) {
+      // This ensures that when we navigate between pages,
+      // the cache doesn't prevent a refetch
+      queryClient.removeQueries(['sportsEntities', selectedEntityType, page]);
+    }
+    
+    // Then update the state directly
+    setCurrentPage(page);
+    
+  }, [queryClient, selectedEntityType]);
+  
   // Update data flow when component mounts
   useEffect(() => {
     setDestination('sportsdb');
@@ -245,8 +261,10 @@ export const SportsDatabaseProvider: React.FC<SportsDatabaseProviderProps> = ({ 
       }
     },
     enabled: isAuthenticated && isReady,
-    staleTime: 0, 
-    refetchOnWindowFocus: false
+    staleTime: 0,
+    cacheTime: 0, // Disable caching completely
+    refetchOnWindowFocus: false,
+    refetchOnMount: true
   });
 
   const entities = response || [];
@@ -338,7 +356,7 @@ export const SportsDatabaseProvider: React.FC<SportsDatabaseProviderProps> = ({ 
     getEntityFields,
     handleUpdateEntity,
     currentPage,
-    setCurrentPage,
+    setCurrentPage: handleSetCurrentPage,
     totalPages,
     pageSize,
     setPageSize: handleSetPageSize,
@@ -380,7 +398,7 @@ export const SportsDatabaseProvider: React.FC<SportsDatabaseProviderProps> = ({ 
     getEntityFields,
     handleUpdateEntity,
     currentPage,
-    setCurrentPage,
+    handleSetCurrentPage,
     totalPages,
     pageSize,
     handleSetPageSize,

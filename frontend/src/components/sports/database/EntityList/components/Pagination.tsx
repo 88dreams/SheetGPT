@@ -35,6 +35,37 @@ export default function Pagination({
   const from = totalItems === 0 ? 0 : (currentPage - 1) * pageSize + 1;
   const to = Math.min(currentPage * pageSize, totalItems);
   
+  // Improved handlers to ensure events are completely processed
+  const handleFirstPage = (e: React.MouseEvent) => {
+    e.preventDefault();
+    if (currentPage !== 1) {
+      setCurrentPage(1);
+    }
+  };
+
+  const handlePrevPage = (e: React.MouseEvent) => {
+    e.preventDefault();
+    if (currentPage > 1) {
+      const newPage = currentPage - 1;
+      setCurrentPage(newPage);
+    }
+  };
+
+  const handleNextPage = (e: React.MouseEvent) => {
+    e.preventDefault();
+    if (currentPage < totalPages) {
+      const newPage = currentPage + 1;
+      setCurrentPage(newPage);
+    }
+  };
+
+  const handleLastPage = (e: React.MouseEvent) => {
+    e.preventDefault();
+    if (currentPage !== totalPages) {
+      setCurrentPage(totalPages);
+    }
+  };
+
   return (
     <div className="px-4 py-3 border-t border-gray-200 sm:px-6">
       <div className="flex items-center justify-between">
@@ -58,16 +89,18 @@ export default function Pagination({
         
         <div className="flex items-center space-x-2">
           <button
-            onClick={() => setCurrentPage(1)}
+            onClick={handleFirstPage}
             disabled={currentPage <= 1}
             className="px-3 py-1 border rounded-md text-sm disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
+            data-testid="first-page"
           >
             First
           </button>
           <button
-            onClick={() => setCurrentPage(currentPage - 1)}
+            onClick={handlePrevPage}
             disabled={currentPage <= 1}
             className="px-3 py-1 border rounded-md text-sm disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
+            data-testid="prev-page"
           >
             Previous
           </button>
@@ -75,16 +108,18 @@ export default function Pagination({
             Page {currentPage} of {totalPages || 1}
           </span>
           <button
-            onClick={() => setCurrentPage(currentPage + 1)}
+            onClick={handleNextPage}
             disabled={currentPage >= totalPages}
             className="px-3 py-1 border rounded-md text-sm disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
+            data-testid="next-page"
           >
             Next
           </button>
           <button
-            onClick={() => setCurrentPage(totalPages)}
+            onClick={handleLastPage}
             disabled={currentPage >= totalPages}
             className="px-3 py-1 border rounded-md text-sm disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
+            data-testid="last-page"
           >
             Last
           </button>

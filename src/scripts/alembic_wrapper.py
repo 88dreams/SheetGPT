@@ -55,6 +55,15 @@ def run_alembic_command(cmd, **kwargs):
             message = kwargs.get('message', '')
             autogenerate = kwargs.get('autogenerate', False)
             command.revision(alembic_cfg, message=message, autogenerate=autogenerate)
+        elif cmd == 'merge':
+            message = kwargs.get('message', '')
+            revisions = kwargs.get('revisions', None)
+            command.merge(alembic_cfg, message=message, revisions=revisions)
+        elif cmd == 'stamp':
+            revision = kwargs.get('revision', 'head')
+            sql = kwargs.get('sql', False)
+            tag = kwargs.get('tag', None)
+            command.stamp(alembic_cfg, revision, sql=sql, tag=tag)
         else:
             print(f"Unknown command: {cmd}")
             return
@@ -67,10 +76,13 @@ def run_alembic_command(cmd, **kwargs):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Alembic wrapper script')
-    parser.add_argument('command', help='Alembic command to run (current, history, heads, upgrade, downgrade, revision)')
-    parser.add_argument('--revision', help='Revision identifier for upgrade/downgrade commands')
-    parser.add_argument('--message', help='Message for revision command')
+    parser.add_argument('command', help='Alembic command to run (current, history, heads, upgrade, downgrade, revision, merge, stamp)')
+    parser.add_argument('--revision', help='Revision identifier for upgrade/downgrade/stamp commands')
+    parser.add_argument('--message', help='Message for revision or merge command')
     parser.add_argument('--autogenerate', action='store_true', help='Autogenerate migrations')
+    parser.add_argument('--revisions', nargs='+', help='Revisions to merge (for merge command)')
+    parser.add_argument('--sql', action='store_true', help='Don\'t emit SQL to database (for stamp command)')
+    parser.add_argument('--tag', help='Arbitrary tag name (for stamp command)')
     
     args = parser.parse_args()
     
@@ -81,5 +93,11 @@ if __name__ == "__main__":
         kwargs['message'] = args.message
     if args.autogenerate:
         kwargs['autogenerate'] = True
+    if args.revisions:
+        kwargs['revisions'] = args.revisions
+    if args.sql:
+        kwargs['sql'] = True
+    if args.tag:
+        kwargs['tag'] = args.tag
         
     run_alembic_command(args.command, **kwargs) 

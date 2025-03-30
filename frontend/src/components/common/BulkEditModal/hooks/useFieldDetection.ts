@@ -1,138 +1,118 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { EntityType } from '../../../../types/sports';
 import { FieldDefinition } from '../types';
 
-/**
- * Hook for detecting and managing field definitions
- */
-const useFieldDetection = () => {
-  // Extract fields from query results
-  const detectFieldsFromQueryResults = useCallback((queryResults: any[]) => {
-    if (!queryResults.length) return { fields: [], isTeam: false };
-    
-    // Extract field info from the first result
-    const firstResult = queryResults[0];
-    
-    // Check if this result looks like a team (has name, city fields)
-    const isTeam = firstResult.name && 
-                 (firstResult.city || firstResult.league_id) && 
-                 !firstResult.sport; // Not a league
+interface UseFieldDetectionProps {
+  isMounted?: React.MutableRefObject<boolean>;
+}
 
-    // Extract base fields from the result
-    let fields = Object.keys(firstResult).map(name => {
-      const value = firstResult[name];
-      const type = typeof value === 'number' ? 'number' : 
-                  typeof value === 'boolean' ? 'boolean' :
-                  (typeof value === 'string' && /^\d{4}-\d{2}-\d{2}T/.test(value)) ? 'datetime' :
-                  'string';
-      
-      return {
-        name,
-        type,
-        required: false,
-        description: name.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())
-      };
-    });
-    
-    // For teams, ensure division_conference_id is always included
-    if (isTeam && !fields.some(f => f.name === 'division_conference_id')) {
-      fields.push({
-        name: 'division_conference_id',
-        type: 'string',
-        required: true,
-        description: 'Division/Conference ID'
-      });
+/**
+ * Hook for detecting and organizing fields for the bulk edit modal
+ */
+export default function useFieldDetection({ isMounted }: UseFieldDetectionProps = {}) {
+  // State to track detected fields
+  const [fields, setFields] = useState<FieldDefinition[]>([]);
+  
+  // Categorize fields by type
+  const fieldsByCategory = useMemo(() => {
+    // Skip if no fields
+    if (!fields || fields.length === 0) {
+      return {};
     }
     
-    // Return both fields and the detection result
-    return { 
-      fields: JSON.parse(JSON.stringify(fields)), // Create a clean copy to prevent reference issues
-      isTeam 
-    };
-  }, []);
-
-  // Get entity fields from predefined schemas (simulated API call)
-  const getEntityFields = useCallback((entityType: EntityType) => {
-    // This is a simplified implementation - will be replaced with actual API call
-    const commonFields = [
-      { name: 'id', type: 'string', required: false, description: 'Unique identifier' },
-      { name: 'name', type: 'string', required: true, description: 'Name of the entity' },
-      { name: 'created_at', type: 'datetime', required: false, description: 'Creation timestamp' },
-      { name: 'updated_at', type: 'datetime', required: false, description: 'Last update timestamp' }
-    ];
-    
-    const entitySpecificFields: Record<EntityType, FieldDefinition[]> = {
-      'league': [
-        { name: 'nickname', type: 'string', required: false, description: 'League nickname or abbreviation (e.g., NFL, NBA)' },
-        { name: 'sport', type: 'string', required: true, description: 'Sport type' },
-        { name: 'country', type: 'string', required: true, description: 'Country' },
-        { name: 'founded_year', type: 'number', required: false, description: 'Year founded' }
-      ],
-      'division_conference': [
-        { name: 'league_id', type: 'string', required: true, description: 'League ID' },
-        { name: 'nickname', type: 'string', required: false, description: 'Nickname or abbreviation (AFC, NFC, etc)' },
-        { name: 'type', type: 'string', required: true, description: 'Type (Division, Conference)' },
-        { name: 'region', type: 'string', required: false, description: 'Region (East, West, etc)' }
-      ],
-      'team': [
-        { name: 'league_id', type: 'string', required: true, description: 'League ID' },
-        { name: 'division_conference_id', type: 'string', required: true, description: 'Division/Conference ID' },
-        { name: 'city', type: 'string', required: true, description: 'City' },
-        { name: 'country', type: 'string', required: true, description: 'Country' },
-        { name: 'state', type: 'string', required: false, description: 'State/Province' },
-        { name: 'founded_year', type: 'number', required: false, description: 'Year founded' }
-      ],
-      'player': [
-        { name: 'team_id', type: 'string', required: true, description: 'Team ID' },
-        { name: 'position', type: 'string', required: true, description: 'Position' }
-      ],
-      'game': [
-        { name: 'league_id', type: 'string', required: true, description: 'League ID' },
-        { name: 'home_team_id', type: 'string', required: true, description: 'Home Team ID' },
-        { name: 'away_team_id', type: 'string', required: true, description: 'Away Team ID' },
-        { name: 'date', type: 'date', required: true, description: 'Game Date' }
-      ],
-      'stadium': [
-        { name: 'city', type: 'string', required: true, description: 'City' },
-        { name: 'country', type: 'string', required: true, description: 'Country' },
-        { name: 'capacity', type: 'number', required: false, description: 'Capacity' }
-      ],
-      'broadcast': [
-        { name: 'broadcast_company_id', type: 'string', required: true, description: 'Broadcast Company ID' },
-        { name: 'entity_type', type: 'string', required: true, description: 'Entity Type' },
-        { name: 'entity_id', type: 'string', required: true, description: 'Entity ID' }
-      ],
-      'production': [
-        { name: 'production_company_id', type: 'string', required: true, description: 'Production Company ID' },
-        { name: 'entity_type', type: 'string', required: true, description: 'Entity Type' },
-        { name: 'entity_id', type: 'string', required: true, description: 'Entity ID' }
-      ],
-      'brand': [
-        { name: 'industry', type: 'string', required: true, description: 'Industry' }
-      ],
-      'game_broadcast': [
-        { name: 'game_id', type: 'string', required: true, description: 'Game ID' },
-        { name: 'broadcast_company_id', type: 'string', required: true, description: 'Broadcast Company ID' }
-      ],
-      'league_executive': [
-        { name: 'league_id', type: 'string', required: true, description: 'League ID' },
-        { name: 'position', type: 'string', required: true, description: 'Position' }
-      ]
+    // Define categories
+    const categories: Record<string, FieldDefinition[]> = {
+      "Basic Information": [],
+      "Relationships": [],
+      "Dates & Numbers": [],
+      "Other": []
     };
     
-    // Combine common fields with entity-specific fields
-    const allFields = [...commonFields, ...(entitySpecificFields[entityType] || [])];
+    // Categorize each field
+    fields.forEach(field => {
+      if (['name', 'nickname', 'type', 'description', 'region', 'city', 'country', 'state'].includes(field.name)) {
+        categories["Basic Information"].push(field);
+      } else if (field.name.endsWith('_id') && field.name !== 'id') {
+        categories["Relationships"].push(field);
+      } else if (
+        ['date', 'time', 'year', 'number', 'boolean', 'datetime'].includes(field.type) || 
+        field.name.includes('date') || 
+        field.name.includes('year')
+      ) {
+        categories["Dates & Numbers"].push(field);
+      } else {
+        categories["Other"].push(field);
+      }
+    });
     
-    // Filter out read-only fields like id, created_at, updated_at
-    return allFields.filter(field => 
-      !['id', 'created_at', 'updated_at'].includes(field.name)
-    );
+    // Remove empty categories
+    const result: Record<string, FieldDefinition[]> = {};
+    for (const [category, categoryFields] of Object.entries(categories)) {
+      if (categoryFields.length > 0) {
+        result[category] = categoryFields;
+      }
+    }
+    
+    return result;
+  }, [fields]);
+  
+  // Detect fields based on entity type or query results
+  const detectFields = useCallback((entityType: string | null, sampleItem?: any) => {
+    // If entity type is provided, use predefined field definitions
+    if (entityType) {
+      // This is a simplified implementation - will be replaced with actual API call
+      const commonFields = [
+        { name: 'name', type: 'string', required: true, description: 'Name of the entity' }
+      ];
+      
+      const entitySpecificFields: Record<string, FieldDefinition[]> = {
+        'league': [
+          { name: 'sport', type: 'string', required: true, description: 'Sport type' },
+          { name: 'country', type: 'string', required: true, description: 'Country' }
+        ],
+        'team': [
+          { name: 'city', type: 'string', required: true, description: 'City' },
+          { name: 'country', type: 'string', required: true, description: 'Country' }
+        ],
+        // Add more entity types as needed
+      };
+      
+      // Combine common fields with entity-specific fields
+      const detectedFields = [
+        ...commonFields,
+        ...(entitySpecificFields[entityType] || [])
+      ];
+      
+      setFields(detectedFields);
+    } 
+    // If sample item is provided, extract fields from it
+    else if (sampleItem) {
+      const detectedFields = Object.keys(sampleItem).map(name => {
+        const value = sampleItem[name];
+        const type = typeof value === 'number' ? 'number' : 
+                    typeof value === 'boolean' ? 'boolean' :
+                    (typeof value === 'string' && /^\d{4}-\d{2}-\d{2}T/.test(value)) ? 'datetime' :
+                    'string';
+        
+        return {
+          name,
+          type,
+          required: false,
+          description: name.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())
+        };
+      });
+      
+      setFields(detectedFields);
+    }
+    // If neither is provided, reset fields
+    else {
+      setFields([]);
+    }
   }, []);
-
+  
   return {
-    detectFieldsFromQueryResults,
-    getEntityFields
+    fields,
+    fieldsByCategory,
+    detectFields
   };
-};
-
-export default useFieldDetection;
+}

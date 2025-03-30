@@ -1,8 +1,18 @@
 import React from 'react';
-import { render, screen } from '@testing-library/react';
-import { describe, it, expect, jest } from '@jest/globals';
+import { render, screen, fireEvent } from '@testing-library/react';
+import { describe, it, expect, jest, beforeEach } from '@jest/globals';
 import FieldItem from '../components/FieldItem';
 import '@testing-library/jest-dom';
+
+// Mock the fingerprint and memoization utilities
+jest.mock('../../../../utils/fingerprint', () => ({
+  createMemoEqualityFn: jest.fn((a) => (b) => a === b),
+  fingerprint: jest.fn(obj => JSON.stringify(obj))
+}));
+
+jest.mock('../../../../utils/memoization', () => ({
+  withRowMemo: jest.fn((component, equalityFn) => component)
+}));
 
 // Mock the react-dnd hooks
 jest.mock('react-dnd', () => ({
@@ -16,18 +26,27 @@ const renderComponent = (ui: React.ReactElement) => {
 };
 
 describe('FieldItem', () => {
-  it('should render a source field item', () => {
+  // Mock formatValue function to track calls
+  const formatValueMock = jest.fn(val => String(val));
+  
+  // Reset mocks before each test
+  beforeEach(() => {
+    formatValueMock.mockClear();
+  });
+  
+  it('should render a source field item with memoization', () => {
     renderComponent(
       <FieldItem 
         field="name" 
         value="Test Name" 
         isSource={true}
-        formatValue={(val) => String(val)}
+        formatValue={formatValueMock}
       />
     );
     
     expect(screen.getByText('name')).toBeInTheDocument();
     expect(screen.getByText('Test Name')).toBeInTheDocument();
+    expect(formatValueMock).toHaveBeenCalledWith('Test Name');
   });
   
   it('should render a target field item', () => {
@@ -36,7 +55,7 @@ describe('FieldItem', () => {
         field="name" 
         value="Test Name" 
         isSource={false}
-        formatValue={(val) => String(val)}
+        formatValue={formatValueMock}
       />
     );
     
@@ -44,7 +63,7 @@ describe('FieldItem', () => {
     expect(screen.getByText('Test Name')).toBeInTheDocument();
   });
   
-  it('should handle object values', () => {
+  it('should handle object values with memoized rendering', () => {
     const objectValue = { id: 1, title: 'Test Object' };
     
     renderComponent(
@@ -65,6 +84,35 @@ describe('FieldItem', () => {
     expect(screen.getByText(/{"id":1,"title":"Test Object"}.../)).toBeInTheDocument();
   });
   
+  it('should render a dash for null/undefined values', () => {
+    renderComponent(
+      <FieldItem 
+        field="emptyField" 
+        value={null} 
+        isSource={true}
+        formatValue={formatValueMock}
+      />
+    );
+    
+    expect(screen.getByText('emptyField')).toBeInTheDocument();
+    expect(screen.getByText('—')).toBeInTheDocument();
+    expect(formatValueMock).not.toHaveBeenCalled(); // Shouldn't format null values
+  });
+  
+  it('should apply custom class names', () => {
+    const { container } = renderComponent(
+      <FieldItem 
+        field="styledField" 
+        value="Styled Value" 
+        isSource={true}
+        className="custom-test-class"
+        formatValue={formatValueMock}
+      />
+    );
+    
+    expect(container.firstChild).toHaveClass('custom-test-class');
+  });
+  
   it('should call onDrop when a field is dropped', () => {
     const onDropMock = jest.fn();
     
@@ -74,7 +122,7 @@ describe('FieldItem', () => {
         value="Target Value" 
         isSource={false} 
         onDrop={onDropMock}
-        formatValue={(val) => String(val)}
+        formatValue={formatValueMock}
       />
     );
     
@@ -82,4 +130,24 @@ describe('FieldItem', () => {
     // more advanced testing approaches. This test just verifies the component renders.
     expect(screen.getByText('targetField')).toBeInTheDocument();
   });
-}); 
+  
+  it('should memoize border styles and drop indicators', () => {
+    // Set up the mocks to simulate the useMemo implementation
+    jest.spyOn(React, 'useMemo')
+      .mockImplementationOnce(() => 'bg-blue-50 border-blue-200 hover:bg-blue-100 hover:border-blue-300 cursor-move transition-all')
+      .mockImplementationOnce(() => null);
+      
+    renderComponent(
+      <FieldItem 
+        field="memoizedField" 
+        value="Memoized Value" 
+        isSource={true}
+        formatValue={formatValueMock}
+      />
+    );
+    
+    expect(screen.getByText('memoizedField')).toBeInTheDocument();
+    expect(screen.getByText('Memoized Value')).toBeInTheDocument();
+    expect(React.useMemo).toHaveBeenCalledTimes(2);
+  });
+});

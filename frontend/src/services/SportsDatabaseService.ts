@@ -469,11 +469,19 @@ class SportsDatabaseService {
     console.log(`SportsDatabaseService: Fetching ${entityType} entities with filters:`, filters);
     
     try {
+      // Ensure limit is within backend's allowed range (1-100)
+      const validatedLimit = Math.min(100, Math.max(1, limit));
+      
+      // Log if we had to adjust the limit
+      if (validatedLimit !== limit) {
+        console.warn(`SportsDatabaseService: Adjusted limit from ${limit} to ${validatedLimit} to comply with backend limits`);
+      }
+      
       const response = await api.sports.getEntities(
         entityType,
         filters,
         page,
-        limit,
+        validatedLimit, // Use the validated limit
         sortBy,
         sortDirection
       );
@@ -489,8 +497,8 @@ class SportsDatabaseService {
           items: response,
           total: response.length,
           page,
-          pageSize: limit,
-          totalPages: Math.ceil(response.length / limit)
+          pageSize: validatedLimit,
+          totalPages: Math.ceil(response.length / validatedLimit)
         };
       }
       
@@ -499,7 +507,7 @@ class SportsDatabaseService {
         items: [],
         total: 0,
         page,
-        pageSize: limit,
+        pageSize: validatedLimit,
         totalPages: 0
       };
     } catch (error) {

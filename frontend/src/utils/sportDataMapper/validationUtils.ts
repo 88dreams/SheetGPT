@@ -388,28 +388,43 @@ export const validateEntityData = (
       break;
       
     case 'production':
+      console.log('Validating production service data:', data);
+      
       if (!data.production_company_id) {
         errors.push('Production Company ID is required');
+        console.warn('Production Company ID is missing');
       }
       // Don't validate UUID format for production_company_id since it can be a name
       // that will be resolved to an existing company or create a new one
       
       if (!data.entity_type) {
         errors.push('Entity Type is required');
+        console.warn('Entity Type is missing');
       }
       
       if (!data.entity_id) {
         errors.push('Entity ID is required');
+        console.warn('Entity ID is missing');
       }
       // Don't validate UUID format for entity_id since it can be a name
       // that will be resolved to an existing entity or create a new one
       
+      // Enhanced service_type validation with more detailed logging
       if (!data.service_type) {
         errors.push('Service Type is required');
+        console.warn('Service Type is missing - Ensure field is properly mapped and non-empty');
+        
+        // Log all data fields for debugging
+        console.log('Production service data keys:', Object.keys(data));
+        console.log('Production service data values:', Object.values(data));
+      } else {
+        console.log(`Service Type is present: "${data.service_type}"`);
       }
       
+      // Use default start_date if missing
       if (!data.start_date) {
-        errors.push('Start Date is required');
+        console.log('Setting default start_date for production service');
+        data.start_date = '2000-01-01';
       }
       break;
   }

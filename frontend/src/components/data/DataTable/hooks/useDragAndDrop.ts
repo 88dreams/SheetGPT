@@ -1,4 +1,5 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
+import { areEqual, fingerprint } from '../../../../utils/fingerprint';
 
 interface UseDragAndDropProps<T> {
   items: T[];
@@ -45,10 +46,15 @@ export function useDragAndDrop<T>({ items, storageKey }: UseDragAndDropProps<T>)
     
     // Skip if items array hasn't actually changed and storage key is the same
     // This prevents unnecessary re-renders
+    // Use fingerprinting for more efficient comparison
     if (
       !storageKeyChanged &&
       itemsRef.current.length === items.length && 
-      JSON.stringify(itemsRef.current.sort()) === JSON.stringify([...items].sort())
+      areEqual(
+        [...itemsRef.current].sort(), 
+        [...items].sort(), 
+        { depth: 1 }
+      )
     ) {
       return;
     }

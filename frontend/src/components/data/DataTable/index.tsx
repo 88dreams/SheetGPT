@@ -1,9 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../../../utils/api';
 import LoadingSpinner from '../../common/LoadingSpinner';
 import ExportDialog from '../ExportDialog';
 import { useNotification } from '../../../contexts/NotificationContext';
+import { fingerprint } from '../../../utils/fingerprint';
 
 // Import hooks
 import {
@@ -206,8 +207,15 @@ const DataTable: React.FC<DataTableProps> = ({ dataId }) => {
     });
   };
   
-  // Filter visible headers
-  const visibleHeaders = headers.filter(header => !hiddenColumns[header]);
+  // Memoize visibility state for headers
+  const hiddenColumnsFingerprint = useMemo(() => fingerprint(hiddenColumns), [hiddenColumns]);
+  const headersFingerprint = useMemo(() => fingerprint(headers), [headers]);
+  
+  // Filter visible headers with memoization
+  const visibleHeaders = useMemo(() => 
+    headers.filter(header => !hiddenColumns[header]),
+    [headersFingerprint, hiddenColumnsFingerprint]
+  );
   
   // Simplified CSV export
   const handleCsvExport = async () => {
@@ -218,8 +226,7 @@ const DataTable: React.FC<DataTableProps> = ({ dataId }) => {
     }
 
     try {
-      // Create header row
-      const visibleHeaders = headers.filter(header => !hiddenColumns[header]);
+      // Use the already memoized visibleHeaders
       let csvContent = visibleHeaders.join(',') + '\n';
       
       // Add data rows
@@ -339,8 +346,16 @@ const DataTable: React.FC<DataTableProps> = ({ dataId }) => {
     });
   };
 
+  // Memoize sorting and row reordering state
+  const rowsFingerprint = useMemo(() => fingerprint(rows, { depth: 1 }), [rows]);
+  const indicesFingerprint = useMemo(() => fingerprint(reorderedRowIndices), [reorderedRowIndices]);
+  const sortStateFingerprint = useMemo(() => fingerprint({ field: sortField, direction: sortDirection }), [sortField, sortDirection]);
+  
   // Get rows in the reordered sequence and apply sorting
-  const orderedRows = getSortedData(reorderedRowIndices.map(index => rows[index]));
+  const orderedRows = useMemo(() => 
+    getSortedData(reorderedRowIndices.map(index => rows[index])),
+    [rowsFingerprint, indicesFingerprint, sortStateFingerprint]
+  );
 
   // Loading state
   if (isLoading || (isPaginationEnabled && isPaginatedLoading)) {

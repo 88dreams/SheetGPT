@@ -88,7 +88,33 @@ class DatabaseVacuumService:
         # Print summary report
         self._print_summary_report(include_reindex)
         
-        return self.stats
+        # Make sure all stats are properly serializable
+        return self._convert_stats_to_serializable()
+        
+    def _convert_stats_to_serializable(self):
+        """Convert any non-serializable objects in stats to serializable types."""
+        serializable_stats = {}
+        
+        # Helper function to convert a single object
+        def make_serializable(obj):
+            if hasattr(obj, "_asdict"):  # For SQLAlchemy Row objects
+                return {k: make_serializable(v) for k, v in obj._asdict().items()}
+            elif hasattr(obj, "__dict__"):  # For custom objects
+                return {k: make_serializable(v) for k, v in obj.__dict__.items() 
+                        if not k.startswith("_")}
+            elif isinstance(obj, (list, tuple)):
+                return [make_serializable(item) for item in obj]
+            elif isinstance(obj, dict):
+                return {k: make_serializable(v) for k, v in obj.items()}
+            elif isinstance(obj, (datetime, UUID)):
+                return str(obj)
+            else:
+                return obj
+        
+        # Convert all stats to serializable objects
+        serializable_stats = make_serializable(self.stats)
+        
+        return serializable_stats
     
     async def _get_database_size(self) -> Dict[str, Any]:
         """Get the total size of the database."""

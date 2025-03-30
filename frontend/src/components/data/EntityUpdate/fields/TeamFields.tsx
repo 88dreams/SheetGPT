@@ -1,13 +1,12 @@
-import React from 'react';
-import { Form, Select, Space, Typography } from 'antd';
-import { EditOutlined, LockOutlined } from '@ant-design/icons';
+import React, { useState, useEffect } from 'react';
+import { Form, Alert, Space, Tooltip } from 'antd';
+import { InfoCircleOutlined } from '@ant-design/icons';
 import FormField from './FormField';
+import EntitySelectField from './EntitySelectField';
 import { Team } from '../../../../types/sports';
 import { useEntityData } from '../hooks/useEntityData';
-import SmartEntitySearch from '../SmartEntitySearch';
-
-const { Text } = Typography;
-const { Option } = Select;
+import { useFieldResolution } from '../../../../hooks/useFieldResolution';
+import EntityResolutionBadge from '../EntityResolutionBadge';
 
 interface TeamFieldsProps {
   entity: Team;
@@ -16,10 +15,51 @@ interface TeamFieldsProps {
 }
 
 /**
- * Team-specific form fields
+ * Enhanced team-specific form fields with entity resolution
  */
 const TeamFields: React.FC<TeamFieldsProps> = ({ entity, onChange, isEditing }) => {
   const { leagues, stadiums, divisionConferences } = useEntityData('team');
+  const [formValues, setFormValues] = useState<Record<string, any>>(entity);
+  const [showContextHelp, setShowContextHelp] = useState(false);
+  
+  // Track form values for resolution context
+  useEffect(() => {
+    setFormValues(entity);
+  }, [entity]);
+  
+  // Use field resolution for league
+  const leagueResolution = useFieldResolution('league', 'league_id', formValues, {
+    required: true,
+    autoResolve: false
+  });
+  
+  // Use field resolution for division/conference with league context
+  const divisionResolution = useFieldResolution('division_conference', 'division_conference_id', formValues, {
+    contextFields: { 'league_id': 'league_id' },
+    dependentFields: ['league_id'],
+    required: true
+  });
+  
+  // Use field resolution for stadium
+  const stadiumResolution = useFieldResolution('stadium', 'stadium_id', formValues, {
+    required: true
+  });
+  
+  // Filter division conferences by selected league
+  const filteredDivisions = entity.league_id 
+    ? divisionConferences.filter(div => div.league_id === entity.league_id)
+    : divisionConferences;
+  
+  // Handle contextual field changes
+  const handleDependentChange = (field: string, value: string | number) => {
+    // Update the form value
+    onChange(field, value);
+    
+    // Show context help when changing league if division is already set
+    if (field === 'league_id' && entity.division_conference_id) {
+      setShowContextHelp(true);
+    }
+  };
   
   return (
     <>
@@ -31,6 +71,7 @@ const TeamFields: React.FC<TeamFieldsProps> = ({ entity, onChange, isEditing }) 
         onChange={onChange}
         isEditing={isEditing}
         isRequired={true}
+        helpText="The full name of the team"
       />
       <FormField
         field="city"
@@ -67,90 +108,84 @@ const TeamFields: React.FC<TeamFieldsProps> = ({ entity, onChange, isEditing }) 
         isEditing={isEditing}
       />
       
-      {/* League relationship field */}
-      <Form.Item
-        label={
-          <Space>
-            <Text>League</Text>
-            <Text type="danger">*</Text>
-            {isEditing ? <EditOutlined /> : <LockOutlined />}
-          </Space>
-        }
-        required={true}
-      >
-        <Select
-          value={entity.league_id}
-          onChange={(val: string) => onChange('league_id', val)}
-          disabled={!isEditing}
-          style={{ width: '100%' }}
-        >
-          {leagues.map((league) => (
-            <Option key={league.id} value={league.id}>
-              {league.name}
-            </Option>
-          ))}
-        </Select>
-      </Form.Item>
+      {/* League relationship field with enhanced resolution */}
+      <EntitySelectField
+        field="league_id"
+        label="League"
+        value={entity.league_id}
+        entityType="league"
+        onChange={handleDependentChange}
+        isEditing={isEditing}
+        isRequired={true}
+        options={leagues}
+        placeholder="Select or search for a league..."
+        helpText="The league this team is part of"
+        showResolutionInfo={true}
+        searchMode="enhanced"
+      />
       
-      {/* Division/Conference relationship field */}
-      <Form.Item
-        label={
-          <Space>
-            <Text>Division/Conference</Text>
-            <Text type="danger">*</Text>
-            {isEditing ? <EditOutlined /> : <LockOutlined />}
-          </Space>
-        }
-        required={true}
-      >
-        {isEditing ? (
-          <SmartEntitySearch 
-            entityTypes={['division_conference']} 
-            entities={divisionConferences.filter(div => div.league_id === entity.league_id)}
-            placeholder="Search for a division or conference..."
-            onEntitySelect={(selectedEntity) => {
-              onChange('division_conference_id', selectedEntity.id);
-            }}
-          />
-        ) : (
-          <div>
-            {divisionConferences.find(div => div.id === entity.division_conference_id)?.name || 'None selected'}
-          </div>
-        )}
-      </Form.Item>
+      {/* Show context help when changing fields with dependencies */}
+      {showContextHelp && (
+        <Alert
+          message="League Changed"
+          description="Changing the league may affect available divisions and conferences. Please verify your division/conference selection."
+          type="info"
+          showIcon
+          closable
+          onClose={() => setShowContextHelp(false)}
+          style={{ marginBottom: 16 }}
+        />
+      )}
       
-      {entity.division_conference_id && (
-        <Form.Item label="Selected Division/Conference">
-          <Text>
-            {divisionConferences.find(dc => dc.id === entity.division_conference_id)?.name || 'Unknown Division/Conference'}
-          </Text>
+      {/* Division/Conference relationship field with enhanced resolution */}
+      <EntitySelectField
+        field="division_conference_id"
+        label="Division/Conference"
+        value={entity.division_conference_id}
+        entityType="division_conference"
+        onChange={onChange}
+        isEditing={isEditing}
+        isRequired={true}
+        options={filteredDivisions}
+        placeholder="Select or search for a division/conference..."
+        helpText="The division or conference within the league that this team belongs to"
+        contextField="league_id"
+        contextValue={entity.league_id}
+        showResolutionInfo={true}
+      />
+      
+      {/* Resolution information for division if fuzzy matched */}
+      {divisionResolution.resolvedEntity && divisionResolution.resolutionInfo.fuzzyMatched && (
+        <Form.Item>
+          <Space align="center">
+            <EntityResolutionBadge
+              matchScore={divisionResolution.resolutionInfo.matchScore}
+              fuzzyMatched={divisionResolution.resolutionInfo.fuzzyMatched}
+              contextMatched={divisionResolution.resolutionInfo.contextMatched}
+              virtualEntity={divisionResolution.resolutionInfo.virtualEntity}
+            />
+            <Tooltip title="This division/conference was resolved using fuzzy matching. Verify this is the correct one.">
+              <InfoCircleOutlined style={{ color: '#1890ff' }} />
+            </Tooltip>
+            <span>Found a fuzzy match for this division/conference. Please verify it's correct.</span>
+          </Space>
         </Form.Item>
       )}
       
-      {/* Stadium relationship field */}
-      <Form.Item
-        label={
-          <Space>
-            <Text>Home Stadium</Text>
-            <Text type="danger">*</Text>
-            {isEditing ? <EditOutlined /> : <LockOutlined />}
-          </Space>
-        }
-        required={true}
-      >
-        <Select
-          value={entity.stadium_id}
-          onChange={(val: string) => onChange('stadium_id', val)}
-          disabled={!isEditing}
-          style={{ width: '100%' }}
-        >
-          {stadiums.map((stadium) => (
-            <Option key={stadium.id} value={stadium.id}>
-              {stadium.name} ({stadium.city}, {stadium.country})
-            </Option>
-          ))}
-        </Select>
-      </Form.Item>
+      {/* Stadium relationship field with enhanced resolution */}
+      <EntitySelectField
+        field="stadium_id"
+        label="Home Stadium"
+        value={entity.stadium_id}
+        entityType="stadium"
+        onChange={onChange}
+        isEditing={isEditing}
+        isRequired={true}
+        options={stadiums}
+        placeholder="Select or search for a stadium..."
+        helpText="The stadium where this team plays home games"
+        showResolutionInfo={true}
+      />
     </>
   );
 };

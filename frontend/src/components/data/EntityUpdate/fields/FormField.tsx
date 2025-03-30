@@ -1,6 +1,6 @@
 import React from 'react';
-import { Form, Input, InputNumber, Select, Space, Typography, DatePicker, DatePickerProps } from 'antd';
-import { EditOutlined, LockOutlined } from '@ant-design/icons';
+import { Form, Input, InputNumber, Select, Space, Typography, DatePicker, DatePickerProps, Tooltip } from 'antd';
+import { EditOutlined, LockOutlined, InfoCircleOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
 
 const { Text } = Typography;
@@ -35,6 +35,8 @@ const FormField: React.FC<FormFieldProps> = ({
   options = [],
   placeholder,
   handleYearOnlyInput = false,
+  allowCustomEntry = false,
+  helpText,
 }) => {
   // Handler for date inputs that checks for year-only input
   const handleDateChange = (date: dayjs.Dayjs | null, dateString: string) => {
@@ -80,10 +82,14 @@ const FormField: React.FC<FormFieldProps> = ({
           <Text>{label}</Text>
           {isRequired ? <Text type="danger">*</Text> : null}
           {isEditing ? <EditOutlined /> : <LockOutlined />}
+          {helpText && (
+            <Tooltip title={helpText}>
+              <InfoCircleOutlined style={{ color: 'rgba(0,0,0,.45)' }} />
+            </Tooltip>
+          )}
         </Space>
       }
       required={isRequired}
-      help={helpText}
     >
       {type === 'text' && (
         <Input

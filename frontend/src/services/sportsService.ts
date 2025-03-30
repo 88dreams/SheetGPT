@@ -55,9 +55,17 @@ export const sportsService = {
     sortBy: string = 'id',
     sortDirection: 'asc' | 'desc' = 'asc'
   ) => {
+    // Ensure limit is within the backend's allowed range (1-100)
+    const validatedLimit = Math.min(100, Math.max(1, limit));
+    
+    // Log if we had to adjust the limit
+    if (validatedLimit !== limit) {
+      console.warn(`API: Adjusted limit from ${limit} to ${validatedLimit} to comply with backend limits`);
+    }
+    
     const params = new URLSearchParams({
       page: page.toString(),
-      limit: limit.toString(),
+      limit: validatedLimit.toString(), // Use validated limit
       sort_by: sortBy,
       sort_direction: sortDirection
     });

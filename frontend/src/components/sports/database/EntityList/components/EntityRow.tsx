@@ -1,7 +1,8 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { FaTrash, FaEye, FaEdit, FaCheck, FaTimes, FaPencilAlt } from 'react-icons/fa';
 import { getDisplayValue } from '../utils/formatters';
 import { EntityType } from '../../../../../types/sports';
+import { fingerprint, createMemoEqualityFn } from '../../../../../utils/fingerprint';
 
 interface EntityRowProps {
   entity: any;
@@ -33,6 +34,9 @@ interface EntityRowProps {
   saveNicknameEdit: (id: string) => void;
   cancelNicknameEdit: () => void;
   handleNicknameKeyDown: (e: React.KeyboardEvent, id: string) => void;
+  
+  // Render mode
+  renderNameFieldOnly?: boolean;
 }
 
 const EntityRow: React.FC<EntityRowProps> = ({
@@ -60,14 +64,169 @@ const EntityRow: React.FC<EntityRowProps> = ({
   startNicknameEdit,
   saveNicknameEdit,
   cancelNicknameEdit,
-  handleNicknameKeyDown
+  handleNicknameKeyDown,
+  renderNameFieldOnly
 }) => {
+  // Create memoized versions of props with fingerprinting
+  const columnOrderFingerprint = useMemo(() => 
+    fingerprint(columnOrder), 
+    [columnOrder]
+  );
+  
+  const visibleColumnsFingerprint = useMemo(() => 
+    fingerprint(visibleColumns), 
+    [visibleColumns]
+  );
+  
+  // Filter visible columns once instead of on every render
+  const visibleColumnFields = useMemo(() => 
+    columnOrder.filter(field => {
+      // Hide "name" field for broadcast entities (it's redundant with broadcast_company_name)
+      if (selectedEntityType === 'broadcast' && field === 'name') {
+        return false;
+      }
+      // Otherwise show fields that are visible and exist in the data
+      return visibleColumns[field] !== false && entity.hasOwnProperty(field);
+    }),
+    [columnOrderFingerprint, visibleColumnsFingerprint, selectedEntityType, entity]
+  );
+
+  // When only rendering the name field (special rendering mode for the optimized virtualized table)
+  if (renderNameFieldOnly) {
+    // Only render the name editing UI elements
+    return (
+      <>
+        {editingId === entity.id ? (
+          <div className="flex items-center space-x-2">
+            <input
+              type="text"
+              value={editValue}
+              onChange={(e) => setEditValue(e.target.value)}
+              onKeyDown={(e) => handleKeyDown(e, entity.id)}
+              className="flex-1 px-2 py-1 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+              autoFocus
+            />
+            <button
+              onClick={() => saveEdit(entity.id)}
+              className="text-green-600 hover:text-green-800"
+              title="Save"
+            >
+              <FaCheck className="w-4 h-4" />
+            </button>
+            <button
+              onClick={cancelEdit}
+              className="text-red-600 hover:text-red-800"
+              title="Cancel"
+            >
+              <FaTimes className="w-4 h-4" />
+            </button>
+          </div>
+        ) : (
+          <div className="flex items-center space-x-2 overflow-hidden text-ellipsis">
+            <div className="text-sm font-medium text-gray-900 overflow-hidden text-ellipsis">
+              {selectedEntityType === 'broadcast' && typeof entity.name === 'string' && entity.name.includes(' - ')
+                ? entity.name.split(' - ')[0] // Show just the broadcast company name for broadcast rights
+                : entity.name
+              }
+              {selectedEntityType === 'league' && (
+                <>
+                  {editingNicknameId === entity.id ? (
+                    <span className="ml-2 inline-flex items-center">
+                      <input
+                        type="text"
+                        value={nicknameEditValue}
+                        onChange={(e) => setNicknameEditValue(e.target.value)}
+                        onKeyDown={(e) => handleNicknameKeyDown(e, entity.id)}
+                        className="w-16 px-1 py-0.5 text-xs border border-indigo-300 rounded-md focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                        autoFocus
+                        placeholder="Nickname"
+                      />
+                      <button
+                        onClick={() => saveNicknameEdit(entity.id)}
+                        className="ml-1 text-green-600 hover:text-green-800"
+                        title="Save Nickname"
+                      >
+                        <FaCheck className="w-3 h-3" />
+                      </button>
+                      <button
+                        onClick={cancelNicknameEdit}
+                        className="ml-1 text-red-600 hover:text-red-800"
+                        title="Cancel"
+                      >
+                        <FaTimes className="w-3 h-3" />
+                      </button>
+                    </span>
+                  ) : (
+                    <span 
+                      className="ml-2 text-xs bg-indigo-100 text-indigo-800 px-2 py-0.5 rounded-full group relative cursor-pointer"
+                      onClick={() => startNicknameEdit(entity)}
+                    >
+                      {entity.nickname || <span className="opacity-60">+ Add nickname</span>}
+                      <span className="absolute opacity-0 group-hover:opacity-100 right-0 top-0 translate-x-1/2 -translate-y-1/2 bg-indigo-600 text-white rounded-full w-4 h-4 flex items-center justify-center">
+                        <FaPencilAlt className="w-2 h-2" />
+                      </span>
+                    </span>
+                  )}
+                </>
+              )}
+              {selectedEntityType === 'division_conference' && (
+                <>
+                  {editingNicknameId === entity.id ? (
+                    <span className="ml-2 inline-flex items-center">
+                      <input
+                        type="text"
+                        value={nicknameEditValue}
+                        onChange={(e) => setNicknameEditValue(e.target.value)}
+                        onKeyDown={(e) => handleNicknameKeyDown(e, entity.id)}
+                        className="w-16 px-1 py-0.5 text-xs border border-blue-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500"
+                        autoFocus
+                        placeholder="Nickname"
+                      />
+                      <button
+                        onClick={() => saveNicknameEdit(entity.id)}
+                        className="ml-1 text-green-600 hover:text-green-800"
+                        title="Save Nickname"
+                      >
+                        <FaCheck className="w-3 h-3" />
+                      </button>
+                      <button
+                        onClick={cancelNicknameEdit}
+                        className="ml-1 text-red-600 hover:text-red-800"
+                        title="Cancel"
+                      >
+                        <FaTimes className="w-3 h-3" />
+                      </button>
+                    </span>
+                  ) : (
+                    <span 
+                      className="ml-2 text-xs bg-blue-100 text-blue-800 px-2 py-0.5 rounded-full group relative cursor-pointer"
+                      onClick={() => startNicknameEdit(entity)}
+                    >
+                      {entity.nickname || <span className="opacity-60">+ Add nickname</span>}
+                      <span className="absolute opacity-0 group-hover:opacity-100 right-0 top-0 translate-x-1/2 -translate-y-1/2 bg-blue-600 text-white rounded-full w-4 h-4 flex items-center justify-center">
+                        <FaPencilAlt className="w-2 h-2" />
+                      </span>
+                    </span>
+                  )}
+                </>
+              )}
+            </div>
+            <button
+              onClick={() => startEdit(entity)}
+              className="text-gray-400 hover:text-gray-600 flex-shrink-0"
+              title="Edit name"
+            >
+              <FaPencilAlt className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        )}
+      </>
+    );
+  }
+  
+  // Regular full-row rendering mode
   return (
-    <tr 
-      key={entity.id} 
-      className="hover:bg-gray-50 border-b border-gray-200" 
-      data-entity-id={entity.id}
-    >
+    <tr className="hover:bg-gray-50 border-b border-gray-200" data-entity-id={entity.id}>
       {/* Checkbox */}
       <td 
         className="px-3 py-2 whitespace-nowrap border-r border-gray-200"
@@ -83,16 +242,7 @@ const EntityRow: React.FC<EntityRowProps> = ({
       </td>
       
       {/* Data cells */}
-      {columnOrder
-        .filter(field => {
-          // Hide "name" field for broadcast entities (it's redundant with broadcast_company_name)
-          if (selectedEntityType === 'broadcast' && field === 'name') {
-            return false;
-          }
-          // Otherwise show fields that are visible and exist in the data
-          return visibleColumns[field] !== false && entity.hasOwnProperty(field);
-        })
-        .map((field) => {
+      {visibleColumnFields.map((field) => {
           // Special handling for name field to support inline editing
           if (field === 'name') {
             return (
@@ -278,4 +428,23 @@ const EntityRow: React.FC<EntityRowProps> = ({
   );
 };
 
-export default EntityRow;
+// Create memoized filtering of visible columns to prevent recalculation on every render
+const EntityRowWithMemo = React.memo(EntityRow, createMemoEqualityFn({
+  // Use shallow comparison for entity data since it's a large object
+  customHandlers: {
+    // Custom handler for entity - only fingerprint at depth 1
+    Object: (value) => {
+      if (value && typeof value === 'object' && !Array.isArray(value) && value.id) {
+        // For entity objects, just use ID for comparison
+        return `Entity:${value.id}`;
+      }
+      return fingerprint(value, { depth: 1 }); 
+    }
+  },
+  // Reasonable depth for other props
+  depth: 2,
+  // Skip undefined and function values in comparison
+  skipUndefined: true
+}));
+
+export default EntityRowWithMemo;

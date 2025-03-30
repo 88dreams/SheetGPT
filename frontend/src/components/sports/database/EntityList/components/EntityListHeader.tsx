@@ -35,11 +35,19 @@ const EntityListHeader: React.FC<EntityListHeaderProps> = ({
           <div className="w-full">
             <Input 
               prefix={<SearchOutlined />} 
-              placeholder={`Search ${getEntityTypeName(selectedEntityType)}`}
+              placeholder={`Search ${getEntityTypeName(selectedEntityType)} (min 3 chars)`}
               onChange={(e) => {
-                if (onSearch && e.target.value.length > 2) {
-                  onSearch(e.target.value.toLowerCase());
+                // Clear any previous timeout
+                if (window.searchTimeout) {
+                  clearTimeout(window.searchTimeout);
                 }
+                
+                // Set a new timeout to debounce the search
+                window.searchTimeout = setTimeout(() => {
+                  if (onSearch) {
+                    onSearch(e.target.value.toLowerCase());
+                  }
+                }, 300); // 300ms debounce
               }}
             />
           </div>

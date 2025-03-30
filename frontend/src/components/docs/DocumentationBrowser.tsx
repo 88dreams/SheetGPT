@@ -16,6 +16,49 @@ interface DocContent {
   path: string;
 }
 
+// List of files that should be hidden from the documentation browser
+const hiddenFiles = [
+  'REFACTORING_PLAN.md', 
+  'ENTITYLIST_REFACTORING.md', 
+  'ENTITYLIST_TESTING.md', 
+  'AWS_DEPLOYMENT.md'
+];
+
+// Check if a file is in the hidden list
+const isHiddenFile = (path: string): boolean => {
+  return hiddenFiles.some(hiddenFile => 
+    path.toLowerCase().endsWith(hiddenFile.toLowerCase())
+  );
+};
+
+// Define priority ordering for specific documents
+const priorityDocs = [
+  'README.md',
+  'NEW_AGENT.md',
+  'TECHNICAL_DESCRIPTION.md',
+  'API_ARCHITECTURE.md',
+  'CLAUDE_API_INTEGRATION.md'
+];
+
+const formatTitle = (name: string): string => {
+  // Replace underscores with spaces
+  let formattedTitle = name.replace(/_/g, ' ');
+  
+  // First apply standard capitalization to each word
+  formattedTitle = formattedTitle
+    .split(' ')
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+    .join(' ');
+  
+  // Only convert exactly "Api" to "API" and "Ci Cd" to "CI CD"
+  // Use word boundaries to ensure we only modify exact matches
+  formattedTitle = formattedTitle
+    .replace(/\bApi\b/g, 'API')
+    .replace(/\bCi Cd\b/g, 'CI CD');
+  
+  return formattedTitle;
+};
+
 const DocumentationBrowser: React.FC = () => {
   const { '*': docPath } = useParams<{ '*': string }>();
   const navigate = useNavigate();
@@ -42,7 +85,90 @@ const DocumentationBrowser: React.FC = () => {
         if (response.ok) {
           const data: DocItem[] = await response.json();
           console.log("Documentation structure loaded successfully:", data);
-          setDocTree(data);
+          
+          // Recursive function to filter items
+          const filterHiddenFiles = (items: DocItem[]): DocItem[] => {
+            return items
+              .filter(item => {
+                // If it's a file, check if it's in the hidden list
+                if (item.type === 'file') {
+                  return !isHiddenFile(item.path);
+                }
+                return true; // Keep all directories
+              })
+              .map(item => {
+                // If it's a directory with children, filter its children
+                if (item.type === 'directory' && item.children) {
+                  return {
+                    ...item,
+                    children: filterHiddenFiles(item.children)
+                  };
+                }
+                return item;
+              })
+              // Filter out empty directories after their children have been filtered
+              .filter(item => !(item.type === 'directory' && item.children && item.children.length === 0));
+          };
+          
+          // Filter hidden files first
+          const filteredData = filterHiddenFiles(data);
+          
+          // Function to get priority index (lower = higher priority)
+          const getPriorityIndex = (path: string): number => {
+            const fileName = path.split('/').pop() || '';
+            const index = priorityDocs.findIndex(doc => 
+              doc.toLowerCase() === fileName.toLowerCase()
+            );
+            return index === -1 ? Number.MAX_SAFE_INTEGER : index;
+          };
+          
+          // Custom sort function to prioritize specific documents
+          const customSort = (a: DocItem, b: DocItem): number => {
+            // First check if either item is in the priority list
+            if (a.type === 'file' && b.type === 'file') {
+              const priorityA = getPriorityIndex(a.path);
+              const priorityB = getPriorityIndex(b.path);
+              
+              // If both are priority docs, sort by priority order
+              if (priorityA < Number.MAX_SAFE_INTEGER && priorityB < Number.MAX_SAFE_INTEGER) {
+                return priorityA - priorityB;
+              }
+              
+              // If only one is a priority doc, it goes first
+              if (priorityA < Number.MAX_SAFE_INTEGER) return -1;
+              if (priorityB < Number.MAX_SAFE_INTEGER) return 1;
+            }
+            
+            // Default sort: directories first, then alphabetically
+            if (a.type === 'directory' && b.type !== 'directory') return -1;
+            if (a.type !== 'directory' && b.type === 'directory') return 1;
+            
+            return a.name.localeCompare(b.name);
+          };
+          
+          // Function to sort the tree recursively
+          const sortTree = (items: DocItem[]): DocItem[] => {
+            // Sort the current level
+            const sortedItems = [...items].sort(customSort);
+            
+            // Recursively sort children
+            return sortedItems.map(item => {
+              if (item.type === 'directory' && item.children) {
+                return {
+                  ...item,
+                  children: sortTree(item.children)
+                };
+              }
+              return item;
+            });
+          };
+          
+          // Apply sorting to the filtered data
+          const sortedData = sortTree(filteredData);
+          console.log("Filtered and sorted documentation structure:", sortedData);
+          
+          // Set the tree state
+          setDocTree(sortedData);
         } else {
           console.error('Failed to fetch documentation structure:', response.status, await response.text());
         }
@@ -66,6 +192,14 @@ const DocumentationBrowser: React.FC = () => {
         headers,
         credentials: 'include' as RequestCredentials
       };
+      
+      // Check if the requested document is in the hidden list
+      if (docPath && isHiddenFile(docPath)) {
+        console.log(`Attempted to access hidden document: ${docPath}`);
+        // Redirect to main documentation page
+        navigate('/help');
+        return;
+      }
       
       if (!docPath) {
         // Load README.md as default
@@ -103,7 +237,7 @@ const DocumentationBrowser: React.FC = () => {
     };
 
     fetchDocument();
-  }, [docPath]);
+  }, [docPath, navigate]);
 
   // Handle search
   useEffect(() => {
@@ -114,6 +248,11 @@ const DocumentationBrowser: React.FC = () => {
 
     const searchInTree = (items: DocItem[], results: DocItem[] = []): DocItem[] => {
       items.forEach(item => {
+        // Skip hidden files in search results
+        if (item.type === 'file' && isHiddenFile(item.path)) {
+          return;
+        }
+        
         if (item.name.toLowerCase().includes(searchTerm.toLowerCase())) {
           results.push(item);
         }
@@ -152,6 +291,43 @@ const DocumentationBrowser: React.FC = () => {
     });
   };
 
+  // Function to check if a file is a priority file
+  const isPriorityFile = (path: string): boolean => {
+    return priorityDocs.some(doc => 
+      path.toLowerCase().endsWith(doc.toLowerCase())
+    );
+  };
+  
+  // Process the tree to filter out priority files and empty directories
+  const processTreeForRendering = (items: DocItem[]): DocItem[] => {
+    // First, filter out priority files
+    const filteredItems = items.filter(item => 
+      !(item.type === 'file' && isPriorityFile(item.path))
+    );
+    
+    // Process each remaining item
+    return filteredItems.map(item => {
+      // If it's a directory with children, process its children
+      if (item.type === 'directory' && item.children) {
+        const processedChildren = processTreeForRendering(item.children);
+        return {
+          ...item,
+          children: processedChildren
+        };
+      }
+      return item;
+    }).filter(item => 
+      // Remove empty directories
+      !(item.type === 'directory' && item.children && item.children.length === 0)
+    );
+  };
+  
+  // Memoize the processed tree to avoid recomputing on each render
+  const processedTree = React.useMemo(() => 
+    processTreeForRendering(docTree), 
+    [docTree]
+  );
+  
   const renderTree = (items: DocItem[], level = 0) => {
     return (
       <ul className={`pl-${level * 4} space-y-1`}>
@@ -161,7 +337,7 @@ const DocumentationBrowser: React.FC = () => {
               {item.type === 'directory' ? (
                 <>
                   <FaFolder className="mr-2 text-blue-500" />
-                  <span className="font-medium">{item.name}</span>
+                  <span className="font-medium">{formatTitle(item.name)}</span>
                 </>
               ) : (
                 <Link 
@@ -169,11 +345,11 @@ const DocumentationBrowser: React.FC = () => {
                   className="flex items-center text-gray-700 hover:text-blue-600"
                 >
                   <FaFile className="mr-2 text-gray-500" />
-                  <span>{item.name.replace('.md', '')}</span>
+                  <span>{formatTitle(item.name.replace('.md', ''))}</span>
                 </Link>
               )}
             </div>
-            {item.children && renderTree(item.children, level + 1)}
+            {item.children && item.children.length > 0 && renderTree(item.children, level + 1)}
           </li>
         ))}
       </ul>
@@ -211,7 +387,7 @@ const DocumentationBrowser: React.FC = () => {
                     onClick={() => setSearchTerm('')}
                   >
                     <FaFile className="mr-2 text-gray-500" />
-                    <span>{item.name.replace('.md', '')}</span>
+                    <span>{formatTitle(item.name.replace('.md', ''))}</span>
                   </Link>
                 </li>
               ))}
@@ -231,11 +407,59 @@ const DocumentationBrowser: React.FC = () => {
               <span>Home</span>
             </Link>
           </div>
-          {isLoading ? (
-            <div className="text-gray-500">Loading documentation...</div>
-          ) : (
-            renderTree(docTree)
+          
+          {/* Priority Documents Section */}
+          {!isLoading && (
+            <div className="mb-4">
+              <h4 className="font-medium text-gray-600 mb-1 text-sm">Quick Access</h4>
+              <ul className="space-y-1 border-l-2 border-blue-100 pl-2">
+                {/* Find and display priority documents from anywhere in the tree */}
+                {(() => {
+                  // Flatten the tree to find priority documents
+                  const flattenTree = (items: DocItem[], results: DocItem[] = []): DocItem[] => {
+                    items.forEach(item => {
+                      if (item.type === 'file') {
+                        results.push(item);
+                      }
+                      if (item.children) {
+                        flattenTree(item.children, results);
+                      }
+                    });
+                    return results;
+                  };
+                  
+                  const allFiles = flattenTree(docTree);
+                  const priorityFiles = priorityDocs.map(doc => {
+                    return allFiles.find(file => 
+                      file.path.toLowerCase().endsWith(doc.toLowerCase())
+                    );
+                  }).filter(Boolean) as DocItem[];
+                  
+                  return priorityFiles.map((item) => (
+                    <li key={`priority-${item.path}`} className="py-1">
+                      <Link 
+                        to={`/help/${item.path}`} 
+                        className="flex items-center text-gray-700 hover:text-blue-600"
+                      >
+                        <FaFile className="mr-2 text-blue-500" />
+                        <span className="font-medium">{formatTitle(item.name.replace('.md', ''))}</span>
+                      </Link>
+                    </li>
+                  ));
+                })()}
+              </ul>
+            </div>
           )}
+          
+          {/* Full Documentation Tree */}
+          <div>
+            <h4 className="font-medium text-gray-600 mb-1 text-sm">All Documentation</h4>
+            {isLoading ? (
+              <div className="text-gray-500">Loading documentation...</div>
+            ) : (
+              renderTree(processedTree)
+            )}
+          </div>
         </div>
       </div>
 

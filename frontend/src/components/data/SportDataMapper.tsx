@@ -39,6 +39,26 @@ const SportDataMapper: React.FC<SportDataMapperProps> = ({ data, onConfirm, onCl
     }
   };
   
+  // Add detailed logging to debug the data structure
+  console.log('SportDataMapper: Received data structure:', {
+    dataType: typeof data,
+    isArray: Array.isArray(data),
+    hasHeaders: data?.headers ? 'yes' : 'no',
+    hasRows: data?.rows ? 'yes' : 'no',
+    headersCount: data?.headers?.length,
+    rowsCount: data?.rows?.length,
+    firstRow: data?.rows?.[0],
+    topLevelKeys: data ? Object.keys(data) : []
+  });
+  
+  // Critical check for headers and rows - log warning if missing
+  if (!data?.headers || !data?.rows) {
+    console.error('SportDataMapper: Critical data structure issue - missing headers or rows:', {
+      headers: data?.headers,
+      rows: data?.rows
+    });
+  }
+  
   return (
     <>
       <SportDataMapperContainer

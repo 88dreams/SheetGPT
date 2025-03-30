@@ -1,5 +1,6 @@
 import React from 'react';
 import { FaSort, FaSortUp, FaSortDown, FaEyeSlash } from 'react-icons/fa';
+import { createMemoEqualityFn, fingerprint, areEqual } from '../../../../utils/fingerprint';
 
 // To avoid TypeScript issues, we'll define this type locally
 type SortDirection = 'asc' | 'desc' | 'none';
@@ -87,6 +88,17 @@ const DataGridTable: React.FC<DataGridTableProps> = ({
   showFullUuids = false,
   relationshipFields = {}
 }) => {
+  // Generate fingerprints for complex dependencies
+  const rowsFingerprint = React.useMemo(
+    () => fingerprint(rows, { depth: 1 }), 
+    [rows]
+  );
+  
+  const relationshipFieldsFingerprint = React.useMemo(
+    () => fingerprint(relationshipFields),
+    [relationshipFields]
+  );
+  
   // Memoized formatter function - recalculated only when necessary
   const formatters = React.useMemo(() => {
     // Create a formatter for each header
@@ -135,7 +147,7 @@ const DataGridTable: React.FC<DataGridTableProps> = ({
     });
     
     return result;
-  }, [headers, rows, relationshipFields, showFullUuids]);
+  }, [headers, rowsFingerprint, relationshipFieldsFingerprint, showFullUuids]);
   
   // Function to format cell values using the memoized formatters
   const formatCellValue = (value: any, header: string) => {
@@ -288,61 +300,26 @@ const DataGridTable: React.FC<DataGridTableProps> = ({
   );
 };
 
-// Memoize the component to prevent unnecessary re-renders
-// Only re-render when props that would affect the visual output change
-export default React.memo(DataGridTable, (prevProps, nextProps) => {
-  // Return true if the component should NOT re-render
-  
-  // Check for changes in data content
-  const rowsEqual = prevProps.rows === nextProps.rows;
-  const headersEqual = prevProps.headers === nextProps.headers;
-  
-  // Check for changes in visual properties
-  const heightEqual = prevProps.height === nextProps.height;
-  const columnWidthsEqual = JSON.stringify(prevProps.columnWidths) === JSON.stringify(nextProps.columnWidths);
-  const showHeadersEqual = prevProps.showHeaders === nextProps.showHeaders;
-  const showRowNumbersEqual = prevProps.showRowNumbers === nextProps.showRowNumbers;
-  
-  // Check for changes in drag state
-  const dragStateEqual = 
-    prevProps.draggedHeader === nextProps.draggedHeader &&
-    prevProps.dragOverHeader === nextProps.dragOverHeader &&
-    prevProps.draggedRow === nextProps.draggedRow &&
-    prevProps.dragOverRow === nextProps.dragOverRow;
-  
-  // Check for changes in pagination
-  const paginationEqual = 
-    prevProps.currentPage === nextProps.currentPage &&
-    prevProps.rowsPerPage === nextProps.rowsPerPage &&
-    prevProps.isPaginationEnabled === nextProps.isPaginationEnabled;
-  
-  // Check for changes in sort state
-  const sortEqual = 
-    prevProps.sortField === nextProps.sortField &&
-    prevProps.sortDirection === nextProps.sortDirection;
-  
-  // Check for changes in selection state
-  const selectionEqual = JSON.stringify(prevProps.selectedItems) === JSON.stringify(nextProps.selectedItems);
-  
-  // Check for changes in column visibility
-  const visibilityEqual = JSON.stringify(prevProps.hiddenColumns) === JSON.stringify(nextProps.hiddenColumns);
-  
-  // Check for changes in UUID display
-  const uuidDisplayEqual = 
-    prevProps.showFullUuids === nextProps.showFullUuids &&
-    JSON.stringify(prevProps.relationshipFields) === JSON.stringify(nextProps.relationshipFields);
-  
-  // Only re-render if something has actually changed
-  return rowsEqual && 
-    headersEqual && 
-    heightEqual && 
-    columnWidthsEqual && 
-    showHeadersEqual && 
-    showRowNumbersEqual && 
-    dragStateEqual && 
-    paginationEqual && 
-    sortEqual && 
-    selectionEqual && 
-    visibilityEqual &&
-    uuidDisplayEqual;
-});
+// Memoize the component to prevent unnecessary re-renders using our fingerprinting utility
+// The custom equality function efficiently compares previous and next props
+export default React.memo(
+  DataGridTable, 
+  createMemoEqualityFn({
+    // Using depth of 1 for rows to only check reference equality for array elements
+    // This is important for performance since rows can be large
+    customHandlers: {
+      // Custom handler for rows array - only compare length and contents at depth 1
+      Array: (value) => {
+        if (Array.isArray(value)) {
+          return `Array:length=${value.length}`;
+        }
+        return fingerprint(value, { depth: 1 });
+      }
+    },
+    // Set an appropriate depth to balance performance vs accuracy
+    depth: 2,
+    // Include properties that should trigger re-renders
+    // Skip function props as they rarely change in identity 
+    skipUndefined: true
+  })
+);

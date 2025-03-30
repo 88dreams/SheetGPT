@@ -1,26 +1,43 @@
-import React, { useState } from 'react';
-import { Card, Tabs, Space, Button, message } from 'antd';
-import { EditOutlined, SaveOutlined } from '@ant-design/icons';
+import React, { useState, useEffect } from 'react';
+import { Card, Tabs, Space, Button, message, Typography } from 'antd';
+import { EditOutlined, SaveOutlined, LinkOutlined } from '@ant-design/icons';
 import { Entity, EntityType } from '../../../types/sports';
 import { QuickEditForm } from './QuickEditForm';
 import { AdvancedEditForm } from './AdvancedEditForm';
+import EntityRelatedInfo from './EntityRelatedInfo';
 import { useApiClient } from '../../../hooks/useApiClient';
+import EntityResolutionBadge from './EntityResolutionBadge';
+import { apiCache } from '../../../utils/apiCache';
+
+const { Text, Title } = Typography;
 
 interface EntityCardProps {
   entity: Entity;
   entityType: EntityType;
   onUpdate: (updatedEntity: Entity) => void;
+  onSelectRelated?: (entity: Entity) => void;
 }
 
 export const EntityCard: React.FC<EntityCardProps> = ({
   entity,
   entityType,
   onUpdate,
+  onSelectRelated
 }) => {
   const [isEditing, setIsEditing] = useState(false);
   const [activeTab, setActiveTab] = useState('quick');
   const [editedEntity, setEditedEntity] = useState<Entity>(entity);
+  const [resolutionInfo, setResolutionInfo] = useState<any>(null);
   const apiClient = useApiClient();
+
+  // Get resolution info from cache if available
+  useEffect(() => {
+    const cacheKey = `resolve_entity_${entityType}_${entity.name}`;
+    const cachedResponse = apiCache.get(cacheKey);
+    if (cachedResponse?.resolution_info) {
+      setResolutionInfo(cachedResponse.resolution_info);
+    }
+  }, [entity, entityType]);
 
   const handleSave = async () => {
     try {
@@ -40,6 +57,26 @@ export const EntityCard: React.FC<EntityCardProps> = ({
     setEditedEntity(updatedEntity);
   };
 
+  // Gets title component with resolution badge if available
+  const getEntityTitle = () => {
+    return (
+      <Space align="center">
+        <Title level={4} style={{ margin: 0 }}>
+          {entity.name}
+        </Title>
+        {resolutionInfo && (
+          <EntityResolutionBadge
+            matchScore={resolutionInfo.match_score}
+            fuzzyMatched={resolutionInfo.fuzzy_matched}
+            contextMatched={resolutionInfo.context_matched}
+            virtualEntity={resolutionInfo.virtual_entity}
+          />
+        )}
+      </Space>
+    );
+  };
+
+  // Build tab items including the related info tab
   const items = [
     {
       key: 'quick',
@@ -67,10 +104,21 @@ export const EntityCard: React.FC<EntityCardProps> = ({
         />
       ),
     },
+    {
+      key: 'related',
+      label: 'Related Entities',
+      children: (
+        <EntityRelatedInfo
+          entity={entity}
+          entityType={entityType}
+          onEntitySelect={onSelectRelated}
+        />
+      ),
+    }
   ];
 
   return (
-    <Card>
+    <Card title={getEntityTitle()}>
       <div className="flex justify-between items-center mb-4">
         <Space>
           <Button
@@ -80,6 +128,13 @@ export const EntityCard: React.FC<EntityCardProps> = ({
           >
             {isEditing ? 'Save Changes' : 'Edit'}
           </Button>
+          
+          {/* Show resolution information if available */}
+          {resolutionInfo && resolutionInfo.resolved_via && (
+            <Text type="secondary">
+              Resolved via: {resolutionInfo.resolved_via}
+            </Text>
+          )}
         </Space>
       </div>
       <Tabs
@@ -91,4 +146,4 @@ export const EntityCard: React.FC<EntityCardProps> = ({
   );
 };
 
-export default EntityCard; 
+export default EntityCard;

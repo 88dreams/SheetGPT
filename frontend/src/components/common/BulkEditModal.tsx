@@ -1,6 +1,6 @@
 /**
- * Lightweight wrapper around the refactored BulkEditModal component
+ * Enhanced BulkEditModal component with entity resolution capabilities
  */
 
-import BulkEditModal from './BulkEditModal/index';
-export default BulkEditModal;
+import EnhancedBulkEditModal from './BulkEditModal/EnhancedBulkEditModal';
+export default EnhancedBulkEditModal;

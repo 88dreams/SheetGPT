@@ -1,5 +1,6 @@
 // Google API Type definitions for TypeScript
 interface Window {
+  searchTimeout?: ReturnType<typeof setTimeout>;
   googleApiLoaded?: boolean;
   onGoogleApiLoad?: () => void;
   gapi: {

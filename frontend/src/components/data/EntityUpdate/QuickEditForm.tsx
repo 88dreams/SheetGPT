@@ -1,24 +1,35 @@
 import React from 'react';
-import { Form, Input, Select, InputNumber, Typography, Space } from 'antd';
+import { Form } from 'antd';
 import { Entity, EntityType } from '../../../types/sports';
-import { EditOutlined, LockOutlined } from '@ant-design/icons';
-
-const { Text } = Typography;
-const { Option } = Select;
+import FormField from './fields/FormField';
+import TeamFields from './fields/TeamFields';
+import StadiumFields from './fields/StadiumFields';
+import LeagueFields from './fields/LeagueFields';
+import DivisionConferenceFields from './fields/DivisionConferenceFields';
+import BroadcastFields from './fields/BroadcastFields';
+import ProductionFields from './fields/ProductionFields';
+import BrandFields from './fields/BrandFields';
 
 interface QuickEditFormProps {
   entity: Entity;
   entityType: EntityType;
   isEditing: boolean;
   onChange: (updatedEntity: Entity) => void;
+  showAllFields?: boolean;
 }
 
+/**
+ * Enhanced QuickEditForm that uses specialized entity field components
+ * with entity resolution capabilities
+ */
 export const QuickEditForm: React.FC<QuickEditFormProps> = ({
   entity,
   entityType,
   isEditing,
   onChange,
+  showAllFields = false
 }) => {
+  // Handler for field changes
   const handleFieldChange = (field: string, value: string | number | Date | null) => {
     onChange({
       ...entity,
@@ -26,103 +37,59 @@ export const QuickEditForm: React.FC<QuickEditFormProps> = ({
     });
   };
 
-  const renderField = (field: string, label: string, type: 'text' | 'number' | 'select', options?: { value: string; label: string }[]) => {
-    const value = entity[field as keyof Entity];
-    const isRequired = ['name', 'city', 'country'].includes(field);
-
-    return (
-      <Form.Item
-        label={
-          <Space>
-            <Text>{label}</Text>
-            {isRequired ? <Text type="danger">*</Text> : null}
-            {isEditing ? <EditOutlined /> : <LockOutlined />}
-          </Space>
-        }
-        required={isRequired}
-      >
-        {type === 'text' && (
-          <Input
-            value={value as string}
-            onChange={(e) => handleFieldChange(field, e.target.value)}
-            disabled={!isEditing || isRequired}
-            placeholder={`Enter ${label.toLowerCase()}`}
-          />
-        )}
-        {type === 'number' && (
-          <InputNumber
-            value={value as number}
-            onChange={(val) => handleFieldChange(field, val)}
-            disabled={!isEditing}
-            placeholder={`Enter ${label.toLowerCase()}`}
-            style={{ width: '100%' }}
-          />
-        )}
-        {type === 'select' && options && (
-          <Select
-            value={value as string}
-            onChange={(val) => handleFieldChange(field, val)}
-            disabled={!isEditing}
-            style={{ width: '100%' }}
-          >
-            {options.map((opt) => (
-              <Option key={opt.value} value={opt.value}>
-                {opt.label}
-              </Option>
-            ))}
-          </Select>
-        )}
-      </Form.Item>
-    );
-  };
-
-  const renderStadiumFields = () => (
+  // Generic fields for entity types without specialized components
+  const renderGenericFields = () => (
     <>
-      {renderField('name', 'Stadium Name', 'text')}
-      {renderField('city', 'City', 'text')}
-      {renderField('state', 'State', 'text')}
-      {renderField('country', 'Country', 'text')}
-      {renderField('capacity', 'Capacity', 'number')}
-      {renderField('owner', 'Owner', 'text')}
-      {renderField('naming_rights_holder', 'Naming Rights Holder', 'text')}
-      {renderField('host_broadcaster', 'Host Broadcaster', 'text')}
-    </>
-  );
-
-  const renderLeagueFields = () => (
-    <>
-      {renderField('name', 'League Name', 'text')}
-      {renderField('nickname', 'Nickname', 'text')}
-      {renderField('sport', 'Sport', 'text')}
-      {renderField('country', 'Country', 'text')}
-    </>
-  );
-
-  const renderTeamFields = () => (
-    <>
-      {renderField('name', 'Team Name', 'text')}
-      {renderField('city', 'City', 'text')}
-      {renderField('state', 'State', 'text')}
-      {renderField('country', 'Country', 'text')}
-      {renderField('founded_year', 'Founded Year', 'number')}
-    </>
-  );
-
-  const renderDivisionConferenceFields = () => (
-    <>
-      {renderField('name', 'Division/Conference Name', 'text')}
-      {renderField('type', 'Type', 'text')}
-      {renderField('region', 'Region', 'text')}
-      {renderField('description', 'Description', 'text')}
+      <FormField
+        field="name"
+        label="Name"
+        type="text"
+        value={entity.name || ''}
+        onChange={handleFieldChange}
+        isEditing={isEditing}
+        isRequired={true}
+        helpText="The name of this entity"
+      />
+      
+      {entity.description !== undefined && (
+        <FormField
+          field="description"
+          label="Description"
+          type="text"
+          value={entity.description || ''}
+          onChange={handleFieldChange}
+          isEditing={isEditing}
+        />
+      )}
+      
+      {entity.type !== undefined && (
+        <FormField
+          field="type"
+          label="Type"
+          type="text"
+          value={entity.type || ''}
+          onChange={handleFieldChange}
+          isEditing={isEditing}
+        />
+      )}
     </>
   );
 
   return (
     <Form layout="vertical" style={{ maxWidth: 600 }}>
-      {entityType === 'stadium' && renderStadiumFields()}
-      {entityType === 'league' && renderLeagueFields()}
-      {entityType === 'division_conference' && renderDivisionConferenceFields()}
-      {entityType === 'team' && renderTeamFields()}
+      {/* Render appropriate fields based on entity type */}
+      {entityType === 'team' && <TeamFields entity={entity} onChange={handleFieldChange} isEditing={isEditing} />}
+      {entityType === 'stadium' && <StadiumFields entity={entity} onChange={handleFieldChange} isEditing={isEditing} />}
+      {entityType === 'league' && <LeagueFields entity={entity} onChange={handleFieldChange} isEditing={isEditing} />}
+      {entityType === 'division_conference' && <DivisionConferenceFields entity={entity} onChange={handleFieldChange} isEditing={isEditing} />}
+      {entityType === 'broadcast' && <BroadcastFields entity={entity} onChange={handleFieldChange} isEditing={isEditing} />}
+      {entityType === 'production' && <ProductionFields entity={entity} onChange={handleFieldChange} isEditing={isEditing} />}
+      {entityType === 'brand' && <BrandFields entity={entity} onChange={handleFieldChange} isEditing={isEditing} />}
+      
+      {/* Generic fallback for other entity types */}
+      {!['team', 'stadium', 'league', 'division_conference', 'broadcast', 'production', 'brand'].includes(entityType) && 
+        renderGenericFields()
+      }
     </Form>
   );
 };

@@ -1,6 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { detectEntityType } from '../../../utils/sportDataMapper';
 import { EntityType as MapperEntityType } from '../../../utils/sportDataMapper/entityTypes';
+import { fingerprint, createMemoEqualityFn } from '../../../utils/fingerprint';
+import { withMemo } from '../../../utils/memoization';
+import { relationshipLoader } from '../../../utils/relationshipLoader';
 
 // Import components
 import {
@@ -23,9 +26,6 @@ import {
   useDataManagement 
 } from './hooks';
 
-// Import utilities
-import { extractSourceFields } from './utils/dataProcessor';
-
 // Import API services
 import sportsDatabaseService, { EntityType as DbEntityType } from '../../../services/SportsDatabaseService';
 
@@ -39,6 +39,7 @@ interface SportDataMapperProps {
 /**
  * Container component for the Sport Data Mapper functionality
  * Allows mapping data from various formats to sports database entities
+ * Optimized with fingerprinting and memoization for better performance
  */
 const SportDataMapperContainer: React.FC<SportDataMapperProps> = ({ isOpen, onClose, structuredData }) => {
   // Use custom hooks for state management
@@ -55,7 +56,7 @@ const SportDataMapperContainer: React.FC<SportDataMapperProps> = ({ isOpen, onCl
     dataToImport,
     sourceFields,
     sourceFieldValues,
-    extractSourceFields: hookExtractSourceFields,
+    extractSourceFields,
     updateMappedDataForEntityType: hookUpdateMappedDataForEntityType,
     updateSourceFieldValues,
     updateMappedDataForField
@@ -69,7 +70,8 @@ const SportDataMapperContainer: React.FC<SportDataMapperProps> = ({ isOpen, onCl
     goToPreviousRecord,
     toggleExcludeRecord,
     isCurrentRecordExcluded,
-    getIncludedRecords
+    getIncludedRecords,
+    stats: navigationStats
   } = useRecordNavigation(dataToImport);
   
   const {
@@ -100,7 +102,21 @@ const SportDataMapperContainer: React.FC<SportDataMapperProps> = ({ isOpen, onCl
   const [leagueAndStadiumExist, setLeagueAndStadiumExist] = useState<boolean>(false);
   const [isUpdateMode, setIsUpdateMode] = useState<boolean>(false);
   
-  // Check if League and Stadium data exist
+  // Memoize common data entities for improved performance
+  useEffect(() => {
+    // Load common entity data for form selections
+    const preloadEntityData = async () => {
+      try {
+        await relationshipLoader.preloadEntitySet('FORM_BASICS');
+      } catch (error) {
+        console.error('Error preloading entity data:', error);
+      }
+    };
+    
+    preloadEntityData();
+  }, []);
+  
+  // Check if League and Stadium data exist with optimized API calls
   useEffect(() => {
     const checkLeagueAndStadiumData = async () => {
       try {
@@ -119,7 +135,6 @@ const SportDataMapperContainer: React.FC<SportDataMapperProps> = ({ isOpen, onCl
         const hasStadiums = stadiumResponse && stadiumResponse.total > 0;
         
         setLeagueAndStadiumExist(hasLeagues && hasStadiums);
-        console.log(`League and Stadium data exist: ${hasLeagues && hasStadiums} (Leagues: ${leagueResponse.total}, Stadiums: ${stadiumResponse.total})`);
       } catch (error) {
         console.error('Error checking League and Stadium data:', error);
         setLeagueAndStadiumExist(false);
@@ -132,79 +147,101 @@ const SportDataMapperContainer: React.FC<SportDataMapperProps> = ({ isOpen, onCl
   // Initialize data when the component mounts or structuredData changes
   useEffect(() => {
     if (structuredData) {
-      // Only initialize the data on first load, not on every structuredData change
-      // This prevents reinitializing to the first record after navigation
+      console.log('SportDataMapperContainer: Initializing with structured data', {
+        structuredData,
+        currentDataLength: dataToImport.length
+      });
+      
+      // Force initialization regardless of dataToImport length to debug
+      // But only if we haven't already loaded data
       if (dataToImport.length === 0) {
-        console.log('Initializing data for the first time');
-        extractSourceFields(structuredData, hookExtractSourceFields, setDataValidity);
+        extractSourceFields(structuredData, setDataValidity);
       }
     }
-  }, [structuredData, hookExtractSourceFields, setDataValidity, dataToImport.length]);
+  }, [structuredData, extractSourceFields, setDataValidity, dataToImport.length]);
   
-  // Update mapped data when entity type changes
-  const updateMappedDataForEntityType = (entityType: MapperEntityType) => {
+  // Separate effect for setting the initial record index
+  // This prevents circular dependency with dataToImport
+  useEffect(() => {
+    // If we have data but no current record index, set it to 0
+    if (dataToImport.length > 0 && currentRecordIndex === null) {
+      console.log('SportDataMapperContainer: Setting initial record index to 0');
+      setCurrentRecordIndex(0);
+    }
+  }, [dataToImport.length, currentRecordIndex, setCurrentRecordIndex]);
+  
+  // Memoize the update function to prevent recreation on every render
+  const updateMappedDataForEntityType = useCallback((entityType: MapperEntityType) => {
     hookUpdateMappedDataForEntityType(entityType, mappingsByEntityType, currentRecordIndex);
-  };
+  }, [hookUpdateMappedDataForEntityType, mappingsByEntityType, currentRecordIndex]);
+  
+  // Use memoized dependencies for source field updates
+  const memoizedDataLength = useMemo(() => dataToImport.length, [dataToImport.length]);
+  const memoizedSourceFieldValues = useMemo(
+    () => sourceFieldValues, 
+    [createMemoEqualityFn(sourceFieldValues)]
+  );
   
   // Update source field values when current record changes
+  // Optimized with fingerprinting for better performance
   useEffect(() => {
-    console.log(`Effect triggered: Record index is ${currentRecordIndex}, total records: ${dataToImport.length}`);
-    
-    // Skip if no data
-    if (dataToImport.length === 0) {
-      console.log('No data to import, skipping source field update');
+    if (memoizedDataLength === 0) {
       return;
     }
     
     // Ensure index is valid
-    let indexToUse = currentRecordIndex !== null ? currentRecordIndex : 0;
-    if (indexToUse < 0) {
-      indexToUse = 0;
-    } else if (indexToUse >= dataToImport.length) {
-      indexToUse = dataToImport.length - 1;
+    if (currentRecordIndex !== null && currentRecordIndex >= 0 && currentRecordIndex < memoizedDataLength) {
+      console.log('SportDataMapperContainer: Updating source field values for record', currentRecordIndex);
+      
+      // Update using a reference to prevent circular deps
+      const recordIndex = currentRecordIndex;
+      
+      // Use a timeout to break the potential circular dependency
+      const timeoutId = setTimeout(() => {
+        updateSourceFieldValues(recordIndex);
+      }, 0);
+      
+      return () => clearTimeout(timeoutId);
     }
-    
-    console.log(`Using index ${indexToUse} to update source field values`);
-    
-    // Update source field values immediately, the hook itself uses requestAnimationFrame
-    updateSourceFieldValues(indexToUse);
-    console.log(`Source field values updated for record at index ${indexToUse}`);
-  }, [currentRecordIndex, dataToImport, updateSourceFieldValues]);
+  // Dependency on recordIndex changed to dataLength only to prevent cycles
+  }, [currentRecordIndex, memoizedDataLength, updateSourceFieldValues]);
   
   // Update mapped data when entity type or current record changes
   useEffect(() => {
     if (selectedEntityType) {
       updateMappedDataForEntityType(selectedEntityType);
     }
-  }, [selectedEntityType, currentRecordIndex, mappingsByEntityType]);
+  }, [selectedEntityType, currentRecordIndex, updateMappedDataForEntityType]);
   
-  // Detect entity type from data
+  // Detect entity type from data with optimized dependency tracking
   useEffect(() => {
     if (dataToImport.length > 0 && sourceFields.length > 0) {
       const detectedType = detectEntityType(dataToImport[0], sourceFields);
-      if (detectedType) {
+      if (detectedType && suggestedEntityType !== detectedType) {
         setSuggestedEntityType(detectedType);
       }
     }
-  }, [dataToImport, sourceFields]);
+  }, [fingerprint(dataToImport[0] || {}), fingerprint(sourceFields), suggestedEntityType]);
   
-  // Use the hook's navigation functions directly
-  const goToNextRecord = hookGoToNextRecord;
+  // Use the hook's navigation functions directly with memoization
+  const goToNextRecord = useMemo(() => hookGoToNextRecord, [hookGoToNextRecord]);
   
-  const handleEntityTypeSelect = (entityType: MapperEntityType) => {
+  // Optimized handler for entity type selection
+  const handleEntityTypeSelect = useCallback((entityType: MapperEntityType) => {
     setSelectedEntityType(entityType);
-    updateMappedDataForEntityType(entityType);
-  };
+  }, [setSelectedEntityType]);
   
-  const handleFieldMappingDrop = (sourceField: string, targetField: string) => {
+  // Optimized handler for field mapping drop
+  const handleFieldMappingDrop = useCallback((sourceField: string, targetField: string) => {
     handleFieldMapping(sourceField, targetField);
     updateMappedDataForField(sourceField, targetField, currentRecordIndex);
-  };
+  }, [handleFieldMapping, updateMappedDataForField, currentRecordIndex]);
   
-  const handleSaveToDatabase = async () => {
+  // Optimized save to database function using memoization
+  const handleSaveToDatabase = useCallback(async () => {
     if (!selectedEntityType) return;
     
-    const currentMappings = mappingsByEntityType[selectedEntityType] || {};
+    const currentMappings = getCurrentMappings();
     
     const success = await saveToDatabase(
       selectedEntityType,
@@ -219,22 +256,54 @@ const SportDataMapperContainer: React.FC<SportDataMapperProps> = ({ isOpen, onCl
       }
       goToNextRecord();
     }
-  };
+  }, [selectedEntityType, getCurrentMappings, currentRecordIndex, dataToImport, isUpdateMode, saveToDatabase, goToNextRecord]);
   
-  const handleBatchImport = async () => {
+  // Optimized batch import function using memoization
+  const handleBatchImport = useCallback(async () => {
     if (!selectedEntityType) return;
     
     const includedRecords = getIncludedRecords();
     const mappings = getCurrentMappings();
     
-    await batchImport(selectedEntityType, mappings, includedRecords, isUpdateMode);
+    const success = await batchImport(selectedEntityType, mappings, includedRecords, isUpdateMode);
     
-    if (selectedEntityType === 'league' || selectedEntityType === 'stadium') {
+    if (success && (selectedEntityType === 'league' || selectedEntityType === 'stadium')) {
       setLeagueAndStadiumExist(true);
     }
-  };
-
-  // Render the component
+  }, [selectedEntityType, getIncludedRecords, getCurrentMappings, isUpdateMode, batchImport]);
+  
+  // Memoize the component state for props to avoid unnecessary renders
+  const entityViewProps = useMemo(() => ({
+    selectedEntityType,
+    suggestedEntityType,
+    leagueAndStadiumExist,
+    isUpdateMode,
+    sourceFields,
+    sourceFieldValues: memoizedSourceFieldValues,
+    mappingsByEntityType,
+    showFieldHelp,
+    currentRecordIndex,
+    totalRecords,
+    isCurrentRecordExcluded: isCurrentRecordExcluded(),
+    isSaving,
+    isBatchImporting
+  }), [
+    selectedEntityType,
+    suggestedEntityType,
+    leagueAndStadiumExist,
+    isUpdateMode,
+    sourceFields,
+    memoizedSourceFieldValues,
+    fingerprint(mappingsByEntityType),
+    showFieldHelp,
+    currentRecordIndex,
+    totalRecords,
+    isCurrentRecordExcluded,
+    isSaving,
+    isBatchImporting
+  ]);
+  
+  // Render the component with memoized sub-components
   return (
     <DialogContainer
       isOpen={isOpen} 
@@ -249,28 +318,16 @@ const SportDataMapperContainer: React.FC<SportDataMapperProps> = ({ isOpen, onCl
           {viewMode === 'entity' && (
             <div>
               <EntityView
-                selectedEntityType={selectedEntityType}
+                {...entityViewProps}
                 onEntityTypeSelect={handleEntityTypeSelect}
-                suggestedEntityType={suggestedEntityType}
-                leagueAndStadiumExist={leagueAndStadiumExist}
-                isUpdateMode={isUpdateMode}
                 setIsUpdateMode={setIsUpdateMode}
-                sourceFields={sourceFields}
-                sourceFieldValues={sourceFieldValues}
-                mappingsByEntityType={mappingsByEntityType}
-                showFieldHelp={showFieldHelp}
                 onFieldMapping={handleFieldMappingDrop}
                 onRemoveMapping={removeMapping}
                 onShowFieldHelp={showHelpForField}
                 onHideFieldHelp={hideFieldHelp}
-                currentRecordIndex={currentRecordIndex}
-                totalRecords={totalRecords}
                 onPreviousRecord={goToPreviousRecord}
                 onNextRecord={goToNextRecord}
                 onToggleExcludeRecord={toggleExcludeRecord}
-                isCurrentRecordExcluded={isCurrentRecordExcluded()}
-                isSaving={isSaving}
-                isBatchImporting={isBatchImporting}
                 onSaveToDatabase={handleSaveToDatabase}
                 onBatchImport={handleBatchImport}
                 onSendToData={onClose} // Use the onClose prop as onSendToData
@@ -294,7 +351,7 @@ const SportDataMapperContainer: React.FC<SportDataMapperProps> = ({ isOpen, onCl
               <FieldView
                 mappingsByEntityType={mappingsByEntityType}
                 sourceFields={sourceFields}
-                sourceFieldValues={sourceFieldValues}
+                sourceFieldValues={memoizedSourceFieldValues}
               />
             </div>
           )}
@@ -329,4 +386,5 @@ const SportDataMapperContainer: React.FC<SportDataMapperProps> = ({ isOpen, onCl
   );
 };
 
-export default SportDataMapperContainer; 
+// Apply memoization to the entire component for top-level optimization
+export default withMemo(SportDataMapperContainer);

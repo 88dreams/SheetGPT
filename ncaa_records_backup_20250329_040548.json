@@ -1,0 +1,65 @@
+[
+  {
+    "id": "08711f3f-7ba4-45c5-b1d1-9cd4e0f2b2af",
+    "name": "$1NCAA$2Division I Women's Basketball",
+    "sport": "Basketball",
+    "country": "United States",
+    "nickname": null,
+    "created_at": "2025-03-03T21:52:08.846969+00:00",
+    "updated_at": "2025-03-03T21:54:02.264388+00:00"
+  },
+  {
+    "id": "afe91baf-d646-41c5-9920-a028af1958c7",
+    "name": "$1NCAA$2Division I Women's Volleyball",
+    "sport": "Volleyball",
+    "country": "United States",
+    "nickname": null,
+    "created_at": "2025-03-03T21:52:08.845576+00:00",
+    "updated_at": "2025-03-03T21:54:12.564177+00:00"
+  },
+  {
+    "id": "9285de13-5f44-460d-b87d-bfb90ed5bc41",
+    "name": "$1NCAA$2Division I Baseball",
+    "sport": "Baseball",
+    "country": "Unknown Country",
+    "nickname": null,
+    "created_at": "2025-03-03T21:52:08.846227+00:00",
+    "updated_at": "2025-03-26T07:29:23.033553+00:00"
+  },
+  {
+    "id": "89cc3b69-a2f2-49c6-86a8-053cf090fd56",
+    "name": "$1NCAA$2Division I Men's Basketball",
+    "sport": "Basketball",
+    "country": "United States",
+    "nickname": null,
+    "created_at": "2025-03-03T21:52:08.847806+00:00",
+    "updated_at": "2025-03-03T21:53:29.138518+00:00"
+  },
+  {
+    "id": "100a3f31-a5f5-4584-a5f9-19e91d6bac6b",
+    "name": "$1NCAA$2Division I Men's Ice Hockey",
+    "sport": "Ice Hockey",
+    "country": "United States",
+    "nickname": null,
+    "created_at": "2025-03-03T21:52:08.739264+00:00",
+    "updated_at": "2025-03-03T21:53:41.108905+00:00"
+  },
+  {
+    "id": "e3cb29f6-ca19-431d-aa9e-cdacc35e88be",
+    "name": "$1NCAA$2Division I Football",
+    "sport": "American Football",
+    "country": "United States",
+    "nickname": null,
+    "created_at": "2025-03-03T21:52:08.848515+00:00",
+    "updated_at": "2025-03-03T21:53:16.907050+00:00"
+  },
+  {
+    "id": "42da4b14-d1aa-4e3c-808c-a449a5f9a6e6",
+    "name": "$1NCAA$2Division I Softball",
+    "sport": "Softball",
+    "country": "United States",
+    "nickname": null,
+    "created_at": "2025-03-03T21:52:08.862880+00:00",
+    "updated_at": "2025-03-03T21:53:51.212862+00:00"
+  }
+]

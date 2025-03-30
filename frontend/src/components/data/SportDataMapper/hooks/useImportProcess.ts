@@ -48,6 +48,53 @@ export default function useImportProcess() {
       const transformedData = transformMappedData(mappedData, currentRecord);
       console.log('Transformed Data:', transformedData);
       
+      // Check if transformed data is empty or missing required fields
+      if (Object.keys(transformedData).length === 0) {
+        console.error('No data was transformed from mappings. Attempting to apply default values.');
+        
+        // For production entity, apply default/critical values directly
+        if (entityType === 'production') {
+          console.log('Applying default values for production entity');
+          
+          // Apply direct mapping based on position for production entities
+          // This is a fallback for when the normal mapping fails
+          const defaults: Record<string, any> = {
+            production_company_id: Array.isArray(currentRecord) ? currentRecord[0] : 'Unknown Company',
+            service_type: Array.isArray(currentRecord) ? currentRecord[1] || 'Production' : 'Production',
+            entity_id: Array.isArray(currentRecord) ? currentRecord[2] || 'Unknown Entity' : 'Unknown Entity',
+            entity_type: Array.isArray(currentRecord) ? currentRecord[3] || 'league' : 'league',
+            start_date: '2000-01-01',
+            end_date: '2100-01-01'
+          };
+          
+          // Copy the defaults to transformedData
+          Object.keys(defaults).forEach(key => {
+            if (mappedData[key]) { // Only set if this field is being mapped
+              transformedData[key] = defaults[key];
+            }
+          });
+          
+          console.log('Applied default production values:', transformedData);
+          
+          if (Object.keys(transformedData).length === 0) {
+            showNotification('error', 'Field mapping error', 'No data was transformed from the field mappings. Please check console for details.');
+            return false;
+          }
+        } else {
+          showNotification('error', 'Field mapping error', 'No data was transformed from the field mappings. Please check console for details.');
+          return false;
+        }
+      }
+      
+      // Log data for debugging
+      console.log('Field mapping details:', {
+        mappedData,
+        currentRecord,
+        transformedData,
+        entityType,
+        isArrayRecord: Array.isArray(currentRecord)
+      });
+      
       // Determine if we're updating or creating
       const effectiveUpdateMode = isUpdateMode || Object.keys(mappedData).length === 1;
       

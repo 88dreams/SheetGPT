@@ -46,7 +46,8 @@ export interface FieldProps {
   selected: boolean;
   value: any;
   relatedEntities?: any[];
-  onToggle: (fieldName: string) => void;
+  onToggle?: (fieldName: string) => void;
   onValueChange: (fieldName: string, value: any) => void;
   disabled?: boolean;
+  context?: Record<string, any>;
 }

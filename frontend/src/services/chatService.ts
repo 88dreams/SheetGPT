@@ -2,16 +2,30 @@ import { request, getToken, APIError } from '../utils/apiClient';
 import { Conversation, Message, PaginatedResponse } from '../types/api';
 
 // For streaming responses
-// Safe access to env variables
-let API_URL = 'http://localhost:8000';
-try {
-  const envUrl = import.meta.env.VITE_API_URL;
-  if (envUrl) {
-    API_URL = envUrl;
+// Use the same API URL determination logic as apiClient.ts
+const getApiUrl = () => {
+  // In browser context, we always use relative URLs
+  if (typeof window !== 'undefined') {
+    console.log('Browser environment detected, using relative URL for chat service');
+    return '';
   }
-} catch (error) {
-  console.log('Error accessing import.meta.env, using default API URL');
-}
+  
+  // This code will only run in server-side contexts
+  try {
+    if (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.VITE_API_URL) {
+      console.log('Using VITE_API_URL for chat service:', import.meta.env.VITE_API_URL);
+      return import.meta.env.VITE_API_URL;
+    }
+  } catch (error) {
+    console.log('Error accessing import.meta.env for chat service:', error);
+  }
+  
+  // Default fallback for server-side
+  console.log('Using default localhost API URL for chat service');
+  return 'http://localhost:8000';
+};
+
+const API_URL = getApiUrl();
 const API_PREFIX = '/api/v1';
 
 export const chatService = {

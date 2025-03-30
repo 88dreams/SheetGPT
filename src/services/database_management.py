@@ -1025,7 +1025,14 @@ SQL Query:"""
         
         # Parse stored JSON status
         try:
-            status = json.loads(status_row)
+            # Handle different types of status_row
+            if isinstance(status_row, str):
+                status = json.loads(status_row)
+            elif isinstance(status_row, (dict, list)):
+                status = status_row
+            else:
+                logger.warning(f"Unexpected maintenance status type: {type(status_row)}")
+                status = {}
             
             # Check if there are any backups
             backups = self.list_backups()
@@ -1063,16 +1070,24 @@ SQL Query:"""
             Dict with analysis results
         """
         try:
-            # For testing - simulate a dry run by manually updating the system_metadata table
-            # In a real implementation, this would call the db_cleanup.py script
+            # Import the DatabaseCleanupService from db_cleanup.py script
+            from src.scripts.db_cleanup import DatabaseCleanupService
             
-            # Create simulated analysis results
+            # Create a new DatabaseCleanupService instance with dry_run=True
+            cleanup_service = DatabaseCleanupService(self.db, dry_run=True)
+            
+            # Run the full cleanup in dry run mode
+            stats = await cleanup_service.run_full_cleanup()
+            
+            # Extract and format the results
             analysis_results = {
-                "duplicates_total": 3,
-                "missing_relationships": 2,
-                "name_standardizations": 5,
-                "constraints_needed": 1,
-                "timestamp": datetime.now().isoformat()
+                "duplicates_total": sum(stats.get("duplicates_found", {}).values()),
+                "missing_relationships": sum(stats.get("relationships_repaired", {}).values()),
+                "name_standardizations": sum([count for key, count in stats.get("relationships_repaired", {}).items() 
+                                             if "name_standardization" in key]),
+                "constraints_needed": len(stats.get("constraints_added", [])),
+                "timestamp": datetime.now().isoformat(),
+                "detailed_results": stats  # Include the full stats for detailed reporting
             }
             
             # Update the maintenance status in the database
@@ -1166,15 +1181,30 @@ SQL Query:"""
             maintenance_json = json.dumps(maintenance_data_copy, default=ensure_serializable)
             logger.info(f"Serialized maintenance data: {maintenance_json[:100]}...")
             
-            # Upsert the data
-            upsert_query = text("""
-                INSERT INTO system_metadata (key, value, updated_at)
-                VALUES ('maintenance_status', :value::jsonb, NOW())
-                ON CONFLICT (key)
-                DO UPDATE SET value = :value::jsonb, updated_at = NOW()
-            """)
+            # Upsert the data - use simpler approach to ensure compatibility
+            try:
+                # First try using positional parameters (preferred)
+                upsert_query = text("""
+                    INSERT INTO system_metadata (key, value, updated_at)
+                    VALUES ('maintenance_status', $1::jsonb, NOW())
+                    ON CONFLICT (key)
+                    DO UPDATE SET value = $1::jsonb, updated_at = NOW()
+                """)
+                
+                await self.db.execute(upsert_query, [maintenance_json])
+                logger.info("Updated dry run status using positional parameters")
+            except Exception as e:
+                logger.warning(f"Error using positional parameters: {str(e)}, trying named parameters")
+                # Fall back to named parameters if positional fails
+                upsert_query = text("""
+                    INSERT INTO system_metadata (key, value, updated_at)
+                    VALUES ('maintenance_status', :value::jsonb, NOW())
+                    ON CONFLICT (key)
+                    DO UPDATE SET value = :value::jsonb, updated_at = NOW()
+                """)
+                
+                await self.db.execute(upsert_query, {"value": maintenance_json})
             
-            await self.db.execute(upsert_query, {"value": maintenance_json})
             await self.db.commit()
             
             logger.info("Updated dry run status in system_metadata")
@@ -1192,26 +1222,63 @@ SQL Query:"""
             Dict with cleanup results
         """
         try:
-            # For testing - simulate a cleanup by manually updating the system_metadata table
-            # In a real implementation, this would call the db_cleanup.py script
+            # Import the DatabaseCleanupService from db_cleanup.py script
+            from src.scripts.db_cleanup import DatabaseCleanupService
             
-            # Get the dry run results first
-            status = await self.get_maintenance_status()
-            dry_run_results = status.get("dry_run_results", {})
-            would_fix = dry_run_results.get("would_fix", {})
+            # Create a new DatabaseCleanupService instance with dry_run=False for actual changes
+            cleanup_service = DatabaseCleanupService(self.db, dry_run=False)
             
-            # Create simulated fix results
+            # Set a flag to indicate this is an API call, so it will skip interactive prompts
+            cleanup_service.api_call = True
+            
+            # Set environment variable for backward compatibility
+            os.environ["AUTOMATED_CLEANUP"] = "1"
+            
+            try:
+                # Run the full cleanup for real
+                stats = await cleanup_service.run_full_cleanup()
+            except Exception as e:
+                logger.error(f"Error during cleanup process: {str(e)}")
+                # Make sure to rollback on error
+                await self.db.rollback()
+                # Return error 
+                return {
+                    "success": False,
+                    "error": f"Cleanup process failed: {str(e)}"
+                }
+            
+            # Extract and format the results - simplify to avoid serialization issues
             fixed_results = {
-                "duplicates_removed": would_fix.get("duplicates_removed", 2),
-                "references_updated": 3,
-                "relationships_fixed": would_fix.get("relationships_fixed", 1),
-                "names_standardized": would_fix.get("names_standardized", 4),
-                "constraints_added": would_fix.get("constraints_added", 1),
-                "timestamp": datetime.now().isoformat()
+                "duplicates_removed": sum(stats.get("duplicates_removed", {}).values()),
+                "relationships_fixed": sum(stats.get("relationships_repaired", {}).values()),
+                "constraints_added": len(stats.get("constraints_added", [])),
+                "timestamp": datetime.now().isoformat(),
+                "success": stats.get("success", True)
             }
             
-            # Update the maintenance status in the database
+            # Always set cleanup as completed, even if there were no changes
+            # This ensures the UI can progress to the next step
             await self._update_cleanup_status(fixed_results)
+            
+            # Just to be sure, force another update using a direct SQL approach
+            try:
+                # Direct SQL update as a fallback 
+                direct_update = text("""
+                    UPDATE system_metadata 
+                    SET value = jsonb_set(
+                        CASE WHEN value::jsonb IS NULL THEN '{}'::jsonb ELSE value::jsonb END, 
+                        '{cleanup_completed}', 
+                        'true'::jsonb
+                    ),
+                    updated_at = NOW()
+                    WHERE key = 'maintenance_status'
+                """)
+                await self.db.execute(direct_update)
+                await self.db.commit()
+                logger.info("Forced cleanup_completed=true via direct SQL update")
+            except Exception as e:
+                logger.warning(f"Could not force direct SQL update: {str(e)}")
+                # This is not critical, so just log and continue
             
             return {
                 "success": True,
@@ -1220,22 +1287,19 @@ SQL Query:"""
             
         except Exception as e:
             logger.error(f"Error in cleanup: {str(e)}", exc_info=True)
+            # Make sure to rollback
+            try:
+                await self.db.rollback()
+            except Exception:
+                pass
             return {
                 "success": False,
                 "error": str(e)
             }
             
     async def _update_cleanup_status(self, fixed_results: Dict[str, Any]):
-        """Update the cleanup status in system_metadata table."""
+        """Update the cleanup status in system_metadata table with a simplified, reliable approach."""
         try:
-            # Convert any non-serializable objects to strings first
-            def ensure_serializable(obj):
-                if isinstance(obj, (datetime, date)):
-                    return obj.isoformat()
-                elif isinstance(obj, (set, frozenset)):
-                    return list(obj)
-                return obj
-                
             # Check if system_metadata table exists
             check_table_query = text("""
                 SELECT EXISTS (
@@ -1252,7 +1316,7 @@ SQL Query:"""
                 create_table_query = text("""
                     CREATE TABLE system_metadata (
                         key VARCHAR(255) PRIMARY KEY,
-                        value JSONB NOT NULL,
+                        value TEXT NOT NULL,
                         updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
                     )
                 """)
@@ -1269,48 +1333,56 @@ SQL Query:"""
             status_result = await self.db.execute(status_query)
             status_row = status_result.scalar_one_or_none()
             
+            # Prepare maintenance data
             maintenance_data = {}
             if status_row:
-                if isinstance(status_row, str):
-                    maintenance_data = json.loads(status_row)
-                elif isinstance(status_row, (dict, list)):
-                    maintenance_data = status_row
-                else:
-                    logger.warning(f"Unexpected maintenance status type: {type(status_row)}")
+                try:
+                    if isinstance(status_row, str):
+                        maintenance_data = json.loads(status_row)
+                    elif isinstance(status_row, (dict, list)):
+                        maintenance_data = status_row
+                    else:
+                        maintenance_data = {}
+                except Exception:
+                    maintenance_data = {}
             
-            # For better logging
-            logger.info(f"Current maintenance data type: {type(maintenance_data)}")
+            # Update cleanup status - simpler structure
+            maintenance_data["cleanup_completed"] = True
+            maintenance_data["cleanup_time"] = datetime.now().isoformat()
+            maintenance_data["cleanup_results"] = fixed_results
             
-            # Update cleanup status
-            maintenance_data_copy = dict(maintenance_data)  # Create a copy to avoid modifying the original
-            maintenance_data_copy.update({
-                "cleanup_completed": True,
-                "cleanup_time": datetime.now().isoformat(),
-                "cleanup_results": {
-                    "fixed": fixed_results
-                }
-            })
+            # Convert to JSON string with simple serialization
+            def json_serial(obj):
+                if isinstance(obj, (datetime, date)):
+                    return obj.isoformat()
+                if isinstance(obj, UUID):
+                    return str(obj)
+                raise TypeError(f"Type {type(obj)} not serializable")
+                
+            maintenance_json = json.dumps(maintenance_data, default=json_serial)
             
-            # Convert to JSON string
-            maintenance_json = json.dumps(maintenance_data_copy, default=ensure_serializable)
-            logger.info(f"Serialized maintenance data: {maintenance_json[:100]}...")
-            
-            # Upsert the data
+            # Use direct SQL query without type cast to avoid syntax issues
+            # Store as TEXT instead of JSONB to simplify
             upsert_query = text("""
                 INSERT INTO system_metadata (key, value, updated_at)
-                VALUES ('maintenance_status', :value::jsonb, NOW())
+                VALUES ('maintenance_status', :value, NOW())
                 ON CONFLICT (key)
-                DO UPDATE SET value = :value::jsonb, updated_at = NOW()
+                DO UPDATE SET value = :value, updated_at = NOW()
             """)
             
+            # Execute with simple named parameter
             await self.db.execute(upsert_query, {"value": maintenance_json})
             await self.db.commit()
             
-            logger.info("Updated cleanup status in system_metadata")
+            logger.info("Updated cleanup status in system_metadata successfully")
             
         except Exception as e:
             logger.error(f"Error updating cleanup status: {str(e)}", exc_info=True)
-            # Don't re-raise the exception, just log it
+            # Make sure we rollback on error
+            try:
+                await self.db.rollback()
+            except Exception:
+                pass
             
     async def run_vacuum(self, skip_reindex: bool = False) -> Dict[str, Any]:
         """
@@ -1323,46 +1395,24 @@ SQL Query:"""
             Dict with vacuum results
         """
         try:
-            # For testing - simulate a vacuum by directly calculating database size
+            # Import the DatabaseVacuumService from db_vacuum.py script
+            from src.scripts.db_vacuum import DatabaseVacuumService
             
-            # Capture start time for before/after size comparison
-            start_time = datetime.now()
+            # Create a new DatabaseVacuumService instance
+            vacuum_service = DatabaseVacuumService(self.db)
             
-            # Get database size before vacuum
-            try:
-                size_before_query = text("""
-                    SELECT pg_database_size(current_database()) / (1024 * 1024.0) as size_mb
-                """)
-                size_before_result = await self.db.execute(size_before_query)
-                size_before_mb = size_before_result.scalar_one()
-            except Exception:
-                # If there's an error, use a default value
-                size_before_mb = 10.0
+            # Run the full vacuum process
+            stats = await vacuum_service.run_full_vacuum(include_reindex=not skip_reindex)
             
-            # Simulate a small delay for the vacuum
-            await asyncio.sleep(1)
-            
-            # Simulate a small reduction in database size
-            size_after_mb = size_before_mb * 0.95  # 5% reduction
-            
-            # Calculate duration
-            end_time = datetime.now()
-            duration_seconds = (end_time - start_time).total_seconds()
-            
-            # Calculate space savings
-            space_reclaimed_mb = max(0, size_before_mb - size_after_mb)
-            percent_reduction = 0
-            if size_before_mb > 0:
-                percent_reduction = (space_reclaimed_mb / size_before_mb) * 100
-            
-            # Prepare results
+            # Extract and format the results
             vacuum_results = {
-                "space_reclaimed_mb": space_reclaimed_mb,
-                "percent_reduction": percent_reduction,
-                "duration_seconds": duration_seconds,
-                "size_before_mb": size_before_mb,
-                "size_after_mb": size_after_mb,
-                "skip_reindex": skip_reindex
+                "space_reclaimed_mb": (stats.get("total_size_before", 0) - stats.get("total_size_after", 0)) / (1024 * 1024),
+                "percent_reduction": ((stats.get("total_size_before", 0) - stats.get("total_size_after", 0)) / stats.get("total_size_before", 1)) * 100 if stats.get("total_size_before", 0) > 0 else 0,
+                "duration_seconds": stats.get("vacuum_time", 0) + (0 if skip_reindex else stats.get("reindex_time", 0)),
+                "size_before_mb": stats.get("total_size_before", 0) / (1024 * 1024),
+                "size_after_mb": stats.get("total_size_after", 0) / (1024 * 1024),
+                "skip_reindex": skip_reindex,
+                "detailed_results": stats  # Include the full stats for detailed reporting
             }
             
             # Store results in system_metadata
@@ -1448,15 +1498,30 @@ SQL Query:"""
             maintenance_json = json.dumps(maintenance_data_copy, default=ensure_serializable)
             logger.info(f"Serialized maintenance data: {maintenance_json[:100]}...")
             
-            # Upsert the data
-            upsert_query = text("""
-                INSERT INTO system_metadata (key, value, updated_at)
-                VALUES ('maintenance_status', :value::jsonb, NOW())
-                ON CONFLICT (key)
-                DO UPDATE SET value = :value::jsonb, updated_at = NOW()
-            """)
+            # Upsert the data - use simpler approach to ensure compatibility
+            try:
+                # First try using positional parameters (preferred)
+                upsert_query = text("""
+                    INSERT INTO system_metadata (key, value, updated_at)
+                    VALUES ('maintenance_status', $1::jsonb, NOW())
+                    ON CONFLICT (key)
+                    DO UPDATE SET value = $1::jsonb, updated_at = NOW()
+                """)
+                
+                await self.db.execute(upsert_query, [maintenance_json])
+                logger.info("Updated vacuum status using positional parameters")
+            except Exception as e:
+                logger.warning(f"Error using positional parameters: {str(e)}, trying named parameters")
+                # Fall back to named parameters if positional fails
+                upsert_query = text("""
+                    INSERT INTO system_metadata (key, value, updated_at)
+                    VALUES ('maintenance_status', :value::jsonb, NOW())
+                    ON CONFLICT (key)
+                    DO UPDATE SET value = :value::jsonb, updated_at = NOW()
+                """)
+                
+                await self.db.execute(upsert_query, {"value": maintenance_json})
             
-            await self.db.execute(upsert_query, {"value": maintenance_json})
             await self.db.commit()
             
             logger.info("Updated vacuum status in system_metadata")

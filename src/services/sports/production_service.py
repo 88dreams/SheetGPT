@@ -511,30 +511,25 @@ class ProductionServiceService(BaseEntityService[ProductionService]):
         # First get the basic service using the base method
         service = await super().get_entity(db, service_id)
         
-        # Now join with brands to get names
-        brand_alias = Brand.__table__.alias('production_company')
-        secondary_brand_alias = Brand.__table__.alias('secondary_brand')
+        # Fetch the brands separately instead of trying to do a complex join
+        company_name = None
+        secondary_brand_name = None
         
-        query = (
-            select(
-                func.replace(brand_alias.c.name, ' (Brand)', '').label("production_company_name"),
-                func.replace(secondary_brand_alias.c.name, ' (Brand)', '').label("secondary_brand_name")
-            )
-            .outerjoin(
-                brand_alias,
-                service.production_company_id == brand_alias.c.id
-            )
-            .outerjoin(
-                secondary_brand_alias,
-                service.secondary_brand_id == secondary_brand_alias.c.id
-            )
-        )
+        # Get production company name if ID exists
+        if service.production_company_id:
+            prod_company_query = select(Brand.name).where(Brand.id == service.production_company_id)
+            prod_company_result = await db.execute(prod_company_query)
+            prod_company_record = prod_company_result.scalar_one_or_none()
+            if prod_company_record:
+                company_name = prod_company_record.replace(' (Brand)', '')
         
-        result = await db.execute(query)
-        record = result.first()
-        
-        company_name = record[0] if record else None
-        secondary_brand_name = record[1] if record else None
+        # Get secondary brand name if ID exists
+        if service.secondary_brand_id:
+            secondary_brand_query = select(Brand.name).where(Brand.id == service.secondary_brand_id)
+            secondary_brand_result = await db.execute(secondary_brand_query)
+            secondary_brand_record = secondary_brand_result.scalar_one_or_none()
+            if secondary_brand_record:
+                secondary_brand_name = secondary_brand_record.replace(' (Brand)', '')
         
         # Enrich the service with additional fields
         return await self._enrich_production_service(db, service, company_name, secondary_brand_name)

@@ -44,7 +44,7 @@ console.log('API configuration:', {
 });
 
 // Create an Axios instance with default configuration
-export const apiClient = axios.create({
+const apiClient = axios.create({
     baseURL: `${API_URL}${API_PREFIX}`,
     withCredentials: true,
     timeout: 15000,
@@ -53,6 +53,10 @@ export const apiClient = axios.create({
         'Accept': 'application/json'
     }
 });
+
+// Export as default and as named export for backward compatibility
+export default apiClient;
+export { apiClient };
 
 // Token storage
 const TOKEN_KEY = 'auth_token'

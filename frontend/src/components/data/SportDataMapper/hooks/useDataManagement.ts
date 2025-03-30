@@ -149,6 +149,7 @@ export default function useDataManagement() {
   /**
    * Update mapped data when entity type or current record changes
    * Optimized with fingerprinting to prevent unnecessary updates
+   * Enhanced to handle both array and object data formats correctly
    */
   const updateMappedDataForEntityType = useCallback((
     entityType: EntityType,
@@ -167,22 +168,55 @@ export default function useDataManagement() {
     // Get the current record
     const currentRecord = dataToImport[currentRecordIndex];
     
+    console.log(`updateMappedDataForEntityType for ${entityType}:`, {
+      recordType: Array.isArray(currentRecord) ? 'array' : 'object',
+      mappingsCount: Object.keys(mappings).length,
+      isArrayData: Array.isArray(currentRecord),
+      currentRecordSample: JSON.stringify(currentRecord).slice(0, 100) + '...'
+    });
+    
     // Create a new mapped data object based on the current record
     const newMappedData: Record<string, any> = {};
     
-    // Apply the mappings to the current record
-    Object.entries(mappings).forEach(([sourceField, targetField]) => {
-      newMappedData[targetField] = currentRecord[sourceField];
+    // Apply the mappings to the current record, handling array data properly
+    Object.entries(mappings).forEach(([targetField, sourceField]) => {
+      let value;
+      
+      if (Array.isArray(currentRecord)) {
+        // For array data, find the index of the source field in the sourceFields array
+        const sourceIndex = sourceFields.indexOf(sourceField);
+        if (sourceIndex >= 0 && sourceIndex < currentRecord.length) {
+          value = currentRecord[sourceIndex];
+          console.log(`Found array value for ${targetField} at index ${sourceIndex}:`, value);
+        } else {
+          // Try direct property access as fallback
+          value = currentRecord[sourceField];
+          console.log(`Using direct property access for array as fallback:`, value);
+        }
+      } else {
+        // Traditional object property access
+        value = currentRecord[sourceField];
+        console.log(`Found object value for ${targetField}:`, value);
+      }
+      
+      // Only add defined values
+      if (value !== undefined) {
+        newMappedData[targetField] = value;
+      }
     });
+    
+    console.log('Generated mapped data for entity type:', newMappedData);
     
     // Only update if the mapped data has changed
     setMappedData(prevMappedData => {
       if (areEqual(prevMappedData, newMappedData)) {
+        console.log('Mapped data unchanged, skipping update');
         return prevMappedData;
       }
+      console.log('Mapped data changed, updating state');
       return newMappedData;
     });
-  }, [dataToImport]);
+  }, [dataToImport, sourceFields]);
   
   /**
    * Update source field values when current record changes
@@ -228,6 +262,7 @@ export default function useDataManagement() {
   /**
    * Update mapped data when a field is mapped
    * Optimized with fingerprinting to prevent unnecessary updates
+   * Enhanced to handle both array and object data formats correctly
    */
   const updateMappedDataForField = useCallback((
     sourceField: string, 
@@ -242,17 +277,40 @@ export default function useDataManagement() {
     let value;
     const currentRecord = dataToImport[currentRecordIndex];
     
+    console.log(`updateMappedDataForField: mapping ${sourceField} to ${targetField}`, {
+      recordType: Array.isArray(currentRecord) ? 'array' : 'object',
+      sourceFields: sourceFields.slice(0, 5), // Show sample of source fields
+      currentRecordKeys: Object.keys(currentRecord).slice(0, 5), // Show sample of record keys
+      sourceField
+    });
+    
     if (Array.isArray(currentRecord)) {
       // If the current record is an array, we need to find the index of the field
       // This requires looking it up in the sourceFields array
       const sourceFieldIndex = sourceFields.indexOf(sourceField);
       if (sourceFieldIndex >= 0 && sourceFieldIndex < currentRecord.length) {
         value = currentRecord[sourceFieldIndex];
+        console.log(`Found value at index ${sourceFieldIndex}:`, value);
+      } else {
+        // Try direct index access by converting sourceField to index
+        const index = parseInt(sourceField, 10);
+        if (!isNaN(index) && index >= 0 && index < currentRecord.length) {
+          value = currentRecord[index];
+          console.log(`Using direct index ${index} access:`, value);
+        } else {
+          // Try to find the field by direct property access as fallback
+          value = currentRecord[sourceField];
+          console.log(`Using direct property access as fallback:`, value);
+        }
       }
     } else {
       // Traditional object access
       value = currentRecord[sourceField];
+      console.log(`Object property access:`, value);
     }
+    
+    // Log the mapping for debugging
+    console.log(`Mapping ${sourceField} → ${targetField} =`, value);
     
     setMappedData(prev => {
       // Skip update if the value hasn't changed

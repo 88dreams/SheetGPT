@@ -87,28 +87,29 @@ export function getTokenExpiryMinutes(): number | null {
  * Get API URL safely across different environments
  */
 function getApiUrl(): string {
-  // Handle both browser and test environments safely
-  let apiUrl = 'http://localhost:8000'; // Default value
-  
-  try {
-    // Only attempt to access import.meta in a browser environment
-    if (typeof window !== 'undefined') {
-      try {
-        // Using direct property access instead of optional chaining
-        const envUrl = import.meta.env.VITE_API_URL;
-        if (envUrl) {
-          apiUrl = envUrl;
-        }
-      } catch (innerError) {
-        // This is a safe fallback if import.meta is not available
-        console.log('Import.meta not available in tokenRefresh, using default API URL');
-      }
-    }
-  } catch (error) {
-    console.log('Running in non-browser environment, using default API URL');
+  // For browser access, we need to use relative URLs
+  // This is because the browser can't resolve Docker container names
+  // Handle all environments safely
+  if (typeof window !== 'undefined') {
+    // When running in a browser, just use a relative URL
+    // This will make requests go to the same host serving the frontend
+    console.log('Browser environment detected in tokenRefresh, using relative URL');
+    return '';
   }
   
-  return apiUrl;
+  // This code will only run in server-side contexts like SSR or tests
+  try {
+    if (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.VITE_API_URL) {
+      console.log('Using VITE_API_URL:', import.meta.env.VITE_API_URL);
+      return import.meta.env.VITE_API_URL;
+    }
+  } catch (e) {
+    console.log('Error accessing import.meta.env:', e);
+  }
+  
+  // Default fallback for server-side
+  console.log('Using default localhost API URL');
+  return 'http://localhost:8000';
 }
 
 /**
@@ -128,10 +129,11 @@ export async function refreshAuthToken(): Promise<boolean> {
     
     // Get API URL safely
     const API_URL = getApiUrl();
+    const API_PREFIX = '/api/v1';
       
     const response = await axios({
       method: 'post',
-      url: `${API_URL}/api/v1/auth/refresh`,
+      url: `${API_URL}${API_PREFIX}/auth/refresh`,
       headers: { 
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${existingToken}`

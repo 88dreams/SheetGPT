@@ -203,38 +203,50 @@ const FieldMappingArea: React.FC<FieldMappingAreaProps> = ({
     
     return 0;
   });
+
+  // Diagnostic logging for debugging
+  console.log('FieldMappingArea sourceFields:', {
+    sourceFields,
+    length: sourceFields?.length || 0,
+    isArray: Array.isArray(sourceFields),
+    sourceFieldValues,
+    keysCount: Object.keys(sourceFieldValues || {}).length,
+    firstFewValues: sourceFields?.slice(0, 3) || []
+  });
   
   // Sort source fields based on the selected column and direction
-  const sortedSourceFields = [...sourceFields].sort((a, b) => {
-    if (sourceFieldsSortColumn === 'name') {
-      return sourceFieldsSortDirection === 'asc'
-        ? a.localeCompare(b)
-        : b.localeCompare(a);
-    }
-    
-    if (sourceFieldsSortColumn === 'value') {
-      const aValue = sourceFieldValues[a];
-      const bValue = sourceFieldValues[b];
-      
-      // Handle undefined, null, or empty values
-      if (aValue === undefined || aValue === null || aValue === "") {
-        return sourceFieldsSortDirection === 'asc' ? 1 : -1;
-      }
-      if (bValue === undefined || bValue === null || bValue === "") {
-        return sourceFieldsSortDirection === 'asc' ? -1 : 1;
-      }
-      
-      // Convert to string for comparison
-      const aStr = String(aValue);
-      const bStr = String(bValue);
-      
-      return sourceFieldsSortDirection === 'asc'
-        ? aStr.localeCompare(bStr)
-        : bStr.localeCompare(aStr);
-    }
-    
-    return 0;
-  });
+  const sortedSourceFields = Array.isArray(sourceFields) && sourceFields.length > 0 
+    ? [...sourceFields].sort((a, b) => {
+        if (sourceFieldsSortColumn === 'name') {
+          return sourceFieldsSortDirection === 'asc'
+            ? a.localeCompare(b)
+            : b.localeCompare(a);
+        }
+        
+        if (sourceFieldsSortColumn === 'value') {
+          const aValue = sourceFieldValues[a];
+          const bValue = sourceFieldValues[b];
+          
+          // Handle undefined, null, or empty values
+          if (aValue === undefined || aValue === null || aValue === "") {
+            return sourceFieldsSortDirection === 'asc' ? 1 : -1;
+          }
+          if (bValue === undefined || bValue === null || bValue === "") {
+            return sourceFieldsSortDirection === 'asc' ? -1 : 1;
+          }
+          
+          // Convert to string for comparison
+          const aStr = String(aValue);
+          const bStr = String(bValue);
+          
+          return sourceFieldsSortDirection === 'asc'
+            ? aStr.localeCompare(bStr)
+            : bStr.localeCompare(aStr);
+        }
+        
+        return 0;
+      })
+    : [];
 
   // Render sort icon
   const renderSortIcon = (column: ColumnType | SourceColumnType, currentColumn: ColumnType | SourceColumnType | null, direction: SortDirection) => {
@@ -344,15 +356,29 @@ const FieldMappingArea: React.FC<FieldMappingAreaProps> = ({
         </div>
         
         <div className="space-y-2 overflow-y-auto pr-2 flex-grow">
-          {sortedSourceFields.map((field) => (
-            <FieldItem
-              key={field}
-              field={field}
-              value={sourceFieldValues[field]}
-              isSource={true}
-              formatValue={formatFieldValue}
-            />
-          ))}
+          {/* Source fields with array index based value lookup */}
+          {sortedSourceFields && sortedSourceFields.length > 0 ? (
+            sortedSourceFields.map((field, index) => {
+              // Get value either by index or by field name depending on sourceFieldValues type
+              const fieldValue = Array.isArray(sourceFieldValues) 
+                ? sourceFieldValues[sourceFields.indexOf(field)] 
+                : sourceFieldValues[field];
+              
+              return (
+                <FieldItem
+                  key={field}
+                  field={field}
+                  value={fieldValue}
+                  isSource={true}
+                  formatValue={formatFieldValue}
+                />
+              );
+            })
+          ) : (
+            <div className="text-center py-4 text-gray-500">
+              No source fields available. {sourceFields?.length || 0} fields in props.
+            </div>
+          )}
         </div>
       </div>
       
@@ -413,6 +439,7 @@ const FieldMappingArea: React.FC<FieldMappingAreaProps> = ({
                 onRemoveMapping={onRemoveMapping}
                 onShowFieldHelp={onShowFieldHelp}
                 sourceFieldValues={sourceFieldValues}
+                sourceFields={sourceFields}
                 formatFieldValue={formatFieldValue}
               />
             );
@@ -471,4 +498,4 @@ const FieldMappingArea: React.FC<FieldMappingAreaProps> = ({
   );
 };
 
-export default FieldMappingArea; 
+export default FieldMappingArea;

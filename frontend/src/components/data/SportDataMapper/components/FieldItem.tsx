@@ -1,5 +1,7 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useMemo, useCallback } from 'react';
 import { useDrag, useDrop, DragSourceMonitor, DropTargetMonitor } from 'react-dnd';
+import { withRowMemo } from '../../../../utils/memoization';
+import { createMemoEqualityFn } from '../../../../utils/fingerprint';
 
 export interface FieldItemProps {
   field: string;
@@ -30,7 +32,40 @@ interface DropCollectedProps {
   canDrop: boolean;
 }
 
-const FieldItem: React.FC<FieldItemProps> = ({ field, value, isSource = false, onDrop, index, className = '', id, formatValue }) => {
+// Custom equality function for optimized rendering
+const fieldItemPropsAreEqual = (prevProps: FieldItemProps, nextProps: FieldItemProps) => {
+  // Quick reference equality checks
+  if (prevProps === nextProps) return true;
+  
+  // Compare essential props
+  return (
+    prevProps.field === nextProps.field &&
+    prevProps.isSource === nextProps.isSource &&
+    prevProps.className === nextProps.className &&
+    prevProps.id === nextProps.id &&
+    // Special handling for value which could be complex
+    createMemoEqualityFn(prevProps.value)(nextProps.value)
+  );
+};
+
+const FieldItem: React.FC<FieldItemProps> = ({ 
+  field, 
+  value, 
+  isSource = false, 
+  onDrop, 
+  index, 
+  className = '', 
+  id, 
+  formatValue 
+}) => {
+  // Memoize the onDrop callback to prevent needless rerenders
+  const memoizedOnDrop = useCallback((sourceField: string, targetField: string) => {
+    console.log(`Dropping ${sourceField} onto ${targetField}`);
+    if (onDrop) {
+      onDrop(sourceField, targetField);
+    }
+  }, [onDrop]);
+
   // Variables for drag and drop state
   let isDragging = false;
   let dragRef: any = null;
@@ -63,10 +98,7 @@ const FieldItem: React.FC<FieldItemProps> = ({ field, value, isSource = false, o
     const [dropState, ref] = useDrop({
       accept: ItemType,
       drop: (item: DragItem) => {
-        console.log(`Dropping ${item.field} onto ${field}`);
-        if (onDrop) {
-          onDrop(item.field, field);
-        }
+        memoizedOnDrop(item.field, field);
         return { field };
       },
       collect: (monitor: DropTargetMonitor) => ({
@@ -75,7 +107,6 @@ const FieldItem: React.FC<FieldItemProps> = ({ field, value, isSource = false, o
       }),
       canDrop: (item: DragItem) => {
         const canDropItem = item.field !== field;
-        console.log(`Can drop ${item.field} onto ${field}? ${canDropItem}`);
         return canDropItem;
       },
     });
@@ -85,23 +116,8 @@ const FieldItem: React.FC<FieldItemProps> = ({ field, value, isSource = false, o
     dropRef = ref;
   }
 
-  // Add debug logging for drag and drop
-  useEffect(() => {
-    if (isDragging) {
-      console.log(`Dragging field: ${field}`);
-    }
-    if (isOver) {
-      console.log(`Hovering over field: ${field}, canDrop: ${canDrop}`);
-    }
-  }, [isDragging, isOver, field, canDrop]);
-
-  // Debug log to check the value
-  useEffect(() => {
-    console.log(`Field: ${field}, Value:`, value, `isSource: ${isSource}`);
-  }, [field, value, isSource]);
-
-  // Determine the appropriate style based on drag and drop state
-  const getBorderStyle = () => {
+  // Memoize the border style to prevent recalculation
+  const borderStyle = useMemo(() => {
     if (isSource) {
       return isDragging 
         ? 'bg-blue-100 border-blue-300 cursor-move shadow-md' 
@@ -113,10 +129,10 @@ const FieldItem: React.FC<FieldItemProps> = ({ field, value, isSource = false, o
     } else {
       return 'bg-gray-50 border-gray-200 hover:bg-gray-100 transition-all';
     }
-  };
+  }, [isSource, isDragging, isOver, canDrop]);
 
   // Add drop indicator for target fields
-  const renderDropIndicator = () => {
+  const dropIndicator = useMemo(() => {
     if (!isSource && isOver && canDrop) {
       return (
         <div className="absolute inset-0 flex items-center justify-center bg-green-100 bg-opacity-40 rounded">
@@ -125,12 +141,14 @@ const FieldItem: React.FC<FieldItemProps> = ({ field, value, isSource = false, o
       );
     }
     return null;
-  };
+  }, [isSource, isOver, canDrop]);
 
-  // Format the value for display
-  const displayValue = value !== undefined && value !== null && value !== "" 
-    ? formatValue(value) 
-    : "—";
+  // Format the value for display once to avoid recalculation
+  const displayValue = useMemo(() => {
+    return value !== undefined && value !== null && value !== "" 
+      ? formatValue(value) 
+      : "—";
+  }, [value, formatValue]);
 
   // Determine which ref to use
   const ref = isSource ? dragRef : dropRef;
@@ -139,9 +157,9 @@ const FieldItem: React.FC<FieldItemProps> = ({ field, value, isSource = false, o
     <div
       id={id}
       ref={ref}
-      className={`p-3 mb-2 rounded border relative ${getBorderStyle()} ${isDragging ? 'opacity-50' : 'opacity-100'} ${className}`}
+      className={`p-3 mb-2 rounded border relative ${borderStyle} ${isDragging ? 'opacity-50' : 'opacity-100'} ${className}`}
     >
-      {renderDropIndicator()}
+      {dropIndicator}
       <div className="grid grid-cols-2 gap-2">
         <div className="flex items-center">
           <div className="font-medium text-indigo-700 truncate text-sm" title={field}>
@@ -163,4 +181,5 @@ const FieldItem: React.FC<FieldItemProps> = ({ field, value, isSource = false, o
   );
 };
 
-export default FieldItem; 
+// Use withRowMemo HOC with custom props equality function
+export default withRowMemo<FieldItemProps>(FieldItem, fieldItemPropsAreEqual);

@@ -5,12 +5,23 @@ import { EntityType, ENTITY_TYPES } from './entityTypes';
  */
 export const detectEntityType = (
   sourceFields: string[], 
-  sourceFieldValues: Record<string, any>
+  sourceFieldValues: Record<string, any> | any[]
 ): EntityType | null => {
   if (!sourceFields.length) return null;
   
+  // Extract values safely regardless of whether sourceFieldValues is an array or object
+  let valuesList: any[] = [];
+  
+  if (Array.isArray(sourceFieldValues)) {
+    // If it's an array, use the values directly
+    valuesList = sourceFieldValues;
+  } else {
+    // If it's an object, use Object.values
+    valuesList = Object.values(sourceFieldValues);
+  }
+  
   // Check for field values
-  const fieldValues = Object.values(sourceFieldValues).map(v => 
+  const fieldValues = valuesList.map(v => 
     typeof v === 'string' ? v.toLowerCase() : String(v).toLowerCase()
   );
   
@@ -25,7 +36,7 @@ export const detectEntityType = (
     field.toLowerCase().includes('division')
   );
   
-  const hasLeagueValue = Object.values(sourceFieldValues).some(value => 
+  const hasLeagueValue = valuesList.some(value => 
     typeof value === 'string' && (
       value.toLowerCase().includes('league') || 
       value.toLowerCase().includes('nfl') || 
@@ -49,7 +60,7 @@ export const detectEntityType = (
     field.toLowerCase().includes('venue')
   );
   
-  const hasStadiumValue = Object.values(sourceFieldValues).some(value => 
+  const hasStadiumValue = valuesList.some(value => 
     typeof value === 'string' && (
       value.toLowerCase().includes('stadium') || 
       value.toLowerCase().includes('arena') || 
@@ -77,9 +88,20 @@ export const detectEntityType = (
  */
 export const getRecommendedEntityType = (
   sourceFields: string[], 
-  sourceFieldValues: Record<string, any>
+  sourceFieldValues: Record<string, any> | any[]
 ): EntityType | null => {
   if (!sourceFields.length) return null;
+  
+  // Extract values safely regardless of whether sourceFieldValues is an array or object
+  let valuesList: any[] = [];
+  
+  if (Array.isArray(sourceFieldValues)) {
+    // If it's an array, use the values directly
+    valuesList = sourceFieldValues;
+  } else {
+    // If it's an object, use Object.values
+    valuesList = Object.values(sourceFieldValues);
+  }
   
   // League detection - check for league-specific fields and values
   const hasLeagueName = sourceFields.some(field => 
@@ -102,7 +124,7 @@ export const getRecommendedEntityType = (
   );
   
   // Check if values contain league indicators
-  const hasLeagueValueIndicators = Object.values(sourceFieldValues).some(value => 
+  const hasLeagueValueIndicators = valuesList.some(value => 
     typeof value === 'string' && (
       value.toLowerCase().includes('league') || 
       value.toLowerCase().includes('nfl') || 
@@ -142,7 +164,7 @@ export const getRecommendedEntityType = (
   );
   
   // Check if values contain stadium indicators
-  const hasStadiumValueIndicators = Object.values(sourceFieldValues).some(value => 
+  const hasStadiumValueIndicators = valuesList.some(value => 
     typeof value === 'string' && (
       value.toLowerCase().includes('stadium') || 
       value.toLowerCase().includes('arena') || 

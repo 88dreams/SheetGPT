@@ -17,7 +17,8 @@ interface DroppableFieldProps {
   onFieldMapping: (sourceField: string, targetField: string) => void;
   onRemoveMapping: (targetField: string) => void;
   onShowFieldHelp: (fieldName: string) => void;
-  sourceFieldValues: Record<string, any>;
+  sourceFieldValues: Record<string, any> | any[];
+  sourceFields?: string[]; // Add source fields array for index lookup
   formatFieldValue: (value: any) => string;
 }
 
@@ -29,13 +30,27 @@ const DroppableField: React.FC<DroppableFieldProps> = ({
   onRemoveMapping,
   onShowFieldHelp,
   sourceFieldValues,
+  sourceFields = [],
   formatFieldValue
 }) => {
   const [{ isOver, canDrop }, drop] = useDrop({
     accept: ItemType,
     drop: (item: DragItem) => {
       // Verify we have the correct value before mapping
-      const valueToMap = sourceFieldValues[item.field];
+      let valueToMap;
+      
+      // Handle both array and object source field values
+      if (Array.isArray(sourceFieldValues)) {
+        // Get the index of this field in the sourceFields array
+        const index = sourceFields.indexOf(item.field);
+        if (index >= 0 && index < sourceFieldValues.length) {
+          valueToMap = sourceFieldValues[index];
+        }
+      } else {
+        // Traditional object access
+        valueToMap = sourceFieldValues[item.field];
+      }
+      
       if (valueToMap !== undefined) {
         onFieldMapping(item.field, field.name);
       } else {
@@ -51,7 +66,21 @@ const DroppableField: React.FC<DroppableFieldProps> = ({
   });
 
   // Get the mapped value from source field values using the sourceField prop
-  const mappedValue = sourceField ? sourceFieldValues[sourceField] : undefined;
+  let mappedValue;
+  if (sourceField) {
+    if (Array.isArray(sourceFieldValues)) {
+      // For arrays, use the sourceFields array to find the index
+      const index = sourceFields.indexOf(sourceField);
+      if (index >= 0 && index < sourceFieldValues.length) {
+        mappedValue = sourceFieldValues[index];
+      }
+    } else {
+      // Object access
+      mappedValue = sourceFieldValues[sourceField];
+    }
+  }
+  
+  // If we have a specific value, format it, otherwise just show the field name
   const displayValue = mappedValue !== undefined ? formatFieldValue(mappedValue) : sourceField;
 
   return (

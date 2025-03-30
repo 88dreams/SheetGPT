@@ -2,44 +2,72 @@ import { useState, useCallback } from 'react';
 import { FaSort, FaSortUp, FaSortDown } from 'react-icons/fa';
 import React from 'react';
 
+/**
+ * Custom hook that manages sorting state for entity lists.
+ * 
+ * Use server-side sorting for all fields, including relationship fields.
+ * When sorting changes, the hook will reset pagination to the first page.
+ */
 export function useSorting() {
   const [sortField, setSortField] = useState<string>('name');
-  const [sortDirection, setSortDirection] = useState<'asc' | 'desc' | 'none'>('asc');
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc'); // Removed 'none' option for consistency
+  
+  // Internal function to reset pagination when sort changes
+  // This must be provided by the parent component
+  const [resetPagination, setResetPagination] = useState<(() => void) | null>(null);
 
   // Handle sort column change
   const handleSort = useCallback((field: string) => {
+    // Log before change
+    console.log(`useSorting: handleSort called with field=${field}, current sortField=${sortField}, sortDirection=${sortDirection}`);
+    
+    // Determine the new direction based on current state
+    let newDirection: 'asc' | 'desc' = 'asc';
+    
+    // If clicking the same field, toggle between asc and desc
     if (sortField === field) {
-      // If clicking the same field, cycle through: asc -> desc -> asc
-      // Removed the 'none' state as it causes unpredictable sorting
-      if (sortDirection === 'asc') {
-        setSortDirection('desc');
-      } else {
-        setSortDirection('asc');
-      }
+      newDirection = sortDirection === 'asc' ? 'desc' : 'asc';
+      console.log(`useSorting: Toggling sort direction for ${field} from ${sortDirection} to ${newDirection}`);
     } else {
-      // If clicking a new field, start with ascending
-      setSortField(field);
-      setSortDirection('asc');
+      console.log(`useSorting: Changing sort field from ${sortField} to ${field} with direction ${newDirection}`);
     }
     
-    // Log the sort change for debugging
-    console.log(`Sort changed: field=${field}, direction=${
-      sortField === field 
-        ? (sortDirection === 'asc' ? 'desc' : 'asc') 
-        : 'asc'
-    }`);
-  }, [sortField, sortDirection]);
+    // Update sort state
+    const isChangingField = sortField !== field;
+    if (isChangingField) {
+      setSortField(field);
+      setSortDirection('asc');
+    } else {
+      setSortDirection(newDirection);
+    }
+    
+    // IMPORTANT: Reset to page 1 when sorting changes
+    // This ensures we always see the beginning of sorted results
+    if (resetPagination) {
+      console.log('useSorting: Resetting pagination to page 1');
+      resetPagination();
+    } else {
+      console.log('useSorting: No pagination reset function available');
+    }
+  }, [sortField, sortDirection, resetPagination]);
+  
+  // Register function to reset pagination
+  const registerResetPagination = useCallback((resetFn: () => void) => {
+    console.log('useSorting: Registering pagination reset function');
+    setResetPagination(() => resetFn);
+  }, []);
 
   // Get sorted entities based on current sort settings
+  // This is used for client-side sorting, which we prefer to avoid for relationship fields
   const getSortedEntities = useCallback((entities: Record<string, unknown>[]) => {
+    console.log(`useSorting.getSortedEntities: This function is deprecated and should not be used. Server-side sorting is preferred.`);
+    
     if (!entities || entities.length === 0) {
       return entities || [];
     }
     
-    // Always sort by a stable field even when sortDirection is 'none' or sortField is empty
-    // This ensures consistent order during pagination
+    // Always sort by a stable field
     const effectiveField = sortField || 'id';
-    const effectiveDirection = sortDirection === 'none' ? 'asc' : sortDirection;
     
     // Make a copy to avoid modifying the original array
     return [...entities].sort((a, b) => {
@@ -55,12 +83,12 @@ export function useSorting() {
           effectiveField === 'updated_at') {
         const aDate = new Date(aValue as string).getTime() || 0;
         const bDate = new Date(bValue as string).getTime() || 0;
-        return effectiveDirection === 'asc' ? aDate - bDate : bDate - aDate;
+        return sortDirection === 'asc' ? aDate - bDate : bDate - aDate;
       }
       
       // Handle numbers
       if (typeof aValue === 'number' && typeof bValue === 'number') {
-        return effectiveDirection === 'asc' ? aValue - bValue : bValue - aValue;
+        return sortDirection === 'asc' ? aValue - bValue : bValue - aValue;
       }
       
       // Handle strings (most common case, including names and league_name)
@@ -68,7 +96,7 @@ export function useSorting() {
       const bStr = String(bValue).toLowerCase();
       
       // Use localeCompare for proper alphabetical sorting
-      return effectiveDirection === 'asc' ? 
+      return sortDirection === 'asc' ? 
         aStr.localeCompare(bStr, undefined, { sensitivity: 'base' }) : 
         bStr.localeCompare(aStr, undefined, { sensitivity: 'base' });
     });
@@ -93,7 +121,8 @@ export function useSorting() {
     sortDirection,
     setSortDirection,
     handleSort,
-    getSortedEntities,
-    renderSortIcon
+    getSortedEntities, // Kept for backwards compatibility
+    renderSortIcon,
+    registerResetPagination
   };
 }

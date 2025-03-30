@@ -63,6 +63,75 @@ class SportsService:
         # self.production_service = ProductionService()
         # self.brand_service = BrandService()
     
+    async def get_relationship_sort_config(self, entity_type: str, sort_by: str) -> Dict[str, Any]:
+        """
+        Returns a configuration for sorting by relationship fields.
+        Returns None if sort_by is not a relationship field.
+        """
+        # Map of entity types to their relationship fields and join configurations
+        RELATIONSHIP_SORTS = {
+            "division_conference": {
+                "league_name": {"join_model": League, "join_field": "league_id", "sort_field": "name"},
+                "league_sport": {"join_model": League, "join_field": "league_id", "sort_field": "sport"},
+            },
+            "team": {
+                "league_name": {"join_model": League, "join_field": "league_id", "sort_field": "name"},
+                "league_sport": {"join_model": League, "join_field": "league_id", "sort_field": "sport"},
+                "division_conference_name": {"join_model": DivisionConference, "join_field": "division_conference_id", "sort_field": "name"},
+                "stadium_name": {"join_model": Stadium, "join_field": "stadium_id", "sort_field": "name"},
+            },
+            "player": {
+                "team_name": {"join_model": Team, "join_field": "team_id", "sort_field": "name"},
+            },
+            "game": {
+                "league_name": {"join_model": League, "join_field": "league_id", "sort_field": "name"},
+                "league_sport": {"join_model": League, "join_field": "league_id", "sort_field": "sport"},
+                "home_team_name": {"join_model": Team, "join_field": "home_team_id", "sort_field": "name"},
+                "away_team_name": {"join_model": Team, "join_field": "away_team_id", "sort_field": "name"},
+                "stadium_name": {"join_model": Stadium, "join_field": "stadium_id", "sort_field": "name"},
+            },
+            "game_broadcast": {
+                "game_name": {"join_model": Game, "join_field": "game_id", "sort_field": "name"},
+                "broadcast_company_name": {"join_model": BroadcastCompany, "join_field": "broadcast_company_id", "sort_field": "name"},
+                "production_company_name": {"join_model": ProductionCompany, "join_field": "production_company_id", "sort_field": "name"},
+            },
+            "broadcast": {
+                "broadcast_company_name": {"join_model": BroadcastCompany, "join_field": "broadcast_company_id", "sort_field": "name"},
+                "entity_name": None,  # Special case, depends on entity_type
+                "league_name": None,  # Special case, populated based on relationships
+                "league_sport": None,  # Special case, populated based on relationships
+            },
+            "production": {
+                "production_company_name": {"join_model": Brand, "join_field": "production_company_id", "sort_field": "name"},
+                "entity_name": None,  # Special case, depends on entity_type
+                "league_name": None,  # Special case, populated based on relationships
+                "league_sport": None,  # Special case, populated based on relationships
+            },
+            "league_executive": {
+                "league_name": {"join_model": League, "join_field": "league_id", "sort_field": "name"},
+                "league_sport": {"join_model": League, "join_field": "league_id", "sort_field": "sport"},
+            },
+            "brand_relationship": {
+                "brand_name": {"join_model": Brand, "join_field": "brand_id", "sort_field": "name"},
+                "entity_name": None,  # Special case, depends on entity_type
+            },
+        }
+        
+        # Special handling for polymorphic relationships and their related fields
+        if entity_type in ["broadcast", "production", "brand_relationship"]:
+            # Fields that require special handling for polymorphic entity types
+            polymorphic_fields = ["entity_name", "league_name", "league_sport"]
+            
+            if sort_by in polymorphic_fields:
+                # In this case, we can't do direct sorting at the database level due to polymorphic relationship
+                # Return a special flag to handle this in the main method
+                return {"special_case": "polymorphic", "entity_type": entity_type, "sort_field": sort_by}
+            
+        if entity_type in RELATIONSHIP_SORTS and sort_by in RELATIONSHIP_SORTS[entity_type]:
+            return RELATIONSHIP_SORTS[entity_type][sort_by]
+        
+        return None
+        
     async def get_entities(self, db: AsyncSession, entity_type: str, page: int = 1, limit: int = 50, sort_by: str = "id", sort_direction: str = "asc") -> Dict[str, Any]:
         """Get paginated entities of a specific type."""
         if entity_type not in self.ENTITY_TYPES:
@@ -74,55 +143,115 @@ class SportsService:
         count_query = select(func.count()).select_from(model_class)
         total_count = await db.scalar(count_query)
         
-        # Special handling for division_conference entities to include league_name
-        if entity_type == "division_conference":
-            # Join with League to get the league name
+        # Check if we're sorting by a relationship field
+        relationship_sort = await self.get_relationship_sort_config(entity_type, sort_by)
+        
+        # Log the sorting configuration
+        logger.info(f"Sorting {entity_type} by {sort_by} ({sort_direction}) - Relationship sort config: {relationship_sort}")
+        
+        # Handle regular relationship sort (non-polymorphic)
+        if relationship_sort and not relationship_sort.get("special_case"):
+            # We're sorting by a relationship field with a direct join
+            join_model = relationship_sort["join_model"]
+            join_field = relationship_sort["join_field"]
+            sort_field = relationship_sort["sort_field"]
+            
+            logger.info(f"Processing relationship sort with join_model={join_model.__name__}, join_field={join_field}, sort_field={sort_field}")
+            
+            # Create a query with the join
             query = (
-                select(model_class, League.name.label("league_name"))
-                .join(League, model_class.league_id == League.id)
+                select(model_class, getattr(join_model, sort_field).label(sort_by))
+                .outerjoin(join_model, getattr(model_class, join_field) == join_model.id)
             )
             
-            # Add sorting - handle special case for league_name
-            if sort_by == "league_name":
-                # Sort by the league name from the joined League table
-                if sort_direction.lower() == "desc":
-                    query = query.order_by(League.name.desc())
-                else:
-                    query = query.order_by(League.name.asc())
-            elif hasattr(model_class, sort_by):
-                sort_column = getattr(model_class, sort_by)
-                if sort_direction.lower() == "desc":
-                    query = query.order_by(sort_column.desc())
-                else:
-                    query = query.order_by(sort_column.asc())
+            # Apply sorting on the joined field
+            if sort_direction.lower() == "desc":
+                query = query.order_by(getattr(join_model, sort_field).desc().nulls_last())
+            else:
+                query = query.order_by(getattr(join_model, sort_field).asc().nulls_last())
             
-            # Add pagination
+            # Apply pagination
             query = query.offset((page - 1) * limit).limit(limit)
             
+            # Execute query
             result = await db.execute(query)
             rows = result.all()
             
-            # Process the results to include league_name
-            entities_with_league = []
+            # Process the results to include the joined field
+            entities_with_joined = []
             for row in rows:
-                division_conference = row[0]  # The DivisionConference model
-                league_name = row[1]          # The league_name from the query
+                entity = row[0]  # The main model
+                joined_value = row[1]  # The joined value
                 
-                # Convert the model to a dict and add league_name
-                entity_dict = self._model_to_dict(division_conference)
-                entity_dict["league_name"] = league_name
+                # Convert to dict and add joined field
+                entity_dict = self._model_to_dict(entity)
+                entity_dict[sort_by] = joined_value
                 
-                entities_with_league.append(entity_dict)
+                entities_with_joined.append(entity_dict)
+            
+            logger.info(f"Returning {len(entities_with_joined)} entities sorted by relationship field {sort_by}")
             
             return {
-                "items": entities_with_league,
+                "items": entities_with_joined,
                 "total": total_count,
                 "page": page,
                 "size": limit,
                 "pages": math.ceil(total_count / limit)
             }
+            
+        # Handle special case for polymorphic relationships
+        elif relationship_sort and relationship_sort.get("special_case") == "polymorphic":
+            # For polymorphic relationships (where entity_type is in the model), we can't do direct joins
+            # Instead, we retrieve all entities and sort them in memory
+            logger.info(f"Processing polymorphic relationship sort for {entity_type} by {sort_by}")
+            
+            # Get all entities first (limited to this page + buffer to ensure we have enough after sorting)
+            buffer_limit = limit * 3  # Get 3x the page size to have enough data after sorting
+            query = select(model_class)
+            query = query.offset((page - 1) * limit).limit(buffer_limit)
+            
+            result = await db.execute(query)
+            entities = result.scalars().all()
+            entities_dicts = [self._model_to_dict(entity) for entity in entities]
+            
+            # Process them to add the related names
+            processed_entities = await EntityNameResolver.get_entities_with_related_names(db, entity_type, entities_dicts)
+            
+            # Now sort the processed entities by the requested field
+            def get_sort_key(entity):
+                value = entity.get(sort_by)
+                # Handle None values for sorting
+                if value is None:
+                    return ""
+                
+                # Normalize the value for sorting
+                if isinstance(value, str):
+                    return value.lower()
+                
+                # Handle non-string values
+                return str(value).lower()
+            
+            sorted_entities = sorted(
+                processed_entities,
+                key=get_sort_key,
+                reverse=(sort_direction.lower() == "desc")
+            )
+            
+            # Apply pagination to the sorted results
+            paginated_entities = sorted_entities[:limit]
+            
+            logger.info(f"Returning {len(paginated_entities)} entities after in-memory sorting by {sort_by}")
+            
+            return {
+                "items": paginated_entities,
+                "total": total_count,
+                "page": page,
+                "size": limit,
+                "pages": math.ceil(total_count / limit)
+            }
+            
         else:
-            # Standard handling for other entity types
+            # Standard handling for direct model fields
             query = select(model_class)
             
             # Add sorting
@@ -132,12 +261,20 @@ class SportsService:
                     query = query.order_by(sort_column.desc())
                 else:
                     query = query.order_by(sort_column.asc())
+            else:
+                logger.warning(f"Field {sort_by} not found in {entity_type} model, defaulting to id sorting")
+                if sort_direction.lower() == "desc":
+                    query = query.order_by(model_class.id.desc())
+                else:
+                    query = query.order_by(model_class.id.asc())
                     
             # Add pagination
             query = query.offset((page - 1) * limit).limit(limit)
             
             result = await db.execute(query)
             entities = result.scalars().all()
+            
+            logger.info(f"Returning {len(entities)} entities sorted by direct field {sort_by}")
             
             return {
                 "items": [self._model_to_dict(entity) for entity in entities],
@@ -161,23 +298,39 @@ class SportsService:
         if entity_type not in self.ENTITY_TYPES:
             raise ValueError(f"Invalid entity type: {entity_type}")
         
-        # Get paginated entities
+        # Check if we're sorting by a relationship field that requires special handling
+        relationship_sort = await self.get_relationship_sort_config(entity_type, sort_by)
+        logger.info(f"get_entities_with_related_names: Sorting {entity_type} by {sort_by} ({sort_direction}) - Relationship config: {relationship_sort}")
+        
+        # Get paginated entities with appropriate sorting
         result = await self.get_entities(db, entity_type, page, limit, sort_by, sort_direction)
         
         # Get the entities list from the result
         entities = result["items"]
         
-        # Process results to include related entity names
-        processed_items = await EntityNameResolver.get_entities_with_related_names(db, entity_type, entities)
-        
-        # Clean the entity fields to remove any that shouldn't be included
-        final_items = [
-            EntityNameResolver.clean_entity_fields(entity_type, item)
-            for item in processed_items
-        ]
+        # If the entities were already processed with relationship names in get_entities (polymorphic case),
+        # we can skip the additional processing
+        if relationship_sort and relationship_sort.get("special_case") == "polymorphic":
+            logger.info(f"Skipping additional relationship name processing for polymorphic relationship sort")
+            # Just clean the entity fields to ensure consistent output
+            final_items = [
+                EntityNameResolver.clean_entity_fields(entity_type, item)
+                for item in entities
+            ]
+        else:
+            # Process results to include related entity names
+            processed_items = await EntityNameResolver.get_entities_with_related_names(db, entity_type, entities)
+            
+            # Clean the entity fields to remove any that shouldn't be included
+            final_items = [
+                EntityNameResolver.clean_entity_fields(entity_type, item)
+                for item in processed_items
+            ]
         
         # Return the processed items with the pagination info
         result["items"] = final_items
+        
+        logger.info(f"Returning {len(final_items)} entities with related names for {entity_type}")
         return result
     
     # League methods

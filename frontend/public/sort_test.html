@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Sorting Test</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 20px;
+      line-height: 1.6;
+    }
+    h1 {
+      color: #333;
+    }
+    .test-button {
+      padding: 8px 16px;
+      margin: 5px;
+      background-color: #4CAF50;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+    .test-button:hover {
+      background-color: #45a049;
+    }
+    #results {
+      margin-top: 20px;
+      border: 1px solid #ddd;
+      padding: 10px;
+      border-radius: 4px;
+      min-height: 200px;
+      max-height: 600px;
+      overflow-y: auto;
+      background-color: #f9f9f9;
+    }
+    .entity-type {
+      font-weight: bold;
+      margin-top: 10px;
+      color: #333;
+    }
+    .sort-info {
+      color: #666;
+      font-style: italic;
+    }
+    .item {
+      margin: 5px 0;
+      padding: 5px;
+      border-bottom: 1px solid #eee;
+    }
+    .highlight {
+      background-color: #ffffd0;
+    }
+  </style>
+</head>
+<body>
+  <h1>Relationship Field Sorting Test</h1>
+  <p>Test sorting for different entity types with relationship fields.</p>
+  
+  <div>
+    <h2>Entity Type</h2>
+    <select id="entityType">
+      <option value="team">Team</option>
+      <option value="division_conference">Division/Conference</option>
+      <option value="production">Production Service</option>
+      <option value="broadcast">Broadcast Rights</option>
+    </select>
+    
+    <h2>Sort Field</h2>
+    <select id="sortField">
+      <option value="name">Name</option>
+      <option value="league_name">League Name</option>
+      <option value="division_conference_name">Division/Conference Name</option>
+      <option value="stadium_name">Stadium Name</option>
+      <option value="production_company_name">Production Company Name</option>
+      <option value="broadcast_company_name">Broadcast Company Name</option>
+      <option value="entity_name">Entity Name</option>
+    </select>
+    
+    <h2>Sort Direction</h2>
+    <select id="sortDirection">
+      <option value="asc">Ascending</option>
+      <option value="desc">Descending</option>
+    </select>
+    
+    <p>
+      <button class="test-button" onclick="runTest()">Run Test</button>
+      <button class="test-button" onclick="clearResults()">Clear Results</button>
+    </p>
+  </div>
+  
+  <div id="results">
+    <p>Test results will appear here...</p>
+  </div>
+  
+  <script>
+    // Function to test an endpoint with different sort options
+    const testEndpoint = async (entityType, sortBy, sortDirection) => {
+      const resultsDiv = document.getElementById('results');
+      
+      // Add test info to results
+      const testInfo = document.createElement('div');
+      testInfo.className = 'entity-type';
+      testInfo.textContent = `Testing ${entityType} sorted by ${sortBy} (${sortDirection})`;
+      resultsDiv.appendChild(testInfo);
+      
+      try {
+        const response = await fetch(
+          `/api/v1/sports/entities/${entityType}?page=1&limit=10&sort_by=${sortBy}&sort_direction=${sortDirection}`,
+          {
+            method: 'GET',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+          }
+        );
+        
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        
+        // Add result summary
+        const summary = document.createElement('div');
+        summary.className = 'sort-info';
+        summary.textContent = `Got ${data.items.length} items (Page ${data.page} of ${data.pages}, Total items: ${data.total})`;
+        resultsDiv.appendChild(summary);
+        
+        // Add each item
+        data.items.forEach((item, index) => {
+          const itemDiv = document.createElement('div');
+          itemDiv.className = 'item';
+          
+          // Highlight alternating items
+          if (index % 2 === 0) {
+            itemDiv.classList.add('highlight');
+          }
+          
+          if (sortBy in item) {
+            itemDiv.textContent = `${item.name || 'N/A'} - ${sortBy}: ${item[sortBy] || 'N/A'}`;
+          } else {
+            itemDiv.textContent = `${item.name || 'N/A'} - ${sortBy} not found in response`;
+          }
+          
+          resultsDiv.appendChild(itemDiv);
+        });
+        
+        // Add a separator
+        const separator = document.createElement('hr');
+        resultsDiv.appendChild(separator);
+        
+        // Scroll to bottom
+        resultsDiv.scrollTop = resultsDiv.scrollHeight;
+        
+        return data;
+      } catch (error) {
+        const errorDiv = document.createElement('div');
+        errorDiv.style.color = 'red';
+        errorDiv.textContent = `Error: ${error.message}`;
+        resultsDiv.appendChild(errorDiv);
+        
+        const separator = document.createElement('hr');
+        resultsDiv.appendChild(separator);
+        
+        console.error('Error:', error);
+        return {};
+      }
+    };
+
+    // Function to run the selected test
+    const runTest = async () => {
+      const entityType = document.getElementById('entityType').value;
+      const sortBy = document.getElementById('sortField').value;
+      const sortDirection = document.getElementById('sortDirection').value;
+      
+      await testEndpoint(entityType, sortBy, sortDirection);
+    };
+    
+    // Function to clear results
+    const clearResults = () => {
+      document.getElementById('results').innerHTML = '<p>Test results will appear here...</p>';
+    };
+    
+    // Update sort fields based on entity type
+    document.getElementById('entityType').addEventListener('change', function() {
+      const entityType = this.value;
+      const sortField = document.getElementById('sortField');
+      
+      // Clear existing options
+      sortField.innerHTML = '<option value="name">Name</option>';
+      
+      // Add entity-specific sort fields
+      switch (entityType) {
+        case 'team':
+          sortField.innerHTML += `
+            <option value="league_name">League Name</option>
+            <option value="division_conference_name">Division/Conference Name</option>
+            <option value="stadium_name">Stadium Name</option>
+          `;
+          break;
+        case 'division_conference':
+          sortField.innerHTML += `
+            <option value="league_name">League Name</option>
+          `;
+          break;
+        case 'production':
+          sortField.innerHTML += `
+            <option value="production_company_name">Production Company Name</option>
+            <option value="entity_name">Entity Name</option>
+          `;
+          break;
+        case 'broadcast':
+          sortField.innerHTML += `
+            <option value="broadcast_company_name">Broadcast Company Name</option>
+            <option value="entity_name">Entity Name</option>
+          `;
+          break;
+      }
+    });
+  </script>
+</body>
+</html>

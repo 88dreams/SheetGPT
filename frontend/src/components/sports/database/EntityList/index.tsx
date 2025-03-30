@@ -201,12 +201,29 @@ const EntityList: React.FC<EntityListProps> = ({ className = '' }) => {
     [selectedEntities]
   );
 
-  // Use entities directly from the API without additional client-side sorting
-  // The server is already sorting the entire dataset properly
-  const filteredEntities = useMemo(
-    () => entities as BaseEntity[],
-    [entitiesFingerprint]
-  );
+  // Hybrid approach to sorting - with detailed logging:
+  // - Use server-side sorting for primary fields (id, name, created_at, updated_at)
+  // - Use client-side sorting for relationship fields (*_name) since they lack server-side implementation
+  const filteredEntities = useMemo(() => {
+    // Primary fields that have server-side sorting implementation
+    const serverSortedFields = ['id', 'name', 'created_at', 'updated_at'];
+    
+    // If sorting by a primary field, trust the server's sorting
+    if (serverSortedFields.includes(sortField)) {
+      console.log(`Using server-side sorting for ${sortField}`);
+      return entities as BaseEntity[];
+    }
+    
+    // For relationship fields, apply client-side sorting
+    if (sortField.includes('_name') || sortField.includes('_id')) {
+      console.log(`Using client-side sorting for relationship field: ${sortField}`);
+      return getSortedEntities(entities) as BaseEntity[];
+    }
+    
+    // For any other fields, assume server-side should work but log it
+    console.log(`Using server-side sorting for field: ${sortField} (please verify sorting is correct)`);
+    return entities as BaseEntity[];
+  }, [entities, sortField, sortDirection, getSortedEntities, entitiesFingerprint]);
   
   const hasActiveFilters = activeFilters && activeFilters.length > 0;
   const selectedCount = useMemo(

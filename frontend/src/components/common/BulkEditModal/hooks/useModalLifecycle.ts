@@ -2,79 +2,42 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 
 interface UseModalLifecycleProps {
   visible: boolean;
-  onCleanup?: () => void;
+  onCancel: () => void;
 }
 
 /**
- * Hook for managing the modal lifecycle and preventing state updates
- * when the component is unmounted or not visible
+ * Hook for managing modal state between fields view and processing view
  */
-const useModalLifecycle = ({ visible, onCleanup }: UseModalLifecycleProps) => {
-  // State tracking
-  const [isLoading, setIsLoading] = useState(false);
-  const [showResults, setShowResults] = useState(false);
-
-  // Lifecycle refs to track component state
-  const isMountedRef = useRef(false);
-  const initStartedRef = useRef(false);
-  const needsCleanupRef = useRef(false);
-
-  // Initialize and cleanup the modal based on visibility
+export default function useModalLifecycle({ visible, onCancel }: UseModalLifecycleProps) {
+  // Track which view we're showing - either "fields" or "processing"
+  const [currentView, setCurrentView] = useState<'fields' | 'processing'>('fields');
+  
+  // Prevent infinite updates by tracking previous visibility
+  const prevVisibleRef = useRef(visible);
+  
+  // Reset view when modal visibility changes from false to true
   useEffect(() => {
-    // Track whether we need to run initialization
-    const shouldInitialize = visible && !initStartedRef.current;
-    const shouldCleanup = !visible && needsCleanupRef.current;
-    
-    // Initialize modal when it first becomes visible
-    if (shouldInitialize) {
-      // Prevent duplicate initialization
-      initStartedRef.current = true;
-      isMountedRef.current = true;
-      needsCleanupRef.current = true;
-      
-      console.log("BulkEditModal: Initializing modal");
-      setIsLoading(true);
+    // Only update state when visibility changes from false to true to avoid update loops
+    if (visible && !prevVisibleRef.current) {
+      setCurrentView('fields');
     }
-    
-    // Cleanup modal when it becomes invisible
-    if (shouldCleanup) {
-      console.log("BulkEditModal: Cleaning up modal");
-      needsCleanupRef.current = false;
-      
-      // Mark component as unmounted immediately to prevent further state updates
-      isMountedRef.current = false;
-      initStartedRef.current = false;
-      
-      // Reset state - no onCleanup during this phase to avoid cascading state updates
-      setShowResults(false);
-    }
-    
-    // Cleanup function for when component unmounts
-    return () => {
-      isMountedRef.current = false;
-    };
+    // Update ref for next render
+    prevVisibleRef.current = visible;
   }, [visible]);
-
-  // Safe setState functions that check if component is mounted
-  const safeSetIsLoading = useCallback((value: boolean) => {
-    if (isMountedRef.current) {
-      setIsLoading(value);
-    }
+  
+  // Handlers for view changes and modal close
+  const switchToProcessingView = useCallback(() => {
+    setCurrentView('processing');
   }, []);
-
-  const safeSetShowResults = useCallback((value: boolean) => {
-    if (isMountedRef.current) {
-      setShowResults(value);
-    }
-  }, []);
-
+  
+  const closeModal = useCallback(() => {
+    onCancel();
+  }, [onCancel]);
+  
   return {
-    isLoading,
-    showResults,
-    isMountedRef,
-    setIsLoading: safeSetIsLoading,
-    setShowResults: safeSetShowResults
+    isVisible: visible,
+    currentView,
+    switchToProcessingView,
+    closeModal
   };
-};
-
-export default useModalLifecycle;
+}

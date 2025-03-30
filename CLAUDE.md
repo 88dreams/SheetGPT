@@ -1,6 +1,28 @@
 # SheetGPT Development Guide
 
 ## Refactoring Progress
+
+- ✅ Phase 1: Standardized Error Handling and TypeScript Typing (COMPLETED March 30)
+- ✅ Phase 2: Brand Entity Integration (COMPLETED March 31)
+- ✅ Phase 3: Hook Dependency Management (COMPLETED April 14)
+- ✅ Phase 4: Performance Optimization (COMPLETED April 23)
+- ✅ Phase 5: Enhanced Entity Resolution Strategy (COMPLETED April 25)
+- ✅ Phase 6: UI Enhancement (COMPLETED May 3)
+  - ✅ Entity Search Components
+  - ✅ Entity Resolution UI Elements 
+  - ✅ RelatedInfo Visualization
+  - ✅ Form Field Component Updates
+  - ✅ Field-level Resolution Validation
+  - ✅ BulkEdit Resolution Integration
+- ✅ Comprehensive Testing (COMPLETED May 5)
+  - ✅ SmartEntitySearch Testing
+  - ✅ EntityResolutionBadge Testing
+  - ✅ useEntityResolution Hook Testing
+  - ✅ EntityCard Resolution Testing
+  - ✅ EnhancedBulkEditModal Testing
+  - ✅ EntityResolutionFlow Integration Testing
+
+## Refactoring Progress
 The codebase is currently undergoing a planned refactoring effort described in docs/REFACTORING_PLAN.md:
 
 ### Phase 1: Foundation Improvements (COMPLETED)
@@ -357,6 +379,80 @@ export async function saveCsvFile(data: any[], columns: string[], filename: stri
 }
 ```
 
+## React State Management Best Practices
+
+### Handling Complex State Updates
+
+- When managing dependent state values, update them in the correct logical order (e.g., page number before page size)
+- Use refs to track previous state values to prevent unnecessary updates (`useRef` + comparison logic)
+- Implement batch updates for related state changes to minimize render cycles
+- Apply defensive programming patterns in all hooks - always handle potential undefined values
+- When a component has circular dependency issues, replace it with a simpler direct implementation
+- For critical UI state, maintain a single source of truth (either context, prop, or local state)
+- Use useState updater functions (prev => ...) instead of direct assignments to ensure latest value
+- Split monolithic state objects into smaller, focused pieces to reduce unnecessary renders
+- Add proper error boundaries around components with complex state management
+
+### Dependency Management
+
+- Carefully review useEffect dependency arrays to prevent infinite update loops
+- Avoid object/array literals directly in dependency arrays - memoize them first
+- Use useRef for values that shouldn't trigger effect re-runs but need to persist
+- Consider using the useReducer pattern for complex interrelated state
+- Extract large useEffect blocks into custom hooks with clear boundaries
+- Use the eslint-disable-next-line react-hooks/exhaustive-deps comment sparingly and with comments
+- Apply careful memoization for objects in hook dependencies with useMemo
+- Use stable function references with useCallback for handlers passed to children
+- Ensure callback functions properly include all necessary dependencies 
+- For complex objects, use fingerprinting or JSON.stringify with useMemo to create stable references
+
+### Performance Optimization
+
+- Implement explicit change detection before updating state (`if (newVal !== oldVal)`)
+- Use React.memo with custom equality functions for components with expensive renders
+- Break update cycles by checking if a value has actually changed before updating state
+- Apply render optimization techniques like virtualization for large lists
+- Add careful debugging with console.log for component render and update cycles
+- Use profiling tools to identify components that render too frequently
+- Implement context splitting to prevent unnecessary re-renders from unrelated state
+- Apply useMemo for expensive calculations that don't need to run on every render
+- Create specialized comparison utilities for deep equality checks of complex objects
+- Avoid nested ternary expressions for conditional rendering as they're harder to debug
+
+### Pagination and List Specific Guidance 
+
+- Handle pagination state centrally to avoid synchronization issues
+- Implement defensive logic when changing page size to reset current page appropriately
+- Use setTimeout(0) to sequence state updates that must happen in a specific order
+- Store pagination settings in both URL params and localStorage for proper state restoration
+- Add validation before applying pagination values from external sources (URL, storage)
+- Create clear separations between UI-level pagination and data-level pagination
+- Apply optimistic UI updates with proper rollback mechanisms for pagination actions
+- For drag and drop implementations, ensure component inputs have stable identity across renders
+- Monitor pagination-related re-renders with React DevTools to identify performance issues
+
+### Context Design
+
+- Avoid circular dependencies between context providers
+- Use context selectors to optimize renders (useContext with careful prop extraction)
+- Implement separate read/write contexts for performance in large applications
+- Split large context providers into smaller, more focused providers
+- Memoize context values properly to prevent unnecessary child re-renders
+- Add proper error handling and fallbacks in context consumers
+- Use higher-level abstractions like useReducer for complex context state
+- Provide stable function references in context values with useCallback
+
+### Testing Recommendations
+
+- Test component state transitions with specific focus on edge cases
+- Create tests for dependent state updates to ensure correct ordering
+- Test with React Testing Library focusing on behavior rather than implementation
+- Verify state synchronization between parent/child components
+- Test error boundaries to ensure graceful failure handling
+- Mock complex hooks for easier testing of component behavior
+- Use snapshot testing sparingly and focus on interaction testing
+- Create specialized test helpers for simulating UI interactions with proper timing
+
 ## React DnD Implementation Notes
 
 - For drag and drop functionality, prefer react-beautiful-dnd over react-dnd 
@@ -371,16 +467,6 @@ export async function saveCsvFile(data: any[], columns: string[], filename: stri
 - Keep drag-drop interactions simple, with minimal state changes during hover events
 - Update local state immediately on drop, then send API request as side effect
 - Use deep equality checks to prevent redundant re-renders
-- Monitor dependency arrays carefully to prevent circular dependencies 
-- Ensure stateful hooks properly update when prop dependencies change
-- Use simplified search implementation for EntityList to prevent infinite loops
-- Avoid complex dependency chains in frequently re-rendered components
-- Keep critical UI components as simple as possible to prevent React update exhaustion
-- When a component has circular dependency issues, replace it with a simpler direct implementation
-- Use useMemo with JSON.stringify to create stable references for complex object dependencies
-- Implement explicit change detection before updating state in conditional rendering patterns
-- Break update cycles by checking if a value has actually changed before updating state
-- For drag and drop implementations, ensure component inputs have stable identity across renders
 - When modifying hook implementations, verify with React DevTools that components aren't re-rendering excessively
 
 ## Database Guidelines
@@ -708,6 +794,42 @@ When implementing regex-based text standardization in Python:
 - Implement safety checks on generated SQL
 - Allow editing of generated SQL before execution
 - Use separate services for translation and execution
+
+## Entity Resolution Testing Guidelines
+
+- Created comprehensive test utilities for testing entity resolution components:
+  - Located in `tests/frontend/utils/entityResolutionTestUtils.ts`
+  - Provides mock functions for different resolution scenarios
+  - Simplifies testing of resolution components with standardized mocks
+
+- Key testing utilities:
+  - `mockResolutionInfo(type, score)` - Generates resolution metadata for exact, fuzzy, context, or virtual matches
+  - `mockEntity(entityType, namePattern)` - Creates mock entity with specific resolution pattern
+  - `mockEntityResolution(entityType, nameOrId, options)` - Mocks hook responses for useEntityResolution
+  - `mockRelatedEntityData()` - Provides mock data for relationship testing
+  - `mockEntityFields()` - Generates field definitions for form component testing
+  - `mockFieldCategories()` - Creates categorical field groupings for BulkEditModal testing
+
+- Standard test pattern for resolution components:
+  1. Mock the entity resolver and related hooks
+  2. Test rendering with different resolution types (exact, fuzzy, context, virtual)
+  3. Verify that resolution badges display correctly with appropriate colors
+  4. Test user interactions with resolution-aware components
+  5. Validate error states and loading indicators
+  6. Test context-aware field relationships
+
+- Component test organization:
+  - SmartEntitySearch.test.tsx - Tests entity searching with different match types
+  - EntityResolutionBadge.test.tsx - Tests badge display for all resolution scenarios
+  - useEntityResolution.test.ts - Tests hook behavior with different inputs
+  - EntityCard.test.tsx - Tests card display with resolution information
+  - EnhancedBulkEditModal.test.tsx - Tests bulk editing with resolution context
+  - EnhancedFieldInput.test.tsx - Tests form field components with resolution
+
+- Integration testing:
+  - test_entity_resolution_flow.ts - End-to-end test of resolution workflow
+  - Verifies data flow between components with resolution context
+  - Tests context propagation between related fields
 
 ## Development Best Practices
 

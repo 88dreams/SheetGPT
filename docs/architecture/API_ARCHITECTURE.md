@@ -356,6 +356,61 @@ async def update_entity(self, db: AsyncSession, entity_id: UUID, data: dict) -> 
         raise self._handle_db_error(e)
 ```
 
+### State Management Best Practices
+
+The frontend implements structured state management patterns to prevent circular dependencies and update loops:
+
+```typescript
+// State management pattern with refs for tracking previous values
+function useStateWithHistory<T>(initialValue: T) {
+  const [state, setState] = useState<T>(initialValue);
+  const previousRef = useRef<T>(initialValue);
+  
+  const updateState = useCallback((newValue: T) => {
+    // Only update if the value has actually changed
+    if (JSON.stringify(newValue) !== JSON.stringify(state)) {
+      previousRef.current = state;
+      setState(newValue);
+    }
+  }, [state]);
+  
+  return [state, updateState, previousRef.current] as const;
+}
+
+// Breaking circular dependencies with explicit update orders
+function useDependentStates() {
+  const [primaryState, setPrimaryState] = useState<string>('');
+  const [dependentState, setDependentState] = useState<string>('');
+  
+  // Handle updates that affect both states
+  const updateBothStates = useCallback((newPrimary: string) => {
+    // Important: Always update in the correct logical order
+    setPrimaryState(newPrimary);
+    // Use setTimeout to ensure state updates happen separately
+    setTimeout(() => {
+      setDependentState(generateDependentValue(newPrimary));
+    }, 0);
+  }, []);
+  
+  return {
+    primaryState,
+    dependentState,
+    updateBothStates
+  };
+}
+
+// Using refs to avoid excessive rerenders for values that don't affect the UI
+function useOptimizedValues<T>(initialValue: T) {
+  const valueRef = useRef<T>(initialValue);
+  
+  const setValue = useCallback((newValue: T) => {
+    valueRef.current = newValue;
+  }, []);
+  
+  return [valueRef, setValue] as const;
+}
+```
+
 ### Client-Side Component Architecture
 
 The frontend follows a structured component organization pattern:
@@ -493,4 +548,64 @@ function fallbackDownload(blob: Blob, fileName: string): boolean {
 }
 ```
 
-Updated: April 13, 2025
+### Pagination Component Architecture
+
+Pagination components follow specific patterns to ensure proper state synchronization:
+
+```typescript
+// Enhanced pagination component with careful state order management
+function Pagination({
+  currentPage,
+  setCurrentPage,
+  totalPages,
+  pageSize,
+  setPageSize,
+  totalItems
+}: PaginationProps) {
+  // Handle page size changes with careful state ordering
+  function onPageSizeChange(e: React.ChangeEvent<HTMLSelectElement>) {
+    // Get new size from dropdown
+    const newPageSize = parseInt(e.target.value, 10);
+    
+    // First set page to 1, then change page size 
+    // This order is critical to prevent query parameter conflicts
+    setCurrentPage(1);
+    setPageSize(newPageSize);
+  }
+  
+  // Calculate range values with safeguards against edge cases
+  const from = totalItems === 0 ? 0 : (currentPage - 1) * pageSize + 1;
+  const to = Math.min(currentPage * pageSize, totalItems);
+  
+  return (
+    <div className="pagination-container">
+      <div className="pagination-info">
+        Showing {from} to {to} of {totalItems} results
+      </div>
+      
+      <select
+        value={pageSize.toString()} // Use string value to prevent type issues
+        onChange={onPageSizeChange}
+        className="pagination-size-selector"
+      >
+        <option value="10">10 per page</option>
+        <option value="25">25 per page</option>
+        <option value="50">50 per page</option>
+        <option value="100">100 per page</option>
+      </select>
+      
+      <div className="pagination-controls">
+        <button 
+          onClick={() => setCurrentPage(1)}
+          disabled={currentPage <= 1}
+        >
+          First
+        </button>
+        {/* Other pagination buttons... */}
+      </div>
+    </div>
+  );
+}
+```
+
+Updated: May 7, 2025

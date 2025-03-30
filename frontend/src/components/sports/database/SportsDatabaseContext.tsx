@@ -1,5 +1,5 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode, useMemo, useCallback } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import React, { createContext, useContext, useState, useEffect, useRef, ReactNode, useMemo, useCallback } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { useNotification } from '../../../contexts/NotificationContext';
 import { useDataFlow } from '../../../contexts/DataFlowContext';
@@ -11,7 +11,6 @@ import {
   useEntitySelection, 
   useEntityOperations, 
   useEntityView, 
-  useEntityPagination,
   useSorting,
   useFiltering,
   useEntitySchema
@@ -120,12 +119,35 @@ export const SportsDatabaseProvider: React.FC<SportsDatabaseProviderProps> = ({ 
   const navigate = useNavigate();
   const { showNotification } = useNotification();
   const { setDestination } = useDataFlow();
+  const queryClient = useQueryClient();
   
   // Core entity type state - use localStorage to persist the selected entity type
   const storedEntityType = localStorage.getItem('selectedEntityType');
   const [selectedEntityType, setSelectedEntityType] = useState<EntityType>(
     (storedEntityType as EntityType) || 'league'
   );
+  
+  // Core pagination state
+  // Using direct state management to avoid hook dependencies
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+  const [totalItems, setTotalItems] = useState(0);
+  
+  // Calculate total pages
+  const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
+  
+  // Expose a safe setPageSize that always resets to page 1
+  const handleSetPageSize = useCallback((newSize: number) => {
+    if (newSize !== pageSize) {
+      console.log(`SportsDatabaseContext: Setting page size to ${newSize} and resetting to page 1`);
+      // First set page to 1, then change size
+      setCurrentPage(1);
+      // Use timeout to ensure state updates are separated
+      setTimeout(() => {
+        setPageSize(newSize);
+      }, 10);
+    }
+  }, [pageSize]);
   
   // Update data flow when component mounts
   useEffect(() => {
@@ -139,64 +161,69 @@ export const SportsDatabaseProvider: React.FC<SportsDatabaseProviderProps> = ({ 
     }
   }, [isReady, isAuthenticated, navigate]);
 
-  // Set up pagination with default values
-  const paginationHook = useEntityPagination(10);
-  const { 
-    currentPage, 
-    setCurrentPage, 
-    pageSize, 
-    setPageSize, 
-    totalItems, 
-    setTotalItems, 
-    totalPages 
-  } = paginationHook;
-
+  // Use a ref to track whether we've already reset to page 1 for this entity type
+  const entityTypeChangeTracker = useRef<Record<string, boolean>>({});
+  
   // Reset to first page when entity type changes
   useEffect(() => {
-    setCurrentPage(1);
-  }, [selectedEntityType, setCurrentPage]);
+    // Only reset if we haven't done so for this entity type
+    if (!entityTypeChangeTracker.current[selectedEntityType]) {
+      setCurrentPage(1);
+      entityTypeChangeTracker.current[selectedEntityType] = true;
+    }
+  }, [selectedEntityType]);
 
   // Set up view mode state
-  const viewHook = useEntityView(selectedEntityType);
-  const { 
-    viewMode, 
-    setViewMode, 
-    entityCounts, 
-    setEntityCounts, 
-    fetchEntityCounts 
-  } = viewHook;
+  const {
+    viewMode,
+    setViewMode,
+    entityCounts,
+    setEntityCounts,
+    fetchEntityCounts
+  } = useEntityView(selectedEntityType);
 
   // Set up filtering state and functions
-  const filteringHook = useFiltering(selectedEntityType);
-  const { 
-    activeFilters, 
-    setActiveFilters, 
-    handleApplyFilters, 
-    handleClearFilters 
-  } = filteringHook;
+  const {
+    activeFilters,
+    setActiveFilters,
+    handleApplyFilters,
+    handleClearFilters
+  } = useFiltering(selectedEntityType);
 
   // Set up sorting state and functions
-  const sortingHook = useSorting();
-  const { 
-    sortField, 
-    setSortField, 
-    sortDirection, 
-    setSortDirection, 
-    handleSort, 
-    getSortedEntities, 
-    renderSortIcon 
-  } = sortingHook;
+  const {
+    sortField,
+    setSortField,
+    sortDirection,
+    setSortDirection,
+    handleSort,
+    getSortedEntities,
+    renderSortIcon
+  } = useSorting();
 
-  // Fetch entities based on selected type
+  // Fetch entity data using react-query
+  // Key is updated when any parameters change
+  const queryKey = useMemo(() => [
+    'sportsEntities',
+    selectedEntityType,
+    currentPage,
+    pageSize,
+    sortField,
+    sortDirection,
+    JSON.stringify(activeFilters)
+  ], [selectedEntityType, currentPage, pageSize, sortField, sortDirection, activeFilters]);
+  
   const {
     data: response,
     isLoading,
     error,
     refetch
   } = useQuery({
-    queryKey: ['sportsEntities', selectedEntityType, sortField, sortDirection, currentPage, pageSize, activeFilters],
+    queryKey,
     queryFn: async () => {
       try {
+        console.log(`Fetching entities: ${selectedEntityType}, page ${currentPage}, size ${pageSize}`);
+        
         const result = await SportsDatabaseService.getEntities({
           entityType: selectedEntityType,
           filters: activeFilters,
@@ -207,7 +234,9 @@ export const SportsDatabaseProvider: React.FC<SportsDatabaseProviderProps> = ({ 
         });
         
         // Update total items count
-        setTotalItems(result.total || 0);
+        if (result && typeof result.total === 'number') {
+          setTotalItems(result.total);
+        }
         
         return result.items || [];
       } catch (error) {
@@ -216,7 +245,7 @@ export const SportsDatabaseProvider: React.FC<SportsDatabaseProviderProps> = ({ 
       }
     },
     enabled: isAuthenticated && isReady,
-    staleTime: 0,
+    staleTime: 0, 
     refetchOnWindowFocus: false
   });
 
@@ -256,20 +285,24 @@ export const SportsDatabaseProvider: React.FC<SportsDatabaseProviderProps> = ({ 
   // Get field information for entity types
   const { getEntityFields } = useEntitySchema();
 
-  // Fetch counts when component mounts and when view mode changes to global
+  // Track whether we've already fetched counts for this view mode
+  const fetchedCountsForViewMode = useRef<Record<string, boolean>>({});
+  
+  // Fetch counts when view mode changes to global, but only once
   useEffect(() => {
-    if (viewMode === 'global') {
+    if (viewMode === 'global' && !fetchedCountsForViewMode.current[viewMode]) {
       fetchEntityCounts();
+      fetchedCountsForViewMode.current[viewMode] = true;
     }
   }, [viewMode, fetchEntityCounts]);
 
-  // Create the context value object (memoized to prevent unnecessary re-renders)
   // Custom setter that updates localStorage
   const handleSetSelectedEntityType = useCallback((type: EntityType) => {
     localStorage.setItem('selectedEntityType', type);
     setSelectedEntityType(type);
   }, []);
 
+  // Create the context value object (memoized to prevent unnecessary re-renders)
   const contextValue = useMemo<SportsDatabaseContextType>(() => ({
     selectedEntityType,
     setSelectedEntityType: handleSetSelectedEntityType,
@@ -297,7 +330,7 @@ export const SportsDatabaseProvider: React.FC<SportsDatabaseProviderProps> = ({ 
     sortField,
     sortDirection,
     handleSort,
-    getSortedEntities: function(entitiesToSort) { return getSortedEntities(entitiesToSort || entities); },
+    getSortedEntities: (entitiesToSort) => getSortedEntities(entitiesToSort || entities),
     renderSortIcon,
     activeFilters,
     handleApplyFilters,
@@ -308,7 +341,7 @@ export const SportsDatabaseProvider: React.FC<SportsDatabaseProviderProps> = ({ 
     setCurrentPage,
     totalPages,
     pageSize,
-    setPageSize,
+    setPageSize: handleSetPageSize,
     totalItems,
     entityCounts,
     fetchEntityCounts,
@@ -350,7 +383,7 @@ export const SportsDatabaseProvider: React.FC<SportsDatabaseProviderProps> = ({ 
     setCurrentPage,
     totalPages,
     pageSize,
-    setPageSize,
+    handleSetPageSize,
     totalItems,
     entityCounts,
     fetchEntityCounts
@@ -370,4 +403,4 @@ export const useSportsDatabase = () => {
     throw new Error('useSportsDatabase must be used within a SportsDatabaseProvider');
   }
   return context;
-}; 
+};

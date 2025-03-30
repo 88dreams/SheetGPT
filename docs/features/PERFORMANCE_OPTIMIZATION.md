@@ -274,6 +274,86 @@ function usePrefetchData(currentId, getAdjacentIds) {
 - Use web workers for complex data transformations
 - Implement batch processing for multi-record operations
 
+## React State Management Optimization
+
+### Preventing Update Loops
+
+State update loops can significantly impact performance. Use these techniques to prevent them:
+
+```tsx
+// Use a ref to track previous values
+function useStateWithPrevious<T>(initialValue: T) {
+  const [value, setValue] = useState<T>(initialValue);
+  const prevValue = useRef<T>(initialValue);
+  
+  const updateValue = useCallback((newValue: T) => {
+    // Only update if different to prevent loops
+    if (JSON.stringify(newValue) !== JSON.stringify(value)) {
+      prevValue.current = value;
+      setValue(newValue);
+    }
+  }, [value]);
+  
+  return [value, updateValue, prevValue.current] as const;
+}
+```
+
+### Sequencing State Updates
+
+For dependent state values, ensure updates happen in the correct order:
+
+```tsx
+// Pagination component example
+function handlePageSizeChange(newSize: number) {
+  // Always update page first, then size
+  setCurrentPage(1);
+  
+  // Use setTimeout to ensure separate render cycles
+  setTimeout(() => {
+    setPageSize(newSize);
+  }, 0);
+}
+```
+
+### Optimized useEffect Dependencies
+
+Prevent unnecessary effect runs with proper dependency tracking:
+
+```tsx
+// Track previous dependencies to prevent loops
+const prevDependencyRef = useRef(dependency);
+
+useEffect(() => {
+  // Skip effect if dependency hasn't meaningfully changed
+  if (dependency !== prevDependencyRef.current) {
+    // Perform effect actions
+    performSideEffect(dependency);
+    
+    // Update ref for next comparison
+    prevDependencyRef.current = dependency;
+  }
+}, [dependency]);
+```
+
+### Breaking Circular Dependencies
+
+For components with circular state dependencies:
+
+```tsx
+// Before - Circular dependency
+const [stateA, setStateA] = useState(initialA);
+const [stateB, setStateB] = useState(computeFromA(initialA));
+
+// If stateA updates based on stateB, and stateB on stateA, we get loops
+
+// After - Breaking the cycle
+const [primaryState, setPrimaryState] = useState(initialA);
+// Derive secondary state without useState
+const secondaryState = useMemo(() => computeFromA(primaryState), [primaryState]);
+
+// Now there's only one source of truth
+```
+
 ## Best Practices Checklist
 
 - [ ] Profile component before optimization
@@ -282,6 +362,11 @@ function usePrefetchData(currentId, getAdjacentIds) {
 - [ ] Apply useMemo for expensive calculations
 - [ ] Implement virtualization for long lists/tables
 - [ ] Use fingerprinting for complex object dependencies
+- [ ] Track previous values with useRef for comparison
+- [ ] Sequence state updates in correct logical order
+- [ ] Add explicit change detection before setState calls
+- [ ] Carefully review useEffect dependency arrays
+- [ ] Break circular dependencies with proper state design
 - [ ] Optimize network requests with caching and deduplication
 - [ ] Measure performance after optimization
 - [ ] Document performance improvements

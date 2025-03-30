@@ -122,6 +122,98 @@ To run the tests locally:
 2. Run all EntityList tests: `npm test -- tests/frontend/components/sports/database/EntityList`
 3. Run a specific test: `npm test -- tests/frontend/components/sports/database/EntityList/EntityListHeader.test.tsx`
 
+## State Management Testing
+
+When testing components with complex state management, follow these additional testing patterns:
+
+### Pagination Component State Testing
+
+The Pagination component requires special attention to state ordering:
+
+```tsx
+it('should change page size and reset to page 1', async () => {
+  // Initial render with pageSize=25, currentPage=2
+  const mockSetCurrentPage = jest.fn();
+  const mockSetPageSize = jest.fn();
+  
+  render(
+    <Pagination
+      currentPage={2}
+      setCurrentPage={mockSetCurrentPage}
+      totalPages={10}
+      pageSize={25}
+      setPageSize={mockSetPageSize}
+      totalItems={250}
+    />
+  );
+  
+  // Simulate changing page size from 25 to 10
+  fireEvent.change(screen.getByRole('combobox'), { target: { value: '10' } });
+  
+  // Assert the critical order of operations
+  expect(mockSetCurrentPage).toHaveBeenCalledWith(1);
+  expect(mockSetCurrentPage).toHaveBeenCalledBefore(mockSetPageSize);
+  expect(mockSetPageSize).toHaveBeenCalledWith(10);
+});
+```
+
+### useEffect Dependency Testing
+
+For hooks with useEffect dependencies, validate that the effect runs when expected:
+
+```tsx
+it('should properly track dependencies in useEffect', () => {
+  // Mock the effect function
+  const effectFn = jest.fn();
+  
+  const TestComponent = ({ value }: { value: string }) => {
+    useEffect(() => {
+      effectFn(value);
+    }, [value]);
+    
+    return null;
+  };
+  
+  // Initial render
+  const { rerender } = render(<TestComponent value="initial" />);
+  expect(effectFn).toHaveBeenCalledWith("initial");
+  
+  // Re-render with same value
+  rerender(<TestComponent value="initial" />);
+  expect(effectFn).toHaveBeenCalledTimes(1); // Should not be called again
+  
+  // Re-render with new value
+  rerender(<TestComponent value="updated" />);
+  expect(effectFn).toHaveBeenCalledTimes(2);
+  expect(effectFn).toHaveBeenCalledWith("updated");
+});
+```
+
+### Circular Dependency Testing
+
+Test components for potential circular dependencies:
+
+```tsx
+it('should not have infinite update loops', () => {
+  // Mock console.error to catch React maximum update depth errors
+  const originalConsoleError = console.error;
+  const mockConsoleError = jest.fn();
+  console.error = mockConsoleError;
+  
+  try {
+    render(<ComponentWithPotentialCircularDependency />);
+    
+    // If there's an infinite loop, React will throw a warning
+    expect(mockConsoleError).not.toHaveBeenCalledWith(
+      expect.stringContaining('Maximum update depth exceeded')
+    );
+  } finally {
+    // Restore original console.error
+    console.error = originalConsoleError;
+  }
+});
+```
+
 ## Future Improvements
 
 1. **Update Docker configuration** - Mount the tests directory to allow running tests from within the container
@@ -129,6 +221,9 @@ To run the tests locally:
 3. **Add snapshot tests** - For UI stability verification
 4. **Increase test coverage** - Add tests for edge cases and error states
 5. **Add test for main EntityList component** - Test the composition of all subcomponents
+6. **Add state transition tests** - Test specific state transition flows for complex components
+7. **Add React hook dependency tests** - Validate proper dependency array configuration
+8. **Implement useEffect tracking tests** - Verify hooks run effects at expected times
 
 ## Test Coverage
 

@@ -162,13 +162,21 @@ export const SportsDatabaseProvider: React.FC<SportsDatabaseProviderProps> = ({ 
   const handleSetCurrentPage = useCallback((page: number) => {
     console.log(`SportsDatabaseContext: Setting current page to ${page}`);
     
-    // We no longer need to manually invalidate cache with the updated React Query config
-    // that uses keepPreviousData: true for smooth transitions
+    // We need to explicitly invalidate the query cache for the current entity type
+    // This ensures a fresh fetch when navigating between pages
+    queryClient.invalidateQueries({
+      queryKey: ['sportsEntities', selectedEntityType],
+      // Don't trigger an immediate refetch, let the effect handle it
+      refetchType: 'none'
+    });
     
-    // Just update the state directly - React Query will handle the data fetching
+    // Then update the page state
     setCurrentPage(page);
     
-  }, []);
+    // Optional: Log that we're expecting a data fetch
+    console.log(`SportsDatabaseContext: Data fetch should trigger for ${selectedEntityType}, page ${page}`);
+    
+  }, [queryClient, selectedEntityType]);
   
   // Update data flow when component mounts
   useEffect(() => {
@@ -231,7 +239,11 @@ export const SportsDatabaseProvider: React.FC<SportsDatabaseProviderProps> = ({ 
     pageSize,
     sortField,
     sortDirection,
-    JSON.stringify(activeFilters)
+    JSON.stringify(activeFilters),
+    // Add timestamp for production services to force refetching
+    ...(selectedEntityType === 'production' || selectedEntityType === 'broadcast' 
+      ? [Date.now()] 
+      : [])
   ], [selectedEntityType, currentPage, pageSize, sortField, sortDirection, activeFilters]);
   
   const {
@@ -242,8 +254,14 @@ export const SportsDatabaseProvider: React.FC<SportsDatabaseProviderProps> = ({ 
   } = useQuery({
     queryKey,
     queryFn: async () => {
+      // Add a unique request ID for tracing
+      const requestId = Math.random().toString(36).substring(2, 9);
+      
       try {
-        console.log(`Fetching entities: ${selectedEntityType}, page ${currentPage}, size ${pageSize}`);
+        console.log(`[${requestId}] Fetching ${selectedEntityType} entities, page ${currentPage}, size ${pageSize}, cacheBuster: ${new Date().toISOString()}`);
+        
+        // Start timer for performance logging
+        const startTime = performance.now();
         
         const result = await SportsDatabaseService.getEntities({
           entityType: selectedEntityType,
@@ -254,26 +272,48 @@ export const SportsDatabaseProvider: React.FC<SportsDatabaseProviderProps> = ({ 
           sortDirection: sortDirection
         });
         
+        // Log success and timing information
+        const endTime = performance.now();
+        console.log(`[${requestId}] Fetch complete for ${selectedEntityType}, page ${currentPage}: ${Math.round(endTime - startTime)}ms, items: ${result.items?.length || 0}, total: ${result.total || 0}`);
+        
         // Update total items count
         if (result && typeof result.total === 'number') {
           setTotalItems(result.total);
         }
         
+        // For production services, add extra logging
+        if (selectedEntityType === 'production' || selectedEntityType === 'broadcast') {
+          console.log(`[${requestId}] Entity details:`, {
+            type: selectedEntityType,
+            page: currentPage,
+            totalPages: Math.ceil((result.total || 0) / pageSize),
+            itemsCount: result.items?.length || 0,
+            firstItemId: result.items?.[0]?.id || 'none'
+          });
+        }
+        
         return result.items || [];
       } catch (error) {
-        console.error('Error fetching entities:', error);
+        console.error(`[${requestId}] Error fetching ${selectedEntityType} entities:`, error);
         return [];
       }
     },
     enabled: isAuthenticated && isReady,
-    // Use a short staleTime for entity data to ensure it's mostly fresh
-    staleTime: 1000 * 30, // 30 seconds
-    // Keep data in cache for at least a few minutes to help with pagination
+    // Use a minimal staleTime for pagination to ensure data is always fresh when changing pages
+    staleTime: 1000 * 10, // 10 seconds - shorter to ensure fresher data
+    // Keep data in cache to improve pagination performance, but don't rely on it completely
     gcTime: 1000 * 60 * 5, // 5 minutes
     refetchOnWindowFocus: false,
+    // Always refetch when mounting or page changes to ensure consistent data
     refetchOnMount: true,
-    // These settings improve pagination UX
-    keepPreviousData: true, // Shows previous page data while loading new page
+    // Debug key to track API requests and their triggers
+    meta: { debug: `${selectedEntityType}_page_${currentPage}` },
+    // Force refetch for production and broadcast services - these need fresher data
+    refetchInterval: selectedEntityType === 'production' || selectedEntityType === 'broadcast' ? 0 : undefined,
+    // This causes issues with complex entity types sometimes
+    keepPreviousData: selectedEntityType !== 'production' && selectedEntityType !== 'broadcast',
+    // Force option ensures fresh data for complex entities like production services
+    refetchForceRetry: selectedEntityType === 'production' || selectedEntityType === 'broadcast',
     useErrorBoundary: false // Handle errors gracefully
   });
 

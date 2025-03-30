@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from 'react';
+import { fingerprint } from '../../../../utils/fingerprint';
 import { useNavigate } from 'react-router-dom';
 import { Modal } from 'antd';
 import { useSportsDatabase } from '../SportsDatabaseContext';
@@ -14,9 +15,11 @@ import {
   ColumnSelector,
   ExportDialog,
   EntityTable,
-  Pagination,
   BulkActionBar
 } from './components';
+
+// Direct import for pagination to ensure we use our new version
+import Pagination from './components/Pagination';
 
 // Import hooks
 import {
@@ -107,8 +110,17 @@ const EntityList: React.FC<EntityListProps> = ({ className = '' }) => {
     ];
   };
   
+  // Generate entity fingerprint for dependency tracking
+  const entitiesFingerprint = useMemo(() => 
+    entities && entities.length > 0 ? fingerprint(entities[0], { depth: 1 }) : 'empty',
+    [entities]
+  );
+  
   // Generate a memo of field order to prevent recalculation on every render
-  const initialColumnOrder = useMemo(() => getInitialColumnOrder(), [entities, selectedEntityType]);
+  const initialColumnOrder = useMemo(
+    () => getInitialColumnOrder(), 
+    [entitiesFingerprint, selectedEntityType]
+  );
   
   // Initialize useDragAndDrop for column reordering with localStorage persistence
   const {
@@ -154,16 +166,16 @@ const EntityList: React.FC<EntityListProps> = ({ className = '' }) => {
     setIsEditModalVisible(true);
   };
 
-  // Search handler
+  // Add state for search query to highlight matching rows
+  const [searchQuery, setSearchQuery] = useState<string>('');
+  
+  // Search handler - highlight all matching entities instead of selecting just one
   const handleSearchSelect = (query: string) => {
-    // Basic local filtering - find matching entity and select it
-    const match = entities.find(entity => 
-      entity.name && entity.name.toLowerCase().includes(query)
-    );
-    if (match) {
-      setSelectedEntity(match as Entity);
-      setIsEditModalVisible(true);
-    }
+    // Store the search query for highlighting
+    setSearchQuery(query.toLowerCase());
+    
+    // Don't open edit modal, just highlight the matches in the table
+    console.log(`Searching for: ${query} - matches will be highlighted in the table`);
   };
 
   const handleEditModalClose = () => {
@@ -177,10 +189,29 @@ const EntityList: React.FC<EntityListProps> = ({ className = '' }) => {
     setIsEditModalVisible(false);
   };
 
-  // Filtered entities from context
-  const filteredEntities = getSortedEntities() as BaseEntity[];
+  // Memoize sort state for dependency tracking
+  const sortStateFingerprint = useMemo(() => 
+    fingerprint({ field: sortField, direction: sortDirection }),
+    [sortField, sortDirection]
+  );
+  
+  // Memoize selected entities state for dependency tracking
+  const selectedEntitiesFingerprint = useMemo(() => 
+    fingerprint(selectedEntities, { depth: 1 }),
+    [selectedEntities]
+  );
+
+  // Filtered entities from context - memoized to prevent recalculation on every render
+  const filteredEntities = useMemo(
+    () => getSortedEntities() as BaseEntity[],
+    [entitiesFingerprint, sortStateFingerprint]
+  );
+  
   const hasActiveFilters = activeFilters && activeFilters.length > 0;
-  const selectedCount = Object.values(selectedEntities).filter(Boolean).length;
+  const selectedCount = useMemo(
+    () => Object.values(selectedEntities).filter(Boolean).length,
+    [selectedEntitiesFingerprint]
+  );
 
   // Loading state
   if (isLoading) {
@@ -277,12 +308,20 @@ const EntityList: React.FC<EntityListProps> = ({ className = '' }) => {
         setShowDeleteConfirm={setShowDeleteConfirm}
         handleDeleteEntity={handleDeleteEntity}
         handleView={(entityId) => navigate(`/sports/${selectedEntityType}/${entityId}`)}
+        searchQuery={searchQuery} // Pass the search query for highlighting
+        // Column drag and drop props
+        draggedHeader={draggedItem}
+        dragOverHeader={dragOverItem}
+        handleColumnDragStart={handleColumnDragStart}
+        handleColumnDragOver={handleColumnDragOver}
+        handleColumnDrop={handleColumnDrop}
+        handleColumnDragEnd={handleColumnDragEnd}
         // Inline editing props
         {...inlineEditHook}
       />
       
-      {/* Pagination Controls */}
-      <Pagination
+      {/* Pagination Controls - with all props explicitly passed */}
+      <Pagination 
         currentPage={currentPage}
         setCurrentPage={setCurrentPage}
         totalPages={totalPages}

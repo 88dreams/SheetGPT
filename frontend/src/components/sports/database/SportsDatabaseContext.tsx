@@ -263,13 +263,20 @@ export const SportsDatabaseProvider: React.FC<SportsDatabaseProviderProps> = ({ 
         // Start timer for performance logging
         const startTime = performance.now();
         
+        // Ensure we always send valid sort parameters to the API
+        // Default to id sorting if no field is selected, and use asc if direction is none
+        const effectiveSortField = sortField || 'id'; 
+        const effectiveSortDirection = sortDirection === 'none' ? 'asc' : sortDirection;
+        
+        console.log(`Effective sort parameters: field=${effectiveSortField}, direction=${effectiveSortDirection}`);
+        
         const result = await SportsDatabaseService.getEntities({
           entityType: selectedEntityType,
           filters: activeFilters,
           page: currentPage,
           limit: pageSize,
-          sortBy: sortField,
-          sortDirection: sortDirection
+          sortBy: effectiveSortField,
+          sortDirection: effectiveSortDirection
         });
         
         // Log success and timing information

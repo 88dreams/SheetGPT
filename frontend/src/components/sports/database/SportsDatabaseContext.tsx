@@ -227,8 +227,21 @@ export const SportsDatabaseProvider: React.FC<SportsDatabaseProviderProps> = ({ 
     setSortDirection,
     handleSort,
     getSortedEntities,
-    renderSortIcon
+    renderSortIcon,
+    registerResetPagination
   } = useSorting();
+  
+  // Register a function to reset pagination when sort changes
+  useEffect(() => {
+    // Define the reset function
+    const resetToFirstPage = () => {
+      console.log('Resetting to page 1 due to sort change');
+      setCurrentPage(1);
+    };
+    
+    // Register it with the sorting hook
+    registerResetPagination(resetToFirstPage);
+  }, [registerResetPagination]);
 
   // Fetch entity data using react-query
   // Key is updated when any parameters change

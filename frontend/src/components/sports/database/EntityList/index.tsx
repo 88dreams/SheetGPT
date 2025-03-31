@@ -201,29 +201,16 @@ const EntityList: React.FC<EntityListProps> = ({ className = '' }) => {
     [selectedEntities]
   );
 
-  // Hybrid approach to sorting - with detailed logging:
-  // - Use server-side sorting for primary fields (id, name, created_at, updated_at)
-  // - Use client-side sorting for relationship fields (*_name) since they lack server-side implementation
+  // Use server-side sorting exclusively
+  // This ensures consistent sorting behavior across pages
   const filteredEntities = useMemo(() => {
-    // Primary fields that have server-side sorting implementation
-    const serverSortedFields = ['id', 'name', 'created_at', 'updated_at'];
+    // NOTE: Relationship fields (*_name) might not sort correctly on the backend
+    // This is a limitation in the backend implementation that should be fixed
+    console.log(`Using server-sorted data for ${selectedEntityType}, page ${currentPage}, sort: ${sortField} ${sortDirection}`);
     
-    // If sorting by a primary field, trust the server's sorting
-    if (serverSortedFields.includes(sortField)) {
-      console.log(`Using server-side sorting for ${sortField}`);
-      return entities as BaseEntity[];
-    }
-    
-    // For relationship fields, apply client-side sorting
-    if (sortField.includes('_name') || sortField.includes('_id')) {
-      console.log(`Using client-side sorting for relationship field: ${sortField}`);
-      return getSortedEntities(entities) as BaseEntity[];
-    }
-    
-    // For any other fields, assume server-side should work but log it
-    console.log(`Using server-side sorting for field: ${sortField} (please verify sorting is correct)`);
+    // Rely entirely on the server's sorting
     return entities as BaseEntity[];
-  }, [entities, sortField, sortDirection, getSortedEntities, entitiesFingerprint]);
+  }, [entities, selectedEntityType, currentPage, sortField, sortDirection]);
   
   const hasActiveFilters = activeFilters && activeFilters.length > 0;
   const selectedCount = useMemo(

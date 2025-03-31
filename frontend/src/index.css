@@ -18,4 +18,27 @@ body.resizing * {
   cursor: col-resize !important;
 }
 
+/* ChatInput resizing cursor styles */
+body.resizing-chat-input {
+  cursor: ns-resize !important;
+  user-select: none;
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+}
+
+body.resizing-chat-input * {
+  cursor: ns-resize !important;
+}
+
+/* ChatInput resize handle animations */
+.group:hover .group-hover\:text-gray-600 {
+  transition: color 0.2s ease-in-out;
+}
+
+/* During resizing state */
+.border-blue-300 {
+  transition: border-color 0.1s ease-in-out;
+}
+
 /* Custom utility classes can be added here */ 

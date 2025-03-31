@@ -357,11 +357,17 @@ describe('ChatInput', () => {
     // Simulate resize start
     fireEvent.mouseDown(resizeHandle, { clientY: 100 });
     
-    // Simulate mouse movement (dragging upward to increase height)
-    fireEvent.mouseMove(document, { clientY: 50 });
+    // Verify resizing class is added to body
+    expect(document.body.classList.contains('resizing-chat-input')).toBe(true);
+    
+    // Simulate mouse movement (dragging downward to increase height)
+    fireEvent.mouseMove(document, { clientY: 150 });
     
     // End the resize
     fireEvent.mouseUp(document);
+    
+    // Verify resizing class is removed from body
+    expect(document.body.classList.contains('resizing-chat-input')).toBe(false);
     
     // Verify localStorage was updated with a new height
     expect(window.localStorage.setItem).toHaveBeenCalledWith('chatInputHeight', expect.any(String));

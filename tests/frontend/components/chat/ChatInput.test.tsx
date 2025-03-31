@@ -44,6 +44,7 @@ jest.mock('@heroicons/react/24/outline', () => ({
   TableCellsIcon: () => <div data-testid="table-cells-icon" />,
   DocumentTextIcon: () => <div data-testid="document-text-icon" />,
   XMarkIcon: () => <div data-testid="x-mark-icon" />,
+  ArrowsUpDownIcon: () => <div data-testid="arrows-updown-icon" />,
 }));
 
 // Mock PapaParse
@@ -81,27 +82,45 @@ describe('ChatInput', () => {
     
     // Reset FileReader mock
     global.URL.createObjectURL = jest.fn(() => 'blob:mock-url');
+    
+    // Mock localStorage
+    Object.defineProperty(window, 'localStorage', {
+      value: {
+        getItem: jest.fn().mockImplementation((key) => {
+          return key === 'chatInputHeight' ? '120' : null;
+        }),
+        setItem: jest.fn(),
+        removeItem: jest.fn(),
+        clear: jest.fn(),
+      },
+      writable: true
+    });
   });
 
   it('should render the component with initial state', () => {
     render(<ChatInput onSend={mockOnSend} />);
     
     // Check basic elements
-    expect(screen.getByPlaceholderText('Type a message...')).toBeInTheDocument();
+    expect(screen.getByPlaceholderText('Type your message...')).toBeInTheDocument();
     expect(screen.getByText('Send')).toBeInTheDocument();
     expect(screen.getByTestId('table-cells-icon')).toBeInTheDocument();
     expect(screen.getByTestId('document-text-icon')).toBeInTheDocument();
+    expect(screen.getByTestId('arrows-updown-icon')).toBeInTheDocument();
     
     // Verify format and file indicators are not shown initially
-    expect(screen.queryByText('Format:')).not.toBeInTheDocument();
-    expect(screen.queryByText('File:')).not.toBeInTheDocument();
+    expect(screen.queryByText('Structured format active')).not.toBeInTheDocument();
+    expect(screen.queryByText('File attached:')).not.toBeInTheDocument();
+    
+    // Verify textarea has the height loaded from localStorage
+    const textarea = screen.getByPlaceholderText('Type your message...');
+    expect(textarea).toHaveStyle('height: 120px');
   });
 
   it('should handle text input and send message', async () => {
     render(<ChatInput onSend={mockOnSend} />);
     
     // Type a message
-    const textArea = screen.getByPlaceholderText('Type a message...');
+    const textArea = screen.getByPlaceholderText('Type your message...');
     await userEvent.type(textArea, 'Hello, world!');
     
     // Click send button
@@ -119,7 +138,7 @@ describe('ChatInput', () => {
     render(<ChatInput onSend={mockOnSend} />);
     
     // Type a message
-    const textArea = screen.getByPlaceholderText('Type a message...');
+    const textArea = screen.getByPlaceholderText('Type your message...');
     await userEvent.type(textArea, 'Hello, world!');
     
     // Press Enter key
@@ -316,7 +335,7 @@ describe('ChatInput', () => {
     expect(screen.getByText('Sending...')).toBeInTheDocument();
     
     // Verify textarea is disabled
-    const textArea = screen.getByPlaceholderText('Type a message...');
+    const textArea = screen.getByPlaceholderText('Type your message...');
     expect(textArea).toBeDisabled();
     
     // Verify buttons are disabled
@@ -325,5 +344,26 @@ describe('ChatInput', () => {
     
     const fileButton = screen.getByTestId('document-text-icon').closest('button');
     expect(fileButton).toBeDisabled();
+  });
+  
+  it('should show resize handle and save height to localStorage', () => {
+    const { container } = render(<ChatInput onSend={mockOnSend} />);
+    
+    // Verify resize handle is present
+    const resizeHandle = screen.getByTestId('arrows-updown-icon').closest('div');
+    expect(resizeHandle).toBeInTheDocument();
+    expect(resizeHandle).toHaveClass('cursor-ns-resize');
+    
+    // Simulate resize start
+    fireEvent.mouseDown(resizeHandle, { clientY: 100 });
+    
+    // Simulate mouse movement (dragging upward to increase height)
+    fireEvent.mouseMove(document, { clientY: 50 });
+    
+    // End the resize
+    fireEvent.mouseUp(document);
+    
+    // Verify localStorage was updated with a new height
+    expect(window.localStorage.setItem).toHaveBeenCalledWith('chatInputHeight', expect.any(String));
   });
 });

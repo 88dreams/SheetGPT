@@ -1,7 +1,7 @@
-import React, { useState, KeyboardEvent, useRef, ChangeEvent } from 'react'
+import React, { useState, KeyboardEvent, useRef, ChangeEvent, useEffect } from 'react'
 import LoadingSpinner from '../common/LoadingSpinner'
 import StructuredFormatModal from './StructuredFormatModal'
-import { TableCellsIcon, DocumentTextIcon, XMarkIcon } from '@heroicons/react/24/outline'
+import { TableCellsIcon, DocumentTextIcon, XMarkIcon, ArrowsUpDownIcon } from '@heroicons/react/24/outline'
 import Papa from 'papaparse'
 import { FileAttachment } from '../../types/chat'
 
@@ -17,6 +17,19 @@ const ChatInput: React.FC<ChatInputProps> = ({ onSend, disabled = false }) => {
   const [fileContent, setFileContent] = useState<string | null>(null)
   const [fileName, setFileName] = useState<string | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  
+  // For textarea resizing
+  const [textareaHeight, setTextareaHeight] = useState<number>(() => {
+    // Retrieve from localStorage or use default (2 rows)
+    const savedHeight = localStorage.getItem('chatInputHeight')
+    return savedHeight ? parseInt(savedHeight, 10) : 80
+  })
+  
+  const [isResizing, setIsResizing] = useState(false)
+  const resizeStartPosRef = useRef<number>(0)
+  const initialHeightRef = useRef<number>(textareaHeight)
+  const textareaRef = useRef<HTMLTextAreaElement>(null)
+  const containerRef = useRef<HTMLDivElement>(null)
 
   const handleSubmit = () => {
     if ((message.trim() || fileContent) && !disabled) {
@@ -118,10 +131,75 @@ const ChatInput: React.FC<ChatInputProps> = ({ onSend, disabled = false }) => {
     setFileContent(null);
     setFileName(null);
   };
+  
+  // Handle resize events
+  const handleResizeStart = (e: React.MouseEvent) => {
+    e.preventDefault();
+    setIsResizing(true);
+    resizeStartPosRef.current = e.clientY;
+    initialHeightRef.current = textareaHeight;
+    
+    // Add event listeners to the document
+    document.addEventListener('mousemove', handleResizeMove);
+    document.addEventListener('mouseup', handleResizeEnd);
+  };
+  
+  const handleResizeMove = (e: MouseEvent) => {
+    if (!isResizing) return;
+    
+    // Calculate the new height (moving up decreases height, moving down increases it)
+    const delta = resizeStartPosRef.current - e.clientY;
+    const newHeight = Math.max(80, initialHeightRef.current + delta);
+    
+    // Set maximum height (5 rows)
+    const maxHeight = 200;
+    const limitedHeight = Math.min(newHeight, maxHeight);
+    
+    setTextareaHeight(limitedHeight);
+    
+    // Apply the height to the textarea directly for immediate feedback
+    if (textareaRef.current) {
+      textareaRef.current.style.height = `${limitedHeight}px`;
+    }
+  };
+  
+  const handleResizeEnd = () => {
+    setIsResizing(false);
+    
+    // Remove event listeners
+    document.removeEventListener('mousemove', handleResizeMove);
+    document.removeEventListener('mouseup', handleResizeEnd);
+    
+    // Save to localStorage
+    localStorage.setItem('chatInputHeight', textareaHeight.toString());
+  };
+  
+  // Cleanup event listeners on unmount
+  useEffect(() => {
+    return () => {
+      document.removeEventListener('mousemove', handleResizeMove);
+      document.removeEventListener('mouseup', handleResizeEnd);
+    };
+  }, []);
+  
+  // Apply initial height to textarea on mount
+  useEffect(() => {
+    if (textareaRef.current) {
+      textareaRef.current.style.height = `${textareaHeight}px`;
+    }
+  }, []);
 
   return (
     <>
-      <div className="flex flex-col space-y-2">
+      <div ref={containerRef} className="flex flex-col space-y-2">
+        {/* Resize handle */}
+        <div
+          className="w-full h-2 cursor-ns-resize flex justify-center items-center hover:bg-gray-100 rounded-t -mt-2 mb-1 group"
+          onMouseDown={handleResizeStart}
+        >
+          <ArrowsUpDownIcon className="h-4 w-4 text-gray-400 group-hover:text-gray-600" />
+        </div>
+        
         {activeFormat && (
           <div className="flex items-center bg-blue-50 text-blue-700 px-3 py-1 rounded text-sm">
             <TableCellsIcon className="h-4 w-4 mr-2" />
@@ -180,12 +258,13 @@ const ChatInput: React.FC<ChatInputProps> = ({ onSend, disabled = false }) => {
           
           <div className="flex-1 flex space-x-4">
             <textarea
+              ref={textareaRef}
               value={message}
               onChange={(e) => setMessage(e.target.value)}
               onKeyPress={handleKeyPress}
               placeholder={fileContent ? "Add a message to explain the file content..." : "Type your message..."}
               className="flex-1 resize-none rounded-lg border border-gray-300 p-3 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100 disabled:cursor-not-allowed"
-              rows={2}
+              style={{ height: `${textareaHeight}px` }}
               disabled={disabled}
             />
             <button
@@ -204,6 +283,13 @@ const ChatInput: React.FC<ChatInputProps> = ({ onSend, disabled = false }) => {
             </button>
           </div>
         </div>
+        
+        {/* Status message during resizing */}
+        {isResizing && (
+          <div className="absolute bottom-28 right-4 bg-gray-800 text-white text-xs py-1 px-2 rounded opacity-50">
+            Height: {textareaHeight}px
+          </div>
+        )}
       </div>
 
       <StructuredFormatModal

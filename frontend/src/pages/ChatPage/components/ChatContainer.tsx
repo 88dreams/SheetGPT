@@ -45,7 +45,7 @@ const ChatContainer: React.FC<ChatContainerProps> = ({
       
       {/* Fixed position chat input that aligns with the sidebar */}
       <div 
-        className="fixed bottom-0 right-0 bg-white border-t border-gray-200 p-4 w-full"
+        className="fixed bottom-0 right-0 bg-white border-t border-gray-200 pt-2 px-4 pb-4 w-full"
         ref={chatInputRef}
       >
         <ChatInput

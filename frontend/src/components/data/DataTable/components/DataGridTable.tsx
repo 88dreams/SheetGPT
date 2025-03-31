@@ -1,6 +1,7 @@
 import React from 'react';
 import { FaSort, FaSortUp, FaSortDown, FaEyeSlash } from 'react-icons/fa';
 import { createMemoEqualityFn, fingerprint, areEqual } from '../../../../utils/fingerprint';
+import SmartColumn from '../../../common/SmartColumn';
 
 // To avoid TypeScript issues, we'll define this type locally
 type SortDirection = 'asc' | 'desc' | 'none';
@@ -190,40 +191,23 @@ const DataGridTable: React.FC<DataGridTableProps> = ({
                 </th>
               )}
               {headers.map((header: string) => (
-                <th 
-                  key={header} 
-                  scope="col" 
-                  className={`px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider relative cursor-pointer border-r border-gray-200 hover:bg-gray-100 ${
-                    dragOverHeader === header ? 'bg-blue-100' : 'bg-gray-50'
-                  }`}
-                  style={{
-                    width: `${columnWidths[header] || 150}px`,
-                  }}
-                  data-header={header}
-                  draggable
-                  onDragStart={(e) => onHeaderDragStart(e, header)}
-                  onDragOver={(e) => onHeaderDragOver(e, header)}
-                  onDrop={(e) => onHeaderDrop(e, header)}
-                  onDragEnd={onHeaderDragEnd}
-                  onClick={() => onSort(header)}
-                >
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center">
-                      <span className={sortField === header ? "font-bold text-blue-700" : ""}>
-                        {header}
-                      </span>
-                      {sortField === header ? (
-                        <span className="ml-1">
-                          {sortDirection === 'asc' ? (
-                            <FaSortUp className="text-blue-700" size={16} />
-                          ) : (
-                            <FaSortDown className="text-blue-700" size={16} />
-                          )}
-                        </span>
-                      ) : (
-                        <FaSort className="ml-1 text-gray-400" size={12} />
-                      )}
-                    </div>
+                <SmartColumn
+                  key={header}
+                  field={header}
+                  sortField={sortField || ''}
+                  sortDirection={sortDirection || 'none'}
+                  handleSort={onSort || (() => {})}
+                  entities={rows}
+                  handleResizeStart={onColumnResize}
+                  columnWidth={columnWidths[header] || 150}
+                  draggedHeader={draggedHeader}
+                  dragOverHeader={dragOverHeader}
+                  handleColumnDragStart={onHeaderDragStart}
+                  handleColumnDragOver={onHeaderDragOver}
+                  handleColumnDrop={onHeaderDrop}
+                  handleColumnDragEnd={onHeaderDragEnd}
+                  className="bg-gray-50"
+                  additionalHeaderContent={
                     <div className="flex items-center">
                       <button
                         className="text-gray-400 hover:text-gray-700 ml-2 p-1"
@@ -236,15 +220,8 @@ const DataGridTable: React.FC<DataGridTableProps> = ({
                         <FaEyeSlash size={12} />
                       </button>
                     </div>
-                  </div>
-                  <div 
-                    className="absolute top-0 right-0 h-full w-4 cursor-col-resize z-20"
-                    onMouseDown={(e) => onColumnResize(e, header)}
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    <div className="h-full w-0 mx-auto hover:bg-blue-500 hover:w-2 transition-all"></div>
-                  </div>
-                </th>
+                  }
+                />
               ))}
             </tr>
           </thead>

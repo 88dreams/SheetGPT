@@ -7,6 +7,7 @@ import { ensureValidToken } from '../utils/tokenRefresh';
 import usePageTitle from '../hooks/usePageTitle';
 import LoadingSpinner from '../components/common/LoadingSpinner';
 import PageContainer from '../components/common/PageContainer';
+import SmartColumn from '../components/common/SmartColumn';
 import { Modal } from 'antd';
 import { 
   FaDatabase, FaPlay, FaDownload, FaSave, FaFileExport, FaTable, FaKeyboard, 
@@ -1421,31 +1422,24 @@ const DatabaseQuery: React.FC = () => {
                           
                           {/* Generate header from the visible columns, respecting the reordered columns */}
                           {queryResults.length > 0 && reorderedColumns.filter(column => visibleColumns[column]).map((column, index) => (
-                            <th 
+                            <SmartColumn
                               key={index}
-                              className={`px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-grab hover:bg-gray-100 border-r border-gray-200 ${
-                                draggedItem === column ? 'opacity-50 bg-blue-50' : ''
-                              } ${dragOverItem === column ? 'bg-blue-100 border-blue-300' : ''}`}
-                              onClick={() => handleSort(column)}
-                              draggable
-                              onDragStart={(e) => handleColumnDragStart(e, column)}
-                              onDragOver={(e) => handleColumnDragOver(e, column)}
-                              onDrop={(e) => handleColumnDrop(e, column)}
-                              onDragEnd={handleColumnDragEnd}
-                            >
-                              <div className="flex items-center">
-                                <span>{column}</span>
-                                <span className="ml-1">
-                                  {sortConfig && sortConfig.column === column ? (
-                                    sortConfig.direction === 'asc' ? 
-                                      <FaSortUp className="inline text-blue-600" /> : 
-                                      <FaSortDown className="inline text-blue-600" />
-                                  ) : (
-                                    <FaSort className="inline text-gray-400" />
-                                  )}
-                                </span>
-                              </div>
-                            </th>
+                              field={column}
+                              sortField={sortConfig?.column || ''}
+                              sortDirection={sortConfig?.direction || 'none'}
+                              handleSort={handleSort}
+                              entities={sortedResults}
+                              draggedHeader={draggedItem}
+                              dragOverHeader={dragOverItem}
+                              handleColumnDragStart={handleColumnDragStart}
+                              handleColumnDragOver={handleColumnDragOver}
+                              handleColumnDrop={handleColumnDrop}
+                              handleColumnDragEnd={handleColumnDragEnd}
+                              className={`
+                                ${draggedItem === column ? 'opacity-50 bg-blue-50' : ''}
+                                ${dragOverItem === column ? 'bg-blue-100 border-blue-300' : ''}
+                              `}
+                            />
                           ))}
                         </tr>
                       </thead>

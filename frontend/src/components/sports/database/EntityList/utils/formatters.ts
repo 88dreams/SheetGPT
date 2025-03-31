@@ -58,6 +58,38 @@ export function isRelationshipField(field: string, entity: any): boolean {
 }
 
 /**
+ * Determines if a field is a sortable relationship field
+ * This includes both ID fields with corresponding name fields
+ * and direct relationship name fields.
+ */
+export function isSortableRelationshipField(field: string, entities: any[]): boolean {
+  if (entities.length === 0) return false;
+  
+  // Known relationship sort fields
+  const knownRelationshipFields = [
+    'league_name', 
+    'league_sport',
+    'division_conference_name',
+    'team_name',
+    'stadium_name',
+    'broadcast_company_name',
+    'production_company_name',
+    'entity_name'
+  ];
+  
+  if (knownRelationshipFields.includes(field)) {
+    return true;
+  }
+  
+  // Check if it's an ID field with a corresponding _name field
+  if (field.endsWith('_id') && entities[0]?.hasOwnProperty(field.replace('_id', '_name'))) {
+    return true;
+  }
+  
+  return false;
+}
+
+/**
  * Get display value for a field (handles IDs vs names for relationships)
  */
 export function getDisplayValue(entity: any, field: string, entityType?: EntityType, showFullUuids: boolean = false): string {

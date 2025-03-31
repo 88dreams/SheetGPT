@@ -1,8 +1,9 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
-import { FaSortUp, FaSortDown, FaSort, FaEdit, FaTrash, FaEye } from 'react-icons/fa';
+import { FaEdit, FaTrash, FaEye } from 'react-icons/fa';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { fingerprint, createMemoEqualityFn } from '../../../../../utils/fingerprint';
 import EntityRow from './EntityRow';
+import SmartColumn from './SmartColumn';
 import { EntityType } from '../../../../../types/sports';
 import { getDisplayValue } from '../utils/formatters';
 
@@ -177,17 +178,7 @@ const EntityTable: React.FC<EntityTableProps> = ({
     };
   }, []);
 
-  // Render sort icon
-  const renderSortIcon = (field: string) => {
-    if (sortField !== field) {
-      return <FaSort className="ml-1 text-gray-400" />;
-    }
-    return sortDirection === 'asc' ? (
-      <FaSortUp className="ml-1 text-blue-500" />
-    ) : (
-      <FaSortDown className="ml-1 text-blue-500" />
-    );
-  };
+  // Removed renderSortIcon as it's now handled in SmartColumn
 
   // Function to check if an entity matches the search query
   const entityMatchesSearch = (entity: any): boolean => {
@@ -322,35 +313,23 @@ const EntityTable: React.FC<EntityTableProps> = ({
             
             {/* Data columns */}
             {visibleColumnsArray.map((field) => (
-              <th 
+              <SmartColumn
                 key={field}
-                scope="col" 
-                className={`px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer relative border-r border-gray-200 hover:bg-gray-100 ${
-                  dragOverHeader === field ? 'bg-blue-100' : ''
-                }`}
-                onClick={() => handleSort(field)}
-                style={{ 
-                  width: columnWidths[field] || (field === 'name' ? 300 : 120),
-                  minWidth: field === 'name' ? '150px' : '100px'
-                }}
-                draggable="true"
-                onDragStart={(e) => handleColumnDragStart(e, field)}
-                onDragOver={(e) => handleColumnDragOver(e, field)}
-                onDrop={(e) => handleColumnDrop(e, field)}
-                onDragEnd={handleColumnDragEnd}
-              >
-                <div className="flex items-center">
-                  {field.replace(/_/g, ' ').replace(/\b\w/g, char => char.toUpperCase())}
-                  {renderSortIcon(field)}
-                  <div 
-                    className="absolute top-0 right-0 h-full w-4 cursor-col-resize z-20"
-                    onMouseDown={(e) => handleResizeStart(e, field)}
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    <div className="h-full w-0 mx-auto hover:bg-blue-500 hover:w-2 transition-all"></div>
-                  </div>
-                </div>
-              </th>
+                field={field}
+                sortField={sortField}
+                sortDirection={sortDirection}
+                handleSort={handleSort}
+                entities={entities}
+                selectedEntityType={selectedEntityType}
+                handleResizeStart={handleResizeStart}
+                columnWidth={columnWidths[field] || (field === 'name' ? 300 : 120)}
+                draggedHeader={draggedHeader}
+                dragOverHeader={dragOverHeader}
+                handleColumnDragStart={handleColumnDragStart}
+                handleColumnDragOver={handleColumnDragOver}
+                handleColumnDrop={handleColumnDrop}
+                handleColumnDragEnd={handleColumnDragEnd}
+              />
             ))}
             
             {/* Actions column */}

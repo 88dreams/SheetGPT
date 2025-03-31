@@ -219,9 +219,18 @@ This document outlines the phased approach for refactoring the SheetGPT codebase
 - ✅ Created visualizations of performance gains
 - ✅ Included future optimization opportunities
 
-### 8. Remaining Items
-- [ ] Update components to use the new relationship loading utilities
+### 8. Relationship Field Sorting UI Improvements
+- ✅ Added visual indicators for sortable relationship fields
+- ✅ Created SmartColumn component for intelligent column headers
+- ✅ Implemented relationship field detection with isSortableRelationshipField utility
+- ✅ Enhanced column header UI with relationship field highlights
+- ✅ Added FaLink icon to visually identify relationship fields
+- ✅ Created comprehensive tests for SmartColumn component
+- ✅ Added tests for relationship field detection utilities
+
+### 9. Remaining Items
+- [ ] Update remaining components to use the new relationship loading utilities
 - [ ] Complete test coverage for all optimization utilities
 - [ ] Final documentation updates summarizing Phase 4
 
-Last updated: 2025-04-22
+Last updated: 2025-04-30

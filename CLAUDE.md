@@ -512,39 +512,44 @@ export async function saveCsvFile(data: any[], columns: string[], filename: stri
 
 ### Database Maintenance Workflow
 
-The database maintenance workflow follows a step-by-step approach:
+The database maintenance workflow provides a flexible approach with safety warnings:
 
 1. **Backup Step**
-   - Always create and download a backup before maintenance
+   - Create and download a backup before maintenance
    - Use direct SQL generation for backup reliability
-   - Store backups in a dedicated directory with timestamps
-   - Implement proper error handling and progress feedback
-   - Create entity-specific backups for high-risk operations like name standardization
+   - Store backups with timestamps for easy identification
+   - Show clear completion status with timestamp
+   - Enable creating new backups at any time
 
 2. **Analysis Step (Dry Run)**
    - Identify duplicate records across all entity tables
-   - Check for missing or invalid relationships
-   - Find inconsistent entity naming patterns
-   - Identify missing constraints or schema issues
+   - Check for missing relationships and inconsistent naming
    - Present findings without making any changes
-   - Log proposed changes with before/after examples for verification
+   - Can be run without a backup (with warning dialog)
+   - Re-runnable at any time for updated analysis
 
 3. **Cleanup Step**
-   - Remove duplicate records with proper reference updating
-   - Fix broken relationships and standardize entity names
+   - Remove duplicate records and fix broken relationships
+   - Standardize entity names for consistency
    - Add missing constraints to prevent future duplication
-   - Implement proper transaction handling with explicit rollbacks in error cases
-   - Use isolated transactions for constraint operations to prevent cascading failures
-   - Record all changes in system_metadata for auditing
-   - IMPORTANT: When UI state tracking is needed, set step completion state in frontend proactively
-   - Allow manual validation of proposed name standardization changes
+   - Can be rerun after completion with "Run Cleanup Again" button
+   - Shows warning when run out of sequence
+   - Provides immediate visual feedback during operation
 
 4. **Optimization Step**
    - Run VACUUM ANALYZE to reclaim storage and update stats
-   - Run REINDEX to rebuild indexes (optional, can be skipped)
-   - Calculate and display space savings from optimization
-   - Monitor performance improvements with before/after metrics
-   - Properly qualify table names in SQL queries to avoid column ambiguity
+   - Optional REINDEX to rebuild indexes
+   - Calculate and display space savings
+   - Can be run independently (with appropriate warnings)
+   - Shows detailed metrics of optimizations performed
+
+All steps feature:
+- Warning dialogs when run out of sequence
+- Ability to proceed despite warnings
+- Immediate visual feedback during processing
+- Detailed results display after completion
+- Option to rerun at any time
+- Consistent UI with clear instructions
 
 For system_metadata storage:
 - Prefer TEXT type over JSONB for simpler and more reliable updates

@@ -2,6 +2,33 @@
 
 ## Latest Update
 
+### 2025-05-31: Database Maintenance Workflow Improvement
+
+- Redesigned the step-based database maintenance workflow in the Settings page:
+  - Made all maintenance steps selectable regardless of completion status
+  - Added warning dialogs when steps are run out of sequence
+  - Enhanced the "Fix Duplicate Records" step with an always-accessible "Run Cleanup Again" button
+  - Fixed UI state tracking with better feedback when steps are completed
+  - Improved button styling for rerunning maintenance operations
+  - Added immediate visual feedback when maintenance steps are triggered
+  - Removed rigid step prerequisites for better user flexibility
+
+- Key improvements to the maintenance workflow:
+  - Added ability to rerun the database cleanup step at any time
+  - Implemented warning system to inform users of risks when skipping steps
+  - Simplified workflow state management with more reliable update patterns
+  - Enhanced visualization of completed steps with detailed results
+  - Added contextual help text for safer database operations
+  - Improved button state management with immediate visual feedback
+  - Fixed state transition issues with proactive status updates
+
+- Fixed critical issues in the Settings component:
+  - Resolved issue where Fix Duplicate Records step couldn't be rerun after completion
+  - Fixed visual indicator for available maintenance steps
+  - Improved user experience with contextual warnings instead of strict prohibitions
+  - Added comprehensive error handling during maintenance operations
+  - Enhanced visual feedback mechanisms for maintenance steps
+
 ### 2025-05-14: Entity List Pagination Bug Fixes
 
 - Fixed critical pagination issues in the EntityList component:

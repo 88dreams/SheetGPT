@@ -199,18 +199,24 @@ production_services
   - Created clearer patterns for component interaction design
   - Enhanced TypeScript typing for React state management
 
-### Database Maintenance Improvements (April 2025)
+### Database Maintenance Improvements (May 2025)
+- Enhanced database maintenance workflow with flexible step execution:
+  - Redesigned workflow to allow steps to be run in any order with warning dialogs
+  - Implemented informative warnings for potentially risky operations
+  - Added ability to rerun the Fix Duplicate Records step after completion
+  - Created immediate visual feedback when steps are triggered
+  - Fixed state transitions with proactive status updates
+  - Enhanced button styling for better visibility and accessibility
+  - Improved error handling during maintenance operations
+  
 - Fixed critical regex replacement bug in entity name standardization:
   - Corrected Python regex replacement syntax in db_cleanup.py
   - Changed JavaScript-style backreferences (`$1`) to Python-style (`\1`)
   - Implemented automated recovery script for affected NCAA league names
   - Added entity name verification and validation tools
   - Created more reliable UI state tracking for maintenance workflow
-  - Improved transaction handling with isolated operations for constraint changes
+  - Improved transaction handling with isolated operations
   - Optimized system_metadata storage with TEXT vs JSONB type handling
-  - Enhanced UI state management to ensure workflow steps progress properly
-  - Added fallback mechanisms for parameter binding in SQL queries
-  - Improved spacing in standardized NCAA entity names
 
 ### Component Refactoring (March 2025)
 - Refactored EntityList component from 1300+ lines into modular structure

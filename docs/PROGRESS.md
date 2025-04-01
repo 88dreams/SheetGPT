@@ -2,6 +2,35 @@
 
 ## Latest Update
 
+### 2025-06-01: SQL Validation and SQLAlchemy Relationship Fixes
+
+- Implemented comprehensive SQL validation system:
+  - Created backend validation service using Claude to validate SQL queries
+  - Added automatic detection and correction of common PostgreSQL errors
+  - Implemented intelligent feedback for validation issues
+  - Enhanced natural language to SQL generation with PostgreSQL-specific guidance
+  - Added automatic application of SQL fixes in the frontend
+  - Fixed common issues like ORDER BY with DISTINCT and STRING_AGG ordering
+  - Created immediate visual feedback with notifications for applied fixes
+  - Improved automatic re-execution of corrected queries
+
+- Fixed SQLAlchemy relationship configuration:
+  - Resolved overlapping relationship warnings between Brand and BroadcastCompany
+  - Fixed `overlaps` parameter in Brand.broadcast_rights relationship
+  - Added correct overlaps declaration to prevent SQAlchemy warnings
+  - Improved SQLAlchemy relationship architecture for better maintainability
+  - Enhanced relationship declarations with explicit foreign key specifications
+  - Fixed bidirectional relationship configuration for consistent behavior
+
+- Key improvements to the database query functionality:
+  - More reliable SQL query execution with pre-validation
+  - Better user experience with automatic error correction
+  - Seamless fixes for common PostgreSQL syntax issues
+  - Improved validation process with Claude API integration
+  - More detailed error messages for SQL syntax issues
+  - Streamlined query execution workflow with automatic retries
+  - Enhanced error handling with specific error diagnosis
+
 ### 2025-05-31: Database Maintenance Workflow Improvement
 
 - Redesigned the step-based database maintenance workflow in the Settings page:

@@ -255,6 +255,10 @@ const DatabaseQuery: React.FC = () => {
     }
   }, [setDestination]);
 
+  // State for SQL validation errors and suggestions
+  const [validationError, setValidationError] = useState<string | null>(null);
+  const [suggestedSql, setSuggestedSql] = useState<string | null>(null);
+  
   // Create a mutation for executing queries
   const queryMutation = useMutation({
     mutationFn: async (queryData: {
@@ -275,6 +279,46 @@ const DatabaseQuery: React.FC = () => {
       return response.data;
     },
     onSuccess: (data) => {
+      // Check if this was a validation failure
+      if (data.success === false && data.validation_error) {
+        console.log('SQL validation failed', data);
+        
+        if (data.suggested_sql) {
+          // Automatically apply the fix
+          setGeneratedSql(data.suggested_sql);
+          
+          // Show a brief notification that the fix was applied
+          showNotification('info', 'SQL was automatically fixed for PostgreSQL compatibility');
+          
+          // Store validation error for reference but don't show UI elements
+          setValidationError(data.validation_error);
+          setSuggestedSql(null);
+          
+          // Re-run the query with the fixed SQL after a short delay
+          setTimeout(() => {
+            const queryData = {
+              query: data.suggested_sql,
+              natural_language: false,
+            };
+            
+            // Execute the query with the fixed SQL
+            queryMutation.mutate(queryData);
+          }, 500);
+          
+          return;
+        } else {
+          // If no suggested SQL, show the error
+          setValidationError(data.validation_error);
+          setSuggestedSql(data.suggested_sql);
+          showNotification('warning', 'SQL validation detected issues but couldn\'t generate a fix');
+          return;
+        }
+      }
+      
+      // Clear any previous validation errors
+      setValidationError(null);
+      setSuggestedSql(null);
+      
       // Handle successful query results
       console.log('Query executed successfully', data);
       setQueryResults(data.results || []);
@@ -1180,20 +1224,52 @@ const DatabaseQuery: React.FC = () => {
                       <label className="block text-sm font-medium text-gray-700">
                         SQL Query
                       </label>
-                      <button 
-                        onClick={() => setGeneratedSql("")}
-                        className="text-gray-400 hover:text-gray-600 px-1 text-xs"
-                        title="Clear"
-                      >
-                        <FaTrash className="inline" /> Clear
-                      </button>
+                      <div>
+                        {suggestedSql && (
+                          <button 
+                            onClick={() => {
+                              setGeneratedSql(suggestedSql);
+                              setSuggestedSql(null);
+                              setValidationError(null);
+                            }}
+                            className="bg-green-600 text-white px-2 py-1 rounded text-xs mr-2"
+                            title="Apply suggested SQL fix"
+                          >
+                            <FaCheck className="inline mr-1" /> Apply Fix
+                          </button>
+                        )}
+                        <button 
+                          onClick={() => setGeneratedSql("")}
+                          className="text-gray-400 hover:text-gray-600 px-1 text-xs"
+                          title="Clear"
+                        >
+                          <FaTrash className="inline" /> Clear
+                        </button>
+                      </div>
                     </div>
                     <textarea
                       value={generatedSql || ''}
-                      onChange={(e) => setGeneratedSql(e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md font-mono h-48"
+                      onChange={(e) => {
+                        setGeneratedSql(e.target.value);
+                        // Clear validation errors when user manually edits SQL
+                        if (validationError) {
+                          setValidationError(null);
+                          setSuggestedSql(null);
+                        }
+                      }}
+                      className={`w-full px-3 py-2 border rounded-md font-mono h-48 ${
+                        validationError && suggestedSql ? 'border-red-300 bg-red-50' : 'border-gray-300'
+                      }`}
                       placeholder="Enter SQL directly or use the Translate button to generate SQL from your question"
                     />
+                    
+                    {/* Only show validation errors if there's no suggested SQL fix */}
+                    {validationError && suggestedSql && (
+                      <div className="mt-2 p-3 border border-red-300 bg-red-50 rounded text-sm">
+                        <div className="font-semibold mb-2">SQL Validation Issues:</div>
+                        <pre className="whitespace-pre-wrap text-xs">{validationError}</pre>
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>

@@ -166,6 +166,34 @@ production_services
 
 ## Recent Enhancements
 
+### SQL Validation and Query Execution Improvements (June 2025)
+- Implemented comprehensive SQL validation system:
+  - Created validation service using Claude API for intelligent error detection
+  - Enhanced user experience with automatic SQL correction
+  - Implemented detailed validation for complex PostgreSQL-specific issues:
+    - ORDER BY with SELECT DISTINCT validation
+    - Aggregation function ordering validation
+    - CTE syntax verification with UNION compatibility
+    - JOIN condition verification
+    - Window function validation
+    - Invalid column reference detection
+  - Added SQL query pre-validation to prevent runtime errors
+  - Enhanced natural language to SQL generation with specific PostgreSQL guidance
+  - Implemented seamless frontend integration with automatic fix application
+  - Added visual feedback for automatic SQL corrections with notifications
+  
+- Created intelligent SQL query validation workflow:
+  ```
+  SQL Query → Claude API Validation → Error Detection →
+  Syntax Correction → Query Rewriting → Frontend Update →
+  Automatic Execution → Results Display
+  ```
+  
+- Fixed SQLAlchemy relationship configuration:
+  - Resolved overlapping relationship warnings between Brand and BroadcastCompany
+  - Enhanced bidirectional relationship configuration with proper overlaps parameter
+  - Improved relationship declaration with explicit foreign key specifications
+
 ### React State Management Improvements (May 2025)
 - Identified and documented complex React state management patterns:
   - Discovered circular dependencies in component and hook interactions

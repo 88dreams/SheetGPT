@@ -90,6 +90,89 @@ class DatabaseManagementService:
             logger.error(f"Error executing query: {str(e)}")
             raise ValueError(f"Query execution failed: {str(e)}")
             
+    async def validate_sql_query(self, sql_query: str) -> Tuple[bool, str, str]:
+        """
+        Validate a SQL query for common PostgreSQL errors before execution.
+        
+        Args:
+            sql_query: The SQL query to validate
+            
+        Returns:
+            Tuple containing:
+              - Boolean indicating if the query is valid
+              - Corrected SQL query if issues were fixed, otherwise original
+              - Error message or improvement suggestions, if any
+        """
+        try:
+            # Build a comprehensive validation prompt
+            prompt = f"""As an expert PostgreSQL SQL validator, analyze this query for errors and common pitfalls.
+Focus on PostgreSQL-specific syntax errors and runtime issues, particularly:
+
+1. Using ORDER BY with SELECT DISTINCT incorrectly
+2. Ordering issues in aggregation functions like STRING_AGG
+3. Using columns in ORDER BY that aren't in the SELECT clause
+4. GROUP BY issues with aggregation functions
+5. Syntax errors in CTEs (WITH clauses)
+6. JOIN condition errors
+7. Subquery syntax issues
+8. Improper use of window functions
+9. Invalid column references
+
+SQL query to validate:
+```sql
+{sql_query}
+```
+
+If you find issues, provide:
+1. A clear explanation of each issue
+2. A corrected version of the query
+3. Why the correction works
+
+If no issues are found, respond with: "VALID: The query appears syntactically correct."
+If issues are found, start with: "INVALID: Found the following issues:"
+
+Response format:
+[VALID/INVALID status]
+[Explanation if INVALID]
+[Corrected SQL if INVALID]"""
+
+            # Get validation response from Claude
+            validation_result = await self.anthropic_service.generate_code(prompt, temperature=0.1)
+            
+            # Parse the validation result
+            is_valid = validation_result.startswith("VALID")
+            
+            if is_valid:
+                return True, sql_query, ""
+            else:
+                # Extract corrected SQL from the response
+                corrected_sql = ""
+                explanation = ""
+                
+                # Look for a SQL block in the response
+                sql_matches = re.findall(r'```sql\s*(.*?)\s*```', validation_result, re.DOTALL)
+                if sql_matches:
+                    corrected_sql = sql_matches[-1].strip()  # Take the last SQL block
+                
+                # Get the explanation part (everything before the first code block)
+                explanation_match = re.split(r'```sql', validation_result, 1)[0]
+                if explanation_match:
+                    explanation = explanation_match.strip()
+                
+                logger.info(f"SQL validation found issues: {explanation[:100]}...")
+                
+                # If we couldn't extract a corrected SQL version, return the original
+                if not corrected_sql:
+                    logger.warning("Couldn't extract corrected SQL from validation response")
+                    return False, sql_query, explanation
+                
+                return False, corrected_sql, explanation
+                
+        except Exception as e:
+            logger.error(f"Error in SQL validation: {str(e)}")
+            # If validation fails, assume the query is valid to not block execution
+            return True, sql_query, f"Validation service error: {str(e)}"
+
     async def translate_natural_language_to_sql(self, nl_query: str) -> str:
         """
         Convert a natural language query to SQL without executing it.
@@ -133,6 +216,16 @@ class DatabaseManagementService:
    - Use COALESCE to handle NULL values in joins
 """
         
+        # Add PostgreSQL-specific warnings about common pitfalls
+        specialized_guidance += """
+IMPORTANT PostgreSQL Restrictions:
+1. When using SELECT DISTINCT, all ORDER BY columns must appear in the SELECT list
+2. For STRING_AGG with ORDER BY, ensure the ordering column is included in select list if using DISTINCT
+3. In CTEs with UNION, each SELECT must have the same column count and compatible data types
+4. All GROUP BY expressions must appear in the SELECT list, or be used in aggregate functions
+5. Window functions cannot be used with DISTINCT unless the DISTINCT is in a subquery
+"""
+        
         # Build a prompt for Claude to convert natural language to SQL
         prompt = f"""You are an expert SQL developer specializing in sports broadcasting databases. Convert the following natural language query to a PostgreSQL SQL query.
 
@@ -154,6 +247,10 @@ Rules:
    - Handle NULL values properly with COALESCE or IS NULL checks
    - For broadcast rights, check for the right entity_type and division_conference_id
    - Use CASE statements for conditional column display when needed
+7. PostgreSQL restrictions:
+   - Never use ORDER BY inside STRING_AGG() when the query uses DISTINCT
+   - When using ORDER BY with aggregations, ensure correct subquery structure
+   - For DISTINCT queries, all ORDER BY columns must appear in the SELECT list
 
 SQL Query:"""
 
@@ -166,7 +263,7 @@ SQL Query:"""
             sql_query = re.sub(r'\s*```$', '', sql_query, flags=re.MULTILINE)
             sql_query = sql_query.strip()
             
-            # Perform basic validation checks
+            # Perform basic validation checks 
             has_broadcast_where = False
             has_entity_type_check = False
             
@@ -181,7 +278,16 @@ SQL Query:"""
                 if not (has_entity_type_check and has_division_conference):
                     logger.warning(f"Generated SQL may be incomplete for broadcast rights query: missing entity_type or division_conference checks")
             
-            # Log the generated SQL
+            # Validate the generated SQL for common PostgreSQL syntax issues
+            is_valid, validated_sql, error_msg = await self.validate_sql_query(sql_query)
+            
+            if not is_valid:
+                logger.warning(f"Generated SQL had validation issues: {error_msg[:100]}...")
+                logger.info(f"Original SQL: {sql_query}")
+                logger.info(f"Corrected SQL: {validated_sql}")
+                sql_query = validated_sql  # Use the corrected version
+            
+            # Log the final SQL
             logger.info(f"Generated SQL from natural language (translate only): {sql_query}")
             
             return sql_query

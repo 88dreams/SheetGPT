@@ -430,8 +430,21 @@ async def execute_database_query(
                 # Convert natural language to SQL using AI and execute
                 results, generated_sql = await service.execute_natural_language_query(query_text)
         else:
-            # Execute direct SQL with safety checks
-            results = await service.execute_safe_query(query_text)
+            # For direct SQL input, validate it first
+            is_valid, validated_sql, error_msg = await service.validate_sql_query(query_text)
+            
+            if not is_valid:
+                # Return validation error with the suggested fix
+                return {
+                    "success": False,
+                    "error": "SQL validation failed",
+                    "validation_error": error_msg,
+                    "suggested_sql": validated_sql
+                }
+            
+            # Execute the validated SQL with safety checks
+            results = await service.execute_safe_query(validated_sql)
+            generated_sql = validated_sql if validated_sql != query_text else None
             
         # Check if export is requested
         export_format = query_data.get("export_format")
@@ -448,7 +461,7 @@ async def execute_database_query(
                     }
                 }
                 
-                # Include generated SQL if natural language was used
+                # Include generated SQL if natural language was used or SQL was corrected
                 if generated_sql:
                     response["generated_sql"] = generated_sql
                     
@@ -469,7 +482,7 @@ async def execute_database_query(
                     }
                 }
                 
-                # Include generated SQL if natural language was used
+                # Include generated SQL if natural language was used or SQL was corrected
                 if generated_sql:
                     response["generated_sql"] = generated_sql
                     
@@ -481,7 +494,7 @@ async def execute_database_query(
             "results": results
         }
         
-        # Include generated SQL if natural language was used
+        # Include generated SQL if natural language was used or SQL was corrected
         if generated_sql:
             response["generated_sql"] = generated_sql
             

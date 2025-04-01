@@ -609,7 +609,7 @@ class Brand(TimestampedBase):
     broadcast_rights: Mapped[List["BroadcastRights"]] = relationship(
         back_populates="brand",
         foreign_keys="[BroadcastRights.broadcast_company_id]",
-        overlaps="broadcast_company",
+        overlaps="broadcast_company,broadcast_rights",
         primaryjoin="Brand.id == BroadcastRights.broadcast_company_id"
     )
 

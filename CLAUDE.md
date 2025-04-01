@@ -1,5 +1,25 @@
 # SheetGPT Development Guide
 
+## Recent Improvements
+
+### SQL Validation System (Completed June 1)
+- ✅ Backend SQL Validation Service using Claude API
+- ✅ Enhanced Natural Language to SQL Generation
+- ✅ Automatic Application of SQL Fixes in Frontend
+- ✅ Immediate Visual Feedback with Notifications
+- ✅ Validation for PostgreSQL-specific Issues:
+  - ORDER BY with SELECT DISTINCT
+  - STRING_AGG with ORDER BY
+  - Subquery Syntax
+  - JOIN Conditions
+  - Window Functions
+  - Column References
+
+### SQLAlchemy Relationship Fixes (Completed June 1)
+- ✅ Fixed Brand/BroadcastCompany Relationship Warnings
+- ✅ Enhanced Overlaps Parameter Configuration
+- ✅ Improved Bidirectional Relationship Properties
+
 ## Refactoring Progress
 
 - ✅ Phase 1: Standardized Error Handling and TypeScript Typing (COMPLETED March 30)

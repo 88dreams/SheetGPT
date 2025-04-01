@@ -34,6 +34,10 @@ export function useDragAndDrop<T>({ items, storageKey }: UseDragAndDropProps<T>)
     // Skip empty items
     if (!items || items.length === 0) return;
     
+    // Create stable JSON representation of items for comparison
+    const itemsFingerprint = fingerprint(items);
+    const previousItemsFingerprint = fingerprint(itemsRef.current);
+    
     // Check if storage key has changed - if so, we need to reload from the new storage key
     const storageKeyChanged = storageKey !== previousStorageKey.current;
     
@@ -44,40 +48,13 @@ export function useDragAndDrop<T>({ items, storageKey }: UseDragAndDropProps<T>)
       hasLoadedFromStorage.current = false;
     }
     
-    // Skip if items array hasn't actually changed and storage key is the same
-    // This prevents unnecessary re-renders
-    // Use fingerprinting for more efficient comparison
-    if (
-      !storageKeyChanged &&
-      itemsRef.current.length === items.length && 
-      areEqual(
-        [...itemsRef.current].sort(), 
-        [...items].sort(), 
-        { depth: 1 }
-      )
-    ) {
+    // Skip if items array hasn't actually changed (by fingerprint) and storage key is the same
+    if (!storageKeyChanged && itemsFingerprint === previousItemsFingerprint) {
       return;
     }
     
     // Update our ref to the new items
     itemsRef.current = [...items];
-    
-    // Skip loading from localStorage if we've already done it with this key,
-    // storage key hasn't changed, and items still match what we have in storage
-    if (
-      !storageKeyChanged &&
-      hasLoadedFromStorage.current && 
-      reorderedItems.length > 0 && 
-      // Check if all our items are in the reordered array already
-      items.every(item => reorderedItems.includes(item))
-    ) {
-      // Make sure all new items get added
-      const newItems = items.filter(item => !reorderedItems.includes(item));
-      if (newItems.length > 0) {
-        setReorderedItems(prev => [...prev, ...newItems]);
-      }
-      return;
-    }
     
     // Try to load from localStorage or sessionStorage when:
     // 1. We have a storage key, and
@@ -96,17 +73,29 @@ export function useDragAndDrop<T>({ items, storageKey }: UseDragAndDropProps<T>)
           const parsedOrder = JSON.parse(savedOrder);
           
           // Filter to include only valid items from the current items array
-          const validItems = parsedOrder.filter((item: any) => 
-            items.includes(item)
-          );
+          const validItems = [];
+          for (const item of parsedOrder) {
+            // Find matching item in the current items array by deep equality
+            // This is needed because JSON stringification loses reference equality
+            const matchingItem = items.find(current => 
+              JSON.stringify(current) === JSON.stringify(item)
+            );
+            if (matchingItem) {
+              validItems.push(matchingItem);
+            }
+          }
           
           // Add any missing items
           const allItems = [...validItems];
-          items.forEach(item => {
-            if (!allItems.includes(item)) {
+          for (const item of items) {
+            // Check if item is already in allItems
+            const isIncluded = allItems.some(existing => 
+              JSON.stringify(existing) === JSON.stringify(item)
+            );
+            if (!isIncluded) {
               allItems.push(item);
             }
-          });
+          }
           
           if (allItems.length > 0) {
             setReorderedItems(allItems);
@@ -119,9 +108,12 @@ export function useDragAndDrop<T>({ items, storageKey }: UseDragAndDropProps<T>)
       }
     }
     
-    // Default: use items as is
-    setReorderedItems([...items]);
-  }, [items, storageKey]);
+    // Default: use items as is if we couldn't load from storage
+    // Only update if the items have actually changed to avoid render loops
+    if (itemsFingerprint !== previousItemsFingerprint || reorderedItems.length === 0) {
+      setReorderedItems([...items]);
+    }
+  }, [items, storageKey, reorderedItems.length]);
   
   // Save to both localStorage and sessionStorage whenever order changes
   // This is separate from the items initialization effect
@@ -156,19 +148,43 @@ export function useDragAndDrop<T>({ items, storageKey }: UseDragAndDropProps<T>)
     }
   }, [draggedItem]);
 
-  // Handle drop
+  // Handle drop with enhanced object comparison
   const handleDrop = useCallback((e: React.DragEvent, targetItem: T) => {
     e.preventDefault();
     
-    if (!draggedItem || draggedItem === targetItem) {
+    // Clear visual state immediately for responsive UI
+    setDragOverItem(null);
+    
+    if (!draggedItem) {
+      setDraggedItem(null);
       return;
     }
     
-    // Get indexes from current order
-    const sourceIndex = reorderedItems.indexOf(draggedItem);
-    const targetIndex = reorderedItems.indexOf(targetItem);
+    // Skip if dragging onto itself (compare by fingerprint for object equality)
+    if (fingerprint(draggedItem) === fingerprint(targetItem)) {
+      setDraggedItem(null);
+      return;
+    }
+    
+    // Get indexes from current order - use stringified comparison for objects
+    let sourceIndex = -1;
+    let targetIndex = -1;
+    
+    // Find indexes by comparing JSON representations
+    for (let i = 0; i < reorderedItems.length; i++) {
+      if (JSON.stringify(reorderedItems[i]) === JSON.stringify(draggedItem)) {
+        sourceIndex = i;
+      }
+      if (JSON.stringify(reorderedItems[i]) === JSON.stringify(targetItem)) {
+        targetIndex = i;
+      }
+      
+      // Break early if both found
+      if (sourceIndex !== -1 && targetIndex !== -1) break;
+    }
     
     if (sourceIndex === -1 || targetIndex === -1) {
+      setDraggedItem(null);
       return;
     }
     
@@ -176,15 +192,23 @@ export function useDragAndDrop<T>({ items, storageKey }: UseDragAndDropProps<T>)
     const newItems = [...reorderedItems];
     
     // Remove from source position
-    newItems.splice(sourceIndex, 1);
+    const [removed] = newItems.splice(sourceIndex, 1);
     
     // Insert at target position
-    newItems.splice(targetIndex, 0, draggedItem);
+    newItems.splice(targetIndex, 0, removed);
     
-    // Update state
-    setReorderedItems(newItems);
+    // Verify the array changed to prevent unnecessary updates
+    const oldFingerprint = fingerprint(reorderedItems);
+    const newFingerprint = fingerprint(newItems);
+    
+    if (oldFingerprint !== newFingerprint) {
+      console.log('Reordering items after drop');
+      // Only update state if the array actually changed
+      setReorderedItems(newItems);
+    }
+    
+    // Clear drag state
     setDraggedItem(null);
-    setDragOverItem(null);
   }, [draggedItem, reorderedItems]);
 
   // Handle drag end

@@ -4,6 +4,7 @@ import { useDataFlow } from '../contexts/DataFlowContext';
 import { useNotification } from '../contexts/NotificationContext';
 import { apiClient, getToken } from '../utils/apiClient';
 import { ensureValidToken } from '../utils/tokenRefresh';
+import { fingerprint } from '../utils/fingerprint';
 import usePageTitle from '../hooks/usePageTitle';
 import LoadingSpinner from '../components/common/LoadingSpinner';
 import PageContainer from '../components/common/PageContainer';
@@ -47,9 +48,10 @@ const DatabaseQuery: React.FC = () => {
   
   // Initialize column drag and drop
   // Use a stable reference with useMemo to prevent dependency cycles
+  // Use fingerprinting to create a stable reference that only changes when necessary
   const dragDropItems = useMemo(() => ({
     items: columnOrder
-  }), [JSON.stringify(columnOrder)]); // Only re-create when columnOrder changes meaningfully
+  }), [fingerprint(columnOrder)]); // Only re-create when columnOrder changes meaningfully
   
   const {
     reorderedItems: reorderedColumns,
@@ -103,13 +105,21 @@ const DatabaseQuery: React.FC = () => {
   // This effect intentionally only depends on reorderedColumns to avoid circular updates
   useEffect(() => {
     if (reorderedColumns.length > 0) {
-      // Prevent unnecessary updates with deep equality check
-      const currentOrder = JSON.stringify(columnOrder);
-      const newOrder = JSON.stringify(reorderedColumns);
+      // Use fingerprinting for more reliable deep comparison
+      const currentOrderFp = fingerprint(columnOrder);
+      const newOrderFp = fingerprint(reorderedColumns);
       
-      // Only update if the order is actually different
-      if (currentOrder !== newOrder) {
-        setColumnOrder(reorderedColumns);
+      // Only update if the order is actually different by fingerprint
+      if (currentOrderFp !== newOrderFp) {
+        console.log('Updating column order from reordered columns');
+        // Use a function to update state to ensure we're working with latest state
+        setColumnOrder(prevOrder => {
+          // Double check fingerprints to prevent update loops
+          if (fingerprint(prevOrder) !== newOrderFp) {
+            return [...reorderedColumns];
+          }
+          return prevOrder;
+        });
       }
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps

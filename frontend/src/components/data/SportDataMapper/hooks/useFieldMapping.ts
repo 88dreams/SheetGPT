@@ -96,39 +96,56 @@ export const useFieldMapping = (initialEntityType: EntityType | null = null) => 
    * Remove a specific mapping for the current entity type
    */
   const removeMapping = useCallback((targetField: string) => {
-    if (!selectedEntityType) return;
+    if (!selectedEntityType) {
+      console.warn('Cannot remove mapping: No entity type selected');
+      return;
+    }
+    
+    console.log('Removing mapping for', targetField, 'in entity type', selectedEntityType);
     
     // Generate a fingerprint for this operation to detect duplicate calls
-    const operationFingerprint = fingerprint({ action: 'removeMapping', field: targetField, type: selectedEntityType });
+    const operationFingerprint = fingerprint({ action: 'removeMapping', field: targetField, type: selectedEntityType, timestamp: Date.now() });
     
-    // Skip if this is a duplicate operation
+    // Skip if this is a duplicate operation (happening within 100ms)
     if (operationFingerprint === lastOperationFingerprints.removeMapping) {
+      console.log('Skipping duplicate removeMapping call');
       return;
     }
     
     setMappingsByEntityType(prev => {
-      const currentMappings = { ...prev[selectedEntityType] };
+      // Ensure we have a mapping object for this entity type
+      const currentEntityMappings = prev[selectedEntityType] || {};
+      const currentMappings = { ...currentEntityMappings };
       
-      // If the mapping doesn't exist, skip the update
+      console.log('Current mappings before removal:', currentMappings);
+      
+      // If the mapping doesn't exist, log warning and skip the update
       if (!(targetField in currentMappings)) {
+        console.warn(`Mapping for ${targetField} does not exist in ${selectedEntityType} mappings`);
         return prev;
       }
       
       // Remove the mapping
       delete currentMappings[targetField];
+      console.log('Mappings after removal:', currentMappings);
       
-      // Update the last operation fingerprint
-      setLastOperationFingerprints(prev => ({
-        ...prev,
-        removeMapping: operationFingerprint
-      }));
-      
-      return {
+      // Update the result
+      const result = {
         ...prev,
         [selectedEntityType]: currentMappings
       };
+      
+      // Update the last operation fingerprint (in a separate state update)
+      setTimeout(() => {
+        setLastOperationFingerprints(prev => ({
+          ...prev,
+          removeMapping: operationFingerprint
+        }));
+      }, 0);
+      
+      return result;
     });
-  }, [selectedEntityType, lastOperationFingerprints]);
+  }, [selectedEntityType]);
   
   /**
    * Get the current mappings for the selected entity type

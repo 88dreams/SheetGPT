@@ -146,9 +146,15 @@ const DroppableField: React.FC<DroppableFieldProps> = ({
           
           {isMapped && (
             <button
-              onClick={() => onRemoveMapping(field.name)}
-              className="flex-shrink-0 text-red-500 hover:text-red-700"
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                console.log('Removing mapping for field:', field.name);
+                onRemoveMapping(field.name);
+              }}
+              className="flex-shrink-0 text-red-500 hover:text-red-700 p-1 rounded-full hover:bg-red-50"
               title="Remove mapping"
+              type="button"
             >
               <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />

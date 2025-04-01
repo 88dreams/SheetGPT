@@ -2,6 +2,13 @@
 
 ## Recent Improvements
 
+### Component State Management Fixes (Completed June 2)
+- ✅ Fixed Infinite Update Loop in DatabaseQuery Component
+- ✅ Improved Export Functionality to Respect Column Visibility
+- ✅ Enhanced Fingerprint Comparison for State Updates
+- ✅ Added useRef Pattern for Breaking Circular Dependencies
+- ✅ Improved CSV and Google Sheets Export Consistency
+
 ### SQL Validation System (Completed June 1)
 - ✅ Backend SQL Validation Service using Claude API
 - ✅ Enhanced Natural Language to SQL Generation

@@ -2,6 +2,32 @@
 
 ## Latest Update
 
+### 2025-06-02: DatabaseQuery Component Fixes for Column Reordering and Export
+
+- Fixed critical issues in the DatabaseQuery component:
+  - Resolved infinite update loop when reordering columns in query results
+  - Used useRef to track previous state and break circular dependency
+  - Implemented better fingerprint comparison to prevent redundant updates
+  - Added proper conditional checks to avoid React state update cycles
+  - Improved console logging to aid in debugging column reordering
+  - Fixed state synchronization between reorderedColumns and columnOrder
+
+- Enhanced export functionality to respect column visibility:
+  - Updated CSV export to only include visible columns
+  - Modified Google Sheets export to match UI column visibility
+  - Preserved column ordering in exported files to match UI display
+  - Added better debug logging for export operations
+  - Ensured export formats (CSV and Google Sheets) have consistent behavior
+  - Implemented a more user-friendly export experience matching user expectations
+
+- Key improvements to user experience:
+  - More stable UI when reordering columns (no more rapid console errors)
+  - Exports now match what users see in the UI (only visible columns)
+  - Proper column order preservation in exported files
+  - Prevention of "Maximum update depth exceeded" error in React
+  - Enhanced frontend error prevention with defensive programming
+  - Fixed inconsistency between UI display and exported data
+
 ### 2025-06-01: SQL Validation and SQLAlchemy Relationship Fixes
 
 - Implemented comprehensive SQL validation system:

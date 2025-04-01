@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useCallback, useEffect } from 'react';
+import React, { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { useDataFlow } from '../contexts/DataFlowContext';
 import { useNotification } from '../contexts/NotificationContext';
@@ -102,26 +102,28 @@ const DatabaseQuery: React.FC = () => {
   }, [queryResults]);
   
   // Update columnOrder state when reorderedColumns changes from drag and drop
-  // This effect intentionally only depends on reorderedColumns to avoid circular updates
+  // Use a ref to break the circular dependency
+  const prevReorderedColumnsRef = useRef<string[]>([]);
+  
   useEffect(() => {
     if (reorderedColumns.length > 0) {
       // Use fingerprinting for more reliable deep comparison
       const currentOrderFp = fingerprint(columnOrder);
       const newOrderFp = fingerprint(reorderedColumns);
+      const prevReorderedFp = fingerprint(prevReorderedColumnsRef.current);
       
-      // Only update if the order is actually different by fingerprint
-      if (currentOrderFp !== newOrderFp) {
-        console.log('Updating column order from reordered columns');
-        // Use a function to update state to ensure we're working with latest state
-        setColumnOrder(prevOrder => {
-          // Double check fingerprints to prevent update loops
-          if (fingerprint(prevOrder) !== newOrderFp) {
-            return [...reorderedColumns];
-          }
-          return prevOrder;
-        });
+      // Only update if:
+      // 1. The order is actually different by fingerprint, AND
+      // 2. The reorderedColumns has changed since last time we processed it
+      if (currentOrderFp !== newOrderFp && prevReorderedFp !== newOrderFp) {
+        // Update our ref to the current reordered columns
+        prevReorderedColumnsRef.current = [...reorderedColumns];
+        
+        // Set column order, but avoid react state update cycles
+        setColumnOrder([...reorderedColumns]);
       }
     }
+  // We're intentionally only watching reorderedColumns to break the update cycle
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [reorderedColumns]);
   
@@ -898,10 +900,15 @@ const DatabaseQuery: React.FC = () => {
     try {
       setIsExporting(true);
       
+      // Get only visible headers in the correct order
+      const visibleHeaders = getVisibleColumns;
+      
       // Convert query results to the format expected by the sheets API
-      const headers = Object.keys(queryResults[0]);
-      const rows = queryResults.map(row => headers.map(h => row[h]));
-      const allRows = [headers, ...rows];
+      // Only include visible columns
+      const rows = queryResults.map(row => 
+        visibleHeaders.map(h => row[h])
+      );
+      const allRows = [visibleHeaders, ...rows];
       
       // Call the sheets export API
       const response = await apiClient.post('/export/sheets', {
@@ -963,15 +970,15 @@ const DatabaseQuery: React.FC = () => {
       // For CSV, directly generate and download from the browser
       if (format === 'csv') {
         try {
-          // Get headers from the first row
-          const headers = Object.keys(queryResults[0]);
+          // Get only visible headers in the correct order
+          const visibleHeaders = getVisibleColumns;
           
-          // Generate CSV content
-          let csvContent = headers.join(',') + '\n';
+          // Generate CSV content with only visible columns
+          let csvContent = visibleHeaders.join(',') + '\n';
           
-          // Add data rows
+          // Add data rows (only including visible columns)
           queryResults.forEach(row => {
-            const values = headers.map(header => {
+            const values = visibleHeaders.map(header => {
               const value = row[header];
               // Handle different value types and ensure proper CSV formatting
               if (value === null || value === undefined) return '';
@@ -997,7 +1004,7 @@ const DatabaseQuery: React.FC = () => {
           downloadLink.click();
           document.body.removeChild(downloadLink);
           
-          console.log('CSV download initiated');
+          console.log('CSV download initiated with visible columns:', visibleHeaders);
         } catch (error) {
           console.error('Error generating CSV:', error);
           alert('Error generating CSV. Please try again.');

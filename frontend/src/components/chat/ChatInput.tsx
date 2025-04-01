@@ -1,4 +1,4 @@
-import React, { useState, KeyboardEvent, useRef, ChangeEvent, useEffect } from 'react'
+import React, { useState, KeyboardEvent, useRef, ChangeEvent, useEffect, useCallback } from 'react'
 import LoadingSpinner from '../common/LoadingSpinner'
 import StructuredFormatModal from './StructuredFormatModal'
 import { TableCellsIcon, DocumentTextIcon, XMarkIcon, ArrowsUpDownIcon } from '@heroicons/react/24/outline'
@@ -17,21 +17,18 @@ const ChatInput: React.FC<ChatInputProps> = ({ onSend, disabled = false }) => {
   const [fileContent, setFileContent] = useState<string | null>(null)
   const [fileName, setFileName] = useState<string | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const textareaRef = useRef<HTMLTextAreaElement>(null)
   
-  // For textarea resizing
-  const [textareaHeight, setTextareaHeight] = useState<number>(() => {
-    // Retrieve from localStorage or use default (2 rows)
+  // For textarea resizing - simple approach with single state
+  const [inputHeight, setInputHeight] = useState<number>(() => {
     const savedHeight = localStorage.getItem('chatInputHeight')
     return savedHeight ? parseInt(savedHeight, 10) : 80
   })
   
-  // Explicitly track height for immediate feedback
-  const [currentHeight, setCurrentHeight] = useState<number>(textareaHeight)
+  // Simple resize state
   const [isResizing, setIsResizing] = useState(false)
-  const resizeStartPosRef = useRef<number>(0)
-  const initialHeightRef = useRef<number>(textareaHeight)
-  const textareaRef = useRef<HTMLTextAreaElement>(null)
-  const containerRef = useRef<HTMLDivElement>(null)
+  const resizeStartRef = useRef({ y: 0, height: 0 })
+  const isResizingRef = useRef(false)
 
   const handleSubmit = () => {
     if ((message.trim() || fileContent) && !disabled) {
@@ -86,16 +83,16 @@ const ChatInput: React.FC<ChatInputProps> = ({ onSend, disabled = false }) => {
           if (activeFormat && activeFormat.headers && activeFormat.rows) {
             // If we have a table format active, convert to that format
             const headers = result.meta.fields || [];
-            const rows = result.data.map(row => 
-              headers.map(header => (row as any)[header] || '')
+            const rows = result.data.map((row: Record<string, any>) => 
+              headers.map((header: string) => (row as any)[header] || '')
             );
             
             setFileContent(JSON.stringify({ headers, rows }, null, 2));
           } else {
             // Default table format
             const headers = result.meta.fields || [];
-            const rows = result.data.map(row => 
-              headers.map(header => (row as any)[header] || '')
+            const rows = result.data.map((row: Record<string, any>) => 
+              headers.map((header: string) => (row as any)[header] || '')
             );
             
             setFileContent(JSON.stringify({ headers, rows }, null, 2));
@@ -134,92 +131,102 @@ const ChatInput: React.FC<ChatInputProps> = ({ onSend, disabled = false }) => {
     setFileName(null);
   };
   
-  // Handle resize events
-  const handleResizeStart = (e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
+  // Define resize event handlers using ref values directly to avoid circular dependencies
+  const handleResizeMove = useCallback((e: MouseEvent) => {
+    // Use ref to check if we're actually resizing
+    if (!isResizingRef.current) return;
     
-    console.log('Resize start:', { clientY: e.clientY });
+    // Calculate how much to resize (invert delta since we're resizing from top)
+    const delta = resizeStartRef.current.y - e.clientY;
+    const newHeight = Math.max(80, Math.min(400, resizeStartRef.current.height + delta));
     
-    setIsResizing(true);
-    resizeStartPosRef.current = e.clientY;
-    initialHeightRef.current = textareaHeight;
+    console.log('Resize move:', { 
+      clientY: e.clientY, 
+      startY: resizeStartRef.current.y,
+      delta,
+      newHeight
+    });
     
-    // Add resize handlers to document to capture events outside the element
-    const handleMouseMove = (e: MouseEvent) => {
-      if (!isResizing) return;
-      
-      // Calculate the new height (moving up decreases height, moving down increases it)
-      const delta = e.clientY - resizeStartPosRef.current;
-      const newHeight = Math.max(80, initialHeightRef.current + delta);
-      const maxHeight = 200;
-      const limitedHeight = Math.min(newHeight, maxHeight);
-      
-      console.log('Resize move:', { 
-        clientY: e.clientY, 
-        start: resizeStartPosRef.current,
-        delta,
-        newHeight: limitedHeight
-      });
-      
-      // Set current height for immediate visual feedback
-      setCurrentHeight(limitedHeight);
-      
-      // Apply style directly to textarea for immediate feedback
-      if (textareaRef.current) {
-        textareaRef.current.style.height = `${limitedHeight}px`;
-      }
-      
-      e.preventDefault();
-      e.stopPropagation();
-    };
-    
-    const handleMouseUp = (e: MouseEvent) => {
-      console.log('Resize end:', { clientY: e.clientY, finalHeight: currentHeight });
-      
-      // Update the actual state at the end of resize
-      setTextareaHeight(currentHeight);
-      setIsResizing(false);
-      
-      // Save to localStorage
-      localStorage.setItem('chatInputHeight', currentHeight.toString());
-      
-      // Remove event listeners
-      document.removeEventListener('mousemove', handleMouseMove);
-      document.removeEventListener('mouseup', handleMouseUp);
-      document.body.classList.remove('resizing-chat-input');
-      
-      e.preventDefault();
-      e.stopPropagation();
-    };
-    
-    // Add the event listeners
-    document.addEventListener('mousemove', handleMouseMove);
-    document.addEventListener('mouseup', handleMouseUp);
-    document.body.classList.add('resizing-chat-input');
-  };
-  
-  // Cleanup event listeners on unmount
-  useEffect(() => {
-    return () => {
-      // The specific event handlers will be removed inside handleMouseUp
-      // This is just a safety cleanup in case component unmounts during resize
-      document.body.classList.remove('resizing-chat-input');
-    };
+    // Apply height directly to textarea
+    if (textareaRef.current) {
+      textareaRef.current.style.height = `${newHeight}px`;
+    }
   }, []);
   
-  // Apply initial height to textarea on mount
+  const handleResizeEnd = useCallback((e: MouseEvent) => {
+    // Use ref to check if we're actually resizing
+    if (!isResizingRef.current) return;
+    
+    // Calculate final height
+    const delta = resizeStartRef.current.y - e.clientY;
+    const newHeight = Math.max(80, Math.min(400, resizeStartRef.current.height + delta));
+    
+    console.log('Resize end:', { clientY: e.clientY, finalHeight: newHeight, delta });
+    
+    // Update both state and ref
+    setInputHeight(newHeight);
+    setIsResizing(false);
+    isResizingRef.current = false;
+    
+    // Save to localStorage
+    localStorage.setItem('chatInputHeight', newHeight.toString());
+    
+    // Remove event listeners
+    document.removeEventListener('mousemove', handleResizeMove);
+    document.removeEventListener('mouseup', handleResizeEnd);
+  }, []);
+  
+  // Simple resize start handler
+  const handleResizeStart = (e: React.MouseEvent) => {
+    e.preventDefault();
+    
+    if (!textareaRef.current) return;
+    
+    // Store starting position and height
+    resizeStartRef.current = {
+      y: e.clientY,
+      height: inputHeight
+    };
+    
+    console.log('Resize start:', { clientY: e.clientY, startHeight: inputHeight });
+    
+    // Set both state and ref for resizing
+    setIsResizing(true);
+    isResizingRef.current = true;
+    
+    // Add mousemove and mouseup listeners to document
+    document.addEventListener('mousemove', handleResizeMove);
+    document.addEventListener('mouseup', handleResizeEnd);
+  };
+  
+  // Apply initial height when component mounts
   useEffect(() => {
     if (textareaRef.current) {
-      textareaRef.current.style.height = `${textareaHeight}px`;
-      console.log('Applied initial textarea height:', textareaHeight);
+      textareaRef.current.style.height = `${inputHeight}px`;
+      console.log('Applied initial height on mount:', inputHeight);
     }
-  }, [textareaHeight]);
+  }, []);
+  
+  // Apply height changes from state updates
+  useEffect(() => {
+    if (textareaRef.current && !isResizing) {
+      textareaRef.current.style.height = `${inputHeight}px`;
+      console.log('Applied height from state update:', inputHeight);
+    }
+  }, [inputHeight, isResizing]);
+  
+  // Clean up event listeners on unmount
+  useEffect(() => {
+    return () => {
+      document.removeEventListener('mousemove', handleResizeMove);
+      document.removeEventListener('mouseup', handleResizeEnd);
+    };
+  }, [handleResizeMove, handleResizeEnd]);
 
   return (
     <>
-      <div ref={containerRef} className="flex flex-col space-y-2">
-        {/* Resize handle - more prominent and interactive */}
+      <div className="flex flex-col space-y-2">
+        {/* Resize handle */}
         <div
           className={`w-full h-5 cursor-ns-resize flex justify-center items-center 
           ${isResizing ? 'bg-blue-100' : 'hover:bg-gray-100'} 
@@ -294,10 +301,7 @@ const ChatInput: React.FC<ChatInputProps> = ({ onSend, disabled = false }) => {
               onKeyPress={handleKeyPress}
               placeholder={fileContent ? "Add a message to explain the file content..." : "Type your message..."}
               className="flex-1 resize-none rounded-lg border border-gray-300 p-3 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100 disabled:cursor-not-allowed"
-              style={{ 
-                height: `${isResizing ? currentHeight : textareaHeight}px`,
-                transition: isResizing ? 'none' : 'height 0.1s ease-out'
-              }}
+              style={{ height: `${inputHeight}px` }}
               disabled={disabled}
             />
             <button
@@ -317,10 +321,12 @@ const ChatInput: React.FC<ChatInputProps> = ({ onSend, disabled = false }) => {
           </div>
         </div>
         
-        {/* Status message during resizing */}
+        {/* Height indicator during resize - with more info for debugging */}
         {isResizing && (
           <div className="fixed bottom-28 right-4 bg-gray-800 text-white text-xs py-1 px-2 rounded opacity-80 z-50">
-            Height: {currentHeight}px
+            Resizing: {textareaRef.current?.style.height || '0px'} | 
+            State: {inputHeight}px | 
+            Start Y: {resizeStartRef.current.y}
           </div>
         )}
       </div>
@@ -334,4 +340,4 @@ const ChatInput: React.FC<ChatInputProps> = ({ onSend, disabled = false }) => {
   )
 }
 
-export default ChatInput 
+export default ChatInput

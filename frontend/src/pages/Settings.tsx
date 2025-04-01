@@ -49,6 +49,9 @@ const Settings = () => {
   const [showVacuumConfirmation, setShowVacuumConfirmation] = useState(false);
   const [skipReindex, setSkipReindex] = useState(false);
   
+  // Track if a step was just completed
+  const [stepJustCompleted, setStepJustCompleted] = useState<number | null>(null);
+  
   useEffect(() => {
     if (user?.is_admin) {
       fetchDatabaseStats();
@@ -56,6 +59,18 @@ const Settings = () => {
       fetchMaintenanceStatus();
     }
   }, [user]);
+  
+  // Effect to handle step completion
+  useEffect(() => {
+    if (stepJustCompleted !== null) {
+      console.log(`Step ${stepJustCompleted} just completed, updating activeStep`);
+      setActiveStep(stepJustCompleted + 1); // Move to next step
+      setStepJustCompleted(null); // Reset for next use
+    }
+  }, [stepJustCompleted]);
+  
+  // State for warning modals for each step
+  const [showStepWarning, setShowStepWarning] = useState<number | null>(null);
   
   const fetchDatabaseStats = async () => {
     if (!user?.is_admin) return;
@@ -152,27 +167,27 @@ const Settings = () => {
       console.log('Maintenance status:', status);
       setMaintenanceStatus(status);
       
-      // Automatically set the active step based on status
-      let newActiveStep = 0;
+      // Track completion status for logging purposes only
+      // This doesn't affect UI availability since all steps are now selectable
+      let completedStep = 0;
       
       if (status.backup_exists && status.dry_run_completed && status.cleanup_completed) {
-        newActiveStep = 3; // Vacuum step
+        completedStep = 3; // All steps completed up to Vacuum step
       } else if (status.backup_exists && status.dry_run_completed) {
-        newActiveStep = 2; // Cleanup step
+        completedStep = 2; // Completed up to Cleanup step
       } else if (status.backup_exists) {
-        newActiveStep = 1; // Dry run step
+        completedStep = 1; // Completed Backup step
       } else {
-        newActiveStep = 0; // Backup step
+        completedStep = 0; // No steps completed
       }
       
-      console.log('Setting active step to:', newActiveStep, 'based on status:', status);
+      console.log('Completed steps up to:', completedStep);
       
-      // Don't decrease active step if current step is higher
-      // This ensures steps don't get "un-highlighted" once they're activated
-      if (newActiveStep >= activeStep) {
-        setActiveStep(newActiveStep);
-      } else {
-        console.log('Not decreasing active step from', activeStep, 'to', newActiveStep);
+      // For backward compatibility: still track active step for any component that might depend on it
+      // but this no longer controls button availability
+      if (completedStep >= activeStep) {
+        console.log('Updating active step to match completed step:', completedStep);
+        setActiveStep(completedStep);
       }
     } catch (error) {
       console.error('Error fetching maintenance status:', error);
@@ -190,13 +205,14 @@ const Settings = () => {
       setDryRunResults(results);
       showNotification('success', 'Dry run completed successfully');
       
+      // Trigger step completion via state
+      if (results.success) {
+        console.log('Setting step 1 as completed');
+        setStepJustCompleted(1); // This will cause the effect to set activeStep to 2
+      }
+      
       // Update maintenance status
       await fetchMaintenanceStatus();
-      
-      // Force move to the next step
-      if (results.success) {
-        setActiveStep(2); // Force to cleanup step
-      }
       
       console.log('Maintenance status after dry run:', await api.admin.getMaintenanceStatus());
     } catch (error) {
@@ -209,10 +225,11 @@ const Settings = () => {
   
   const handleRunCleanup = async () => {
     setIsRunningCleanup(true);
+    
     try {
-      // Set active step to 3 (vacuum) immediately when cleanup starts
-      // This ensures step 4 will be highlighted regardless of backend status
-      setActiveStep(3);
+      // Trigger step completion immediately
+      console.log('Setting step 2 as completed');
+      setStepJustCompleted(2); // This will cause the effect to set activeStep to 3
       
       const results = await api.admin.runCleanup();
       console.log('Cleanup results:', results);
@@ -246,9 +263,6 @@ const Settings = () => {
       // Even on error, step 4 should still be available
       // This matches the overall maintenance workflow UI/UX pattern
       console.log('Ensuring step 4 is available even after error');
-      
-      // Keep step 4 active despite the error
-      setActiveStep(3);
       
       // Force cleanup status to be completed locally
       setMaintenanceStatus(prevStatus => ({
@@ -284,6 +298,9 @@ const Settings = () => {
     }
   };
 
+  // Debug log for the component render
+  console.log('Rendering Settings with activeStep:', activeStep);
+  
   return (
     <div className="container mx-auto px-4 py-8">
       <h1 className="text-2xl font-bold mb-6">Settings</h1>
@@ -504,9 +521,9 @@ const Settings = () => {
                   <div className="absolute left-6 top-0 h-full w-1 bg-gray-200" aria-hidden="true"></div>
                   
                   {/* Step 1: Create Backup */}
-                  <div className={`relative pb-8 ${activeStep >= 0 ? '' : 'opacity-50'}`}>
+                  <div className="relative pb-8">
                     <div className="relative flex items-start">
-                      <div className={`h-12 w-12 rounded-full flex items-center justify-center ${activeStep >= 0 ? 'bg-blue-600' : 'bg-gray-400'} z-10`}>
+                      <div className="h-12 w-12 rounded-full flex items-center justify-center bg-blue-600 z-10">
                         {maintenanceStatus?.backup_exists ? (
                           <FaCheck className="text-white h-6 w-6" />
                         ) : (
@@ -552,9 +569,9 @@ const Settings = () => {
                   </div>
                   
                   {/* Step 2: Run Cleanup in Dry Run Mode */}
-                  <div className={`relative pb-8 ${activeStep >= 1 ? '' : 'opacity-50'}`}>
+                  <div className="relative pb-8">
                     <div className="relative flex items-start">
-                      <div className={`h-12 w-12 rounded-full flex items-center justify-center ${activeStep >= 1 ? 'bg-blue-600' : 'bg-gray-400'} z-10`}>
+                      <div className="h-12 w-12 rounded-full flex items-center justify-center bg-blue-600 z-10">
                         {maintenanceStatus?.dry_run_completed ? (
                           <FaCheck className="text-white h-6 w-6" />
                         ) : (
@@ -595,11 +612,15 @@ const Settings = () => {
                             </div>
                           ) : (
                             <button
-                              onClick={handleRunDryRun}
-                              disabled={isRunningDryRun || activeStep !== 1}
-                              className={`inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md shadow-sm text-white 
-                                ${activeStep === 1 ? 'bg-blue-600 hover:bg-blue-700' : 'bg-gray-400'} 
-                                focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500`}
+                              onClick={() => {
+                                if (!maintenanceStatus?.backup_exists) {
+                                  setShowStepWarning(1);
+                                } else {
+                                  handleRunDryRun();
+                                }
+                              }}
+                              disabled={isRunningDryRun}
+                              className="inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
                             >
                               <FaSearch className="mr-2" />
                               {isRunningDryRun ? 'Analyzing...' : 'Run Analysis'}
@@ -611,9 +632,9 @@ const Settings = () => {
                   </div>
                   
                   {/* Step 3: Run Actual Cleanup */}
-                  <div className={`relative pb-8 ${activeStep >= 2 ? '' : 'opacity-50'}`}>
+                  <div className="relative pb-8">
                     <div className="relative flex items-start">
-                      <div className={`h-12 w-12 rounded-full flex items-center justify-center ${activeStep >= 2 ? 'bg-blue-600' : 'bg-gray-400'} z-10`}>
+                      <div className="h-12 w-12 rounded-full flex items-center justify-center bg-blue-600 z-10">
                         {maintenanceStatus?.cleanup_completed ? (
                           <FaCheck className="text-white h-6 w-6" />
                         ) : (
@@ -628,7 +649,7 @@ const Settings = () => {
                         <div className="mt-2">
                           {maintenanceStatus?.cleanup_completed ? (
                             <div>
-                              <div className="text-green-600 flex items-center">
+                              <div className="text-green-600 flex items-center mb-2">
                                 <FaCheck className="mr-1" />
                                 <span>Cleanup completed at {new Date(maintenanceStatus.cleanup_time).toLocaleString()}</span>
                               </div>
@@ -643,6 +664,25 @@ const Settings = () => {
                                   </ul>
                                 </div>
                               )}
+                              <button
+                                onClick={() => {
+                                  console.log('Run Cleanup Again button clicked');
+                                  // Reset the cleanup status immediately for visual feedback
+                                  setMaintenanceStatus(prevStatus => ({
+                                    ...prevStatus,
+                                    cleanup_completed: false,
+                                    cleanup_time: null,
+                                    cleanup_results: null
+                                  }));
+                                  // Show the confirmation dialog
+                                  setShowCleanupConfirmation(true);
+                                }}
+                                disabled={isRunningCleanup}
+                                className="mt-2 inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                              >
+                                <FaBroom className="mr-1 h-4 w-4" />
+                                Run Cleanup Again
+                              </button>
                             </div>
                           ) : showCleanupConfirmation ? (
                             <div className="bg-yellow-50 border border-yellow-200 rounded-md p-3">
@@ -677,11 +717,18 @@ const Settings = () => {
                             </div>
                           ) : (
                             <button
-                              onClick={() => setShowCleanupConfirmation(true)}
-                              disabled={activeStep !== 2}
-                              className={`inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md shadow-sm text-white 
-                                ${activeStep === 2 ? 'bg-blue-600 hover:bg-blue-700' : 'bg-gray-400'} 
-                                focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500`}
+                              onClick={() => {
+                                if (!maintenanceStatus?.backup_exists) {
+                                  setShowStepWarning(2);
+                                } else if (!maintenanceStatus?.dry_run_completed) {
+                                  setShowStepWarning(2);
+                                } else {
+                                  setShowCleanupConfirmation(true);
+                                }
+                              }}
+                              disabled={false}
+                              data-active-step={activeStep}
+                              className="inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
                             >
                               <FaBroom className="mr-2" />
                               Fix Issues
@@ -693,9 +740,9 @@ const Settings = () => {
                   </div>
                   
                   {/* Step 4: Run Vacuum */}
-                  <div className={`relative ${activeStep >= 3 ? '' : 'opacity-50'}`}>
+                  <div className="relative">
                     <div className="relative flex items-start">
-                      <div className={`h-12 w-12 rounded-full flex items-center justify-center ${activeStep >= 3 ? 'bg-blue-600' : 'bg-gray-400'} z-10`}>
+                      <div className="h-12 w-12 rounded-full flex items-center justify-center bg-blue-600 z-10">
                         {maintenanceStatus?.vacuum_completed ? (
                           <FaCheck className="text-white h-6 w-6" />
                         ) : (
@@ -776,11 +823,19 @@ const Settings = () => {
                             </div>
                           ) : (
                             <button
-                              onClick={() => setShowVacuumConfirmation(true)}
-                              disabled={activeStep !== 3}
-                              className={`inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md shadow-sm text-white 
-                                ${activeStep === 3 ? 'bg-blue-600 hover:bg-blue-700' : 'bg-gray-400'} 
-                                focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500`}
+                              onClick={() => {
+                                if (!maintenanceStatus?.backup_exists) {
+                                  setShowStepWarning(3);
+                                } else if (!maintenanceStatus?.dry_run_completed) {
+                                  setShowStepWarning(3);
+                                } else if (!maintenanceStatus?.cleanup_completed) {
+                                  setShowStepWarning(3);
+                                } else {
+                                  setShowVacuumConfirmation(true);
+                                }
+                              }}
+                              disabled={false}
+                              className="inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
                             >
                               <FaMagic className="mr-2" />
                               Optimize Database
@@ -796,16 +851,61 @@ const Settings = () => {
               <div className="px-4 py-3 bg-gray-100 rounded-md">
                 <div className="flex items-start">
                   <div className="flex-shrink-0 pt-1">
-                    <FaLock className="h-4 w-4 text-gray-500" />
+                    <FaExclamationTriangle className="h-4 w-4 text-yellow-500" />
                   </div>
                   <div className="ml-3">
                     <p className="text-sm text-gray-600">
-                      You must complete each step in order. Steps are unlocked as you progress.
-                      After completing all steps, you can rerun any step as needed.
+                      While all steps are available, it's strongly recommended to complete them in order. 
+                      Running later steps without completing earlier ones may cause database instability.
                     </p>
                   </div>
                 </div>
               </div>
+              
+              {/* Warning modal for out-of-order step execution */}
+              {showStepWarning !== null && (
+                <div className="fixed inset-0 bg-gray-500 bg-opacity-75 flex items-center justify-center z-50">
+                  <div className="bg-white rounded-lg p-6 max-w-md w-full">
+                    <div className="mb-4 flex items-start">
+                      <div className="flex-shrink-0">
+                        <FaExclamationTriangle className="h-6 w-6 text-yellow-400" />
+                      </div>
+                      <div className="ml-3">
+                        <h3 className="text-lg font-medium text-yellow-800">Warning</h3>
+                        <p className="mt-2 text-sm text-yellow-700">
+                          {showStepWarning === 1 && 'Running analysis without a backup is risky. If issues occur, you won\'t be able to restore your data.'}
+                          {showStepWarning === 2 && 'Fixing database issues without first identifying them with analysis is not recommended.'}
+                          {showStepWarning === 3 && 'Optimizing the database before fixing issues may result in incomplete optimization.'}
+                        </p>
+                        <p className="mt-2 text-sm font-semibold text-yellow-800">
+                          Running steps out of order may cause database instability. Do you want to proceed anyway?
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex justify-end space-x-3 mt-4">
+                      <button
+                        onClick={() => setShowStepWarning(null)}
+                        className="px-3 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        onClick={() => {
+                          const step = showStepWarning;
+                          setShowStepWarning(null);
+                          
+                          if (step === 1) handleRunDryRun();
+                          else if (step === 2) setShowCleanupConfirmation(true);
+                          else if (step === 3) setShowVacuumConfirmation(true);
+                        }}
+                        className="px-3 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-yellow-600 hover:bg-yellow-700"
+                      >
+                        Proceed Anyway
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
             
             {/* Legacy Database Cleanup Section (Hidden but kept for backward compatibility) */}

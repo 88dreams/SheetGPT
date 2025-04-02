@@ -180,40 +180,30 @@ const EntityTable: React.FC<EntityTableProps> = ({
 
   // Removed renderSortIcon as it's now handled in SmartColumn
 
-  // Function to check if an entity matches the search query
+  // Function to check if an entity matches the search query in any visible column
   const entityMatchesSearch = (entity: any): boolean => {
-    if (!searchQuery || searchQuery.length < 3) return false; // Don't highlight if query is too short
+    if (!searchQuery || searchQuery.length < 3) return true; // Show all rows if search is empty or too short
     
-    // Check name field first
-    if (entity.name && entity.name.toLowerCase().includes(searchQuery)) {
-      return true;
-    }
+    // Get all fields that are visible in the table
+    const fieldsToSearch = visibleColumnsArray.filter(field => visibleColumns[field] !== false);
     
-    // For production and broadcast, also check entity_name and company_name fields
-    if (selectedEntityType === 'production' && entity.production_company_name && 
-        entity.production_company_name.toLowerCase().includes(searchQuery)) {
-      return true;
-    }
-    
-    if (selectedEntityType === 'broadcast' && entity.broadcast_company_name && 
-        entity.broadcast_company_name.toLowerCase().includes(searchQuery)) {
-      return true;
-    }
-    
-    // Check entity_name field if it exists
-    if (entity.entity_name && entity.entity_name.toLowerCase().includes(searchQuery)) {
-      return true;
-    }
-    
-    // Check in other common fields
-    const commonFields = ['description', 'city', 'service_type', 'territory', 'sport'];
-    for (const field of commonFields) {
-      if (entity[field] && typeof entity[field] === 'string' && 
-          entity[field].toLowerCase().includes(searchQuery)) {
+    // Check each visible field to see if it contains the search query
+    for (const field of fieldsToSearch) {
+      const value = entity[field];
+      
+      // Skip null/undefined values and non-string/non-number values
+      if (value === null || value === undefined) continue;
+      
+      // Convert to string for comparison
+      const stringValue = String(value).toLowerCase();
+      
+      // Check if the value contains the search query
+      if (stringValue.includes(searchQuery)) {
         return true;
       }
     }
     
+    // If we didn't find a match in any visible field, return false
     return false;
   };
 
@@ -275,7 +265,7 @@ const EntityTable: React.FC<EntityTableProps> = ({
         <div className="py-2 px-4 bg-blue-50 border-b border-blue-100">
           <p className="text-blue-700 text-sm">
             Found {matchingEntitiesCount} {selectedEntityType}(s) matching "{searchQuery}".
-            {matchingEntitiesCount > 0 && " Matching rows are highlighted."}
+            {matchingEntitiesCount === 0 && " No results found."}
           </p>
         </div>
       )}
@@ -353,12 +343,10 @@ const EntityTable: React.FC<EntityTableProps> = ({
         </thead>
         
         <tbody className="bg-white divide-y divide-gray-200">
-          {entities.map(entity => (
+          {entities.filter(entityMatchesSearch).map(entity => (
             <tr 
               key={entity.id}
-              className={`hover:bg-gray-50 border-b border-gray-200 ${
-                entityMatchesSearch(entity) ? 'bg-yellow-50' : ''
-              }`}
+              className="hover:bg-gray-50 border-b border-gray-200"
             >
               {/* Checkbox */}
               <td 

@@ -127,19 +127,23 @@ export const SportsDatabaseProvider: React.FC<SportsDatabaseProviderProps> = ({ 
     (storedEntityType as EntityType) || 'league'
   );
   
-  // Core pagination state
+  // Core pagination state with localStorage persistence
   // Using direct state management to avoid hook dependencies
+  const storedPageSize = localStorage.getItem('entityListPageSize');
   const [currentPage, setCurrentPage] = useState(1);
-  const [pageSize, setPageSize] = useState(10);
+  const [pageSize, setPageSize] = useState(storedPageSize ? parseInt(storedPageSize, 10) : 10);
   const [totalItems, setTotalItems] = useState(0);
   
   // Calculate total pages
   const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
   
-  // Expose a safe setPageSize that resets to page 1
+  // Expose a safe setPageSize that resets to page 1 and persists to localStorage
   const handleSetPageSize = useCallback((newSize: number) => {
     if (newSize !== pageSize) {
       console.log(`SportsDatabaseContext: Setting page size to ${newSize} and resetting to page 1`);
+      
+      // Store the page size in localStorage for persistence
+      localStorage.setItem('entityListPageSize', newSize.toString());
       
       // Update both values in a single render cycle to avoid stale state issues
       // React batches these updates in React 18+
@@ -162,21 +166,25 @@ export const SportsDatabaseProvider: React.FC<SportsDatabaseProviderProps> = ({ 
   const handleSetCurrentPage = useCallback((page: number) => {
     console.log(`SportsDatabaseContext: Setting current page to ${page}`);
     
+    // Don't do anything if we're already on this page
+    if (page === currentPage) {
+      console.log(`Already on page ${page}, skipping redundant update`);
+      return;
+    }
+    
     // We need to explicitly invalidate the query cache for the current entity type
     // This ensures a fresh fetch when navigating between pages
     queryClient.invalidateQueries({
-      queryKey: ['sportsEntities', selectedEntityType],
-      // Don't trigger an immediate refetch, let the effect handle it
-      refetchType: 'none'
+      queryKey: ['sportsEntities', selectedEntityType]
     });
     
-    // Then update the page state
-    setCurrentPage(page);
-    
-    // Optional: Log that we're expecting a data fetch
-    console.log(`SportsDatabaseContext: Data fetch should trigger for ${selectedEntityType}, page ${page}`);
-    
-  }, [queryClient, selectedEntityType]);
+    // Then update the page state AFTER the invalidation is complete
+    setTimeout(() => {
+      setCurrentPage(page);
+      // Log that we're expecting a data fetch
+      console.log(`SportsDatabaseContext: Data fetch should trigger for ${selectedEntityType}, page ${page}`);
+    }, 0);
+  }, [queryClient, selectedEntityType, currentPage]);
   
   // Update data flow when component mounts
   useEffect(() => {

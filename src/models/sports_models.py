@@ -595,12 +595,17 @@ class Brand(TimestampedBase):
         String(100),
         nullable=True
     )
+    # New fields for partner relationship
+    partner: Mapped[Optional[str]] = mapped_column(
+        String(100),
+        nullable=True
+    )
+    partner_relationship: Mapped[Optional[str]] = mapped_column(
+        String(100),
+        nullable=True
+    )
 
     # Relationships
-    brand_relationships: Mapped[List["BrandRelationship"]] = relationship(
-        back_populates="brand",
-        cascade="all, delete-orphan"
-    )
     production_services: Mapped[List["ProductionService"]] = relationship(
         back_populates="production_company",
         foreign_keys="[ProductionService.production_company_id]",
@@ -614,46 +619,8 @@ class Brand(TimestampedBase):
     )
 
 
-class BrandRelationship(TimestampedBase):
-    """Model for brand relationships."""
-    
-    __tablename__ = "brand_relationships"
-
-    id: Mapped[UUID] = mapped_column(
-        SQLUUID,
-        primary_key=True,
-        default=uuid4
-    )
-    brand_id: Mapped[UUID] = mapped_column(
-        SQLUUID,
-        ForeignKey("brands.id"),
-        nullable=False
-    )
-    entity_type: Mapped[str] = mapped_column(
-        String(50),
-        nullable=False
-    )
-    entity_id: Mapped[UUID] = mapped_column(
-        SQLUUID,
-        nullable=False
-    )
-    relationship_type: Mapped[str] = mapped_column(
-        String(100),
-        nullable=False
-    )
-    start_date: Mapped[datetime.date] = mapped_column(
-        Date,
-        nullable=False
-    )
-    end_date: Mapped[datetime.date] = mapped_column(
-        Date,
-        nullable=False
-    )
-
-    # Relationships
-    brand: Mapped["Brand"] = relationship(
-        back_populates="brand_relationships"
-    )
+# BrandRelationship model has been removed
+# The functionality has been integrated into the Brand model with partner fields
 
 
 class TeamRecord(TimestampedBase):

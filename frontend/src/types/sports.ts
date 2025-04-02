@@ -91,6 +91,10 @@ export interface ProductionService extends BaseEntity {
 
 export interface Brand extends BaseEntity {
   industry: string;
+  company_type?: string;
+  country?: string;
+  partner?: string;
+  partner_relationship?: string;
 }
 
 export interface GameBroadcast extends BaseEntity {

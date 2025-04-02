@@ -7,7 +7,7 @@ import { useDrop } from 'react-dnd';
 import { 
   League, Team, Player, Game, Stadium, 
   BroadcastRights, GameBroadcast, ProductionService, 
-  Brand, BrandRelationship, LeagueExecutive 
+  Brand, LeagueExecutive 
 } from '../../../../services/SportsDatabaseService';
 
 // Define the ItemType constant for drag and drop
@@ -63,7 +63,6 @@ const getAllEntityFields = (entityType: EntityType | null): { name: string, requ
     'game_broadcast': ['game_id', 'broadcast_company_id', 'broadcast_type'],
     'production': ['entity_id', 'entity_type', 'service_type'],
     'brand': ['name', 'industry'],
-    'brand_relationship': ['brand_id', 'entity_id', 'entity_type', 'relationship_type'],
     'league_executive': ['name', 'league_id', 'position']
   };
 
@@ -78,8 +77,7 @@ const getAllEntityFields = (entityType: EntityType | null): { name: string, requ
     'broadcast': ['id', 'name', 'broadcast_company_id', 'entity_type', 'entity_id', 'division_conference_id', 'territory', 'start_date', 'end_date', 'is_exclusive', 'created_at', 'updated_at'],
     'game_broadcast': ['id', 'game_id', 'broadcast_company_id', 'production_company_id', 'broadcast_type', 'territory', 'start_time', 'end_time', 'created_at', 'updated_at'],
     'production': ['id', 'production_company_id', 'secondary_brand_id', 'entity_type', 'entity_id', 'service_type', 'start_date', 'end_date', 'created_at', 'updated_at'],
-    'brand': ['id', 'name', 'industry', 'created_at', 'updated_at'],
-    'brand_relationship': ['id', 'brand_id', 'entity_type', 'entity_id', 'relationship_type', 'start_date', 'end_date', 'created_at', 'updated_at'],
+    'brand': ['id', 'name', 'industry', 'company_type', 'country', 'partner', 'partner_relationship', 'created_at', 'updated_at'],
     'league_executive': ['id', 'name', 'league_id', 'position', 'start_date', 'end_date', 'created_at', 'updated_at']
   };
 

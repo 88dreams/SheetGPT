@@ -8,8 +8,7 @@ from src.models.sports_models import (
     League, Team, Player, Game, Stadium, 
     BroadcastCompany, BroadcastRights, 
     ProductionCompany, ProductionService,
-    Brand, BrandRelationship,
-    GameBroadcast, LeagueExecutive,
+    Brand, GameBroadcast, LeagueExecutive,
     DivisionConference
 )
 
@@ -28,7 +27,6 @@ ENTITY_TYPES = {
     "production_companies": ProductionCompany,
     "production_services": ProductionService,
     "brands": Brand,
-    "brand_relationships": BrandRelationship,
     "game_broadcasts": GameBroadcast,
     "league_executives": LeagueExecutive,
     "divisions_conferences": DivisionConference,
@@ -43,7 +41,6 @@ ENTITY_TYPES = {
     "production_company": ProductionCompany,
     "production_service": ProductionService,
     "brand": Brand,
-    "brand_relationship": BrandRelationship,
     "game_broadcast": GameBroadcast,
     "league_executive": LeagueExecutive,
     "division_conference": DivisionConference,

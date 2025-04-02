@@ -10,7 +10,7 @@ from src.models.sports_models import (
     League, Team, Player, Game, Stadium, 
     BroadcastCompany, BroadcastRights, 
     ProductionCompany, ProductionService,
-    Brand, BrandRelationship, DivisionConference
+    Brand, DivisionConference
 )
 from src.schemas.sports import (
     LeagueCreate, LeagueUpdate, LeagueResponse,
@@ -24,7 +24,6 @@ from src.schemas.sports import (
     DivisionConferenceCreate, DivisionConferenceUpdate, DivisionConferenceResponse,
     ProductionServiceCreate, ProductionServiceUpdate, ProductionServiceResponse,
     BrandCreate, BrandUpdate, BrandResponse,
-    BrandRelationshipCreate, BrandRelationshipUpdate, BrandRelationshipResponse,
     EntityExportRequest, EntityExportResponse
 )
 from src.utils.database import get_db
@@ -1284,64 +1283,8 @@ async def delete_brand(
         raise HTTPException(status_code=404, detail="Brand not found")
     return None
 
-# Brand Relationship endpoints
-@router.get("/brand-relationships", response_model=List[BrandRelationshipResponse])
-async def get_brand_relationships(
-    brand_id: Optional[UUID] = None,
-    entity_type: Optional[str] = None,
-    entity_id: Optional[UUID] = None,
-    relationship_type: Optional[str] = None,
-    db: AsyncSession = Depends(get_db),
-    current_user: Dict = Depends(get_current_user)
-):
-    """Get all brand relationships, optionally filtered by brand, entity, or relationship type."""
-    return await sports_service.get_brand_relationships(db, brand_id, entity_type, entity_id, relationship_type)
-
-@router.post("/brand-relationships", response_model=BrandRelationshipResponse, status_code=status.HTTP_201_CREATED)
-async def create_brand_relationship(
-    relationship: BrandRelationshipCreate,
-    db: AsyncSession = Depends(get_db),
-    current_user: Dict = Depends(get_current_user)
-):
-    """Create a new brand relationship."""
-    return await sports_service.create_brand_relationship(db, relationship)
-
-@router.get("/brand-relationships/{relationship_id}", response_model=BrandRelationshipResponse)
-async def get_brand_relationship(
-    relationship_id: UUID,
-    db: AsyncSession = Depends(get_db),
-    current_user: Dict = Depends(get_current_user)
-):
-    """Get a specific brand relationship by ID."""
-    relationship = await sports_service.get_brand_relationship(db, relationship_id)
-    if not relationship:
-        raise HTTPException(status_code=404, detail="Brand relationship not found")
-    return relationship
-
-@router.put("/brand-relationships/{relationship_id}", response_model=BrandRelationshipResponse)
-async def update_brand_relationship(
-    relationship_id: UUID,
-    relationship_update: BrandRelationshipUpdate,
-    db: AsyncSession = Depends(get_db),
-    current_user: Dict = Depends(get_current_user)
-):
-    """Update a specific brand relationship."""
-    relationship = await sports_service.update_brand_relationship(db, relationship_id, relationship_update)
-    if not relationship:
-        raise HTTPException(status_code=404, detail="Brand relationship not found")
-    return relationship
-
-@router.delete("/brand-relationships/{relationship_id}", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_brand_relationship(
-    relationship_id: UUID,
-    db: AsyncSession = Depends(get_db),
-    current_user: Dict = Depends(get_current_user)
-):
-    """Delete a specific brand relationship."""
-    success = await sports_service.delete_brand_relationship(db, relationship_id)
-    if not success:
-        raise HTTPException(status_code=404, detail="Brand relationship not found")
-    return None
+# Brand Relationship endpoints have been removed
+# The functionality has been integrated into the Brand model with partner fields
 
 # Export endpoint
 @router.post("/export", response_model=EntityExportResponse)

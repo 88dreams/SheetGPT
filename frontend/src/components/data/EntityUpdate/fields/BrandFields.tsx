@@ -72,6 +72,17 @@ const BrandFields: React.FC<BrandFieldsProps> = ({ entity, onChange, isEditing }
     { value: 'Other', label: 'Other' }
   ];
   
+  // Relationship type options
+  const relationshipTypeOptions = [
+    { value: 'sponsor', label: 'Sponsor' },
+    { value: 'partner', label: 'Partner' },
+    { value: 'supplier', label: 'Supplier' },
+    { value: 'broadcaster', label: 'Broadcaster' },
+    { value: 'advertiser', label: 'Advertiser' },
+    { value: 'naming_rights', label: 'Naming Rights' },
+    { value: 'other', label: 'Other' }
+  ];
+
   return (
     <>
       <FormField
@@ -118,6 +129,29 @@ const BrandFields: React.FC<BrandFieldsProps> = ({ entity, onChange, isEditing }
         options={countryOptions}
         allowCustomEntry={true}
         placeholder="Select or enter country..."
+      />
+      
+      {/* New fields for partner relationship */}
+      <FormField
+        field="partner"
+        label="Partner"
+        type="text"
+        value={(entity as any).partner || ''}
+        onChange={onChange}
+        isEditing={isEditing}
+        helpText="Enter the name of a partner entity (League, Division/Conference, Team, Player, Game, or Stadium)"
+      />
+      <FormField
+        field="partner_relationship"
+        label="Partner Relationship"
+        type="select"
+        value={(entity as any).partner_relationship || ''}
+        onChange={onChange}
+        isEditing={isEditing}
+        options={relationshipTypeOptions}
+        allowCustomEntry={true}
+        placeholder="Select or enter relationship type..."
+        helpText="Describes the relationship with the partner entity"
       />
     </>
   );

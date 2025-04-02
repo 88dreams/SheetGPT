@@ -11,7 +11,7 @@ SheetGPT is a full-stack application that combines AI-powered chat capabilities 
 
 ## Current Status
 
-As of May 2024, the project has implemented:
+As of June 2024, the project has implemented:
 
 - User authentication and management
 - Chat interface with AI integration
@@ -28,6 +28,15 @@ As of May 2024, the project has implemented:
   - Utility script for setting users as admins
 
 ## Recent Improvements
+
+### Brand Relationship Entity Consolidation
+- Integrated Brand Relationship functionality directly into the Brand entity
+- Added partner and partner_relationship fields to the Brand model
+- Implemented cross-entity partner resolution for referencing leagues, teams, etc.
+- Enhanced validation ensuring partner is specified when relationship type is provided
+- Improved UI with more streamlined entity management
+- Simplified database schema with more efficient relationship model
+- Reduced complexity by eliminating separate relationship table
 
 ### Enhanced Google Sheets Export
 - Implemented column visibility control for targeted exports showing only needed fields

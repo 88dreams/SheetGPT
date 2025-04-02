@@ -16,8 +16,7 @@ const SUPPORTED_ENTITY_TYPES: EntityType[] = [
   'division_conference',
   'broadcast',
   'production',
-  'brand',
-  'brand_relationship'
+  'brand'
 ];
 
 export const EntityUpdateContainer: React.FC = () => {
@@ -42,10 +41,8 @@ export const EntityUpdateContainer: React.FC = () => {
       return 'broadcast';
     } else if ('production_company_id' in entity && 'entity_type' in entity) {
       return 'production';
-    } else if ('industry' in entity && !('entity_type' in entity)) {
+    } else if ('industry' in entity) {
       return 'brand';
-    } else if ('brand_id' in entity && 'entity_type' in entity) {
-      return 'brand_relationship';
     }
     return null;
   };

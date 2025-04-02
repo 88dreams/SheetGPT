@@ -196,7 +196,7 @@ export function useEntitySchema() {
                    'service_type', 'start_date', 'end_date'],
       
       // Brand fields
-      brand: ['id', 'name', 'created_at', 'updated_at', 'industry'],
+      brand: ['id', 'name', 'created_at', 'updated_at', 'industry', 'company_type', 'country', 'partner', 'partner_relationship'],
       
       // Game Broadcast fields
       game_broadcast: ['id', 'name', 'created_at', 'updated_at', 'game_id', 'broadcast_company_id', 
@@ -208,8 +208,6 @@ export function useEntitySchema() {
       // Additional models for completeness
       broadcast_company: ['id', 'name', 'created_at', 'updated_at', 'type', 'country'],
       production_company: ['id', 'name', 'created_at', 'updated_at'],
-      brand_relationship: ['id', 'name', 'created_at', 'updated_at', 'brand_id', 'entity_type', 'entity_id', 
-                          'relationship_type', 'start_date', 'end_date'],
       team_record: ['id', 'name', 'created_at', 'updated_at', 'team_id', 'season_year', 'wins', 'losses', 
                    'ties', 'playoff_result'],
       team_ownership: ['id', 'name', 'created_at', 'updated_at', 'team_id', 'owner_name', 

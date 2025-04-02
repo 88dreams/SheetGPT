@@ -9,8 +9,7 @@ from src.models.sports_models import (
     League, Team, Player, Game, Stadium, 
     BroadcastCompany, BroadcastRights, 
     ProductionCompany, ProductionService,
-    Brand, BrandRelationship,
-    GameBroadcast, LeagueExecutive,
+    Brand, GameBroadcast, LeagueExecutive,
     DivisionConference
 )
 from src.schemas.sports import (
@@ -21,8 +20,7 @@ from src.schemas.sports import (
     StadiumCreate, StadiumUpdate,
     BroadcastRightsCreate, BroadcastRightsUpdate,
     ProductionServiceCreate, ProductionServiceUpdate,
-    BrandCreate, BrandUpdate,
-    BrandRelationshipCreate, BrandRelationshipUpdate
+    BrandCreate, BrandUpdate
 )
 
 from src.services.sports.league_service import LeagueService
@@ -33,7 +31,6 @@ from src.services.sports.stadium_service import StadiumService
 from src.services.sports.broadcast_service import BroadcastRightsService, BroadcastCompanyService
 from src.services.sports.production_service import ProductionServiceService, ProductionCompanyService
 from src.services.sports.brand_service import BrandService
-from src.services.sports.brand_relationship_service import BrandRelationshipService
 from src.services.sports.game_broadcast_service import GameBroadcastService
 from src.services.sports.league_executive_service import LeagueExecutiveService
 from src.services.sports.division_conference_service import DivisionConferenceService
@@ -64,7 +61,6 @@ class SportsFacadeV2:
         "production_service": ProductionService,
         "production": ProductionService,  # Alias
         "brand": Brand,
-        "brand_relationship": BrandRelationship,
         "game_broadcast": GameBroadcast,
         "league_executive": LeagueExecutive,
         "division_conference": DivisionConference
@@ -539,83 +535,5 @@ class SportsFacadeV2:
         brand_service = BrandService()
         return await brand_service.delete_brand(db, brand_id)
     
-    # Brand Relationship methods
-    async def get_brand_relationships(
-        self, 
-        db: AsyncSession, 
-        brand_id: Optional[UUID] = None, 
-        entity_type: Optional[str] = None, 
-        entity_id: Optional[UUID] = None
-    ) -> List[BrandRelationship]:
-        """Get all brand relationships, optionally filtered."""
-        brand_relationship_service = BrandRelationshipService()
-        return await brand_relationship_service.get_brand_relationships(db, brand_id, entity_type, entity_id)
-    
-    async def create_brand_relationship(
-        self, 
-        db: AsyncSession, 
-        relationship: BrandRelationshipCreate
-    ) -> BrandRelationship:
-        """Create a new brand relationship."""
-        brand_relationship_service = BrandRelationshipService()
-        
-        # Resolve references if they're provided as names
-        if isinstance(relationship.entity_id, str) and not self.entity_resolver._is_valid_uuid(relationship.entity_id):
-            # Try to resolve entity ID from name
-            entity_context = {}
-            relationship.entity_id = await self.entity_resolver.resolve_entity_reference(
-                db, 
-                relationship.entity_type, 
-                relationship.entity_id, 
-                entity_context
-            )
-            
-        if isinstance(relationship.brand_id, str) and not self.entity_resolver._is_valid_uuid(relationship.brand_id):
-            # Try to resolve brand ID from name
-            relationship.brand_id = await self.entity_resolver.resolve_entity_reference(
-                db, 
-                'brand', 
-                relationship.brand_id
-            )
-            
-        return await brand_relationship_service.create_brand_relationship(db, relationship)
-    
-    async def get_brand_relationship(self, db: AsyncSession, relationship_id: UUID) -> Optional[BrandRelationship]:
-        """Get a brand relationship by ID."""
-        brand_relationship_service = BrandRelationshipService()
-        return await brand_relationship_service.get_brand_relationship(db, relationship_id)
-    
-    async def update_brand_relationship(
-        self, 
-        db: AsyncSession, 
-        relationship_id: UUID, 
-        relationship_update: BrandRelationshipUpdate
-    ) -> Optional[BrandRelationship]:
-        """Update a brand relationship."""
-        brand_relationship_service = BrandRelationshipService()
-        
-        # Resolve references if they're provided as names
-        if hasattr(relationship_update, 'entity_id') and relationship_update.entity_id and isinstance(relationship_update.entity_id, str) and not self.entity_resolver._is_valid_uuid(relationship_update.entity_id):
-            # Try to resolve entity ID from name
-            entity_context = {}
-            relationship_update.entity_id = await self.entity_resolver.resolve_entity_reference(
-                db, 
-                relationship_update.entity_type, 
-                relationship_update.entity_id, 
-                entity_context
-            )
-            
-        if hasattr(relationship_update, 'brand_id') and relationship_update.brand_id and isinstance(relationship_update.brand_id, str) and not self.entity_resolver._is_valid_uuid(relationship_update.brand_id):
-            # Try to resolve brand ID from name
-            relationship_update.brand_id = await self.entity_resolver.resolve_entity_reference(
-                db, 
-                'brand', 
-                relationship_update.brand_id
-            )
-            
-        return await brand_relationship_service.update_brand_relationship(db, relationship_id, relationship_update)
-    
-    async def delete_brand_relationship(self, db: AsyncSession, relationship_id: UUID) -> bool:
-        """Delete a brand relationship."""
-        brand_relationship_service = BrandRelationshipService()
-        return await brand_relationship_service.delete_brand_relationship(db, relationship_id)
+    # Brand Relationship methods have been removed
+    # This functionality has been integrated into the Brand model with partner fields

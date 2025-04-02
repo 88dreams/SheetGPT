@@ -39,6 +39,9 @@ SQLAlchemy ORM → PostgreSQL → Response Formatting
 ### Entity Management
 
 - **Universal Brand Entity**: Central model for all company relationships
+  - Integrated partner fields allow direct relationships to other entities
+  - Smart partner resolution with cross-entity type search
+  - Validation ensures partner is provided when relationship type is specified
 - **Secondary Brand Relationships**: Hierarchical brand associations for production services
 - **Virtual Entity Support**: Special types (Championships, Playoffs, Tournaments) without dedicated tables
 - **Entity Type Detection**: Pattern-based classification from entity names

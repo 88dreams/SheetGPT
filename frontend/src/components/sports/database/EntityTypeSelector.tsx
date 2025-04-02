@@ -12,8 +12,7 @@ const ENTITY_TYPES = [
   { id: 'stadium', name: 'Stadiums', description: 'Venues and stadiums' },
   { id: 'broadcast', name: 'Broadcast Rights', description: 'Media broadcast rights' },
   { id: 'production', name: 'Production Services', description: 'Production services' },
-  { id: 'brand', name: 'Brands', description: 'Companies or products in the sports space' },
-  { id: 'brand_relationship', name: 'Brand Relationships', description: 'Sponsorships and partnerships' }
+  { id: 'brand', name: 'Brands', description: 'Companies or products in the sports space' }
 ];
 
 interface EntityTypeSelectorProps {

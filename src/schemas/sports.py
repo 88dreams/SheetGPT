@@ -397,6 +397,9 @@ class BrandBase(BaseModel):
     industry: str
     company_type: Optional[str] = None
     country: Optional[str] = None
+    # New fields for partner relationship
+    partner: Optional[str] = None
+    partner_relationship: Optional[str] = None
 
 class BrandCreate(BrandBase):
     pass
@@ -406,6 +409,9 @@ class BrandUpdate(BaseModel):
     industry: Optional[str] = None
     company_type: Optional[str] = None
     country: Optional[str] = None
+    # New fields for partner relationship
+    partner: Optional[str] = None
+    partner_relationship: Optional[str] = None
 
 class BrandResponse(BrandBase):
     id: UUID
@@ -421,39 +427,8 @@ class BrandResponse(BrandBase):
             return value.isoformat()
         return value
 
-# Base schemas for BrandRelationship
-class BrandRelationshipBase(BaseModel):
-    brand_id: UUID
-    entity_type: str
-    entity_id: UUID
-    relationship_type: str
-    start_date: date
-    end_date: date
-
-class BrandRelationshipCreate(BrandRelationshipBase):
-    pass
-
-class BrandRelationshipUpdate(BaseModel):
-    brand_id: Optional[UUID] = None
-    entity_type: Optional[str] = None
-    entity_id: Optional[UUID] = None
-    relationship_type: Optional[str] = None
-    start_date: Optional[date] = None
-    end_date: Optional[date] = None
-
-class BrandRelationshipResponse(BrandRelationshipBase):
-    id: UUID
-    created_at: str
-    updated_at: str
-
-    class Config:
-        from_attributes = True
-        
-    @validator('created_at', 'updated_at', pre=True)
-    def parse_datetime(cls, value):
-        if isinstance(value, datetime):
-            return value.isoformat()
-        return value
+# BrandRelationship schemas have been removed
+# The functionality has been integrated into the Brand model with partner fields
 
 # Base schemas for GameBroadcast
 class GameBroadcastBase(BaseModel):

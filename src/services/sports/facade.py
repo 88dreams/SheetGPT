@@ -9,8 +9,7 @@ from src.models.sports_models import (
     League, Team, Player, Game, Stadium, 
     BroadcastCompany, BroadcastRights, 
     ProductionCompany, ProductionService,
-    Brand, BrandRelationship,
-    GameBroadcast, LeagueExecutive,
+    Brand, GameBroadcast, LeagueExecutive,
     DivisionConference
 )
 from src.schemas.sports import (
@@ -24,7 +23,6 @@ from src.schemas.sports import (
     ProductionCompanyCreate, ProductionCompanyUpdate,
     ProductionServiceCreate, ProductionServiceUpdate,
     BrandCreate, BrandUpdate,
-    BrandRelationshipCreate, BrandRelationshipUpdate,
     GameBroadcastCreate, GameBroadcastUpdate,
     LeagueExecutiveCreate, LeagueExecutiveUpdate,
     DivisionConferenceCreate, DivisionConferenceUpdate
@@ -38,7 +36,7 @@ from src.services.sports.game_service import GameService
 from src.services.sports.stadium_service import StadiumService
 from src.services.sports.broadcast_service import BroadcastCompanyService, BroadcastRightsService
 from src.services.sports.production_service import ProductionCompanyService, ProductionServiceService
-from src.services.sports.brand_service import BrandService, BrandRelationshipService
+from src.services.sports.brand_service import BrandService
 from src.services.sports.game_broadcast_service import GameBroadcastService
 from src.services.sports.league_executive_service import LeagueExecutiveService
 from src.services.sports.division_conference_service import DivisionConferenceService
@@ -648,28 +646,5 @@ class SportsService:
         production_service_service = ProductionServiceService()
         return await production_service_service.delete_production_service(db, service_id)
     
-    # Brand Relationship methods
-    async def get_brand_relationships(self, db: AsyncSession, brand_id: Optional[UUID] = None, entity_type: Optional[str] = None, entity_id: Optional[UUID] = None, relationship_type: Optional[str] = None) -> List[BrandRelationship]:
-        """Get all brand relationships, optionally filtered."""
-        brand_relationship_service = BrandRelationshipService()
-        return await brand_relationship_service.get_brand_relationships(db, brand_id, entity_type, entity_id)
-    
-    async def create_brand_relationship(self, db: AsyncSession, relationship: BrandRelationshipCreate) -> BrandRelationship:
-        """Create a new brand relationship."""
-        brand_relationship_service = BrandRelationshipService()
-        return await brand_relationship_service.create_brand_relationship(db, relationship)
-    
-    async def get_brand_relationship(self, db: AsyncSession, relationship_id: UUID) -> Optional[BrandRelationship]:
-        """Get a brand relationship by ID."""
-        brand_relationship_service = BrandRelationshipService()
-        return await brand_relationship_service.get_brand_relationship(db, relationship_id)
-    
-    async def update_brand_relationship(self, db: AsyncSession, relationship_id: UUID, relationship_update: BrandRelationshipUpdate) -> Optional[BrandRelationship]:
-        """Update a brand relationship."""
-        brand_relationship_service = BrandRelationshipService()
-        return await brand_relationship_service.update_brand_relationship(db, relationship_id, relationship_update)
-    
-    async def delete_brand_relationship(self, db: AsyncSession, relationship_id: UUID) -> bool:
-        """Delete a brand relationship."""
-        brand_relationship_service = BrandRelationshipService()
-        return await brand_relationship_service.delete_brand_relationship(db, relationship_id)
+    # Brand Relationship methods have been removed
+    # This functionality has been integrated into the Brand model with partner fields

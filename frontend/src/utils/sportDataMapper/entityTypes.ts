@@ -10,7 +10,6 @@ export type EntityType =
   | 'brand'
   | 'game_broadcast'
   | 'league_executive'
-  | 'brand_relationship'
   | 'division_conference';
 
 export interface EntityTypeInfo {
@@ -31,7 +30,6 @@ export const ENTITY_TYPES: readonly EntityTypeInfo[] = [
   { id: 'broadcast', name: 'Broadcast Rights', description: 'Media rights for leagues, teams, or games', requiredFields: ['broadcast_company_id', 'entity_type', 'entity_id', 'territory'] }, // Note: league_id is optional for broadcast rights
   { id: 'production', name: 'Production Service', description: 'Production services for broadcasts', requiredFields: ['production_company_id', 'entity_type', 'entity_id', 'service_type', 'start_date'] },
   { id: 'brand', name: 'Brand', description: 'Brand information', requiredFields: ['name', 'industry'] },
-  { id: 'brand_relationship', name: 'Brand Relationship', description: 'Sponsorship and partnership relationships', requiredFields: ['brand_id', 'entity_type', 'entity_id', 'relationship_type', 'start_date'] }, // note: brand_id and entity_id can be names that get converted to IDs
   { id: 'game_broadcast', name: 'Game Broadcast', description: 'Broadcast information for specific games', requiredFields: ['name', 'game_id', 'broadcast_company_id', 'broadcast_type', 'territory'] },
   { id: 'league_executive', name: 'League Executive', description: 'Executive personnel for leagues', requiredFields: ['name', 'league_id', 'position', 'start_date'] }
 ] as const;

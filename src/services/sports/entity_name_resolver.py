@@ -8,8 +8,7 @@ from src.models.sports_models import (
     League, Team, Player, Game, Stadium, 
     BroadcastCompany, BroadcastRights, 
     ProductionCompany, ProductionService,
-    Brand, BrandRelationship,
-    GameBroadcast, LeagueExecutive,
+    Brand, GameBroadcast, LeagueExecutive,
     DivisionConference
 )
 from src.services.sports.utils import get_model_for_entity_type, get_game_display_name
@@ -378,39 +377,18 @@ class EntityNameResolver:
                     position = entity.get('position', 'Executive')
                     item_dict["name"] = f"{entity['name']} - {position} ({league_name})"
             
-            # Handle brand relationships (has brand_id, entity_id)
-            elif entity_type in ['brand_relationship', 'brand_relationships']:
-                if 'brand_id' in entity and entity['brand_id']:
-                    brand_result = await db.execute(select(Brand.name).where(Brand.id == entity['brand_id']))
-                    item_dict["brand_name"] = brand_result.scalar()
-                
-                # Handle entity_id based on entity_type
-                if 'entity_type' in entity and 'entity_id' in entity and entity['entity_id']:
-                    if entity['entity_type'] == "league":
-                        entity_result = await db.execute(select(League.name).where(League.id == entity['entity_id']))
-                        item_dict["entity_name"] = entity_result.scalar()
-                    elif entity['entity_type'] == "team":
-                        entity_result = await db.execute(select(Team.name).where(Team.id == entity['entity_id']))
-                        item_dict["entity_name"] = entity_result.scalar()
-                    elif entity['entity_type'] == "player":
-                        entity_result = await db.execute(select(Player.name).where(Player.id == entity['entity_id']))
-                        item_dict["entity_name"] = entity_result.scalar()
-                    elif entity['entity_type'] == "stadium":
-                        entity_result = await db.execute(select(Stadium.name).where(Stadium.id == entity['entity_id']))
-                        item_dict["entity_name"] = entity_result.scalar()
-                
-                # Generate a name for brand relationships
-                brand_name = item_dict.get("brand_name")
-                entity_name = item_dict.get("entity_name")
-                
-                if brand_name and entity_name:
-                    relationship_type = entity.get('relationship_type', 'Relationship')
-                    item_dict["name"] = f"{brand_name} - {entity_name} {relationship_type}"
-                elif brand_name:
-                    item_dict["name"] = f"{brand_name} Brand Relationship"
-                else:
-                    # Fallback
-                    item_dict["name"] = f"Brand Relationship {entity['id']}"
+            # Handle brands - check for partner field
+            elif entity_type in ['brand', 'brands']:
+                if 'partner' in entity and entity['partner']:
+                    item_dict["partner_name"] = entity['partner']
+                    
+                    # Generate enhanced name if partner exists
+                    brand_name = entity.get('name', '')
+                    partner_name = entity.get('partner', '')
+                    relationship = entity.get('partner_relationship', 'Partner')
+                    
+                    if brand_name and partner_name:
+                        item_dict["relationship_display"] = f"{brand_name} - {relationship} - {partner_name}"
                 
         except Exception as e:
             # If we fail to get related names, log error and continue
@@ -452,9 +430,7 @@ class EntityNameResolver:
                 
         # For certain entity types, add additional allowed fields
         if entity_type in ['broadcast_right', 'broadcast_rights', 'broadcast',
-                        'production_service', 'production_services', 'production',
-                        'brand_relationship', 'brand_relationships',
-                        'game_broadcast', 'game_broadcasts']:
+                        'production_service', 'production_services', 'production']:
             allowed_fields.add('entity_name')
             allowed_fields.add('entity_type')
             
@@ -468,6 +444,13 @@ class EntityNameResolver:
         
         if entity_type in ['game_broadcast', 'game_broadcasts']:
             allowed_fields.add('game_name')
+            
+        # Add partner fields for brand entities
+        if entity_type in ['brand', 'brands']:
+            allowed_fields.add('partner')
+            allowed_fields.add('partner_relationship')
+            allowed_fields.add('partner_name')
+            allowed_fields.add('relationship_display')
         
         return allowed_fields
     

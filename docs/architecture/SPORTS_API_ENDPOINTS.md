@@ -88,13 +88,9 @@ This document outlines the API endpoints for the sports database functionality.
 - `PUT /api/v1/sports/brands/{id}` - Update a brand
 - `DELETE /api/v1/sports/brands/{id}` - Delete a brand
 
-### Brand Relationships
+> **Note**: The Brand model now includes `partner` and `partner_relationship` fields that allow direct relationship specification without requiring a separate brand relationship entity. Brand relationships are now managed directly through the Brand endpoints.
 
-- `GET /api/v1/sports/brand-relationships` - Get all brand relationships
-- `GET /api/v1/sports/brand-relationships/{id}` - Get a specific brand relationship by ID
-- `POST /api/v1/sports/brand-relationships` - Create a new brand relationship
-- `PUT /api/v1/sports/brand-relationships/{id}` - Update a brand relationship
-- `DELETE /api/v1/sports/brand-relationships/{id}` - Delete a brand relationship
+> **Important**: Brand Relationship endpoints have been removed. The functionality has been integrated into the Brand model with partner fields.
 
 ## Generic Entity Endpoints
 

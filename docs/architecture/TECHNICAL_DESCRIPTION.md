@@ -108,7 +108,9 @@ brands                   # Universal company entity
 ├── id (UUID)
 ├── name (String)
 ├── company_type
-└── country
+├── country
+├── partner             # Optional reference to any entity
+└── partner_relationship # Describes relationship with partner
 
 leagues
 ├── id (UUID)
@@ -154,7 +156,8 @@ production_services
 3. **Universal Brand System**
    ```
    Company Detection → Brand Lookup/Creation → 
-   Type Classification → Direct Entity Relationships
+   Type Classification → Partner Resolution →
+   Direct Entity Relationships
    ```
 
 4. **Virtual Entity Support**
@@ -165,6 +168,29 @@ production_services
    ```
 
 ## Recent Enhancements
+
+### Brand Relationship Entity Consolidation (June 2025)
+- Integrated Brand Relationship functionality directly into Brand entity:
+  - Removed the separate BrandRelationship entity and model
+  - Added partner and partner_relationship fields to the Brand entity
+  - Enhanced validation ensuring partner is specified with relationship type
+  - Updated component structure and entity type selectors
+  - Simplified database schema with more efficient relationships
+  - Improved UI with fewer entity options and more intuitive management
+  
+- Implemented cross-entity partner resolution:
+  ```
+  Brand Creation/Update → Partner Field Detection →
+  Multi-Entity Type Search → Entity Name Resolution →
+  Relationship Classification → Direct Storage on Brand →
+  No Separate Join Table Required
+  ```
+  
+- Simplified data model with more intuitive relationship handling:
+  - Eliminated separate BrandRelationship model and endpoints
+  - Enhanced Brand entity with direct relationship capability
+  - Maintained backward compatibility with existing data
+  - Reduced database complexity with fewer joins
 
 ### React Component State Management Fixes (June 2025)
 - Fixed critical UI issues in the DatabaseQuery component:

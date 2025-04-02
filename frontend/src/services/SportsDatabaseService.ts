@@ -111,16 +111,10 @@ export interface ProductionService extends BaseEntity {
 // Brand entity
 export interface Brand extends BaseEntity {
   industry: string;
-}
-
-// BrandRelationship entity
-export interface BrandRelationship extends BaseEntity {
-  brand_id: string;
-  entity_type: string;
-  entity_id: string;
-  relationship_type: string;
-  start_date: string;
-  end_date: string;
+  company_type?: string;
+  country?: string;
+  partner?: string; 
+  partner_relationship?: string;
 }
 
 // LeagueExecutive entity
@@ -210,16 +204,13 @@ const entityPromptTemplates: Record<EntityType, string> = {
 7. End date (YYYY-MM-DD format, optional)
 8. Description (optional)`,
 
-  brand: `I'll help you create a new brand relationship record. Please provide the following information:
-1. Name/title for this brand relationship
-2. Brand (if you know the brand ID, please provide it)
-3. Entity type (league, division_conference, team, player, or stadium)
-4. Entity ID (the ID of the league, division/conference, team, player, or stadium)
-5. Relationship type (sponsor, partner, supplier, or other)
-6. Start date (YYYY-MM-DD format)
-7. End date (YYYY-MM-DD format, optional)
-8. Value in dollars (optional)
-9. Description (optional)`,
+  brand: `I'll help you create a new brand record. Please provide the following information:
+1. Brand name
+2. Industry (e.g., Technology, Media, Sports Equipment, Apparel)
+3. Company type (e.g., Broadcaster, Production Company, Sponsor, optional)
+4. Country (optional)
+5. Partner (name of a partner entity like League, Team, Stadium, optional)
+6. Partner relationship (sponsor, partner, supplier, or other, optional)`,
 
   game_broadcast: `I'll help you create a new game broadcast record. Please provide the following information:
 1. Game ID
@@ -391,6 +382,10 @@ class SportsDatabaseService {
         
       case 'brand':
         if (!data.industry) errors.industry = ['Industry is required'];
+        // Partner relationship validation - must have partner if partner_relationship is provided
+        if (data.partner_relationship && !data.partner) {
+          errors.partner = ['Partner is required when Partner Relationship is specified'];
+        }
         break;
         
       case 'game_broadcast':

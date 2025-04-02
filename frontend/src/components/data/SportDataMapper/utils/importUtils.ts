@@ -197,87 +197,33 @@ export const saveEntityToDatabase = async (
   // Special handling for certain entity types
   console.log(`Checking special handling for entity type: ${entityType}`);
   
-  if (entityType === 'brand_relationship') {
-    console.log('Using special handling for brand_relationship');
+  // Handle brand entity with partner fields
+  if (entityType === 'brand') {
+    console.log('Using special handling for brand with partner fields');
     
-    // Resolve string values to UUIDs before passing to backend
-    if (data.brand_id && typeof data.brand_id === 'string' && !isValidUUID(data.brand_id)) {
-      // Look up brand by name
-      console.log(`Looking up brand ID for name: ${data.brand_id}`);
-      try {
-        const brandResponse = await api.sports.lookup('brand', data.brand_id);
-        if (brandResponse && brandResponse.id) {
-          data.brand_id = brandResponse.id;
-          console.log(`Resolved brand name "${data.brand_id}" to UUID: ${brandResponse.id}`);
-        } else {
-          throw new Error(`Brand "${data.brand_id}" not found. Go to the Entities menu in the main navigation, select "Brand", click "New" to create the brand, then try again.`);
+    // Handle partner field resolution
+    if (data.partner && typeof data.partner === 'string' && data.partner_relationship) {
+      console.log(`Brand has partner "${data.partner}" with relationship "${data.partner_relationship}"`);
+      
+      // We store the partner name as a string, the backend will handle resolution
+      // Format dates correctly for this entity
+      if (data.start_date && typeof data.start_date === 'string') {
+        // Check if it's just a year (4 digits)
+        const yearRegex = /^\d{4}$/;
+        if (yearRegex.test(data.start_date)) {
+          data.start_date = `${data.start_date}-01-01`;
+          console.log(`Formatted start_date: ${data.start_date}`);
         }
-      } catch (error) {
-        console.error(`Error looking up brand: ${data.brand_id}`, error);
-        throw new Error(`Brand "${data.brand_id}" not found. Go to the Entities menu in the main navigation, select "Brand", click "New" to create the brand, then try again.`);
-      }
-    }
-    
-    // Resolve entity by name
-    if (data.entity_id && typeof data.entity_id === 'string' && !isValidUUID(data.entity_id)) {
-      // Normalize entity type
-      let lookupType = data.entity_type.toLowerCase();
-      if (lookupType.endsWith('s')) {
-        lookupType = lookupType.slice(0, -1);
-      }
-      if (['division', 'conference', 'divisions', 'conferences'].includes(lookupType)) {
-        lookupType = 'division_conference';
       }
       
-      console.log(`Looking up ${lookupType} ID for name: ${data.entity_id}`);
-      try {
-        const entityResponse = await api.sports.lookup(lookupType, data.entity_id);
-        if (entityResponse && entityResponse.id) {
-          data.entity_id = entityResponse.id;
-          console.log(`Resolved entity name "${data.entity_id}" to UUID: ${entityResponse.id}`);
-        } else {
-          throw new Error(`${data.entity_type} "${data.entity_id}" not found. Go to the Entities menu in the main navigation, select the appropriate entity type, click "New" to create it, then try again.`);
+      if (data.end_date && typeof data.end_date === 'string') {
+        // Check if it's just a year (4 digits)
+        const yearRegex = /^\d{4}$/;
+        if (yearRegex.test(data.end_date)) {
+          data.end_date = `${data.end_date}-12-31`;
+          console.log(`Formatted end_date: ${data.end_date}`);
         }
-      } catch (error) {
-        console.error(`Error looking up entity: ${data.entity_id}`, error);
-        throw new Error(`${data.entity_type} "${data.entity_id}" not found. Go to the Entities menu in the main navigation, select the appropriate entity type, click "New" to create it, then try again.`);
       }
-    }
-    
-    // Format dates correctly
-    if (data.start_date && typeof data.start_date === 'string') {
-      // Check if it's just a year (4 digits)
-      const yearRegex = /^\d{4}$/;
-      if (yearRegex.test(data.start_date)) {
-        data.start_date = `${data.start_date}-01-01`;
-        console.log(`Formatted start_date: ${data.start_date}`);
-      }
-    }
-    
-    if (data.end_date && typeof data.end_date === 'string') {
-      // Check if it's just a year (4 digits)
-      const yearRegex = /^\d{4}$/;
-      if (yearRegex.test(data.end_date)) {
-        data.end_date = `${data.end_date}-12-31`;
-        console.log(`Formatted end_date: ${data.end_date}`);
-      }
-    }
-    
-    // Now try to create the relationship with the resolved IDs
-    try {
-      console.log('Creating brand relationship with resolved data:', data);
-      const response = await api.sports.createBrandRelationship(data);
-      return !!response;
-    } catch (error) {
-      console.error('Error creating brand relationship:', error);
-      
-      // If the error is still UUID related, it means our resolution failed
-      if (error.message && error.message.includes('UUID') && error.message.includes('invalid character')) {
-        throw new Error(`UUID validation error. Please use the Entities menu to create any missing entities before creating this relationship.`);
-      }
-      
-      // Rethrow the original error
-      throw error;
     }
   }
   
@@ -671,10 +617,10 @@ export const formatErrorMessage = (error: unknown): string => {
       }
     }
     
-    // Special handling for brand relationship unique constraint violation
+    // Special handling for brand unique constraint violation
     if (errorMessage.includes('duplicate key value violates unique constraint') && 
-        errorMessage.includes('brand_relationship')) {
-      return `A brand relationship already exists with these exact parameters. Modify some values to make it unique or use the edit interface instead.`;
+        errorMessage.includes('brand')) {
+      return `A brand already exists with these exact parameters. Modify some values to make it unique or use the edit interface instead.`;
     }
     
     return errorMessage;

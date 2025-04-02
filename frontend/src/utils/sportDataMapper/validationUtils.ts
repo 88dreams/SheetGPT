@@ -22,7 +22,7 @@ export const validateEntityData = (
   const errors: string[] = [];
   
   // Common validation for all entities except those that don't require name field
-  if (entityType !== 'broadcast' && entityType !== 'brand_relationship' && entityType !== 'production' && !data.name) {
+  if (entityType !== 'broadcast' && entityType !== 'production' && !data.name) {
     errors.push('Name is required');
     console.warn(`${entityType} validation error: Name is required`);
   }
@@ -343,33 +343,17 @@ export const validateEntityData = (
       if (!data.industry) {
         errors.push('Industry is required');
       }
-      break;
       
-    case 'brand_relationship':
-      if (!data.brand_id) {
-        errors.push('Brand ID or Brand Name is required');
-      }
-      // We don't validate UUID format for brand_id since it can be a name
-      // that will be resolved to an existing brand or create a new one
-      
-      if (!data.entity_type) {
-        errors.push('Entity Type is required');
-      }
-      
-      if (!data.entity_id) {
-        errors.push('Entity ID or Entity Name is required');
-      }
-      // We don't validate UUID format for entity_id since it can be a name
-      // that will be resolved to an existing entity or create a new one
-      
-      if (!data.relationship_type) {
-        errors.push('Relationship Type is required');
-      }
-      
-      if (!data.start_date) {
-        errors.push('Start Date is required');
+      // Optional validation for partner fields
+      // Check that if partner_relationship is provided, partner is also provided
+      if (data.partner_relationship && !data.partner) {
+        errors.push('Partner is required when Partner Relationship is specified');
+        console.warn('Brand validation error: Partner is required when Partner Relationship is specified');
       }
       break;
+      
+    // Brand relationship validation has been removed
+    // Partner and partner_relationship fields are now part of the Brand entity
       
     case 'league_executive':
       if (!data.league_id) {

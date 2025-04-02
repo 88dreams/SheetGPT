@@ -11,7 +11,6 @@ from src.models.sports_models import (
     ProductionCompany,
     ProductionService,
     Brand,
-    BrandRelationship,
     TeamRecord,
     TeamOwnership,
     LeagueExecutive,
@@ -36,9 +35,8 @@ __all__ = [
     "ProductionCompany",
     "ProductionService",
     "Brand",
-    "BrandRelationship",
     "TeamRecord",
     "TeamOwnership",
     "LeagueExecutive",
     "GameBroadcast"
-] 
+]

@@ -8,7 +8,6 @@ import {
   TeamFields, 
   DivisionConferenceFields,
   BrandFields,
-  BrandRelationshipFields,
   BroadcastFields,
   ProductionFields
 } from './fields';
@@ -82,12 +81,8 @@ export const AdvancedEditForm: React.FC<AdvancedEditFormProps> = ({
                 isEditing={isEditing} 
               />;
               
-      case 'brand_relationship':
-        return <BrandRelationshipFields 
-                entity={entity} 
-                onChange={handleFieldChange} 
-                isEditing={isEditing} 
-              />;
+      // brand_relationship entity type is no longer supported
+      // Instead, use the partner fields in the Brand entity
       
       default:
         return <div>No editor available for entity type: {entityType}</div>;

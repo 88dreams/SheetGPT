@@ -41,11 +41,12 @@ RESOLUTION_PATHS = {
     "broadcast_company": ["broadcast_company", "brand"],
     "production_company": ["production_company", "brand"],
     "division": ["division_conference"],
+    "partner": ["league", "division_conference", "team", "player", "game", "stadium"],
     # ...
 }
 ```
 
-This allows for intelligent fallbacks between related entity types, such as trying to resolve a "broadcast_company" as a "brand" if no direct match is found.
+This allows for intelligent fallbacks between related entity types, such as trying to resolve a "broadcast_company" as a "brand" if no direct match is found. For Brand partner fields, the system tries multiple entity types in sequence to find the referenced partner entity.
 
 ### 4. Fuzzy Name Matching
 
@@ -284,6 +285,57 @@ class EntityResolver {
 }
 ```
 
+## Brand Partner Resolution
+
+The Brand entity now includes `partner` and `partner_relationship` fields that leverage the entity resolution system to reference entities of different types:
+
+### Resolution Flow
+
+When a Brand is created or updated with a partner field, the following resolution process occurs:
+
+1. The system identifies the partner field value is not a UUID (not already resolved)
+2. The partner resolution path is used to try multiple entity types in sequence:
+   - First tries to resolve the name as a league
+   - Then tries division_conference
+   - Then team, player, game, and stadium
+3. When a match is found, the partner name is stored directly in the database
+4. During retrieval, the partner can be looked up across multiple entity types
+
+### Partner Field Validation
+
+The system enforces business rules for partner fields:
+- If `partner_relationship` is specified, `partner` must also be provided
+- The `partner_relationship` field is validated against predefined options (Sponsor, Partner, Supplier, etc.)
+- Both fields are optional, but must satisfy the dependency constraint
+
+### Implementation in mappingUtils.ts
+
+The frontend implementation in `mappingUtils.ts` handles partner resolution during data import:
+
+```typescript
+// Partner field handling for brand entity
+if (entityType === 'brand' && basicMapped.partner) {
+  // If partner is specified but not a UUID, look up the partner entity
+  if (!isValidUUID(basicMapped.partner)) {
+    console.log(`Looking up partner entity by name: ${basicMapped.partner}`);
+    
+    // Try to find the partner entity across multiple entity types
+    for (const type of entityTypes) {
+      try {
+        const response = await apiClient.sports.lookup(type, basicMapped.partner);
+        if (response && response.id) {
+          console.log(`Found partner entity of type ${type} with ID: ${response.id} for name: ${basicMapped.partner}`);
+          // Store the partner name as is, the backend will handle resolution
+          break;
+        }
+      } catch (error) {
+        console.log(`No match found for ${basicMapped.partner} as ${type}`);
+      }
+    }
+  }
+}
+```
+
 ## Conclusion
 
-The enhanced Entity Resolution Strategy provides a robust, flexible, and user-friendly approach to entity reference handling in SheetGPT's sports data management system. By centralizing this functionality and implementing sophisticated matching algorithms, we've significantly improved the system's ability to handle entity references in various formats, making it more resilient to input variations and providing better user feedback when resolution fails.
+The enhanced Entity Resolution Strategy provides a robust, flexible, and user-friendly approach to entity reference handling in SheetGPT's sports data management system. By centralizing this functionality and implementing sophisticated matching algorithms, we've significantly improved the system's ability to handle entity references in various formats, making it more resilient to input variations and providing better user feedback when resolution fails. The recent integration of partner fields in the Brand entity demonstrates how this resolution system enables more intuitive relationship handling across different entity types.

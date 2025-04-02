@@ -25,8 +25,7 @@ jest.mock('../../../../../frontend/src/components/data/EntityUpdate/SmartEntityS
               'division_conference': { id: 'div1', name: 'Test Division', league_id: 'league1', type: 'Division' },
               'broadcast': { id: 'broadcast1', name: 'Test Broadcast', broadcast_company_id: 'company1', entity_type: 'game' },
               'production': { id: 'production1', name: 'Test Production', production_company_id: 'company1', entity_type: 'game' },
-              'brand': { id: 'brand1', name: 'Test Brand', industry: 'Sports' },
-              'brand_relationship': { id: 'brandrel1', brand_id: 'brand1', entity_type: 'league', entity_id: 'league1' },
+              'brand': { id: 'brand1', name: 'Test Brand', industry: 'Sports', partner: 'Test League', partner_relationship: 'sponsor' },
               'unknown': { id: 'unknown1', name: 'Unknown Entity' }
             };
             

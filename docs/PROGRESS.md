@@ -2,6 +2,34 @@
 
 ## Latest Update
 
+### 2025-06-03: Brand Relationship Entity Consolidation
+
+- Integrated Brand Relationship functionality directly into the Brand entity:
+  - Removed the separate BrandRelationship entity and model
+  - Added partner and partner_relationship fields to the Brand entity
+  - Updated database schema with Alembic migrations
+  - Implemented partner entity resolution for cross-entity relationships
+  - Modified frontend components to support the new fields
+  - Enhanced validation to ensure data integrity with partner fields
+
+- Key improvements to the architecture:
+  - Simplified data model by reducing an entire entity class
+  - Enhanced user experience with more intuitive relationship management
+  - Improved data integrity with direct relationship fields
+  - Streamlined UI with fewer entity options and simplified navigation
+  - More efficient database schema with fewer joins needed for relationship data
+  - Maintained backward compatibility with existing data
+  - Added smart validation ensuring partner is specified with relationship type
+
+- Technical implementation details:
+  - Modified Brand model in sports_models.py with new fields
+  - Updated Pydantic schemas (BrandCreate, BrandUpdate, BrandResponse)
+  - Removed BrandRelationship API endpoints
+  - Updated frontend TypeScript interfaces in sports.ts
+  - Removed brand_relationship from EntityTypeSelector and entity type definitions
+  - Enhanced BrandFields.tsx with UI elements for partner fields
+  - Updated validation logic in validationUtils.ts
+
 ### 2025-06-02: DatabaseQuery Component Fixes for Column Reordering and Export
 
 - Fixed critical issues in the DatabaseQuery component:

@@ -13,7 +13,7 @@ from src.models.sports_models import (
     League, Team, Player, Game, Stadium, 
     BroadcastCompany, BroadcastRights, 
     ProductionCompany, ProductionService,
-    Brand, BrandRelationship
+    Brand
 )
 
 logger = logging.getLogger(__name__)
@@ -259,4 +259,4 @@ class ExportService:
             rows.append(row)
         
         logging.info(f"Total rows for export: {len(rows)}")
-        return headers, rows 
+        return headers, rows

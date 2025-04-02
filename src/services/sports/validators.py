@@ -8,8 +8,7 @@ from src.models.sports_models import (
     League, Team, Player, Game, Stadium, 
     BroadcastCompany, BroadcastRights, 
     ProductionCompany, ProductionService,
-    Brand, BrandRelationship,
-    GameBroadcast, LeagueExecutive,
+    Brand, GameBroadcast, LeagueExecutive,
     DivisionConference
 )
 
@@ -101,8 +100,7 @@ class EntityValidator:
             return brand
             
         # If neither broadcast company nor brand is found, raise the error
-        raise ValueError(f"No brand or broadcast company with ID {company_id} found")
-        
+        raise ValueError(f"No brand or broadcast company with ID {company_id} not found")
     
     @staticmethod
     async def validate_production_company(db: AsyncSession, company_id: UUID) -> Optional[Any]:
@@ -151,7 +149,7 @@ class EntityValidator:
             return brand
             
         # If neither production company nor brand is found, raise the error
-        raise ValueError(f"No brand or production company with ID {company_id} found")
+        raise ValueError(f"No brand or production company with ID {company_id} not found")
     
     @staticmethod
     async def validate_brand(db: AsyncSession, brand_id: UUID) -> Optional[Brand]:

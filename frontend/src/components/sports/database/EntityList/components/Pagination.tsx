@@ -22,25 +22,47 @@ export default function Pagination({
   totalItems,
   isLoading = false
 }: PaginationProps) {
-  // Inline handler for page size changes
+  // Handler for page size changes that preserves scroll position
   function onPageSizeChange(e: React.ChangeEvent<HTMLSelectElement>) {
+    // Store current scroll position
+    const currentScrollY = window.scrollY;
+    
     // Get new size from dropdown
     const newPageSize = parseInt(e.target.value, 10);
     
     // Let parent component handle the complex pagination state
     // It will reset page to 1 and update appropriate query state
     setPageSize(newPageSize);
+    
+    // After a slight delay to allow re-rendering, restore scroll position
+    setTimeout(() => {
+      window.scrollTo(0, currentScrollY);
+    }, 10);
   }
   
   // Calculate from/to display
   const from = totalItems === 0 ? 0 : (currentPage - 1) * pageSize + 1;
   const to = Math.min(currentPage * pageSize, totalItems);
   
-  // Improved handlers to ensure events are completely processed
+  // Function to preserve scroll position when changing pages
+  const changePagePreservingScroll = (newPage: number) => {
+    // Store current scroll position
+    const currentScrollY = window.scrollY;
+    
+    // Change the page
+    setCurrentPage(newPage);
+    
+    // After a slight delay to allow re-rendering, restore scroll position
+    setTimeout(() => {
+      window.scrollTo(0, currentScrollY);
+    }, 10);
+  };
+
+  // Improved handlers with scroll position preservation
   const handleFirstPage = (e: React.MouseEvent) => {
     e.preventDefault();
     if (currentPage !== 1) {
-      setCurrentPage(1);
+      changePagePreservingScroll(1);
     }
   };
 
@@ -48,7 +70,7 @@ export default function Pagination({
     e.preventDefault();
     if (currentPage > 1) {
       const newPage = currentPage - 1;
-      setCurrentPage(newPage);
+      changePagePreservingScroll(newPage);
     }
   };
 
@@ -56,14 +78,14 @@ export default function Pagination({
     e.preventDefault();
     if (currentPage < totalPages) {
       const newPage = currentPage + 1;
-      setCurrentPage(newPage);
+      changePagePreservingScroll(newPage);
     }
   };
 
   const handleLastPage = (e: React.MouseEvent) => {
     e.preventDefault();
     if (currentPage !== totalPages) {
-      setCurrentPage(totalPages);
+      changePagePreservingScroll(totalPages);
     }
   };
 

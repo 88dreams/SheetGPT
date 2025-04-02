@@ -136,6 +136,19 @@ const EntityList: React.FC<EntityListProps> = ({ className = '' }) => {
     // Always include entity type in the storage key for persistence between navigation
     storageKey: selectedEntityType ? `entityList_${selectedEntityType}_columnOrder` : undefined
   });
+  
+  // Track scroll position for preserving it when changing pages
+  const scrollPositionRef = useRef<number>(0);
+  
+  // Remember the scroll position before any state updates
+  useEffect(() => {
+    const handleScroll = () => {
+      scrollPositionRef.current = window.scrollY;
+    };
+    
+    window.addEventListener('scroll', handleScroll);
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
 
   // Initialize column visibility hook
   const {

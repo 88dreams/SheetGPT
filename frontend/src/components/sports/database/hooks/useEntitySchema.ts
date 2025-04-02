@@ -131,7 +131,11 @@ export function useEntitySchema() {
 
         case 'brand':
           fields.push(
-            { name: 'industry', required: true, type: 'string', description: 'Industry sector of the brand' }
+            { name: 'industry', required: true, type: 'string', description: 'Industry sector of the brand' },
+            { name: 'company_type', required: false, type: 'string', description: 'Type of company (Broadcaster, Production Company, etc.)' },
+            { name: 'country', required: false, type: 'string', description: 'Country where the brand is based' },
+            { name: 'partner', required: false, type: 'string', description: 'Partner entity name (e.g., league, team, stadium)' },
+            { name: 'partner_relationship', required: false, type: 'string', description: 'Type of relationship with partner (Sponsor, Partner, etc.)' }
           );
           break;
 

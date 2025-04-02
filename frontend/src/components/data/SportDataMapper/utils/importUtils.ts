@@ -28,11 +28,11 @@ export const transformMappedData = (
     ['production_company_id', 'service_type', 'entity_type'].includes(k)
   );
   
-  // If mappings contains sourceFields like "Company Name", we are using display names
+  // If mappings contains sourceFields like "Name", "Company Name", we are using display names
   // and the sourceRecord seems to be a flat array of values. In this case, we need
   // to directly map based on position, using the source field headers.
   const usingDisplayNames = Object.values(mappings).some(v => 
-    ['Company Name', 'Service Type', 'Entity Name', 'League Name', 'Start Date'].includes(v)
+    ['Name', 'Company Name', 'Service Type', 'Entity Name', 'League Name', 'Start Date'].includes(v)
   );
   
   // Special handling for common production service mappings
@@ -42,6 +42,7 @@ export const transformMappedData = (
     
     // Hard-coded maps for production services based on column positions in typical CSV data
     const fieldPositions = {
+      'Name': 0,          // Name is typically first column
       'Company Name': 0,  // Production company name is typically first column
       'Service Type': 1,  // Service type is typically second column
       'Entity Name': 2,   // Entity being produced is typically third column
@@ -65,7 +66,7 @@ export const transformMappedData = (
       }
     });
     
-    // For production services, set default values for required fields if missing
+    // Set default values for required fields if missing
     if (isProductionEntity) {
       if (!transformedData.service_type && mappings.service_type) {
         transformedData.service_type = 'Production';
@@ -85,6 +86,29 @@ export const transformMappedData = (
       if (!transformedData.entity_type && mappings.entity_type) {
         transformedData.entity_type = 'league';
         console.log('Set default entity_type to "league"');
+      }
+    }
+    
+    // Special handling for brand entities
+    const isBrandEntity = Object.keys(mappings).some(k => 
+      ['industry', 'partner', 'partner_relationship'].includes(k)
+    );
+    
+    if (isBrandEntity) {
+      // If we're mapping a brand and first column exists, use it for name if not already mapped
+      if (!transformedData.name && sourceRecord[0]) {
+        transformedData.name = sourceRecord[0];
+        console.log(`Set brand name from first column: ${transformedData.name}`);
+      }
+      
+      // If partner and partner_relationship exist but name is still missing, generate a name
+      if (!transformedData.name && transformedData.partner && transformedData.partner_relationship) {
+        if (transformedData.industry) {
+          transformedData.name = `${transformedData.industry} (${transformedData.partner})`;
+        } else {
+          transformedData.name = `${transformedData.partner} Partner`;
+        }
+        console.log(`Generated brand name from partner info: ${transformedData.name}`);
       }
     }
   } else {
@@ -204,6 +228,21 @@ export const saveEntityToDatabase = async (
     // Handle partner field resolution
     if (data.partner && typeof data.partner === 'string' && data.partner_relationship) {
       console.log(`Brand has partner "${data.partner}" with relationship "${data.partner_relationship}"`);
+      
+      // Ensure the brand has a name set (required field)
+      if (!data.name) {
+        // Use the company type from the partner relationship
+        const relationshipType = data.partner_relationship.toLowerCase();
+        
+        // Set a default name based on partner and relationship
+        if (data.industry) {
+          data.name = `${data.industry} (${data.partner})`;
+          console.log(`Using industry and partner for name: ${data.name}`);
+        } else {
+          data.name = `${data.partner} ${relationshipType}`;
+          console.log(`Using partner and relationship for name: ${data.name}`);
+        }
+      }
       
       // We store the partner name as a string, the backend will handle resolution
       // Format dates correctly for this entity

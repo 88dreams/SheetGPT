@@ -1,7 +1,7 @@
-import React, { useEffect, useRef } from 'react';
-import { Input } from 'antd';
+import React, { useEffect, useRef, useState } from 'react';
+import { Input, Button } from 'antd';
 import { SearchOutlined } from '@ant-design/icons';
-import { FaFileExport, FaColumns, FaKey } from 'react-icons/fa';
+import { FaFileExport, FaColumns, FaKey, FaSearch } from 'react-icons/fa';
 import { getEntityTypeName } from '../utils/formatters';
 import { EntityType } from '../../../../../types/sports';
 
@@ -29,14 +29,37 @@ const EntityListHeader: React.FC<EntityListHeaderProps> = ({
   // Create a ref to the input element so we can set its value programmatically
   const searchInputRef = useRef<Input>(null);
   
-  // When searchValue prop changes (especially to ''), update the input value
+  // Internal state to track input value before search is submitted
+  const [inputValue, setInputValue] = useState(searchValue);
+  
+  // When searchValue prop changes (especially to ''), update the input value and internal state
   useEffect(() => {
+    setInputValue(searchValue); // Update internal state
+    
     // If we have a ref to the input and the searchValue is explicitly provided
     if (searchInputRef.current && searchInputRef.current.input) {
       // Set the value of the input element directly to match searchValue
       searchInputRef.current.input.value = searchValue;
     }
   }, [searchValue]);
+  
+  // Handle search submission
+  const handleSearchSubmit = () => {
+    if (onSearch && inputValue) {
+      console.log(`Search submitted with query: "${inputValue}"`);
+      onSearch(inputValue.toLowerCase());
+    } else if (onSearch && !inputValue) {
+      // Clear search when input is empty
+      onSearch('');
+    }
+  };
+  
+  // Handle input keydown (pressing Enter)
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      handleSearchSubmit();
+    }
+  };
   
   return (
     <div className="p-4 border-b border-gray-200">
@@ -45,26 +68,23 @@ const EntityListHeader: React.FC<EntityListHeaderProps> = ({
           {getEntityTypeName(selectedEntityType)}
         </h2>
         <div className="flex-grow max-w-xl">
-          {/* Controlled search input with ref */}
-          <div className="w-full">
+          {/* Search input with button for explicit submission */}
+          <div className="w-full flex">
             <Input 
               ref={searchInputRef}
               prefix={<SearchOutlined />} 
               placeholder={`Search ${getEntityTypeName(selectedEntityType)} (min 3 chars)`}
-              defaultValue={searchValue} // Set initial value from prop
-              onChange={(e) => {
-                // Clear any previous timeout
-                if (window.searchTimeout) {
-                  clearTimeout(window.searchTimeout);
-                }
-                
-                // Set a new timeout to debounce the search
-                window.searchTimeout = setTimeout(() => {
-                  if (onSearch) {
-                    onSearch(e.target.value.toLowerCase());
-                  }
-                }, 300); // 300ms debounce
-              }}
+              defaultValue={searchValue}
+              value={inputValue}
+              onChange={(e) => setInputValue(e.target.value)}
+              onKeyDown={handleKeyDown}
+              className="rounded-r-none"
+            />
+            <Button 
+              type="primary" 
+              icon={<FaSearch />}
+              onClick={handleSearchSubmit}
+              className="rounded-l-none bg-blue-600 hover:bg-blue-700 border-blue-600"
             />
           </div>
         </div>

@@ -32,23 +32,30 @@ export function useSorting() {
       console.log(`useSorting: Changing sort field from ${sortField} to ${field} with direction ${newDirection}`);
     }
     
-    // Update sort state
-    const isChangingField = sortField !== field;
-    if (isChangingField) {
-      setSortField(field);
-      setSortDirection('asc');
-    } else {
-      setSortDirection(newDirection);
-    }
-    
-    // IMPORTANT: Reset to page 1 when sorting changes
-    // This ensures we always see the beginning of sorted results
+    // CRITICAL: Reset pagination before updating sort state to ensure we fetch correct data
+    // This ensures we always see freshly sorted results beginning from page 1
     if (resetPagination) {
-      console.log('useSorting: Resetting pagination to page 1');
+      console.log('useSorting: Resetting pagination to page 1 BEFORE updating sort parameters');
       resetPagination();
     } else {
-      console.log('useSorting: No pagination reset function available');
+      console.warn('useSorting: No pagination reset function available - sort may not apply to all items');
     }
+    
+    // Update sort state AFTER pagination is reset to prevent race conditions
+    // This sequence ensures the next data fetch will use the new sort parameters
+    setTimeout(() => {
+      const isChangingField = sortField !== field;
+      if (isChangingField) {
+        console.log(`useSorting: Setting sort field to "${field}" and direction to "asc"`);
+        setSortField(field);
+        setSortDirection('asc');
+      } else {
+        console.log(`useSorting: Setting sort direction to "${newDirection}"`);
+        setSortDirection(newDirection);
+      }
+      
+      console.log(`useSorting: Sort updated: field=${field}, direction=${isChangingField ? 'asc' : newDirection}`);
+    }, 0); // Use a timeout to ensure we don't have state updates in the same render cycle
   }, [sortField, sortDirection, resetPagination]);
   
   // Register function to reset pagination

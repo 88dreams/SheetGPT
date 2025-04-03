@@ -57,6 +57,8 @@ const EntityList: React.FC<EntityListProps> = ({ className = '' }) => {
     handleBulkDelete,
     isDeleting,
     activeFilters,
+    handleApplyFilters,
+    handleClearFilters,
     handleUpdateEntity,
     currentPage,
     setCurrentPage,
@@ -182,13 +184,30 @@ const EntityList: React.FC<EntityListProps> = ({ className = '' }) => {
   // Add state for search query to highlight matching rows
   const [searchQuery, setSearchQuery] = useState<string>('');
   
-  // Search handler - highlight all matching entities instead of selecting just one
+  // Search handler - search across all records via API and highlight matched rows in the UI
   const handleSearchSelect = (query: string) => {
-    // Store the search query for highlighting
+    // Store the search query for UI highlighting
     setSearchQuery(query.toLowerCase());
     
-    // Don't open edit modal, just highlight the matches in the table
-    console.log(`Searching for: ${query} - matches will be highlighted in the table`);
+    // Check if we have a non-empty search query with at least 3 characters
+    if (query && query.length >= 3) {
+      // Create a search filter to send to the backend
+      // This will search all records, not just the current page
+      const searchFilters = [
+        {
+          field: 'name',
+          operator: 'contains',
+          value: query
+        }
+      ];
+      
+      console.log(`Searching for: ${query} - applying global search filter`);
+      handleApplyFilters(searchFilters);
+    } else if (query.length === 0) {
+      // Clear filters if search is empty
+      console.log('Search cleared - removing filters');
+      handleClearFilters();
+    }
   };
 
   const handleEditModalClose = () => {

@@ -244,12 +244,20 @@ export const SportsDatabaseProvider: React.FC<SportsDatabaseProviderProps> = ({ 
     // Define the reset function
     const resetToFirstPage = () => {
       console.log('Resetting to page 1 due to sort change');
+      
+      // Reset to page 1
       setCurrentPage(1);
+      
+      // Force invalidation of the current queries to ensure fresh data with new sort
+      if (queryClient) {
+        console.log('Invalidating queries for new sort order');
+        queryClient.invalidateQueries(['sportsEntities', selectedEntityType]);
+      }
     };
     
     // Register it with the sorting hook
     registerResetPagination(resetToFirstPage);
-  }, [registerResetPagination]);
+  }, [registerResetPagination, queryClient, selectedEntityType]);
 
   // Fetch entity data using react-query
   // Key is updated when any parameters change
@@ -261,11 +269,31 @@ export const SportsDatabaseProvider: React.FC<SportsDatabaseProviderProps> = ({ 
     sortField,
     sortDirection,
     JSON.stringify(activeFilters),
-    // Add timestamp for production services to force refetching
+    // Add timestamp for production services or when sorting to force refetching
     ...(selectedEntityType === 'production' || selectedEntityType === 'broadcast' 
       ? [Date.now()] 
       : [])
   ], [selectedEntityType, currentPage, pageSize, sortField, sortDirection, activeFilters]);
+  
+  // Add debugging output for query key changes that highlights sorting parameters
+  useEffect(() => {
+    console.log('QueryKey updated with sort parameters:', {
+      entityType: selectedEntityType,
+      sortField,
+      sortDirection,
+      page: currentPage
+    });
+    
+    // Whenever sort parameters change, make sure we properly invalidate the cache
+    // This ensures that when user sorts, they get freshly sorted data from the server
+    if (queryClient) {
+      console.log('Sort parameters changed, invalidating entity queries');
+      queryClient.invalidateQueries({
+        queryKey: ['sportsEntities', selectedEntityType],
+        refetchType: 'active'  // Only refetch active queries
+      });
+    }
+  }, [selectedEntityType, sortField, sortDirection, queryClient]);
   
   const {
     data: response,

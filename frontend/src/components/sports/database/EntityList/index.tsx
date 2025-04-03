@@ -184,6 +184,7 @@ const EntityList: React.FC<EntityListProps> = ({ className = '' }) => {
   // Add state for search query to highlight matching rows and control the search input
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [searchInputValue, setSearchInputValue] = useState<string>('');
+  const [clientFilteredCount, setClientFilteredCount] = useState<number | null>(null);
   
   // Effect to reset search input value when filters are cleared externally
   // This ensures the input field is cleared when filters are cleared
@@ -194,8 +195,16 @@ const EntityList: React.FC<EntityListProps> = ({ className = '' }) => {
       console.log('No active filters, resetting search input value');
       setSearchInputValue('');
       setSearchQuery('');
+      setClientFilteredCount(null);  // Reset the filtered count
     }
   }, [activeFilters, searchInputValue]);
+  
+  // Effect to reset client filtered count when search query is cleared
+  useEffect(() => {
+    if (!searchQuery || searchQuery.length < 3) {
+      setClientFilteredCount(null);
+    }
+  }, [searchQuery]);
   
   // Search handler - search across all records via API and highlight matched rows in the UI
   const handleSearchSelect = (query: string) => {
@@ -348,7 +357,11 @@ const EntityList: React.FC<EntityListProps> = ({ className = '' }) => {
       {hasActiveFilters && (
         <div className="bg-blue-50 p-3 border-b border-blue-100">
           <p className="text-blue-700 text-sm">
-            Filters applied: Showing {totalItems} {selectedEntityType}(s) matching your filters.
+            {clientFilteredCount !== null && searchQuery && searchQuery.length >= 3 ? (
+              <>Filters applied: Showing {clientFilteredCount} of {totalItems} {selectedEntityType}(s) matching your filters and search query "<span className="font-semibold">{searchQuery}</span>".</>
+            ) : (
+              <>Filters applied: Showing {totalItems} {selectedEntityType}(s) matching your filters.</>
+            )}
           </p>
         </div>
       )}
@@ -374,6 +387,7 @@ const EntityList: React.FC<EntityListProps> = ({ className = '' }) => {
         handleView={(entityId) => navigate(`/sports/${selectedEntityType}/${entityId}`)}
         searchQuery={searchQuery} // Pass the search query for highlighting
         isLoading={isLoading} // Pass loading state to show loading overlay
+        onFilteredCountChange={setClientFilteredCount} // Report back filtered count
         // Column drag and drop props
         draggedHeader={draggedItem}
         dragOverHeader={dragOverItem}
@@ -394,6 +408,8 @@ const EntityList: React.FC<EntityListProps> = ({ className = '' }) => {
         setPageSize={setPageSize}
         totalItems={totalItems}
         isLoading={isLoading}
+        filteredCount={clientFilteredCount}
+        searchQuery={searchQuery}
       />
 
       {/* Entity Edit Modal */}

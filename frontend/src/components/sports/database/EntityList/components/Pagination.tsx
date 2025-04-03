@@ -8,6 +8,8 @@ interface PaginationProps {
   setPageSize: (size: number) => void;
   totalItems: number;
   isLoading?: boolean; // Optional loading indicator
+  filteredCount?: number | null; // Optional client-side filtered count
+  searchQuery?: string; // Optional search query for display
 }
 
 /**
@@ -20,7 +22,9 @@ export default function Pagination({
   pageSize, 
   setPageSize, 
   totalItems,
-  isLoading = false
+  isLoading = false,
+  filteredCount = null,
+  searchQuery = ''
 }: PaginationProps) {
   // Handler for page size changes that preserves scroll position
   function onPageSizeChange(e: React.ChangeEvent<HTMLSelectElement>) {
@@ -94,7 +98,11 @@ export default function Pagination({
       <div className="flex items-center justify-between">
         <div className="flex items-center">
           <span className="text-sm text-gray-700">
-            Showing {from} to {to} of {totalItems} results
+            {filteredCount !== null && searchQuery && searchQuery.length >= 3 ? (
+              <>Showing {filteredCount} results matching "<span className="font-semibold">{searchQuery}</span>" (filtered from {totalItems} total)</>
+            ) : (
+              <>Showing {from} to {to} of {totalItems} results</>
+            )}
           </span>
           
           {/* Plain select with primitive values */}

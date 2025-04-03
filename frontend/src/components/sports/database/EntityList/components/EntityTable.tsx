@@ -27,6 +27,7 @@ interface EntityTableProps {
   handleView: (entityId: string) => void;
   searchQuery?: string; // Added search query for highlighting
   isLoading?: boolean; // Added loading state
+  onFilteredCountChange?: (count: number) => void; // Callback to report filtered count
   
   // Column drag and drop props
   draggedHeader: string | null;
@@ -75,6 +76,7 @@ const EntityTable: React.FC<EntityTableProps> = ({
   handleView,
   searchQuery = '', // Default to empty string
   isLoading = false, // Default to not loading
+  onFilteredCountChange,
   // Column drag and drop props
   draggedHeader,
   dragOverHeader,
@@ -246,8 +248,15 @@ const EntityTable: React.FC<EntityTableProps> = ({
   // Count matches for the search query
   const matchingEntitiesCount = useMemo(() => {
     if (!searchQuery || searchQuery.length < 3) return 0;
-    return entities.filter(entity => entityMatchesSearch(entity)).length;
-  }, [searchQuery, entities]);
+    const filteredCount = entities.filter(entity => entityMatchesSearch(entity)).length;
+    
+    // Report the filtered count back to the parent component
+    if (onFilteredCountChange) {
+      onFilteredCountChange(filteredCount);
+    }
+    
+    return filteredCount;
+  }, [searchQuery, entities, onFilteredCountChange, entityMatchesSearch]);
 
   return (
     <div className="overflow-auto border border-gray-200 rounded-md relative">

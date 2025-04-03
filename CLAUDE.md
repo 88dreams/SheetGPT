@@ -2,6 +2,14 @@
 
 ## Recent Improvements
 
+### EntityList Search & Filter Improvements (Completed June 4)
+- ✅ Enhanced Search with Manual Submission Button
+- ✅ Added Feedback for Client-Side Filtered Results
+- ✅ Implemented Better Search Clear Functionality
+- ✅ Fixed Results Count Reporting Discrepancy
+- ✅ Improved Pagination Component with Filtered Counts
+- ✅ Enhanced User Experience with Consistent Patterns
+
 ### Component State Management Fixes (Completed June 2)
 - ✅ Fixed Infinite Update Loop in DatabaseQuery Component
 - ✅ Improved Export Functionality to Respect Column Visibility
@@ -708,6 +716,25 @@ When implementing regex-based text standardization in Python:
   - Properly handle polymorphic entity_type/entity_id fields in production_services and broadcast_rights
 
 ## UI Implementation Guidelines
+
+### Search Implementation Guidelines
+- Implement explicit search submission rather than auto-search:
+  - Add a dedicated search button next to search inputs
+  - Support Enter key submission for keyboard users
+  - Provide clear visual feedback when search is active
+  - Add proper "X" clear button that resets both input and results
+  - Use controlled inputs with proper state management
+  - Maintain clear separation between input state and search query state
+  - Show accurate counts of filtered results separate from total counts
+  - Add contextual help text in input placeholder ("min 3 chars")
+  - Use proper conditional messaging when filtering is active
+  - Ensure search status indicators adjust based on filtering state
+  - Update pagination components to reflect filtered totals
+  - Clearly communicate when client-side filtering has reduced results
+  - For dual-level filtering, always indicate both total and visible counts
+  - Apply proper styling with rounded corners and color consistency
+  - Ensure search icons are centered in buttons for visual consistency
+  - Handle edge cases like empty search and minimum character requirements
 
 - Use fixed navigation bar for consistent application structure
 - Implement table-based layouts for data-heavy components 

@@ -169,6 +169,37 @@ production_services
 
 ## Recent Enhancements
 
+### EntityList Search and Filter Improvements (June 2025)
+- Enhanced search and filtering usability with a focused approach:
+  - Implemented manual search submission pattern with dedicated button
+  - Added accurate client-side filtered count tracking
+  - Created dual-level filtering solution that correctly reports:
+    ```
+    API Search → Server-Side Filtering → Client Display →
+    Client-Side Additional Filtering → Count Reconciliation →
+    UI Feedback with Both Counts
+    ```
+  - Enhanced Pagination component to reflect filtering states
+  - Fixed UI/data discrepancy with proper state management
+  - Improved consistent UX patterns across search components
+  
+- Search implementation improvements:
+  - Replaced auto-search debounce pattern with explicit submission
+  - Added consistent keyboard interaction support (Enter key)
+  - Created unified clear search behavior
+  - Implemented controlled input pattern with reliable state management
+  - Enhanced visual design with centered icons and consistent styling
+  - Optimized search flow with conditional state updates
+  - Added detailed logging for search operation debugging
+  
+- Created better filtering feedback system:
+  - Added conditional messaging based on filter state
+  - Implemented accurate counters for both total and filtered results
+  - Created visual distinction between server results and client filtering
+  - Enhanced notification when search results are filtered further
+  - Applied consistent styling for filter status indicators
+  - Fixed discrepancy between reported and displayed results
+
 ### Brand Relationship Entity Consolidation (June 2025)
 - Integrated Brand Relationship functionality directly into Brand entity:
   - Removed the separate BrandRelationship entity and model

@@ -2,6 +2,35 @@
 
 ## Latest Update
 
+### 2025-06-04: EntityList Search and Filter Improvements
+
+- Enhanced search functionality with manual search submission:
+  - Replaced automatic debounced search with explicit search button
+  - Added Enter key support for search submission
+  - Implemented proper search clearing with "X" button
+  - Enhanced visual feedback with search button styling
+  - Used controlled input pattern for better state management
+  - Centered search icon in button for better visual appearance
+  - Improved clear behavior to reset both input and search results
+
+- Fixed search results reporting accuracy:
+  - Added client-side filtered count tracking for accurate result counts
+  - Updated filter status display to show actual filtered number of results
+  - Enhanced pagination component to show correct counts of visible results
+  - Improved feedback when search filters are applied to show both total and filtered counts
+  - Fixed mismatch between reported and visible search results
+  - Created clear chain of responsibility for filter state management
+  - Added conditional display for different filter states
+
+- Key improvements to the user experience:
+  - More intuitive search with explicit submission control
+  - Clearer feedback on search results with accurate counts
+  - Better search control with keyboard support
+  - Consistent visual design across search components
+  - Enhanced search state management for reliable operation
+  - More precise feedback on number of results that match search criteria
+  - Fixed confusing mismatch between reported counts and visible results
+
 ### 2025-06-03: Brand Relationship Entity Consolidation
 
 - Integrated Brand Relationship functionality directly into the Brand entity:

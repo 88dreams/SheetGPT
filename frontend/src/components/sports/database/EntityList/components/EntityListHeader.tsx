@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
 import { Input } from 'antd';
 import { SearchOutlined } from '@ant-design/icons';
 import { FaFileExport, FaColumns, FaKey } from 'react-icons/fa';
@@ -13,6 +13,7 @@ interface EntityListHeaderProps {
   setShowFullUuids: (show: boolean) => void;
   openExportDialog: () => void;
   onSearch?: (query: string) => void;
+  searchValue?: string; // Current search value for controlling the input
 }
 
 const EntityListHeader: React.FC<EntityListHeaderProps> = ({
@@ -22,8 +23,21 @@ const EntityListHeader: React.FC<EntityListHeaderProps> = ({
   showFullUuids,
   setShowFullUuids,
   openExportDialog,
-  onSearch
+  onSearch,
+  searchValue = '' // Default to empty string if not provided
 }) => {
+  // Create a ref to the input element so we can set its value programmatically
+  const searchInputRef = useRef<Input>(null);
+  
+  // When searchValue prop changes (especially to ''), update the input value
+  useEffect(() => {
+    // If we have a ref to the input and the searchValue is explicitly provided
+    if (searchInputRef.current && searchInputRef.current.input) {
+      // Set the value of the input element directly to match searchValue
+      searchInputRef.current.input.value = searchValue;
+    }
+  }, [searchValue]);
+  
   return (
     <div className="p-4 border-b border-gray-200">
       <div className="flex justify-between items-center space-x-4">
@@ -31,11 +45,13 @@ const EntityListHeader: React.FC<EntityListHeaderProps> = ({
           {getEntityTypeName(selectedEntityType)}
         </h2>
         <div className="flex-grow max-w-xl">
-          {/* Simple inline search implementation */}
+          {/* Controlled search input with ref */}
           <div className="w-full">
             <Input 
+              ref={searchInputRef}
               prefix={<SearchOutlined />} 
               placeholder={`Search ${getEntityTypeName(selectedEntityType)} (min 3 chars)`}
+              defaultValue={searchValue} // Set initial value from prop
               onChange={(e) => {
                 // Clear any previous timeout
                 if (window.searchTimeout) {

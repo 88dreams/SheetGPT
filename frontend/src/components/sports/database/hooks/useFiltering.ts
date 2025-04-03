@@ -33,11 +33,27 @@ export function useFiltering(entityType: string) {
 
   // Clear all filters
   const handleClearFilters = useCallback(() => {
+    console.log(`useFiltering: Clearing all filters for ${entityType}`);
+    
     // Clear the active filters
     setActiveFilters([]);
     
     // Clear filters from localStorage
     localStorage.removeItem(`${entityType}_filters`);
+    
+    // Clear URL search parameters if any
+    try {
+      const url = new URL(window.location.href);
+      // If there are search parameters, remove them and update the URL
+      if (url.searchParams.has('searchQuery') || url.searchParams.has('filters')) {
+        url.searchParams.delete('searchQuery');
+        url.searchParams.delete('filters');
+        window.history.replaceState({}, '', url.toString());
+        console.log('useFiltering: Cleared URL search parameters');
+      }
+    } catch (e) {
+      console.error('useFiltering: Error clearing URL search parameters:', e);
+    }
   }, [entityType]);
 
   return {

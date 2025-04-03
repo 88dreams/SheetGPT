@@ -181,13 +181,30 @@ const EntityList: React.FC<EntityListProps> = ({ className = '' }) => {
     setIsEditModalVisible(true);
   };
 
-  // Add state for search query to highlight matching rows
+  // Add state for search query to highlight matching rows and control the search input
   const [searchQuery, setSearchQuery] = useState<string>('');
+  const [searchInputValue, setSearchInputValue] = useState<string>('');
+  
+  // Effect to reset search input value when filters are cleared externally
+  // This ensures the input field is cleared when filters are cleared
+  useEffect(() => {
+    // If there are no active filters, but we have a search input value
+    // then we need to reset the search input value
+    if ((!activeFilters || activeFilters.length === 0) && searchInputValue) {
+      console.log('No active filters, resetting search input value');
+      setSearchInputValue('');
+      setSearchQuery('');
+    }
+  }, [activeFilters, searchInputValue]);
   
   // Search handler - search across all records via API and highlight matched rows in the UI
   const handleSearchSelect = (query: string) => {
+    console.log(`handleSearchSelect called with query: "${query}"`);
+    
     // Store the search query for UI highlighting
     setSearchQuery(query.toLowerCase());
+    // Update the input value state to keep it in sync
+    setSearchInputValue(query);
     
     // Check if we have a non-empty search query with at least 3 characters
     if (query && query.length >= 3) {
@@ -295,6 +312,7 @@ const EntityList: React.FC<EntityListProps> = ({ className = '' }) => {
         setShowFullUuids={setShowFullUuids}
         openExportDialog={exportHook.openExportDialog}
         onSearch={handleSearchSelect}
+        searchValue={searchInputValue} // Pass the current search input value to control the input field
       />
       
       {/* Column selector dropdown */}

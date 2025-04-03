@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Input, Button } from 'antd';
-import { SearchOutlined } from '@ant-design/icons';
-import { FaFileExport, FaColumns, FaKey, FaSearch } from 'react-icons/fa';
+import { SearchOutlined, CloseCircleFilled } from '@ant-design/icons';
+import { FaFileExport, FaColumns, FaKey, FaSearch, FaTimes } from 'react-icons/fa';
 import { getEntityTypeName } from '../utils/formatters';
 import { EntityType } from '../../../../../types/sports';
 
@@ -54,6 +54,39 @@ const EntityListHeader: React.FC<EntityListHeaderProps> = ({
     }
   };
   
+  // Handle clearing the search input and results
+  const handleClearSearch = (e?: React.MouseEvent) => {
+    // Stop event propagation to prevent any parent handlers
+    if (e) {
+      e.stopPropagation();
+      e.preventDefault();
+    }
+    
+    console.log('EntityListHeader: Clear search button clicked');
+    
+    // First clear our local input state
+    setInputValue('');
+    
+    // Then tell the parent component to clear search results
+    if (onSearch) {
+      console.log('EntityListHeader: Calling parent onSearch with empty string');
+      onSearch(''); // This should trigger handleSearchSelect('') in the parent
+    }
+    
+    // Also directly clear the input field via the ref for immediate feedback
+    if (searchInputRef.current && searchInputRef.current.input) {
+      searchInputRef.current.input.value = '';
+    }
+    
+    // Add a small delay to ensure state updates propagate
+    setTimeout(() => {
+      console.log('EntityListHeader: Final check - ensuring search is cleared');
+      if (onSearch) {
+        onSearch(''); // Second attempt to clear search
+      }
+    }, 100);
+  };
+  
   // Handle input keydown (pressing Enter)
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter') {
@@ -79,6 +112,14 @@ const EntityListHeader: React.FC<EntityListHeaderProps> = ({
               onChange={(e) => setInputValue(e.target.value)}
               onKeyDown={handleKeyDown}
               className="rounded-r-none"
+              suffix={
+                inputValue ? (
+                  <CloseCircleFilled
+                    className="cursor-pointer text-gray-400 hover:text-gray-600"
+                    onClick={handleClearSearch}
+                  />
+                ) : null
+              }
             />
             <Button 
               type="primary" 

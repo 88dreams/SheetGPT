@@ -199,7 +199,20 @@ const EntityList: React.FC<EntityListProps> = ({ className = '' }) => {
   
   // Search handler - search across all records via API and highlight matched rows in the UI
   const handleSearchSelect = (query: string) => {
-    console.log(`handleSearchSelect called with query: "${query}"`);
+    console.log(`EntityList: handleSearchSelect called with query: "${query}"`);
+    
+    // If query is empty, clear the search
+    if (!query || query.length === 0) {
+      console.log('EntityList: Empty query received - clearing search and filters');
+      // Clear UI state
+      setSearchQuery('');
+      setSearchInputValue('');
+      
+      // Clear backend filters
+      handleClearFilters();
+      
+      return; // Exit early
+    }
     
     // Store the search query for UI highlighting
     setSearchQuery(query.toLowerCase());
@@ -207,7 +220,7 @@ const EntityList: React.FC<EntityListProps> = ({ className = '' }) => {
     setSearchInputValue(query);
     
     // Check if we have a non-empty search query with at least 3 characters
-    if (query && query.length >= 3) {
+    if (query.length >= 3) {
       // Create a search filter to send to the backend
       // This will search all records, not just the current page
       const searchFilters = [
@@ -218,12 +231,8 @@ const EntityList: React.FC<EntityListProps> = ({ className = '' }) => {
         }
       ];
       
-      console.log(`Searching for: ${query} - applying global search filter`);
+      console.log(`EntityList: Searching for: ${query} - applying global search filter`);
       handleApplyFilters(searchFilters);
-    } else if (query.length === 0) {
-      // Clear filters if search is empty
-      console.log('Search cleared - removing filters');
-      handleClearFilters();
     }
   };
 

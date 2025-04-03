@@ -123,10 +123,13 @@ const EntityListHeader: React.FC<EntityListHeaderProps> = ({
             />
             <Button 
               type="primary" 
-              icon={<FaSearch />}
               onClick={handleSearchSubmit}
-              className="rounded-l-none bg-blue-600 hover:bg-blue-700 border-blue-600"
-            />
+              className="rounded-l-none bg-blue-600 hover:bg-blue-700 border-blue-600 h-[32px] w-[40px] p-0 flex items-center justify-center"
+            >
+              <div className="flex items-center justify-center w-full h-full">
+                <FaSearch />
+              </div>
+            </Button>
           </div>
         </div>
         <div className="flex space-x-1">

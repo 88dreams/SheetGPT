@@ -63,7 +63,7 @@ describe('formatters utility functions', () => {
     it('identifies ID fields with corresponding name fields as relationship fields', () => {
       const entities = [{ 
         id: '1', 
-        league_id: '123', .
+        league_id: '123',
         league_name: 'NFL' 
       }];
       expect(isSortableRelationshipField('league_id', entities)).toBe(true);

@@ -36,6 +36,9 @@ COPY . .
 
 # Build frontend
 WORKDIR /app/frontend
+# Install frontend dependencies specifically
+RUN npm install
+# Then build
 RUN npm run build
 WORKDIR /app
 

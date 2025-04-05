@@ -1,4 +1,5 @@
 services:
+  # Development services
   frontend:
     build: 
       context: ./frontend
@@ -28,6 +29,8 @@ services:
     build: 
       context: .
       dockerfile: Dockerfile
+      # Use the development backend target
+      target: backend-dev
     ports:
       - "8000:8000"
     volumes:
@@ -35,12 +38,31 @@ services:
       - ./credentials:/app/credentials
       - local-data:/app/data
     environment:
+      - ENVIRONMENT=development
       - DEBUG=True
       - DATABASE_URL=postgresql+asyncpg://postgres:postgres@db:5432/sheetgpt
       - PYTHONPATH=/app
       - OPENAI_API_KEY=${OPENAI_API_KEY}
     depends_on:
       - db
+
+  # Production service for local testing
+  app:
+    build: 
+      context: .
+      dockerfile: Dockerfile
+      # Use the production backend target
+      target: backend-prod
+    ports:
+      - "8080:8000"
+    environment:
+      - ENVIRONMENT=production
+      - DATABASE_URL=postgresql+asyncpg://postgres:postgres@db:5432/sheetgpt
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - CORS_ORIGINS=http://localhost:8000,https://your-app.ondigitalocean.app
+    depends_on:
+      - db
+    # For Digital Ocean deployment, this service would be used
 
   db:
     image: postgres:15
@@ -63,4 +85,4 @@ volumes:
     # Using a local volume instead of external network storage
   postgres-data:
     # Using a named volume for better persistence
-    # This ensures data is preserved across container restarts and rebuilds 
+    # This ensures data is preserved across container restarts and rebuilds

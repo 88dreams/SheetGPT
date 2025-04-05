@@ -6,7 +6,7 @@ from datetime import datetime
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, FileResponse
 from fastapi.exceptions import RequestValidationError
 from fastapi.staticfiles import StaticFiles
 from starlette.exceptions import HTTPException
@@ -247,10 +247,7 @@ if not exports_dir.exists():
 app.mount("/api/v1/exports", StaticFiles(directory=exports_dir), name="exports")
 app_logger.info(f"Mounted exports directory: {exports_dir.absolute()}")
 
-from fastapi.responses import FileResponse
-from pathlib import Path
-
-# API info endpoint moved to /api
+# API info endpoint
 @app.get("/api")
 async def api_info() -> Dict[str, str]:
     """API information endpoint."""
@@ -262,55 +259,39 @@ async def api_info() -> Dict[str, str]:
         "environment": ENVIRONMENT
     }
 
-# Serve static frontend assets
-# Check both direct and relative paths for frontend dist
-frontend_paths = [
-    Path("frontend/dist"),      # Local development path
-    Path("/app/frontend/dist"), # Absolute path in Docker
-    Path("../frontend/dist"),   # Relative path option
-]
-
-# Find the first valid frontend path
-frontend_dist = None
-for path in frontend_paths:
-    if path.exists() and (path / "index.html").exists():
-        frontend_dist = path
-        app_logger.info(f"Found frontend build at: {frontend_dist}")
-        break
-
-if frontend_dist:
-    # Mount static assets for Vite build
-    assets_path = frontend_dist / "assets"
-    if assets_path.exists():
-        app.mount("/assets", StaticFiles(directory=str(assets_path)), name="assets")
-        app_logger.info(f"Mounted assets from: {assets_path}")
+# Check for frontend build directory and serve frontend if available
+frontend_dist = Path("frontend/dist")
+if frontend_dist.exists() and frontend_dist.is_dir():
+    app_logger.info(f"Found frontend build at {frontend_dist.absolute()}")
+    
+    # Mount static files from frontend build
+    app.mount("/assets", StaticFiles(directory=frontend_dist / "assets"), name="static")
+    app_logger.info("Mounted frontend assets")
     
     @app.get("/", include_in_schema=False)
-    async def serve_frontend_root():
-        """Serve the frontend index.html."""
-        app_logger.info(f"Serving frontend root from {frontend_dist}")
-        return FileResponse(str(frontend_dist / "index.html"))
+    async def serve_frontend():
+        """Serve the frontend index.html"""
+        app_logger.info("Serving frontend index.html")
+        return FileResponse(frontend_dist / "index.html")
     
-    @app.get("/{catch_all:path}", include_in_schema=False)
-    async def serve_spa(catch_all: str):
-        """Serve SPA routes or static files."""
-        # Skip API routes
-        if catch_all.startswith("api/"):
-            app_logger.debug(f"Skipping API route: {catch_all}")
+    # Handle all frontend routes to enable client-side routing
+    @app.get("/{path:path}", include_in_schema=False)
+    async def serve_frontend_paths(path: str):
+        # If path starts with "api", let it fall through to the API routes
+        if path.startswith("api/"):
             raise HTTPException(status_code=404, detail="API route not found")
             
-        app_logger.info(f"Serving path: {catch_all}")
-        
-        # Check if the requested path exists as a static file
-        requested_path = frontend_dist / catch_all
-        if requested_path.exists() and requested_path.is_file():
-            app_logger.debug(f"Serving file: {requested_path}")
-            return FileResponse(str(requested_path))
+        # Check if the path exists as a static file
+        file_path = frontend_dist / path
+        if file_path.exists() and file_path.is_file():
+            return FileResponse(file_path)
             
-        # Otherwise return index.html for SPA routing
-        app_logger.info(f"Serving SPA route: {catch_all}")
-        return FileResponse(str(frontend_dist / "index.html"))
+        # Otherwise serve index.html for client-side routing
+        app_logger.info(f"Serving index.html for client-side route: /{path}")
+        return FileResponse(frontend_dist / "index.html")
 else:
+    app_logger.warning(f"Frontend build not found at {frontend_dist.absolute()}")
+    
     # Fallback if frontend build doesn't exist
     @app.get("/")
     async def root() -> Dict[str, str]:
@@ -471,4 +452,4 @@ if __name__ == "__main__":
         host="0.0.0.0",
         port=8000,
         reload=settings.DEBUG
-    ) 
+    )

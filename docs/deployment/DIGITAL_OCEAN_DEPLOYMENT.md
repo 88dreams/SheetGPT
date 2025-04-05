@@ -1,424 +1,457 @@
 # Digital Ocean App Platform Deployment Guide
 
-This guide provides step-by-step instructions for deploying SheetGPT to Digital Ocean App Platform, configuring CI/CD, and maintaining the application.
+This guide covers deploying SheetGPT to Digital Ocean App Platform using a combined deployment approach where the frontend is built and served by the backend FastAPI application.
 
-## Table of Contents
+## Architecture Overview
 
-1. [Prerequisites](#prerequisites)
-2. [Initial Setup](#initial-setup)
-3. [Database Configuration](#database-configuration)
-4. [Environment Configuration](#environment-configuration)
-5. [Deployment Process](#deployment-process)
-6. [Setting Up CI/CD](#setting-up-ci-cd)
-7. [Branch Preview Environments](#branch-preview-environments)
-8. [Monitoring and Logging](#monitoring-and-logging)
-9. [Backups and Disaster Recovery](#backups-and-disaster-recovery)
-10. [Troubleshooting](#troubleshooting)
-11. [Cost Optimization](#cost-optimization)
+Our deployment architecture:
+
+1. **Single Docker Container** - Using a multi-stage build to:
+   - Build the frontend React application (first stage)
+   - Set up the Python backend (later stage)
+   - Include the built frontend assets with the backend
+
+2. **FastAPI Configuration** - Serves both the API and frontend:
+   - API routes under `/api/*`
+   - Frontend static assets under `/assets/*`
+   - Frontend client-side routing via catch-all route
+
+3. **Database** - PostgreSQL database managed by Digital Ocean
 
 ## Prerequisites
 
-Before you begin, ensure you have:
+- Docker installed locally
+- Digital Ocean account
+- [Digital Ocean CLI](https://docs.digitalocean.com/reference/doctl/) installed and authenticated
+- Git repository pushed to GitHub (for automatic builds)
 
-- [ ] Digital Ocean account ([Sign up here](https://cloud.digitalocean.com/registrations/new))
-- [ ] GitHub repository with your SheetGPT codebase
-- [ ] Domain name for your application
-- [ ] SheetGPT codebase with Docker configuration
+## Local Preparation
 
-## Initial Setup
+### 1. Update Frontend Environment Configuration
 
-### 1. Create a Digital Ocean Account and Project
-
-1. Sign up for Digital Ocean if you haven't already
-2. Create a new project: **Projects** → **New Project**
-3. Name your project (e.g., "SheetGPT Production")
-
-### 2. Set Up App Platform Application
-
-1. In your project, navigate to **Apps** → **Create App**
-2. Select **GitHub** as your source
-3. Grant Digital Ocean access to your repository
-4. Select your SheetGPT repository
-5. Choose the branch to deploy (typically `main`)
-
-### 3. Configure Service Architecture
-
-In the Digital Ocean App creation workflow:
-
-1. **Detect Services**: DO will automatically detect services from your docker-compose.yml
-2. Edit each service component:
-   - **Backend Service**:
-     - Edit Settings → Choose "Service" type
-     - Instance Size: Basic ($12/mo) for testing, Scale as needed
-     - HTTP Port: 8000 (FastAPI default)
-     - HTTP Request Routes: `/api/*`
-   - **Frontend Service**:
-     - Edit Settings → Choose "Static Site" type
-     - Build Command: `cd frontend && npm install && npm run build`
-     - Output Directory: `frontend/dist` (for Vite)
-     - HTTP Request Routes: `/*`
-
-### 4. Domain Configuration
-
-1. Add your domain to the app:
-   - Go to **Settings** → **Domains**
-   - Click **Add Domain**
-   - Enter your domain name
-   - Select domain type (Apex or www)
-2. Configure DNS with provided values:
-   - Update DNS records at your domain registrar
-   - Add CNAME or A records as instructed
-3. Verify domain connection (may take 24-48 hours to propagate)
-
-## Database Configuration
-
-### 1. Create Managed Database
-
-1. From DO dashboard, navigate to **Databases**
-2. Click **Create Database Cluster**
-3. Select **PostgreSQL**
-4. Choose plan:
-   - Basic plan ($15/mo) for testing
-   - Standard plan for production
-5. Select region (same as your App)
-6. Add a name (e.g., "sheetgpt-db")
-7. Click **Create Database Cluster**
-
-### 2. Connect Database to App
-
-1. In your App dashboard, go to **Settings** → **Components**
-2. Select your backend service
-3. Go to **Resources** tab
-4. Click **Add Resource** → **Database**
-5. Select your database cluster
-6. Create new database or use default
-7. Set environment variable name (e.g., `DATABASE_URL`)
-
-### 3. Initial Database Migration
-
-Run migrations from local environment or through console:
+Create a production environment file:
 
 ```bash
-# Option 1: Connect from local machine
-doctl apps create-deployment <app-id> --wait
-
-# Option 2: Connect to Console and run migrations
-# Use the Web Console in Digital Ocean dashboard
-# Then run:
-cd /app
-python src/scripts/alembic_wrapper.py upgrade
+# frontend/.env.production
+# Use relative URL since backend/frontend are served from same origin
+VITE_API_URL=
+NODE_ENV=production
 ```
 
-## Environment Configuration
+### 2. Configure Multi-Stage Dockerfile
 
-### 1. Set Environment Variables
+We've implemented a multi-stage Dockerfile with the following stages:
 
-1. In App dashboard, go to **Settings** → **Components**
-2. Select your backend service
-3. Go to **Environment Variables** tab
-4. Add variables:
-   - `DATABASE_URL`: Set automatically from DB connection
-   - `SECRET_KEY`: Generate with `openssl rand -hex 32`
-   - `CLAUDE_API_KEY`: Your Anthropic API key
+1. **frontend-builder** - Builds the React frontend
+2. **backend-dev** - Development backend environment (used for local development)
+3. **backend-prod** - Production backend with frontend assets included
+
+```dockerfile
+# Stage 1: Build the frontend
+FROM node:20-slim AS frontend-builder
+
+# Set working directory for frontend
+WORKDIR /app/frontend
+
+# Copy frontend package files
+COPY frontend/package*.json ./
+
+# Install frontend dependencies
+RUN npm install
+
+# Copy frontend source files
+COPY frontend/ ./
+
+# Create production build
+RUN npm run build
+
+# Stage 2: Development backend (without built frontend)
+FROM python:3.9-slim AS backend-dev
+
+# Set working directory
+WORKDIR /app
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy requirements file
+COPY requirements.txt .
+
+# Install Python dependencies
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Create necessary directories
+RUN mkdir -p data/exports
+
+# Expose port
+EXPOSE 8000
+
+# Use environment variable for development
+ENV ENVIRONMENT=development
+
+# Start the application with hot reload for development
+CMD ["uvicorn", "src.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+
+# Stage 3: Production backend with frontend assets
+FROM python:3.9-slim AS backend-prod
+
+# Set working directory
+WORKDIR /app
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy requirements file
+COPY requirements.txt .
+
+# Install Python dependencies
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copy backend files
+COPY src/ ./src/
+COPY alembic/ ./alembic/
+COPY alembic.ini .
+COPY templates/ ./templates/
+
+# Create necessary directories
+RUN mkdir -p data/exports
+
+# Copy frontend build from previous stage
+COPY --from=frontend-builder /app/frontend/dist ./frontend/dist
+
+# Expose port
+EXPOSE 8000
+
+# Set environment variable for production
+ENV ENVIRONMENT=production
+
+# Start the application without hot reload for production
+CMD ["uvicorn", "src.main:app", "--host", "0.0.0.0", "--port", "8000"]
+```
+
+### 3. Configure FastAPI to Serve Frontend Assets
+
+Our `src/main.py` has been updated to serve the frontend assets:
+
+```python
+# Check for frontend build directory and serve frontend if available
+frontend_dist = Path("frontend/dist")
+if frontend_dist.exists() and frontend_dist.is_dir():
+    app_logger.info(f"Found frontend build at {frontend_dist.absolute()}")
+    
+    # Mount static files from frontend build
+    app.mount("/assets", StaticFiles(directory=frontend_dist / "assets"), name="static")
+    app_logger.info("Mounted frontend assets")
+    
+    @app.get("/", include_in_schema=False)
+    async def serve_frontend():
+        """Serve the frontend index.html"""
+        app_logger.info("Serving frontend index.html")
+        return FileResponse(frontend_dist / "index.html")
+    
+    # Handle all frontend routes to enable client-side routing
+    @app.get("/{path:path}", include_in_schema=False)
+    async def serve_frontend_paths(path: str):
+        # If path starts with "api", let it fall through to the API routes
+        if path.startswith("api/"):
+            raise HTTPException(status_code=404, detail="API route not found")
+            
+        # Check if the path exists as a static file
+        file_path = frontend_dist / path
+        if file_path.exists() and file_path.is_file():
+            return FileResponse(file_path)
+            
+        # Otherwise serve index.html for client-side routing
+        app_logger.info(f"Serving index.html for client-side route: /{path}")
+        return FileResponse(frontend_dist / "index.html")
+```
+
+### 4. Test Locally
+
+Test the production build locally using docker-compose:
+
+```bash
+# Start the production service
+docker-compose up app
+
+# This will make the app available at http://localhost:8080
+```
+
+Verify that both the API and frontend are accessible:
+- Frontend: http://localhost:8080
+- API: http://localhost:8080/api
+
+## Digital Ocean Deployment Steps
+
+### 1. Create App Platform App
+
+1. Log in to your Digital Ocean account
+2. Navigate to App Platform
+3. Click "Create App"
+4. Select "GitHub" as your source
+5. Select your repository
+6. Configure the app:
+   - Choose "Dockerfile" as the deployment method
+   - Select the branch to deploy from (usually `main`)
+   - Enable "Autodeploy on Push" if desired
+
+### 2. Configure App Settings
+
+1. **Docker Configuration**:
+   - Dockerfile Path: `Dockerfile`
+   - Build Target: `backend-prod` (this is important - specify the production stage)
+   - Add the following build command if needed: 
+     ```
+     docker build --target backend-prod -t ${APP_IMAGE_NAME} .
+     ```
+
+2. **Resources**:
+   - Set appropriate resource limits for your application (Basic or Professional plan recommended)
+
+3. **Environment Variables**:
    - `ENVIRONMENT`: `production`
-   - `GOOGLE_CLIENT_ID`: For Google Sheets integration
-   - `GOOGLE_CLIENT_SECRET`: For Google Sheets integration
-   - Other service-specific variables
+   - `SECRET_KEY`: [generate a secure random string]
+   - `DATABASE_URL`: [provided by Digital Ocean when you create the database]
+   - `CORS_ORIGINS`: [your app domain, e.g., `https://your-app.ondigitalocean.app`]
+   - `ANTHROPIC_API_KEY`: [your Anthropic API key]
 
-### 2. Configure Secrets
+4. **Database**:
+   - Add a PostgreSQL database component
+   - Select the plan that fits your needs
+   - The connection string will automatically be added as an environment variable
 
-For sensitive information:
+5. **HTTP Settings**:
+   - Port: 8000
+   - Routes: 
+     - HTTP requests to `/` route to port 8000
+   - Health Check:
+     - Check Path: `/health`
+     - Allow HTTP: Enabled
 
-1. Navigate to **Settings** → **Components**
-2. Select your service
-3. Go to **Environment Variables** tab
-4. Add variable and check "Encrypt" option
-5. Save changes
+### 3. Deploy the App
 
-## Deployment Process
+1. Review the settings and click "Create Resources"
+2. Wait for the deployment to complete
+3. Once complete, your app will be available at the provided URL
 
-### Manual Deployment
+### 4. Database Migration
 
-1. Push changes to your configured branch (e.g., `main`)
-2. Digital Ocean automatically detects changes and starts deployment
-3. Monitor deployment progress in the App dashboard
+After the app is deployed, you need to run the database migrations:
 
-### Force Deployment
+```bash
+# Use Digital Ocean CLI to run a one-off console
+doctl apps console <APP_ID>
 
-To force a new deployment without code changes:
-
-1. Go to your App dashboard
-2. Click **More** → **Deploy**
-3. Select the latest commit
-4. Click **Deploy**
-
-### Rollback
-
-To roll back to a previous version:
-
-1. Go to your App dashboard
-2. Navigate to **Deployments**
-3. Find the deployment you want to roll back to
-4. Click the three dots menu → **Rollback to this Deployment**
-
-## Setting Up CI/CD
-
-### GitHub Actions Integration
-
-Create `.github/workflows/digital-ocean.yml`:
-
-```yaml
-name: Digital Ocean App Platform Deployment
-on:
-  push:
-    branches:
-      - main  # Deploy production on main branch push
-  pull_request:
-    types: [opened, synchronize, reopened]  # Create preview for PRs
-
-jobs:
-  test:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v3
-      - name: Set up Node.js
-        uses: actions/setup-node@v3
-        with:
-          node-version: '18'
-      - name: Install frontend dependencies
-        run: cd frontend && npm ci
-      - name: Run frontend tests
-        run: cd frontend && npm test
-      - name: Set up Python
-        uses: actions/setup-python@v4
-        with:
-          python-version: '3.11'
-      - name: Install backend dependencies
-        run: pip install -r requirements.txt
-      - name: Run backend tests
-        run: pytest
-
-  deploy:
-    needs: test
-    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
-    runs-on: ubuntu-latest
-    steps:
-      - name: Trigger Digital Ocean Deploy
-        uses: digitalocean/app_action@v1.1.5
-        with:
-          app_name: sheetgpt
-          token: ${{ secrets.DIGITALOCEAN_ACCESS_TOKEN }}
+# Once connected to the console, run the migrations
+python -m alembic upgrade head
 ```
 
-### Setting Up Digital Ocean Access Token
+Alternatively, you can set up a pre-deployment job in your deployment settings to run the migrations automatically:
 
-1. Create a Digital Ocean access token:
-   - Go to **API** → **Tokens/Keys**
-   - Click **Generate New Token**
-   - Give it a name (e.g., "GitHub Actions")
-   - Set appropriate permissions (Admin recommended)
-   - Copy the token value
-2. Add token to GitHub secrets:
-   - In your GitHub repo, go to **Settings** → **Secrets and variables** → **Actions**
-   - Click **New repository secret**
-   - Name: `DIGITALOCEAN_ACCESS_TOKEN`
-   - Value: Paste your token
-   - Click **Add secret**
+1. Go to "Settings" > "Functions"
+2. Add a Pre-Deploy Job:
+   - Command: `python -m alembic upgrade head`
+   - This will run migrations before each deployment
 
-## Branch Preview Environments
+## Monitoring and Maintenance
 
-### Setting Up Preview Environments
+### Logs
 
-1. In Digital Ocean dashboard, go to your app
-2. Navigate to **Settings** → **Components**
-3. In your main component, enable **Automatically create preview deployments**
-4. Set branch pattern: `feature/*,dev/*`
+Access logs through the Digital Ocean App Platform UI:
+1. Navigate to your app
+2. Click on "Logs"
+3. Filter by component or log level
 
-### Using Preview Environments
+### Health Checks
 
-1. Create a feature branch: `git checkout -b feature/new-feature`
-2. Make changes and push: `git push origin feature/new-feature`
-3. App Platform automatically creates a preview environment
-4. Access preview: Go to App dashboard → **Deployments** → select preview deployment
-5. Share preview URL with team for testing
+The application includes a comprehensive health check endpoint at `/health` which provides:
+- Database connection status
+- System information
+- Memory usage
+- Disk space
 
-## Monitoring and Logging
+### Scaling
 
-### View Logs
-
-1. Go to your App dashboard
-2. Navigate to **Components** and select your component
-3. Click the **Logs** tab
-4. Filter logs by:
-   - Log type (Build, Deploy, Run)
-   - Time period
-   - Search term
-
-### Set Up Monitoring
-
-1. Go to **Monitoring** tab in your App dashboard
-2. View metrics for:
-   - CPU Usage
-   - Memory Usage
-   - Bandwidth
-   - Request Count
-3. Set up alerts:
-   - Click **Create Alert Policy**
-   - Configure thresholds and notification channels
-
-## Backups and Disaster Recovery
+To scale your application:
+1. Navigate to your app in Digital Ocean
+2. Click on "Settings" > "Resources"
+3. Adjust the resources as needed:
+   - CPU
+   - Memory
+   - Horizontal scaling (multiple instances)
 
 ### Database Backups
 
-1. Go to your database dashboard
-2. Navigate to **Settings** → **Backups**
-3. Configure backup schedule:
-   - Backup frequency
-   - Retention period
-4. Manual backup:
-   - Click **Actions** → **Create Backup**
-
-### Restore Database
-
-1. Go to your database dashboard
-2. Navigate to **Backups**
-3. Find the backup you want to restore
-4. Click **More** → **Restore**
-5. Follow the prompts to restore data
-
-### Export Data
-
-To export production data to local environment:
-
-```bash
-# Get database connection info
-doctl databases connection <database-id> --format ConnectionString
-
-# Export database with pg_dump
-pg_dump -d <connection_string> > backup.sql
-
-# Import to local database
-psql -d postgresql://localhost:5432/sheetgpt < backup.sql
-```
+1. Navigate to your database in Digital Ocean
+2. Click on "Settings" > "Backups"
+3. Configure automatic backup schedule
 
 ## Troubleshooting
 
-### Common Issues and Solutions
+### Frontend Assets Not Found
 
-1. **Deployment Failures**:
-   - Check build logs for errors
-   - Verify Dockerfile configuration
-   - Check environment variables
+Check the logs for any errors related to the frontend build:
+- Verify that the `frontend/dist` directory is correctly copied to the container
+- Check that the assets were mounted correctly
+- Look for 404 errors in the logs for missing assets
 
-2. **Database Connection Issues**:
-   - Verify connection string format
-   - Check firewall settings
-   - Ensure database user has correct permissions
+```bash
+# Check logs for frontend asset issues
+doctl apps logs <APP_ID> --follow --tail 100
+```
 
-3. **Domain Configuration Problems**:
-   - Verify DNS records are set correctly
-   - Check SSL/TLS certificate status
-   - Wait for DNS propagation (up to 48 hours)
+### Database Connection Issues
 
-4. **Performance Issues**:
-   - Check resource allocation
-   - Monitor database performance
-   - Consider scaling up resources
+If the application can't connect to the database:
+- Verify the database connection string format
+- Check if the database is up and running
+- Ensure the app has proper network access to the database
+- Test the connection:
 
-### Getting Support
+```bash
+# Access the app console
+doctl apps console <APP_ID>
 
-1. Digital Ocean Support:
-   - Navigate to **Support** → **Create Ticket**
-   - Provide app ID and specific issue details
+# Test database connection
+python -c "from src.utils.database import get_engine; from sqlalchemy import text; print('Connected:', get_engine().connect().execute(text('SELECT 1')).scalar() == 1)"
+```
 
-2. Community Resources:
-   - [Digital Ocean Community](https://www.digitalocean.com/community)
-   - [App Platform Documentation](https://docs.digitalocean.com/products/app-platform/)
+### Environment-Specific Bugs
 
-## Cost Optimization
+Some issues may only appear in production:
+- Check the logs for any errors
+- Verify environment variables are correctly set
+- Test specific API endpoints to isolate the issue
 
-### Resource Management
+```bash
+# Check environment variables
+doctl apps spec get <APP_ID> | grep -A 10 envs
+```
 
-1. **Right-sizing**:
-   - Start with minimum viable resources
-   - Scale based on actual usage patterns
-   - Monitor resource utilization regularly
+## Security Considerations
 
-2. **Dev/Test Environments**:
-   - Turn off dev/test environments when not in use
-   - Schedule automatic shutdowns during non-work hours
+### CORS Configuration
 
-3. **Database Optimization**:
-   - Choose appropriate database plan
-   - Monitor database metrics
-   - Optimize queries for performance
+Ensure CORS is properly configured for your production domain:
+- Update `settings.CORS_ORIGINS` to include your app's URL
+- Consider using a whitelist approach for allowed origins
+- Set separate development and production CORS settings
 
-### Estimated Costs
+### API Keys and Secrets
 
-| Component | Plan | Monthly Cost |
-|-----------|------|--------------|
-| Backend Service | Basic | $12/month |
-| Frontend Static Site | Basic | $0/month (included) |
-| PostgreSQL Database | Basic | $15/month |
-| **Total Minimum** | | **$27/month** |
+- Never store API keys or secrets directly in the code
+- Use environment variables for all sensitive information
+- Rotate keys periodically
+- Set up secret management in Digital Ocean:
+  1. Go to "Settings" > "Environment Variables"
+  2. Mark sensitive values as "Encrypted"
 
-Scale up as needed based on traffic and performance requirements.
+### Rate Limiting
 
-## Local-to-Production Workflow
+The application includes rate limiting middleware in production:
+- Adjust rate limits as needed for your traffic patterns
+- Monitor for abuse and adjust accordingly
 
-### Development Workflow
+### HTTP Headers
 
-1. Develop locally:
-   ```bash
-   docker-compose up
-   ```
+Security headers are automatically added in production:
+- Content Security Policy (CSP)
+- X-Content-Type-Options
+- X-Frame-Options
+- X-XSS-Protection
 
-2. Create feature branch:
-   ```bash
-   git checkout -b feature/new-feature
-   ```
+## CI/CD Pipeline
 
-3. Commit and push changes:
-   ```bash
-   git add .
-   git commit -m "feat: Add new feature"
-   git push origin feature/new-feature
-   ```
+For continuous integration and deployment:
 
-4. Create pull request in GitHub
+1. Push changes to the configured branch (e.g., `main`)
+2. Digital Ocean will automatically build and deploy the new version
+3. Check the build logs for any errors
 
-5. Automatic preview environment is created
+### Setting Up GitHub Actions Integration
 
-6. Test in preview environment
+For more advanced CI/CD:
 
-7. Merge to main branch for production deployment
+1. Create a `.github/workflows/deploy.yml` file:
 
-### Database Migration Workflow
+```yaml
+name: Deploy to Digital Ocean
 
-1. Create migration locally:
-   ```bash
-   docker-compose run --rm backend python src/scripts/alembic_wrapper.py revision --autogenerate -m "add_new_table"
-   ```
+on:
+  push:
+    branches:
+      - main
 
-2. Test migration locally:
-   ```bash
-   docker-compose run --rm backend python src/scripts/alembic_wrapper.py upgrade
-   ```
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+        
+      - name: Install doctl
+        uses: digitalocean/action-doctl@v2
+        with:
+          token: ${{ secrets.DIGITALOCEAN_ACCESS_TOKEN }}
+          
+      - name: Deploy to Digital Ocean
+        run: doctl apps create deployment ${{ secrets.DO_APP_ID }}
+        
+      - name: Wait for deployment
+        run: |
+          DEPLOYMENT_ID=$(doctl apps list-deployments ${{ secrets.DO_APP_ID }} --format ID --no-header | head -n 1)
+          while [ "$(doctl apps get-deployment ${{ secrets.DO_APP_ID }} $DEPLOYMENT_ID --format Phase --no-header)" != "ACTIVE" ]; do
+            echo "Waiting for deployment..."
+            sleep 30
+          done
+```
 
-3. Commit and push migration file:
-   ```bash
-   git add alembic/versions/
-   git commit -m "feat: Add migration for new table"
-   git push origin feature/database-updates
-   ```
+2. Add GitHub secrets:
+   - `DIGITALOCEAN_ACCESS_TOKEN`: Your Digital Ocean API token
+   - `DO_APP_ID`: Your Digital Ocean App ID
 
-4. After PR is merged, migrations run automatically in production
+## Database Management
 
-### Maintenance Tasks
+### Running Database Scripts
 
-1. Check logs regularly
-2. Monitor resource usage
-3. Review and optimize database performance
-4. Test backup and restore procedures
-5. Update dependencies regularly
-6. Practice disaster recovery scenarios
+Use the Digital Ocean console to run database scripts:
+
+```bash
+doctl apps console <APP_ID>
+python src/scripts/db_management.py stats
+```
+
+### Database Migrations
+
+To create and apply new migrations:
+
+```bash
+# Create a new migration
+doctl apps console <APP_ID>
+python src/scripts/alembic_wrapper.py revision --autogenerate -m "migration_name"
+
+# Apply migrations
+doctl apps console <APP_ID>
+python src/scripts/alembic_wrapper.py upgrade head
+```
+
+## Rollback Procedure
+
+If a deployment fails or causes issues:
+
+1. Navigate to your app in Digital Ocean
+2. Click on "Deployments"
+3. Find the last working deployment
+4. Click "..." and select "Rollback to this Deployment"
+
+## Additional Resources
+
+- [Digital Ocean App Platform Documentation](https://docs.digitalocean.com/products/app-platform/)
+- [FastAPI Deployment Guide](https://fastapi.tiangolo.com/deployment/)
+- [Alembic Migration Guide](https://alembic.sqlalchemy.org/en/latest/)
+- [Docker Multi-Stage Builds](https://docs.docker.com/build/building/multi-stage/)
+- [Digital Ocean CLI Reference](https://docs.digitalocean.com/reference/doctl/)

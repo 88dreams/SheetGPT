@@ -263,15 +263,32 @@ async def api_info() -> Dict[str, str]:
     }
 
 # Serve static frontend assets
-frontend_dist = Path("frontend/dist")
-if frontend_dist.exists():
+# Check both direct and relative paths for frontend dist
+frontend_paths = [
+    Path("frontend/dist"),      # Local development path
+    Path("/app/frontend/dist"), # Absolute path in Docker
+    Path("../frontend/dist"),   # Relative path option
+]
+
+# Find the first valid frontend path
+frontend_dist = None
+for path in frontend_paths:
+    if path.exists() and (path / "index.html").exists():
+        frontend_dist = path
+        app_logger.info(f"Found frontend build at: {frontend_dist}")
+        break
+
+if frontend_dist:
     # Mount static assets for Vite build
-    app.mount("/assets", StaticFiles(directory=str(frontend_dist / "assets")), name="assets")
+    assets_path = frontend_dist / "assets"
+    if assets_path.exists():
+        app.mount("/assets", StaticFiles(directory=str(assets_path)), name="assets")
+        app_logger.info(f"Mounted assets from: {assets_path}")
     
     @app.get("/", include_in_schema=False)
     async def serve_frontend_root():
         """Serve the frontend index.html."""
-        app_logger.info("Serving frontend root")
+        app_logger.info(f"Serving frontend root from {frontend_dist}")
         return FileResponse(str(frontend_dist / "index.html"))
     
     @app.get("/{catch_all:path}", include_in_schema=False)
@@ -279,6 +296,7 @@ if frontend_dist.exists():
         """Serve SPA routes or static files."""
         # Skip API routes
         if catch_all.startswith("api/"):
+            app_logger.debug(f"Skipping API route: {catch_all}")
             raise HTTPException(status_code=404, detail="API route not found")
             
         app_logger.info(f"Serving path: {catch_all}")
@@ -286,9 +304,11 @@ if frontend_dist.exists():
         # Check if the requested path exists as a static file
         requested_path = frontend_dist / catch_all
         if requested_path.exists() and requested_path.is_file():
+            app_logger.debug(f"Serving file: {requested_path}")
             return FileResponse(str(requested_path))
             
         # Otherwise return index.html for SPA routing
+        app_logger.info(f"Serving SPA route: {catch_all}")
         return FileResponse(str(frontend_dist / "index.html"))
 else:
     # Fallback if frontend build doesn't exist

@@ -34,8 +34,13 @@ RUN npm install
 # Copy project files
 COPY . .
 
+# Build frontend
+WORKDIR /app/frontend
+RUN npm run build
+WORKDIR /app
+
 # Expose port
 EXPOSE 8000
 
-# Start the application with hot reload
-CMD ["uvicorn", "src.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"] 
+# Start the application without hot reload for production
+CMD ["uvicorn", "src.main:app", "--host", "0.0.0.0", "--port", "8000"] 

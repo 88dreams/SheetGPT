@@ -21,8 +21,35 @@ from src.utils.errors import (
     ExternalServiceError,
     error_to_api_response
 )
-from src.config.logging_config import api_logger, db_logger, security_logger, log_security_event
-from src.core.config import ENVIRONMENT
+try:
+    from src.config.logging_config import api_logger, db_logger, security_logger, log_security_event
+except ImportError:
+    # Fallback if security_logger isn't available
+    from src.config.logging_config import api_logger, db_logger
+    
+    # Create local versions if they don't exist
+    import logging
+    security_logger = logging.getLogger("sheetgpt.security")
+    
+    def log_security_event(event_type, description, user_id=None, ip_address=None, details=None):
+        """Fallback security event logger"""
+        security_logger.warning(
+            f"Security event: {event_type} - {description}",
+            extra={
+                "event_type": event_type,
+                "description": description,
+                "user_id": user_id,
+                "ip_address": ip_address,
+                "details": details or {}
+            }
+        )
+
+# Import ENVIRONMENT with fallback
+try:
+    from src.core.config import ENVIRONMENT
+except ImportError:
+    import os
+    ENVIRONMENT = os.getenv("ENVIRONMENT", "development")
 
 def setup_error_handlers(app: FastAPI) -> None:
     """Configure all error handlers for the application with robust tracing and logging."""

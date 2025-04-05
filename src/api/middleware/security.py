@@ -4,8 +4,47 @@ import uuid
 from fastapi import Request, Response
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.types import ASGIApp
-from src.core.config import ENVIRONMENT, settings
-from src.config.logging_config import log_request, log_security_event
+
+# Import with fallback
+try:
+    from src.core.config import ENVIRONMENT, settings
+except ImportError:
+    ENVIRONMENT = os.getenv("ENVIRONMENT", "development")
+    from src.core.config import settings
+
+try:
+    from src.config.logging_config import log_request, log_security_event
+except ImportError:
+    # Fallback logging functions if imports fail
+    import logging
+    security_logger = logging.getLogger("sheetgpt.security")
+    api_logger = logging.getLogger("sheetgpt.api")
+    
+    def log_request(request_id, method, path, status_code, duration_ms, user_id=None, ip_address=None):
+        api_logger.info(
+            f"Request {request_id}: {method} {path} {status_code} {duration_ms}ms",
+            extra={
+                "request_id": request_id,
+                "method": method,
+                "path": path,
+                "status_code": status_code,
+                "duration_ms": duration_ms,
+                "user_id": user_id,
+                "ip_address": ip_address
+            }
+        )
+    
+    def log_security_event(event_type, description, user_id=None, ip_address=None, details=None):
+        security_logger.warning(
+            f"Security event: {event_type} - {description}",
+            extra={
+                "event_type": event_type,
+                "description": description,
+                "user_id": user_id,
+                "ip_address": ip_address,
+                "details": details or {}
+            }
+        )
 
 async def add_security_headers(request: Request, call_next):
     """Add security headers to responses in production."""

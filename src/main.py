@@ -22,8 +22,22 @@ from src.api.middleware.security import (
 
 from src.api.routes import api as api_router
 from src.api.middleware.error_handlers import setup_error_handlers
-from src.core.config import ENVIRONMENT, settings
-from src.config.logging_config import app_logger, api_logger, security_logger
+# Import with fallback mechanisms
+try:
+    from src.core.config import ENVIRONMENT, settings
+except ImportError:
+    import os
+    ENVIRONMENT = os.getenv("ENVIRONMENT", "development")
+    from src.core.config import settings
+
+try:
+    from src.config.logging_config import app_logger, api_logger, security_logger
+except ImportError:
+    import logging
+    # Create loggers if they don't exist
+    app_logger = logging.getLogger("sheetgpt")
+    api_logger = logging.getLogger("sheetgpt.api")
+    security_logger = logging.getLogger("sheetgpt.security")
 from src.utils.errors import EntityValidationError
 
 # Create FastAPI application with environment-appropriate settings

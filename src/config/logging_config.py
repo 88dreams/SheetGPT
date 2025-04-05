@@ -9,7 +9,14 @@ from pathlib import Path
 import time
 from datetime import datetime
 from typing import Dict, Any, Optional
-from src.core.config import ENVIRONMENT, settings
+
+# Import settings from config - with fallback if ENVIRONMENT isn't exported
+try:
+    from src.core.config import ENVIRONMENT, settings
+except ImportError:
+    # Fallback to direct environment variable
+    ENVIRONMENT = os.getenv("ENVIRONMENT", "development").lower()
+    from src.core.config import settings
 
 # Create appropriate logs directory based on environment
 if ENVIRONMENT == "production":

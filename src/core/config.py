@@ -1,45 +1,19 @@
 import os
-import json
-from typing import Optional, List, Any, Dict
+import logging
+from typing import Optional, List
 from functools import lru_cache
-from pydantic_settings import BaseSettings
 
-# Environment setting
+# Setup basic logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger("config")
+
+# Environment setting - hardcoded for reliability
 ENVIRONMENT = os.getenv("ENVIRONMENT", "development").lower()
+logger.info(f"Environment: {ENVIRONMENT}")
 
-# Parse CORS_ORIGINS from environment directly, don't rely on Pydantic parsing
-def parse_cors_origins() -> List[str]:
-    """
-    Parse CORS_ORIGINS environment variable with multiple fallbacks.
-    """
-    cors_env = os.getenv("CORS_ORIGINS", "")
-    
-    # If empty, use defaults based on environment
-    if not cors_env:
-        return [
-            "https://www.88gpts.com",  # Production default
-        ] if ENVIRONMENT == "production" else [
-            "http://localhost:5173",
-            "http://127.0.0.1:5173",
-            "http://localhost:3000", 
-            "http://127.0.0.1:3000"
-        ]
-    
-    # If comma-separated string, split it
-    if "," in cors_env:
-        return [origin.strip() for origin in cors_env.split(",")]
-    
-    # If it's a single URL (no commas), return as single-item list
-    return [cors_env.strip()]
-
-# Parse CORS_ORIGINS once at module import time
-CORS_ORIGINS = parse_cors_origins()
-
-# Log the origins for debugging
-print(f"CORS Origins: {CORS_ORIGINS}")
-
-class Settings(BaseSettings):
-    """Application settings managed through environment variables."""
+# Extremely simple settings class - no Pydantic
+class Settings:
+    """Simple settings class without Pydantic to avoid validation issues."""
     
     # Environment
     ENVIRONMENT: str = ENVIRONMENT
@@ -50,7 +24,7 @@ class Settings(BaseSettings):
     DEBUG: bool = ENVIRONMENT != "production"
     
     # Security
-    SECRET_KEY: str = "dev_secret_key"
+    SECRET_KEY: str = os.getenv("SECRET_KEY", "dev_secret_key")
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 15 if ENVIRONMENT == "production" else 60
     REFRESH_TOKEN_EXPIRE_DAYS: int = 30 if ENVIRONMENT == "production" else 7
     
@@ -60,36 +34,40 @@ class Settings(BaseSettings):
     COOKIE_SAMESITE: str = "strict" if ENVIRONMENT == "production" else "lax"
     
     # Database
-    DATABASE_URL: str = "postgresql+asyncpg://postgres:postgres@db:5432/sheetgpt"
+    DATABASE_URL: str = os.getenv("DATABASE_URL", "postgresql+asyncpg://postgres:postgres@db:5432/sheetgpt")
     DATABASE_POOL_SIZE: int = 20 if ENVIRONMENT == "production" else 5
     DATABASE_MAX_OVERFLOW: int = 10 if ENVIRONMENT == "production" else 2
     DATABASE_POOL_TIMEOUT: int = 30 if ENVIRONMENT == "production" else 15
     
-    # CORS settings - use pre-parsed value to avoid Pydantic validation issues
-    CORS_ORIGINS: List[str] = CORS_ORIGINS
+    # CORS settings - hardcoded for reliability
+    CORS_ORIGINS: List[str] = ["https://www.88gpts.com"] if ENVIRONMENT == "production" else [
+        "http://localhost:5173",
+        "http://127.0.0.1:5173",
+        "http://localhost:3000", 
+        "http://127.0.0.1:3000"
+    ]
     
     # Logging
     LOG_LEVEL: str = "WARNING" if ENVIRONMENT == "production" else "DEBUG"
     
-    # OpenAI (kept for compatibility with other parts of the system)
-    OPENAI_API_KEY: Optional[str] = None
-    
-    # Anthropic (primary LLM provider)
-    ANTHROPIC_API_KEY: Optional[str] = None
+    # API keys - get directly from environment
+    OPENAI_API_KEY: Optional[str] = os.getenv("OPENAI_API_KEY")
+    ANTHROPIC_API_KEY: Optional[str] = os.getenv("ANTHROPIC_API_KEY")
     
     # Google Sheets
-    GOOGLE_SHEETS_CREDENTIALS: Optional[str] = None
+    GOOGLE_SHEETS_CREDENTIALS: Optional[str] = os.getenv("GOOGLE_SHEETS_CREDENTIALS")
     
-    class Config:
-        env_file = ".env"
-        case_sensitive = True
-        extra = "ignore"  # Ignore extra fields in environment variables
-        # Disable JSON validation for environment variables
-        validate_assignment = False
+    def __init__(self):
+        """Log key settings on initialization."""
+        logger.info(f"Initialized settings for environment: {self.ENVIRONMENT}")
+        logger.info(f"CORS Origins: {self.CORS_ORIGINS}")
+        logger.info(f"Database URL: {self.DATABASE_URL.split('@')[1] if '@' in self.DATABASE_URL else 'default'}")
+        logger.info(f"Debug mode: {self.DEBUG}")
 
 @lru_cache()
 def get_settings() -> Settings:
     """Cached settings instance."""
     return Settings()
 
+# Create settings instance
 settings = get_settings()

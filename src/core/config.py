@@ -3,19 +3,19 @@ import json
 from typing import Optional, List, Any, Dict
 from functools import lru_cache
 from pydantic_settings import BaseSettings
-from pydantic import field_validator
 
 # Environment setting
 ENVIRONMENT = os.getenv("ENVIRONMENT", "development").lower()
 
-def get_cors_origins() -> List[str]:
+# Parse CORS_ORIGINS from environment directly, don't rely on Pydantic parsing
+def parse_cors_origins() -> List[str]:
     """
-    Parse CORS_ORIGINS environment variable.
-    Accepts comma-separated string or JSON array.
+    Parse CORS_ORIGINS environment variable with multiple fallbacks.
     """
-    cors_env = os.getenv("CORS_ORIGINS")
+    cors_env = os.getenv("CORS_ORIGINS", "")
+    
+    # If empty, use defaults based on environment
     if not cors_env:
-        # Default values based on environment
         return [
             "https://www.88gpts.com",  # Production default
         ] if ENVIRONMENT == "production" else [
@@ -25,19 +25,18 @@ def get_cors_origins() -> List[str]:
             "http://127.0.0.1:3000"
         ]
     
-    # Try to parse as JSON
-    try:
-        origins = json.loads(cors_env)
-        if isinstance(origins, list):
-            return origins
-        # If it's a string in JSON, convert to list
-        if isinstance(origins, str):
-            return [origin.strip() for origin in origins.split(",")]
-        return []
-    except json.JSONDecodeError:
-        # If not JSON, treat as comma-separated string
+    # If comma-separated string, split it
+    if "," in cors_env:
         return [origin.strip() for origin in cors_env.split(",")]
+    
+    # If it's a single URL (no commas), return as single-item list
+    return [cors_env.strip()]
 
+# Parse CORS_ORIGINS once at module import time
+CORS_ORIGINS = parse_cors_origins()
+
+# Log the origins for debugging
+print(f"CORS Origins: {CORS_ORIGINS}")
 
 class Settings(BaseSettings):
     """Application settings managed through environment variables."""
@@ -66,8 +65,8 @@ class Settings(BaseSettings):
     DATABASE_MAX_OVERFLOW: int = 10 if ENVIRONMENT == "production" else 2
     DATABASE_POOL_TIMEOUT: int = 30 if ENVIRONMENT == "production" else 15
     
-    # CORS settings - load from environment or use defaults
-    CORS_ORIGINS: List[str] = get_cors_origins()
+    # CORS settings - use pre-parsed value to avoid Pydantic validation issues
+    CORS_ORIGINS: List[str] = CORS_ORIGINS
     
     # Logging
     LOG_LEVEL: str = "WARNING" if ENVIRONMENT == "production" else "DEBUG"
@@ -81,29 +80,12 @@ class Settings(BaseSettings):
     # Google Sheets
     GOOGLE_SHEETS_CREDENTIALS: Optional[str] = None
     
-    # Custom validator for CORS_ORIGINS
-    @field_validator('CORS_ORIGINS', mode='before')
-    @classmethod
-    def validate_cors_origins(cls, v: Any) -> List[str]:
-        if isinstance(v, str):
-            try:
-                # Try parsing as JSON
-                origins = json.loads(v)
-                if isinstance(origins, list):
-                    return origins
-                # If it's a string in JSON, convert to list
-                if isinstance(origins, str):
-                    return [origin.strip() for origin in origins.split(",")]
-            except json.JSONDecodeError:
-                # If not JSON, treat as comma-separated string
-                return [origin.strip() for origin in v.split(",")]
-        # If already a list or other type, return as is
-        return v
-    
     class Config:
         env_file = ".env"
         case_sensitive = True
         extra = "ignore"  # Ignore extra fields in environment variables
+        # Disable JSON validation for environment variables
+        validate_assignment = False
 
 @lru_cache()
 def get_settings() -> Settings:

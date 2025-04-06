@@ -39,8 +39,11 @@ class Settings:
     DATABASE_MAX_OVERFLOW: int = 10 if ENVIRONMENT == "production" else 2
     DATABASE_POOL_TIMEOUT: int = 30 if ENVIRONMENT == "production" else 15
     
-    # CORS settings - hardcoded for reliability
-    CORS_ORIGINS: List[str] = ["https://www.88gpts.com"] if ENVIRONMENT == "production" else [
+    # CORS settings - allow frontend domain and local development
+    CORS_ORIGINS: List[str] = [
+        "https://www.88gpts.com",   # Production frontend domain
+        "https://88gpts.com"        # Without www
+    ] if ENVIRONMENT == "production" else [
         "http://localhost:5173",
         "http://127.0.0.1:5173",
         "http://localhost:3000", 

@@ -1,0 +1,28 @@
+env: flex
+runtime: nodejs
+
+# Disable node_modules caching
+skip_files:
+- node_modules/
+
+# Set Node.js version
+runtime_config:
+  operating_system: "ubuntu22"
+  runtime_version: "16"
+
+# Custom build steps
+build_steps:
+- name: 'gcr.io/cloud-builders/npm'
+  args: ['install']
+- name: 'gcr.io/cloud-builders/npm'
+  args: ['run', 'build']
+
+handlers:
+- url: /(.*\.(js|css|png|jpg|jpeg|gif|ico|json|svg))$
+  static_files: dist/\1
+  upload: dist/.*\.(js|css|png|jpg|jpeg|gif|ico|json|svg)$
+
+# All other routes should serve the index.html
+- url: /.*
+  static_files: dist/index.html
+  upload: dist/index.html

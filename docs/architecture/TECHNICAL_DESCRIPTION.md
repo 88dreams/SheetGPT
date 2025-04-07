@@ -460,22 +460,29 @@ Key features:
 
 ## Current Focus
 
-1. **Performance Optimization**
+1. **Production Deployment**
+   - Separate domain architecture (frontend and backend)
+   - Netlify configuration for frontend deployment
+   - DNS configuration for api.88gpts.com subdomain
+   - Cross-domain API communication with proper CORS
+   - Environment-specific configuration management
+
+2. **Performance Optimization**
    - Large dataset handling
    - Query execution efficiency 
    - Pagination improvements
    - Virtualization for long lists
 
-2. **UI Refinements**
+3. **UI Refinements**
    - Relationship constraint messaging
    - Mobile responsive adjustments
    - Further navigation context improvements
    - Accessibility enhancements
 
-3. **Data Visualization**
+4. **Data Visualization**
    - Charting capabilities for analytics
    - Interactive data exploration
    - Visual relationship mapping
    - Timeline visualization for historical data
 
-Updated: May 7, 2025
+Updated: April 7, 2025

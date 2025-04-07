@@ -2,6 +2,32 @@
 
 ## Latest Update
 
+### 2025-04-07: Web Deployment Configuration
+
+- Setting up production web deployment architecture:
+  - Backend: Deployed on Digital Ocean App Platform at 88gpts.com
+  - Frontend: Being configured for Netlify deployment
+  - Implementing separate domain strategy with api.88gpts.com for backend
+  - Configuring frontend to run at main 88gpts.com domain
+  - Setting up proper CORS for cross-domain API communication
+  - See detailed deployment steps in docs/deployment/NETLIFY_DEPLOYMENT_STEPS.md
+
+- Key configuration changes:
+  - Updated backend CORS settings to support api.88gpts.com
+  - Modified frontend .env.production for API subdomain
+  - Created netlify.toml for simplified Netlify deployment
+  - Updated DNS configuration strategy
+  - Implemented proper environment variables for production
+
+- Technical implementation details:
+  - Solved challenging build issues with Digital Ocean App Platform
+  - Created a robust domain architecture for separate frontend/backend
+  - Implemented clean fallback strategies for API communications
+  - Configured proper HTTPS for all endpoints
+  - Improved deployment documentation
+
+## Previous Updates
+
 ### 2025-06-04: EntityList Search and Filter Improvements
 
 - Enhanced search functionality with manual search submission:

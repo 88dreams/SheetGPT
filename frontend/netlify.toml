@@ -10,6 +10,9 @@
   
   # Default build command
   command = "npm install && npm run build"
+  
+  # Ignore Python runtime files - frontend only needs Node.js
+  ignore = "cd .. && test -f runtime.txt"
 
 # Production context: all deploys from the main branch 
 # will inherit these settings

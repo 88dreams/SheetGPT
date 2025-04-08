@@ -8,8 +8,8 @@
   # Directory that contains the deploy-ready HTML files
   publish = "dist/"
   
-  # Default build command - include dev dependencies
-  command = "npm install --production=false && npm run build"
+  # Default build command with improved reliability
+  command = "npm ci --prefer-offline && echo 'Dependencies installed successfully' && npm run build:netlify"
   
   # Ignore Python runtime files - frontend only needs Node.js
   ignore = "cd .. && test -f runtime.txt"

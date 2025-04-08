@@ -37,11 +37,14 @@ const getApiUrl = () => {
 };
 
 const API_URL = getApiUrl();
-const API_PREFIX = '/api/v1'
+// Check if API_URL already contains /api/v1
+const API_PREFIX = API_URL.includes('/api/v1') ? '' : '/api/v1';
 
 console.log('API configuration:', {
   isDocker,
   API_URL,
+  API_PREFIX,
+  fullBaseURL: `${API_URL}${API_PREFIX}`,
   hostname: window.location.hostname,
 });
 

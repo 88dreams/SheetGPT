@@ -6,30 +6,32 @@ import { isTokenExpiredOrExpiringSoon, refreshAuthToken } from './tokenRefresh';
 // Determine if we're running in Docker by checking the hostname
 const isDocker = window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1';
 
-// For browser access, we need to use localhost even when running in Docker
-// This is because the browser can't resolve Docker container names
-// Handle all environments safely
+// For browser access, we need to handle different environments properly
+// In production, we need to use the full API URL to the separate API domain
+// In development, we can use relative URLs with the proxy
 const getApiUrl = () => {
-  // IMPORTANT: From browser context, we always use relative URLs
-  // This ensures we use the same hostname that served the frontend
-  if (typeof window !== 'undefined') {
-    // When running in a browser, just use a relative URL
-    // This will make requests go to the same host serving the frontend
-    console.log('Browser environment detected, using relative URL');
-    return '';
-  }
-  
-  // This code will only run in server-side contexts like SSR or tests
-  try {
-    if (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.VITE_API_URL) {
+  // Check if we're in a browser and have access to import.meta.env
+  if (typeof window !== 'undefined' && typeof import.meta !== 'undefined' && import.meta.env) {
+    // Check for production mode first
+    if (import.meta.env.MODE === 'production' && import.meta.env.VITE_API_URL) {
+      console.log('Production environment detected, using VITE_API_URL:', import.meta.env.VITE_API_URL);
+      return import.meta.env.VITE_API_URL;
+    }
+    
+    // In development, use relative URL for proxy
+    if (import.meta.env.MODE === 'development') {
+      console.log('Development environment detected, using relative URL');
+      return '';
+    }
+    
+    // Try to use VITE_API_URL as fallback if available
+    if (import.meta.env.VITE_API_URL) {
       console.log('Using VITE_API_URL:', import.meta.env.VITE_API_URL);
       return import.meta.env.VITE_API_URL;
     }
-  } catch (e) {
-    console.log('Error accessing import.meta.env:', e);
   }
   
-  // Default fallback for server-side
+  // Default fallback for development or when env vars are missing
   console.log('Using default localhost API URL');
   return 'http://localhost:8000';
 };

@@ -15,7 +15,7 @@
 [build.environment]
   NETLIFY_USE_PYTHON = "false"
   NETLIFY_USE_YARN = "true"
-  NODE_VERSION = "16"
+  NODE_VERSION = "18"
 
 # Production context settings
 [context.production.environment]

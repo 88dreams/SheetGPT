@@ -51,15 +51,29 @@ app = FastAPI(
 )
 
 # Configure CORS with environment-specific origins
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=settings.CORS_ORIGINS,
-    allow_credentials=True,
-    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],  # Be explicit about allowed methods
-    allow_headers=["Authorization", "Content-Type", "X-Request-ID"],  # Be explicit about allowed headers
-    expose_headers=["X-Request-ID", "X-RateLimit-Limit", "X-RateLimit-Remaining", "X-RateLimit-Reset"],
-    max_age=86400  # Cache preflight requests for 24 hours
-)
+if ENVIRONMENT == "production":
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=settings.CORS_ORIGINS,
+        allow_credentials=True,
+        allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],  # Be explicit about allowed methods
+        allow_headers=["Authorization", "Content-Type", "X-Request-ID"],  # Be explicit about allowed headers
+        expose_headers=["X-Request-ID", "X-RateLimit-Limit", "X-RateLimit-Remaining", "X-RateLimit-Reset"],
+        max_age=86400  # Cache preflight requests for 24 hours
+    )
+    app_logger.info(f"Added CORS middleware with specific origins: {settings.CORS_ORIGINS}")
+else:
+    # In development, be more permissive with CORS
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=["*"],  # Allow all origins in development
+        allow_credentials=True,
+        allow_methods=["*"],  # Allow all methods
+        allow_headers=["*"],  # Allow all headers
+        expose_headers=["X-Request-ID", "X-RateLimit-Limit", "X-RateLimit-Remaining", "X-RateLimit-Reset"],
+        max_age=86400  # Cache preflight requests for 24 hours
+    )
+    app_logger.info("Added CORS middleware with permissive settings for development")
 
 # In production, add trusted host middleware
 if ENVIRONMENT == "production":
@@ -71,6 +85,8 @@ if ENVIRONMENT == "production":
             allowed_hosts.append(host)
     
     if allowed_hosts:
+        # Include the IP-based hostnames for development testing
+        allowed_hosts.extend(["*", "localhost"])
         app.add_middleware(
             TrustedHostMiddleware, 
             allowed_hosts=allowed_hosts
@@ -136,9 +152,12 @@ async def errors_handling(request: Request, call_next):
         
         # Add CORS headers explicitly for error responses
         origin = request.headers.get('origin')
-        if origin in settings.CORS_ORIGINS:
+        # In production, check against whitelist; in development, allow all origins
+        if ENVIRONMENT != "production" or origin in settings.CORS_ORIGINS:
             response.headers['Access-Control-Allow-Origin'] = origin
             response.headers['Access-Control-Allow-Credentials'] = 'true'
+            response.headers['Access-Control-Allow-Methods'] = "GET, POST, PUT, DELETE, OPTIONS, PATCH"
+            response.headers['Access-Control-Allow-Headers'] = "Authorization, Content-Type, X-Request-ID"
         
         return response
 
@@ -184,9 +203,12 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
     
     # Add CORS headers
     origin = request.headers.get('origin')
-    if origin in settings.CORS_ORIGINS:
+    # In production, check against whitelist; in development, allow all origins
+    if ENVIRONMENT != "production" or origin in settings.CORS_ORIGINS:
         response.headers['Access-Control-Allow-Origin'] = origin
         response.headers['Access-Control-Allow-Credentials'] = 'true'
+        response.headers['Access-Control-Allow-Methods'] = "GET, POST, PUT, DELETE, OPTIONS, PATCH"
+        response.headers['Access-Control-Allow-Headers'] = "Authorization, Content-Type, X-Request-ID"
     return response
 
 @app.exception_handler(HTTPException)
@@ -224,9 +246,12 @@ async def http_exception_handler(request: Request, exc: HTTPException):
     
     # Add CORS headers
     origin = request.headers.get('origin')
-    if origin in settings.CORS_ORIGINS:
+    # In production, check against whitelist; in development, allow all origins
+    if ENVIRONMENT != "production" or origin in settings.CORS_ORIGINS:
         response.headers['Access-Control-Allow-Origin'] = origin
         response.headers['Access-Control-Allow-Credentials'] = 'true'
+        response.headers['Access-Control-Allow-Methods'] = "GET, POST, PUT, DELETE, OPTIONS, PATCH"
+        response.headers['Access-Control-Allow-Headers'] = "Authorization, Content-Type, X-Request-ID"
     return response
 
 # Setup our customized error handlers

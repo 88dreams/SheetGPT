@@ -11,7 +11,7 @@
     "build": "vite build",
     "build:clean": "bash ./clean.sh",
     "build:typecheck": "tsc && vite build",
-    "build:netlify": "echo 'Starting Netlify build' && NODE_ENV=production vite build --debug",
+    "build:netlify": "echo 'Starting Netlify build' && NODE_ENV=production VITE_BASE_PATH=/sheetgpt/ vite build --debug",
     "lint": "eslint src --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
     "preview": "vite preview",
     "test": "jest",

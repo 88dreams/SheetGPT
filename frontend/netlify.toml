@@ -18,8 +18,16 @@
 # will inherit these settings
 [context.production.environment]
   NODE_ENV = "production"
+  VITE_BASE_PATH = "/sheetgpt/"
   
 # Redirects and headers
+
+# Handle static assets correctly - IMPORTANT: This should come first!
+[[redirects]]
+  from = "/sheetgpt/assets/*"
+  to = "/assets/:splat"
+  status = 200
+
 # Handle all routes under /sheetgpt/ for SPA
 [[redirects]]
   from = "/sheetgpt/*"

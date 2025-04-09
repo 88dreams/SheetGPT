@@ -1,6 +1,6 @@
 # SheetGPT Development Guide
 
-> **IMPORTANT**: Production deployment completed! Frontend running on Netlify (88gpts.com) and backend on Digital Ocean (api.88gpts.com). Authentication working across domains.
+> **IMPORTANT**: Production deployment completed! Frontend running on Netlify (88gpts.com/sheetgpt) and backend on Digital Ocean (api.88gpts.com). Authentication working across domains.
 
 ## Recent Improvements
 

@@ -27,12 +27,13 @@ As of April 2025, the project has implemented:
   - Database cleaning functionality for administrators
   - Utility script for setting users as admins
 - Production deployment with distributed architecture
-  - Frontend deployed on Netlify at 88gpts.com
+  - Frontend deployed on Netlify at 88gpts.com/sheetgpt
   - Backend API running on Digital Ocean at api.88gpts.com 
   - Cross-domain authentication with JWT
   - PostgreSQL database with SSL encryption
   - Custom SSL context for asyncpg driver compatibility
   - Enhanced CORS for secure cross-domain communication
+  - Sub-path deployment with proper asset handling
 
 ## Recent Improvements
 

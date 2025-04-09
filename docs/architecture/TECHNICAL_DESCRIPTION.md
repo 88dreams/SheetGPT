@@ -491,7 +491,7 @@ The application is now deployed in a production environment with the following a
 
 ### Deployment Architecture
 ```
-User → 88gpts.com (Netlify) → Frontend Application
+User → 88gpts.com/sheetgpt (Netlify) → Frontend Application
                   ↓
                   API Requests
                   ↓

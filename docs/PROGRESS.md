@@ -6,10 +6,11 @@
 
 - Successfully completed production web deployment:
   - Backend: Deployed and running on Digital Ocean App Platform at api.88gpts.com
-  - Frontend: Successfully deployed on Netlify at 88gpts.com
+  - Frontend: Successfully deployed on Netlify at 88gpts.com/sheetgpt
   - Authentication system working with JWT token flow
   - Cross-domain API communication functioning properly
   - PostgreSQL database connected securely with SSL
+  - Sub-path deployment configured for future homepage development
 
 - Fixed critical deployment issues:
   - Resolved PostgreSQL SSL connection error by implementing custom SSL context for asyncpg

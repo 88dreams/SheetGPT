@@ -11,7 +11,7 @@ SheetGPT is a full-stack application that combines AI-powered chat capabilities 
 
 ## Current Status
 
-As of June 2024, the project has implemented:
+As of April 2025, the project has implemented:
 
 - User authentication and management
 - Chat interface with AI integration
@@ -26,6 +26,13 @@ As of June 2024, the project has implemented:
   - Settings page with admin-only sections
   - Database cleaning functionality for administrators
   - Utility script for setting users as admins
+- Production deployment with distributed architecture
+  - Frontend deployed on Netlify at 88gpts.com
+  - Backend API running on Digital Ocean at api.88gpts.com 
+  - Cross-domain authentication with JWT
+  - PostgreSQL database with SSL encryption
+  - Custom SSL context for asyncpg driver compatibility
+  - Enhanced CORS for secure cross-domain communication
 
 ## Recent Improvements
 

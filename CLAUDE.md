@@ -1,6 +1,6 @@
 # SheetGPT Development Guide
 
-> **IMPORTANT**: Currently working on web deployment configuration - focused on production deployment with Netlify frontend and Digital Ocean backend. See docs/deployment/NETLIFY_DEPLOYMENT_STEPS.md for detailed steps.
+> **IMPORTANT**: Production deployment completed! Frontend running on Netlify (88gpts.com) and backend on Digital Ocean (api.88gpts.com). Authentication working across domains.
 
 ## Recent Improvements
 

@@ -5,6 +5,7 @@ import path from 'path';
 // https://vitejs.dev/config/
 export default defineConfig({
   plugins: [react()],
+  base: '/sheetgpt/', // Add base path for production
   server: {
     proxy: {
       '/api': {

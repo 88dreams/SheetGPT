@@ -20,16 +20,16 @@
   NODE_ENV = "production"
   
 # Redirects and headers
-# First, handle the base path
-[[redirects]]
-  from = "/sheetgpt"
-  to = "/sheetgpt/index.html"
-  status = 200
-
-# Handle all routes under /sheetgpt/
+# Handle all routes under /sheetgpt/ for SPA
 [[redirects]]
   from = "/sheetgpt/*"
-  to = "/sheetgpt/index.html"
+  to = "/index.html"
+  status = 200
+
+# Handle the /sheetgpt base path
+[[redirects]]
+  from = "/sheetgpt"
+  to = "/index.html"
   status = 200
 
 # Default SPA handling for root path (assuming you'll have a separate homepage)

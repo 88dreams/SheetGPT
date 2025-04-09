@@ -7,11 +7,34 @@ from src.utils.config import get_settings
 
 settings = get_settings()
 
-# Create async engine
+# Create async engine with proper SSL configuration for asyncpg
+import os
+import ssl
+
+# Extract database URL
+db_url = settings.DATABASE_URL
+
+# Configure SSL for asyncpg correctly
+connect_args = {}
+if 'sslmode' in db_url or 'ssl=true' in db_url:
+    # For production with SSL, use SSL context instead of sslmode
+    ssl_context = ssl.create_default_context()
+    ssl_context.check_hostname = False
+    ssl_context.verify_mode = ssl.CERT_NONE
+    connect_args = {"ssl": ssl_context}
+    
+    # Remove sslmode or ssl=true from the URL as it's not compatible with asyncpg
+    db_url = db_url.replace('?sslmode=require', '')
+    db_url = db_url.replace('&sslmode=require', '')
+    db_url = db_url.replace('?ssl=true', '')
+    db_url = db_url.replace('&ssl=true', '')
+
+# Create async engine with proper configuration
 engine = create_async_engine(
-    settings.DATABASE_URL,
+    db_url,
     echo=settings.DEBUG,
-    pool_pre_ping=True  # Enable connection pool "pre-ping" feature
+    pool_pre_ping=True,  # Enable connection pool "pre-ping" feature
+    connect_args=connect_args
 )
 
 # Create async session factory

@@ -96,8 +96,8 @@ const App: React.FC = () => {
                 </div>
               </div>
             }>
-              <Route path="/login" element={<Login />} />
-              <Route path="/register" element={<Register />} />
+              <Route path="login" element={<Login />} />
+              <Route path="register" element={<Register />} />
             </Route>
 
             {/* Protected routes */}
@@ -110,11 +110,11 @@ const App: React.FC = () => {
               }
             >
               {/* Add nested routes here later */}
-              <Route index element={<Navigate to="/chat" />} />
+              <Route index element={<Navigate to="chat" />} />
               <Route path="chat" element={<Chat />} />
               <Route path="data" element={<DataManagement />} />
               {/* Add a redirect for any data/:id pattern to the main data page */}
-              <Route path="data/:id" element={<Navigate to="/data" replace />} />
+              <Route path="data/:id" element={<Navigate to="data" replace />} />
               <Route path="sports" element={<SportsDatabase />} />
               <Route path="sports/:entityType/:id" element={<EntityDetail />} />
               <Route path="database" element={<DatabaseQuery />} />

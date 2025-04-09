@@ -132,7 +132,7 @@ apiClient.interceptors.request.use(
                         // If refresh failed and this is not a public route, redirect to login
                         if (config.url !== '/auth/me') {
                             removeToken();
-                            window.location.href = '/login';
+                            window.location.href = '/sheetgpt/login';
                             return Promise.reject(error);
                         }
                     }
@@ -206,7 +206,7 @@ apiClient.interceptors.response.use(
                     } else {
                         console.log('Token refresh failed, redirecting to login');
                         removeToken();
-                        window.location.href = '/login';
+                        window.location.href = '/sheetgpt/login';
                         return Promise.reject(error);
                     }
                 } else {
@@ -230,7 +230,7 @@ apiClient.interceptors.response.use(
                 console.error('Error refreshing token:', refreshError);
                 isRefreshing = false;
                 removeToken();
-                window.location.href = '/login';
+                window.location.href = '/sheetgpt/login';
                 return Promise.reject(error);
             }
         }

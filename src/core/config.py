@@ -44,6 +44,8 @@ class Settings:
         "https://www.88gpts.com",   # Production frontend domain
         "https://88gpts.com",       # Without www
         "https://api.88gpts.com",   # API subdomain
+        "https://www.88gpts.com/sheetgpt",   # New app location
+        "https://88gpts.com/sheetgpt",       # Without www
         "http://localhost:5173",    # Include development origins in production too
         "http://127.0.0.1:5173",    # This allows testing from various locations
         "http://localhost:3000", 

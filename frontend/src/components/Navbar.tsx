@@ -32,18 +32,20 @@ export default function Navbar() {
   const location = useLocation()
 
   const navItems: NavItem[] = [
-    { path: '/chat', label: 'Chat', title: 'Chat', requiresAuth: true },
-    { path: '/sports', label: 'Entities', title: 'Entities', requiresAuth: true },
-    { path: '/database', label: 'Query', title: 'Query', requiresAuth: true },
-    { path: '/data', label: 'Export', title: 'Export', requiresAuth: true },
-    { path: '/settings', label: 'Settings', title: 'Settings', requiresAuth: true },
-    { path: '/help', label: 'Help', title: 'Documentation', requiresAuth: true },
-    { path: '/login', label: 'Login', title: '', requiresAuth: false },
-    { path: '/register', label: 'Register', title: '', requiresAuth: false },
+    { path: 'chat', label: 'Chat', title: 'Chat', requiresAuth: true },
+    { path: 'sports', label: 'Entities', title: 'Entities', requiresAuth: true },
+    { path: 'database', label: 'Query', title: 'Query', requiresAuth: true },
+    { path: 'data', label: 'Export', title: 'Export', requiresAuth: true },
+    { path: 'settings', label: 'Settings', title: 'Settings', requiresAuth: true },
+    { path: 'help', label: 'Help', title: 'Documentation', requiresAuth: true },
+    { path: 'login', label: 'Login', title: '', requiresAuth: false },
+    { path: 'register', label: 'Register', title: '', requiresAuth: false },
   ]
 
   const getPageTitle = () => {
-    const currentItem = navItems.find(item => item.path === location.pathname)
+    // Get the path without the /sheetgpt prefix
+    const currentPath = location.pathname.replace(/^\/sheetgpt/, '')
+    const currentItem = navItems.find(item => '/' + item.path === currentPath)
     return currentItem?.title || ''
   }
 
@@ -71,7 +73,7 @@ export default function Navbar() {
                       key={item.path}
                       to={item.path}
                       label={item.label}
-                      isActive={location.pathname === item.path}
+                      isActive={location.pathname.endsWith('/' + item.path)}
                     />
                   ))}
                 <button
@@ -84,14 +86,14 @@ export default function Navbar() {
             ) : (
               <>
                 <NavLink
-                  to="/login"
+                  to="login"
                   label="Login"
-                  isActive={location.pathname === '/login'}
+                  isActive={location.pathname.endsWith('/login')}
                 />
                 <NavLink
-                  to="/register"
+                  to="register"
                   label="Register"
-                  isActive={location.pathname === '/register'}
+                  isActive={location.pathname.endsWith('/register')}
                   className="ml-4"
                 />
               </>

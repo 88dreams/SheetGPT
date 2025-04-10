@@ -4,29 +4,41 @@ import { Conversation, Message, PaginatedResponse } from '../types/api';
 // For streaming responses
 // Use the same API URL determination logic as apiClient.ts
 const getApiUrl = () => {
-  // In browser context, we always use relative URLs
-  if (typeof window !== 'undefined') {
-    console.log('Browser environment detected, using relative URL for chat service');
-    return '';
-  }
-  
-  // This code will only run in server-side contexts
-  try {
-    if (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.VITE_API_URL) {
+  // Check if we're in a browser and have access to import.meta.env
+  if (typeof window !== 'undefined' && typeof import.meta !== 'undefined' && import.meta.env) {
+    // Check for production mode first
+    if (import.meta.env.MODE === 'production' && import.meta.env.VITE_API_URL) {
+      console.log('Production environment detected, using VITE_API_URL:', import.meta.env.VITE_API_URL);
+      return import.meta.env.VITE_API_URL;
+    }
+    
+    // In development, use relative URL for proxy
+    if (import.meta.env.MODE === 'development') {
+      console.log('Development environment detected, using relative URL for chat service');
+      return '';
+    }
+    
+    // Try to use VITE_API_URL as fallback if available
+    if (import.meta.env.VITE_API_URL) {
       console.log('Using VITE_API_URL for chat service:', import.meta.env.VITE_API_URL);
       return import.meta.env.VITE_API_URL;
     }
-  } catch (error) {
-    console.log('Error accessing import.meta.env for chat service:', error);
   }
   
-  // Default fallback for server-side
+  // Default fallback for development or when env vars are missing
   console.log('Using default localhost API URL for chat service');
   return 'http://localhost:8000';
 };
 
 const API_URL = getApiUrl();
-const API_PREFIX = '/api/v1';
+// Check if API_URL already contains /api/v1
+const API_PREFIX = API_URL.includes('/api/v1') ? '' : '/api/v1';
+
+console.log('Chat service API configuration:', {
+  API_URL,
+  API_PREFIX,
+  fullBaseURL: `${API_URL}${API_PREFIX}`,
+});
 
 export const chatService = {
   getConversations: async (skip = 0, limit = 10): Promise<PaginatedResponse<Conversation>> => {
@@ -91,7 +103,11 @@ export const chatService = {
     const token = getToken()
     if (!token) throw new Error('No authentication token')
 
-    const response = await fetch(`${API_URL}${API_PREFIX}/chat/conversations/${conversationId}/messages`, {
+    // Log the full URL being used
+    const url = `${API_URL}${API_PREFIX}/chat/conversations/${conversationId}/messages`;
+    console.log('Sending message to URL:', url);
+    
+    const response = await fetch(url, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

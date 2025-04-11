@@ -103,106 +103,116 @@ export const chatService = {
     const token = getToken()
     if (!token) throw new Error('No authentication token')
 
-    // Log the full URL being used
+    // Build the URL correctly
+    // For the API endpoint, we need to ensure it always points to {baseUrl}/api/v1/chat/...
+    // This endpoint is under the chat router which is mounted under "/api/v1/chat" 
     const url = `${API_URL}${API_PREFIX}/chat/conversations/${conversationId}/messages`;
     console.log('Sending message to URL:', url);
     
-    const response = await fetch(url, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`
-      },
-      body: JSON.stringify({ 
-        content,
-        role: 'user',
-        structured_format: structuredFormat,
-        metadata: fileAttachment ? { fileAttachment } : undefined
-      })
-    })
-
-    if (!response.ok) {
-      const error = await response.json()
-      throw new Error(error.detail || `HTTP error! status: ${response.status}`)
-    }
-
-    if (!response.body) throw new Error('No response body')
-
-    const reader = response.body.getReader()
-    const decoder = new TextDecoder()
-    let fullResponse = ''
-    let buffer = ''
-
-    while (true) {
-      const { done, value } = await reader.read()
-      if (done) break
-
-      const chunk = decoder.decode(value)
-      buffer += chunk
+    try {
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ 
+          content,
+          role: 'user',
+          structured_format: structuredFormat,
+          metadata: fileAttachment ? { fileAttachment } : undefined
+        })
+      });
       
-      // Process complete lines from the buffer
-      const lines = buffer.split('\n')
-      buffer = lines.pop() || '' // Keep the last incomplete line in the buffer
+      console.log('Message send response status:', response.status);
       
-      for (const line of lines) {
-        if (line.startsWith('data: ')) {
-          try {
-            const jsonStr = line.slice(6).trim()
-            if (jsonStr) {
-              const data = JSON.parse(jsonStr)
-              if (data.text) {
-                // Check for special completion marker
-                if (data.text === '__STREAM_COMPLETE__') {
-                  console.log('Stream completion marker received from server')
-                  if (onChunk) {
-                    onChunk('__STREAM_COMPLETE__')
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({ detail: `HTTP error! status: ${response.status}` }));
+        console.error('Error sending message:', error);
+        throw new Error(error.detail || `HTTP error! status: ${response.status}`);
+      }
+
+      if (!response.body) throw new Error('No response body');
+
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let fullResponse = '';
+      let buffer = '';
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        const chunk = decoder.decode(value);
+        buffer += chunk;
+        
+        // Process complete lines from the buffer
+        const lines = buffer.split('\n');
+        buffer = lines.pop() || ''; // Keep the last incomplete line in the buffer
+        
+        for (const line of lines) {
+          if (line.startsWith('data: ')) {
+            try {
+              const jsonStr = line.slice(6).trim();
+              if (jsonStr) {
+                const data = JSON.parse(jsonStr);
+                if (data.text) {
+                  // Check for special completion marker
+                  if (data.text === '__STREAM_COMPLETE__') {
+                    console.log('Stream completion marker received from server');
+                    if (onChunk) {
+                      onChunk('__STREAM_COMPLETE__');
+                    }
+                  } else {
+                    fullResponse += data.text;
+                    if (onChunk) onChunk(data.text);
                   }
-                } else {
-                  fullResponse += data.text
-                  if (onChunk) onChunk(data.text)
                 }
               }
+            } catch (error) {
+              console.error('Error parsing streaming response:', error);
+              // Continue processing other chunks even if one fails
             }
-          } catch (error) {
-            console.error('Error parsing streaming response:', error)
-            // Continue processing other chunks even if one fails
           }
         }
       }
-    }
 
-    // Process any remaining data in the buffer
-    if (buffer.startsWith('data: ')) {
-      try {
-        const jsonStr = buffer.slice(6).trim()
-        if (jsonStr) {
-          const data = JSON.parse(jsonStr)
-          if (data.text) {
-            // Check for special completion marker in final chunk
-            if (data.text === '__STREAM_COMPLETE__') {
-              console.log('Stream completion marker received from server in final chunk')
-              if (onChunk) {
-                onChunk('__STREAM_COMPLETE__')
+      // Process any remaining data in the buffer
+      if (buffer.startsWith('data: ')) {
+        try {
+          const jsonStr = buffer.slice(6).trim();
+          if (jsonStr) {
+            const data = JSON.parse(jsonStr);
+            if (data.text) {
+              // Check for special completion marker in final chunk
+              if (data.text === '__STREAM_COMPLETE__') {
+                console.log('Stream completion marker received from server in final chunk');
+                if (onChunk) {
+                  onChunk('__STREAM_COMPLETE__');
+                }
+              } else {
+                fullResponse += data.text;
+                if (onChunk) onChunk(data.text);
               }
-            } else {
-              fullResponse += data.text
-              if (onChunk) onChunk(data.text)
             }
           }
+        } catch (error) {
+          console.error('Error parsing final chunk:', error);
         }
-      } catch (error) {
-        console.error('Error parsing final chunk:', error)
       }
-    }
 
-    // Return a Message object with the complete response
-    return {
-      id: crypto.randomUUID(),
-      role: 'assistant',
-      content: fullResponse,
-      created_at: new Date().toISOString(),
-      conversation_id: conversationId,
-      meta_data: fileAttachment ? { fileAttachment } : {}
+      // Return a Message object with the complete response
+      return {
+        id: crypto.randomUUID(),
+        role: 'assistant',
+        content: fullResponse,
+        created_at: new Date().toISOString(),
+        conversation_id: conversationId,
+        meta_data: fileAttachment ? { fileAttachment } : {}
+      };
+    } catch (error) {
+      console.error('Error in sendMessage:', error);
+      throw error;
     }
   }
 };

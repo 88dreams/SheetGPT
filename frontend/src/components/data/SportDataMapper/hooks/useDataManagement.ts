@@ -248,15 +248,14 @@ export default function useDataManagement() {
       currentValues: sourceFieldValues
     });
     
-    // Only update if values are actually different to prevent infinite loops
-    if (recordFingerprint !== currentValuesFingerprint) {
-      console.log('Updating source field values - data has changed');
-      
-      // Direct update without setTimeout to prevent timing issues
+    // IMPORTANT: Always update regardless of fingerprint comparison
+    // This fixes a bug where the source fields don't update when navigating
+    console.log('Updating source field values for navigation');
+    
+    // Use requestAnimationFrame to ensure UI updates properly
+    requestAnimationFrame(() => {
       setSourceFieldValues(record);
-    } else {
-      console.log('Source field values unchanged, skipping update');
-    }
+    });
   }, [dataToImport, sourceFieldValues]);
   
   /**

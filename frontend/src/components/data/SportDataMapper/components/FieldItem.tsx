@@ -37,6 +37,12 @@ const fieldItemPropsAreEqual = (prevProps: FieldItemProps, nextProps: FieldItemP
   // Quick reference equality checks
   if (prevProps === nextProps) return true;
   
+  // For source fields, always return false to ensure updates
+  // This fixes the issue with source fields not updating on record navigation
+  if (prevProps.isSource || nextProps.isSource) {
+    return false;
+  }
+  
   // Compare essential props
   return (
     prevProps.field === nextProps.field &&

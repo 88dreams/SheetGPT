@@ -196,14 +196,13 @@ const SportDataMapperContainer: React.FC<SportDataMapperProps> = ({ isOpen, onCl
       // Update using a reference to prevent circular deps
       const recordIndex = currentRecordIndex;
       
-      // Use a timeout to break the potential circular dependency
-      const timeoutId = setTimeout(() => {
+      // Always force an update of source field values when navigating records
+      // This ensures the UI displays the correct values
+      requestAnimationFrame(() => {
         updateSourceFieldValues(recordIndex);
-      }, 0);
-      
-      return () => clearTimeout(timeoutId);
+      });
     }
-  // Dependency on recordIndex changed to dataLength only to prevent cycles
+  // Include currentRecordIndex in dependencies to ensure we update on navigation
   }, [currentRecordIndex, memoizedDataLength, updateSourceFieldValues]);
   
   // Update mapped data when entity type or current record changes

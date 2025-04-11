@@ -364,11 +364,12 @@ const FieldMappingArea: React.FC<FieldMappingAreaProps> = ({
               
               return (
                 <FieldItem
-                  key={field}
+                  key={`${field}-record-${currentRecordIndex || 0}`}
                   field={field}
                   value={fieldValue}
                   isSource={true}
                   formatValue={formatFieldValue}
+                  id={`source-field-${field}-${currentRecordIndex || 0}`}
                 />
               );
             })

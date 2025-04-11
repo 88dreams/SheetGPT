@@ -220,7 +220,7 @@ export default function useDataManagement() {
   
   /**
    * Update source field values when current record changes
-   * Optimized with fingerprinting and RAF for better performance
+   * Completely redesigned to ensure proper UI updates
    */
   const updateSourceFieldValues = useCallback((recordIndex: number) => {
     if (recordIndex < 0 || recordIndex >= dataToImport.length) {
@@ -230,33 +230,60 @@ export default function useDataManagement() {
     
     console.log(`updateSourceFieldValues called with index ${recordIndex}`, {
       dataLength: dataToImport.length,
-      currentRecord: dataToImport[recordIndex],
-      currentSourceFields: sourceFields
+      recordIndex,
+      hasRecord: !!dataToImport[recordIndex]
     });
     
     const record = dataToImport[recordIndex];
     
-    // Create a fingerprint of the record to check for changes
-    const recordFingerprint = fingerprint(record);
-    const currentValuesFingerprint = fingerprint(sourceFieldValues);
+    if (!record) {
+      console.error('No record found at index:', recordIndex);
+      return;
+    }
     
-    console.log('Source field value check:', {
-      recordFingerprint,
-      currentValuesFingerprint,
-      mismatch: recordFingerprint !== currentValuesFingerprint,
-      record,
-      currentValues: sourceFieldValues
+    console.log('Forcefully updating source field values for record:', recordIndex);
+    
+    // Force a clean state update by creating a new object
+    // with explicit property assignments rather than object spread
+    const newValues: Record<string, any> = {};
+    
+    // For object data, copy each property individually
+    if (typeof record === 'object' && record !== null && !Array.isArray(record)) {
+      Object.keys(record).forEach(key => {
+        newValues[key] = record[key];
+      });
+    } 
+    // For array data, use the sourceFields array as keys
+    else if (Array.isArray(record)) {
+      sourceFields.forEach((field, index) => {
+        if (index < record.length) {
+          newValues[field] = record[index];
+        }
+      });
+    }
+    
+    console.log('New source field values created:', {
+      keys: Object.keys(newValues).length,
+      sampleKeys: Object.keys(newValues).slice(0, 3),
+      valuesType: typeof newValues
     });
     
-    // IMPORTANT: Always update regardless of fingerprint comparison
-    // This fixes a bug where the source fields don't update when navigating
-    console.log('Updating source field values for navigation');
+    // Use a sequence of updateS with RAF for maximum reliability:
     
-    // Use requestAnimationFrame to ensure UI updates properly
+    // First, clear the current values with an empty object to force a reset
+    setSourceFieldValues({});
+    
+    // Then use RAF to set the new values in the next frame
     requestAnimationFrame(() => {
-      setSourceFieldValues(record);
+      console.log('Setting new source field values in animation frame');
+      setSourceFieldValues(newValues);
+      
+      // Schedule a logging message to confirm state was updated
+      setTimeout(() => {
+        console.log('Source field values should be updated now');
+      }, 50);
     });
-  }, [dataToImport, sourceFieldValues]);
+  }, [dataToImport, sourceFields]);
   
   /**
    * Update mapped data when a field is mapped

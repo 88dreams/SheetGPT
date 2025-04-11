@@ -183,7 +183,7 @@ const SportDataMapperContainer: React.FC<SportDataMapperProps> = ({ isOpen, onCl
   );
   
   // Update source field values when current record changes
-  // Simple fix for synchronization issue - remove requestAnimationFrame
+  // ENHANCED FIX: Add debugging and ensure only one record is used throughout the component lifecycle
   useEffect(() => {
     if (memoizedDataLength === 0) {
       return;
@@ -191,17 +191,30 @@ const SportDataMapperContainer: React.FC<SportDataMapperProps> = ({ isOpen, onCl
     
     // Ensure index is valid
     if (currentRecordIndex !== null && currentRecordIndex >= 0 && currentRecordIndex < memoizedDataLength) {
-      console.log('SportDataMapperContainer: Updating source field values for record', currentRecordIndex);
+      console.log('SportDataMapperContainer: Updating source field values for record', {
+        requestedIndex: currentRecordIndex,
+        dataLength: memoizedDataLength,
+        currentRecord: dataToImport[currentRecordIndex]?.slice?.(0, 3) || 'not an array',
+        recordType: Array.isArray(dataToImport[currentRecordIndex]) ? 'array' : 'object',
+      });
       
-      // Update using a reference to prevent circular deps
-      const recordIndex = currentRecordIndex;
+      // CRITICAL FIX: Update source field values immediately for the CURRENT record index
+      // To avoid stale data issues when the field values don't match the display
+      updateSourceFieldValues(currentRecordIndex);
       
-      // SIMPLE FIX: Update source fields immediately instead of in requestAnimationFrame
-      // This keeps source fields and mapped data in sync
-      updateSourceFieldValues(recordIndex);
+      // Force update the mapped data as well for the currently selected entity type
+      if (selectedEntityType) {
+        console.log('SportDataMapperContainer: Force updating mapped data for current record and entity type', {
+          entityType: selectedEntityType,
+          currentRecordIndex
+        });
+        
+        // This should keep mappings in sync with the source fields
+        hookUpdateMappedDataForEntityType(selectedEntityType, mappingsByEntityType, currentRecordIndex);
+      }
     }
-  // Include currentRecordIndex in dependencies to ensure we update on navigation
-  }, [currentRecordIndex, memoizedDataLength, updateSourceFieldValues]);
+  // Include all dependencies to ensure we update on any relevant change
+  }, [currentRecordIndex, memoizedDataLength, updateSourceFieldValues, selectedEntityType, mappingsByEntityType, hookUpdateMappedDataForEntityType, dataToImport]);
   
   // Update mapped data when entity type or current record changes
   useEffect(() => {

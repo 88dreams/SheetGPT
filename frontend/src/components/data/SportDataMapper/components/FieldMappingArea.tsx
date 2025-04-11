@@ -202,14 +202,22 @@ const FieldMappingArea: React.FC<FieldMappingAreaProps> = ({
     return 0;
   });
 
-  // Diagnostic logging for debugging
-  console.log('FieldMappingArea sourceFields:', {
+  // Enhanced diagnostic logging for debugging the index issue
+  console.log('FieldMappingArea debug:', {
+    currentRecordIndex,
     sourceFields,
     length: sourceFields?.length || 0,
     isArray: Array.isArray(sourceFields),
-    sourceFieldValues,
+    sourceFieldValuesKeys: Object.keys(sourceFieldValues || {}),
     keysCount: Object.keys(sourceFieldValues || {}).length,
-    firstFewValues: sourceFields?.slice(0, 3) || []
+    recordMetadata: sourceFieldValues?.__recordIndex__,
+    firstFewValues: sourceFields?.slice(0, 3) || [],
+    firstFewData: sourceFields?.slice(0, 3).map(field => ({
+      field,
+      value: Array.isArray(sourceFieldValues) 
+        ? sourceFieldValues[sourceFields.indexOf(field)] 
+        : sourceFieldValues[field]
+    })) || []
   });
   
   // Sort source fields based on the selected column and direction
@@ -357,10 +365,45 @@ const FieldMappingArea: React.FC<FieldMappingAreaProps> = ({
           {/* Source fields with array index based value lookup */}
           {sortedSourceFields && sortedSourceFields.length > 0 ? (
             sortedSourceFields.map((field, index) => {
-              // Get value either by index or by field name depending on sourceFieldValues type
-              const fieldValue = Array.isArray(sourceFieldValues) 
-                ? sourceFieldValues[sourceFields.indexOf(field)] 
-                : sourceFieldValues[field];
+              // ENHANCED: More robust field value extraction with additional logging for specific fields
+              let fieldValue;
+              let valueSource = 'unknown';
+              
+              // First, try direct property access (works for both objects and arrays with property access)
+              if (typeof sourceFieldValues === 'object' && sourceFieldValues !== null && field in sourceFieldValues) {
+                fieldValue = sourceFieldValues[field];
+                valueSource = 'direct-property';
+              }
+              // If that fails and it's an array, try index-based lookup
+              else if (Array.isArray(sourceFieldValues)) {
+                const index = sourceFields.indexOf(field);
+                if (index >= 0 && index < sourceFieldValues.length) {
+                  fieldValue = sourceFieldValues[index];
+                  valueSource = 'array-index';
+                }
+              }
+              // Last resort, try case-insensitive property lookup
+              else if (typeof sourceFieldValues === 'object' && sourceFieldValues !== null) {
+                const fieldLower = field.toLowerCase();
+                const matchingKey = Object.keys(sourceFieldValues).find(key => 
+                  typeof key === 'string' && key.toLowerCase() === fieldLower
+                );
+                
+                if (matchingKey) {
+                  fieldValue = sourceFieldValues[matchingKey];
+                  valueSource = 'case-insensitive';
+                }
+              }
+              
+              // Debug logging for important fields
+              if (field.includes('League') || field.includes('NBA') || field.includes('MLB') || field === 'Name') {
+                console.log(`FieldMappingArea value extraction [${field}]:`, {
+                  value: fieldValue,
+                  valueSource,
+                  recordIndex: currentRecordIndex,
+                  metadata: sourceFieldValues?.__recordIndex__
+                });
+              }
               
               return (
                 <FieldItem

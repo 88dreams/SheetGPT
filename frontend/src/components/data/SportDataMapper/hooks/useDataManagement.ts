@@ -546,12 +546,21 @@ export default function useDataManagement() {
       valuesType: typeof newValues
     });
     
-    // SIMPLE FIX: Update immediately without using requestAnimationFrame
-    // This keeps source fields in sync with the current record index
-    console.log('Setting new source field values immediately');
+    // ENHANCED FIX: Add specific debugging to track source field values updates
+    console.log('Setting new source field values immediately for record:', {
+      recordIndex,
+      newValuesCount: Object.keys(newValues).length,
+      newValuesSample: Object.entries(newValues).slice(0, 3).map(([k, v]) => `${k}: ${v}`),
+      hasHeaders: newValues.__headers__ ? 'yes' : 'no',
+      recordMetadata: newValues.__recordIndex__
+    });
     
-    // Set the values directly - this is simpler and more reliable
-    setSourceFieldValues(newValues);
+    // Force a brand new object to break any reference equality issues
+    // This ensures React definitely sees this as a state change
+    const cleanNewValues = {...newValues};
+    
+    // Set the values directly - force a clean update
+    setSourceFieldValues(cleanNewValues);
   }, [dataToImport, sourceFields]);
   
   /**

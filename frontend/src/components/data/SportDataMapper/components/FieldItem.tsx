@@ -32,13 +32,18 @@ interface DropCollectedProps {
   canDrop: boolean;
 }
 
-// Custom equality function for optimized rendering
+// CRITICAL FIX: Never cache field items to ensure all values are always fresh
+// This ensures that the component always shows the latest data and never gets stale
 const fieldItemPropsAreEqual = (prevProps: FieldItemProps, nextProps: FieldItemProps) => {
+  // ALWAYS re-render field items to fix data inconsistency issues
+  return false;
+  
+  // The following code is disabled intentionally - we want to always re-render
+  /*
   // Quick reference equality checks
   if (prevProps === nextProps) return true;
   
   // For source fields, always return false to ensure updates
-  // This fixes the issue with source fields not updating on record navigation
   if (prevProps.isSource || nextProps.isSource) {
     return false;
   }
@@ -52,6 +57,7 @@ const fieldItemPropsAreEqual = (prevProps: FieldItemProps, nextProps: FieldItemP
     // Special handling for value which could be complex
     createMemoEqualityFn(prevProps.value)(nextProps.value)
   );
+  */
 };
 
 const FieldItem: React.FC<FieldItemProps> = ({ 
@@ -151,10 +157,21 @@ const FieldItem: React.FC<FieldItemProps> = ({
 
   // Format the value for display once to avoid recalculation
   const displayValue = useMemo(() => {
+    // Add debugging for this specific field to track value issues
+    if (field === 'League Full Name' || field === 'Name' || field.includes('League') || field.includes('NBA') || field.includes('MLB')) {
+      console.log(`FieldItem DEBUG [${field}]:`, {
+        rawValue: value,
+        valueType: typeof value,
+        isNull: value === null,
+        isUndefined: value === undefined,
+        formatted: value !== undefined && value !== null && value !== "" ? formatValue(value) : "—" 
+      });
+    }
+    
     return value !== undefined && value !== null && value !== "" 
       ? formatValue(value) 
       : "—";
-  }, [value, formatValue]);
+  }, [value, formatValue, field]);
 
   // Determine which ref to use
   const ref = isSource ? dragRef : dropRef;

@@ -34,16 +34,27 @@ export const transformMappedData = (
   // and the sourceRecord seems to be a flat array of values. In this case, we need
   // to directly map based on position, using the source field headers.
   const usingDisplayNames = Object.values(mappings).some(v => 
-    ['Name', 'Company Name', 'Service Type', 'Entity Name', 'League Name', 'Start Date'].includes(v)
+    [
+      'Name', 'Company Name', 'Service Type', 'Entity Name', 'League Name', 'Start Date',
+      // Add League-specific field names
+      'League Full Name', 'League Acronym', 'Sport', 'Country', 'Founded Year'
+    ].includes(v)
   );
   
   // Special handling for common production service mappings
   // This is a direct mapping based on actual headers to their indices
   if (isArrayData && usingDisplayNames) {
-    console.log("USING DISPLAY NAMES WITH DIRECT INDEX MAPPING");
+    console.log("USING DISPLAY NAMES WITH DIRECT INDEX MAPPING", {
+      mappingsList: Object.entries(mappings).map(([db, src]) => `${src} → ${db}`),
+      sourceRecord: Array.isArray(sourceRecord) ? sourceRecord : [],
+      detectedFields: Object.values(mappings).filter(v => 
+        ['League Full Name', 'League Acronym', 'Sport', 'Country', 'Founded Year'].includes(v)
+      )
+    });
     
     // Hard-coded maps for production services based on column positions in typical CSV data
     const fieldPositions = {
+      // Production service fields
       'Name': 0,          // Name is typically first column
       'Company Name': 0,  // Production company name is typically first column
       'Service Type': 1,  // Service type is typically second column
@@ -52,7 +63,14 @@ export const transformMappedData = (
       'League Name': 4,   // League is typically fifth column
       'Sport': 5,         // Sport is typically sixth column
       'Start Date': 6,    // Start date is typically seventh column
-      'End Date': 7       // End date is typically eighth column
+      'End Date': 7,      // End date is typically eighth column
+      
+      // League-specific fields
+      'League Full Name': 0,  // League name is first column
+      'League Acronym': 1,    // League acronym is second column
+      'Sport': 2,             // Sport is third column
+      'Country': 3,           // Country is fourth column
+      'Founded Year': 4       // Founded year is fifth column
     };
     
     // Do direct mapping using the field positions
@@ -60,11 +78,33 @@ export const transformMappedData = (
       // Find the position for this source field
       const position = fieldPositions[sourceFieldName];
       
+      console.log(`Attempting position mapping for ${sourceFieldName} → ${databaseField}`, {
+        mappedPosition: position,
+        hasValue: position !== undefined && sourceRecord[position] !== undefined,
+        valueAtPosition: position !== undefined ? sourceRecord[position] : 'no position',
+        rawSourceRecord: sourceRecord
+      });
+      
       if (position !== undefined && sourceRecord[position] !== undefined) {
         transformedData[databaseField] = sourceRecord[position];
-        console.log(`Direct position mapping: ${sourceFieldName} (position ${position}) → ${databaseField} =`, sourceRecord[position]);
+        console.log(`SUCCESSFUL Direct position mapping: ${sourceFieldName} (position ${position}) → ${databaseField} =`, sourceRecord[position]);
       } else {
         console.warn(`No direct position mapping for ${sourceFieldName} → ${databaseField}`);
+        
+        // Special fallback for array data with header mismatch
+        if (Array.isArray(sourceRecord) && sourceRecord.length > 0) {
+          // If the field has a typical structure (like "League Full Name"), try matching by parts
+          if (sourceFieldName.includes('Name') && databaseField === 'name') {
+            transformedData[databaseField] = sourceRecord[0]; // First element is often the name
+            console.log(`Fallback mapping for ${databaseField}: Using first element as name:`, sourceRecord[0]);
+          } else if (sourceFieldName.includes('Acronym') && databaseField === 'nickname') {
+            transformedData[databaseField] = sourceRecord[1]; // Second element is often the acronym/nickname
+            console.log(`Fallback mapping for ${databaseField}: Using second element as nickname:`, sourceRecord[1]);
+          } else if (sourceFieldName.includes('Sport') && databaseField === 'sport') {
+            transformedData[databaseField] = sourceRecord[2]; // Third element is often the sport
+            console.log(`Fallback mapping for ${databaseField}: Using third element as sport:`, sourceRecord[2]);
+          }
+        }
       }
     });
     

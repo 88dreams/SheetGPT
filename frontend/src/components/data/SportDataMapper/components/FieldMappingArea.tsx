@@ -68,8 +68,8 @@ const getAllEntityFields = (entityType: EntityType | null): { name: string, requ
 
   // Define all fields for each entity type
   const allFieldsByEntityType: Record<EntityType, string[]> = {
-    'league': ['id', 'name', 'sport', 'country', 'founded_year', 'broadcast_start_date', 'broadcast_end_date', 'created_at', 'updated_at'],
-    'division_conference': ['id', 'name', 'league_id', 'type', 'region', 'description', 'created_at', 'updated_at'],
+    'league': ['id', 'name', 'nickname', 'sport', 'country', 'founded_year', 'broadcast_start_date', 'broadcast_end_date', 'created_at', 'updated_at'],
+    'division_conference': ['id', 'name', 'nickname', 'league_id', 'type', 'region', 'description', 'created_at', 'updated_at'],
     'team': ['id', 'name', 'league_id', 'division_conference_id', 'stadium_id', 'city', 'state', 'country', 'founded_year', 'created_at', 'updated_at'],
     'player': ['id', 'name', 'team_id', 'position', 'jersey_number', 'college', 'created_at', 'updated_at'],
     'game': ['id', 'league_id', 'home_team_id', 'away_team_id', 'stadium_id', 'date', 'time', 'home_score', 'away_score', 'status', 'season_year', 'season_type', 'created_at', 'updated_at'],

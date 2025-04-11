@@ -546,23 +546,12 @@ export default function useDataManagement() {
       valuesType: typeof newValues
     });
     
-    // Use a sequence of updates with RAF for maximum reliability:
+    // SIMPLE FIX: Update immediately without using requestAnimationFrame
+    // This keeps source fields in sync with the current record index
+    console.log('Setting new source field values immediately');
     
-    // First, clear the current values with an empty object to force a reset
-    setSourceFieldValues({});
-    
-    // Then use RAF to set the new values in the next frame
-    requestAnimationFrame(() => {
-      console.log('Setting new source field values in animation frame');
-      
-      // Set the new values with a stable reference
-      setSourceFieldValues(newValues);
-      
-      // Schedule a logging message to confirm state was updated
-      setTimeout(() => {
-        console.log('Source field values should be updated now');
-      }, 50);
-    });
+    // Set the values directly - this is simpler and more reliable
+    setSourceFieldValues(newValues);
   }, [dataToImport, sourceFields]);
   
   /**

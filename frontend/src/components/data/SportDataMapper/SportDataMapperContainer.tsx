@@ -183,7 +183,7 @@ const SportDataMapperContainer: React.FC<SportDataMapperProps> = ({ isOpen, onCl
   );
   
   // Update source field values when current record changes
-  // Optimized with fingerprinting for better performance
+  // Simple fix for synchronization issue - remove requestAnimationFrame
   useEffect(() => {
     if (memoizedDataLength === 0) {
       return;
@@ -196,11 +196,9 @@ const SportDataMapperContainer: React.FC<SportDataMapperProps> = ({ isOpen, onCl
       // Update using a reference to prevent circular deps
       const recordIndex = currentRecordIndex;
       
-      // Always force an update of source field values when navigating records
-      // This ensures the UI displays the correct values
-      requestAnimationFrame(() => {
-        updateSourceFieldValues(recordIndex);
-      });
+      // SIMPLE FIX: Update source fields immediately instead of in requestAnimationFrame
+      // This keeps source fields and mapped data in sync
+      updateSourceFieldValues(recordIndex);
     }
   // Include currentRecordIndex in dependencies to ensure we update on navigation
   }, [currentRecordIndex, memoizedDataLength, updateSourceFieldValues]);

@@ -19,7 +19,9 @@ export const transformMappedData = (
   console.log('transformMappedData:', {
     mappings,
     isArrayData,
-    sourceRecordSample: JSON.stringify(sourceRecord).substring(0, 100) + '...'
+    sourceRecordSample: JSON.stringify(sourceRecord).substring(0, 100) + '...',
+    hasHeaders: sourceRecord['__headers__'] ? 'yes' : 'no',
+    hasParent: sourceRecord['__parent__'] ? 'yes' : 'no'
   });
   
   // CRITICAL FIX: If we're working with production entity type, we need to handle
@@ -115,17 +117,93 @@ export const transformMappedData = (
     // Regular object mapping or numeric array mapping
     Object.entries(mappings).forEach(([databaseField, sourceField]) => {
       if (isArrayData) {
-        // Handle numeric arrays - use the sourceField as a potential numeric index
+        // Enhanced array data handling - multiple ways to find the right value
+        
+        // First, try to parse as numeric index
         const index = parseInt(sourceField, 10);
         if (!isNaN(index) && index >= 0 && index < sourceRecord.length) {
+          // Direct numeric index
           transformedData[databaseField] = sourceRecord[index];
           console.log(`Mapped ${databaseField} from array index ${index} with value:`, transformedData[databaseField]);
+        } else if (Array.isArray(sourceRecord) && sourceRecord.hasOwnProperty(sourceField)) {
+          // Direct property access (unusual for arrays but possible)
+          transformedData[databaseField] = sourceRecord[sourceField];
+          console.log(`Mapped ${databaseField} from array property ${sourceField} with value:`, transformedData[databaseField]);
         } else {
-          // Try to use sourceField as a direct property name on the array
-          if (sourceRecord[sourceField] !== undefined) {
+          // Try all possible header lookup strategies
+          
+          // Strategy 1: Use __headers__ property on the record itself
+          let foundValue = false;
+          
+          if (sourceRecord['__headers__'] && Array.isArray(sourceRecord['__headers__'])) {
+            const headerIndex = sourceRecord['__headers__'].indexOf(sourceField);
+            if (headerIndex >= 0 && headerIndex < sourceRecord.length) {
+              transformedData[databaseField] = sourceRecord[headerIndex];
+              console.log(`Strategy 1: Mapped ${databaseField} from __headers__ index ${headerIndex} (${sourceField}) with value:`, 
+                transformedData[databaseField]);
+              foundValue = true;
+            }
+          }
+          
+          // Strategy 2: Use headers from the parent object
+          if (!foundValue && sourceRecord['__parent__']) {
+            const parentObject = sourceRecord['__parent__'];
+            if (parentObject.headers && Array.isArray(parentObject.headers)) {
+              const headerIndex = parentObject.headers.indexOf(sourceField);
+              if (headerIndex >= 0 && headerIndex < sourceRecord.length) {
+                transformedData[databaseField] = sourceRecord[headerIndex];
+                console.log(`Strategy 2: Mapped ${databaseField} from parent header index ${headerIndex} (${sourceField}) with value:`, 
+                  transformedData[databaseField]);
+                foundValue = true;
+              }
+            }
+          }
+          
+          // Strategy 3: Try to match sourceField directly as a property name
+          if (!foundValue && sourceRecord[sourceField] !== undefined) {
             transformedData[databaseField] = sourceRecord[sourceField];
-            console.log(`Mapped ${databaseField} from array property ${sourceField} with value:`, transformedData[databaseField]);
-          } else {
+            console.log(`Strategy 3: Mapped ${databaseField} from direct property ${sourceField} with value:`, 
+              transformedData[databaseField]);
+            foundValue = true;
+          }
+          
+          // Strategy 4: Look through all string properties for an exact match to sourceField
+          if (!foundValue) {
+            // Check for any property that exactly matches the source field name
+            for (const key of Object.keys(sourceRecord)) {
+              if (key === sourceField) {
+                transformedData[databaseField] = sourceRecord[key];
+                console.log(`Strategy 4: Mapped ${databaseField} from exact match property ${key} with value:`, 
+                  transformedData[databaseField]);
+                foundValue = true;
+                break;
+              }
+            }
+          }
+          
+          // Strategy 5: For array data with string values, try case-insensitive matching by field name
+          if (!foundValue && typeof sourceField === 'string') {
+            const sourceFieldLower = sourceField.toLowerCase();
+            // Check if any array index has a matching property that's being used as a header
+            for (let i = 0; i < sourceRecord.length; i++) {
+              // Skip non-object elements
+              if (typeof sourceRecord[i] !== 'object' || sourceRecord[i] === null) continue;
+              
+              for (const key of Object.keys(sourceRecord[i])) {
+                if (key.toLowerCase() === sourceFieldLower) {
+                  transformedData[databaseField] = sourceRecord[i][key];
+                  console.log(`Strategy 5: Mapped ${databaseField} from case-insensitive match ${key} with value:`, 
+                    transformedData[databaseField]);
+                  foundValue = true;
+                  break;
+                }
+              }
+              if (foundValue) break;
+            }
+          }
+          
+          // If still no value found, this is genuinely missing
+          if (!foundValue) {
             console.warn(`Source field "${sourceField}" not found in array-based source record`);
           }
         }

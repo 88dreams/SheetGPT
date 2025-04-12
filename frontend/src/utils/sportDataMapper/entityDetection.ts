@@ -93,32 +93,45 @@ export const detectEntityType = (
      sourceFields.some(field => field.toLowerCase().includes('state')))
   );
   
-  // Special case for Indianapolis Motor Speedway format
-  // Check if we have numeric indices as field names (0, 1, 2, 3, 4) which is a strong indicator
+  // Check for array-based data format
+  // This is common in various sporting venue data
   const hasNumericIndicesFields = 
-    (sourceFields.includes('0') || sourceFields.includes('0')) && 
-    (sourceFields.includes('2') || sourceFields.includes('2')) && 
-    (sourceFields.includes('3') || sourceFields.includes('3')) && 
-    (sourceFields.includes('4') || sourceFields.includes('4'));
+    sourceFields.includes('0') && 
+    (sourceFields.includes('1') || sourceFields.includes('2')) && 
+    sourceFields.length >= 3;
     
-  // Special check for array-based data which is a very strong indicator of Indianapolis format
+  // Check for array-based data structure
   let hasArrayBasedData = false;
   if (Array.isArray(sourceFieldValues)) {
-    // If sourceFieldValues is directly an array with at least 5 elements
-    hasArrayBasedData = sourceFieldValues.length >= 5;
+    // If sourceFieldValues is directly an array with at least 3 elements
+    hasArrayBasedData = sourceFieldValues.length >= 3;
   } else if (typeof sourceFieldValues === 'object' && sourceFieldValues !== null) {
-    // Check if any value is an array with at least 5 elements
+    // Check if any value is an array with at least 3 elements
     hasArrayBasedData = Object.values(sourceFieldValues).some(val => 
-      Array.isArray(val) && val.length >= 5
+      Array.isArray(val) && val.length >= 3
     );
   }
   
-  // Special case for Indianapolis Motor Speedway format - this should take precedence
-  if (hasNumericIndicesFields || hasArrayBasedData) {
-    console.log('Detected entity type: stadium based on Indianapolis Motor Speedway array format');
-    console.log('Indianapolis Motor Speedway array format detection:', {
+  // If we have array data with venue-related terms, it's likely a stadium
+  const hasVenueTerms = valuesList.some(value => 
+    typeof value === 'string' && (
+      value.toLowerCase().includes('stadium') || 
+      value.toLowerCase().includes('arena') || 
+      value.toLowerCase().includes('field') ||
+      value.toLowerCase().includes('center') ||
+      value.toLowerCase().includes('speedway') ||
+      value.toLowerCase().includes('park')
+    )
+  );
+  
+  // Array data with location indicators is typically venue/stadium data
+  if ((hasNumericIndicesFields || hasArrayBasedData) && 
+      (hasVenueTerms || hasStadiumNameField || hasStadiumField)) {
+    console.log('Detected entity type: stadium based on array data format with venue indicators');
+    console.log('Array format detection with venue terms:', {
       hasNumericIndicesFields,
-      hasArrayBasedData
+      hasArrayBasedData,
+      hasVenueTerms
     });
     return 'stadium';
   }

@@ -140,75 +140,70 @@ const FieldMappingArea: React.FC<FieldMappingAreaProps> = ({
     setForceUpdateFlag(prev => prev + 1);
     
     try {
-      // Special handling for Indianapolis Motor Speedway format
-      if (selectedEntityType === 'stadium' && typeof sourceFieldValues === 'object' && sourceFieldValues !== null) {
-        console.log('FieldMappingArea: Checking for Indianapolis Motor Speedway format', sourceFieldValues);
+      // Generic handling for array-based data
+      if (selectedEntityType && typeof sourceFieldValues === 'object' && sourceFieldValues !== null) {
+        console.log('FieldMappingArea: Checking for array-based data format', sourceFieldValues);
         
-        // If we're mapping a stadium but missing required fields, try to auto-map them
         const mappingsObj = mappings || {};
-        const hasNameMapping = !!mappingsObj.name;
-        const hasCityMapping = !!mappingsObj.city;
-        const hasStateMapping = !!mappingsObj.state;
-        const hasCountryMapping = !!mappingsObj.country;
+        let isArrayFormat = false;
+        let arrayData = null;
         
-        let isIndianapolisFormat = false;
-        
-        // Check for array format indicators (position 0, 2, 3, 4 having values)
-        if (sourceFieldValues['0'] && sourceFieldValues['2'] && sourceFieldValues['3'] && sourceFieldValues['4']) {
-          isIndianapolisFormat = true;
-          console.log('FieldMappingArea: Detected Indianapolis Motor Speedway format by numeric indices');
+        // Check for numeric indices as direct properties
+        if (sourceFieldValues['0'] !== undefined) {
+          // Build array from numeric indices
+          arrayData = [];
+          for (let i = 0; i < 10; i++) {
+            const key = i.toString();
+            if (sourceFieldValues[key] !== undefined) {
+              arrayData.push(sourceFieldValues[key]);
+            }
+          }
+          isArrayFormat = arrayData.length >= 3; // Require at least 3 elements to be considered a valid array
+          if (isArrayFormat) {
+            console.log('FieldMappingArea: Detected array format via numeric indices');
+          }
         }
         
-        // Also check if there's a direct array in the values
-        if (!isIndianapolisFormat) {
+        // Check for nested arrays if no numeric indices were found
+        if (!isArrayFormat) {
           for (const key in sourceFieldValues) {
-            if (Array.isArray(sourceFieldValues[key]) && sourceFieldValues[key].length >= 5) {
-              isIndianapolisFormat = true;
-              console.log('FieldMappingArea: Detected Indianapolis Motor Speedway format by array value');
+            if (Array.isArray(sourceFieldValues[key]) && sourceFieldValues[key].length >= 3) {
+              arrayData = [...sourceFieldValues[key]]; // Create a safe copy
+              isArrayFormat = true;
+              console.log('FieldMappingArea: Detected array format via nested array');
               break;
             }
           }
         }
         
-        if (isIndianapolisFormat) {
-          console.log('FieldMappingArea: Auto-mapping fields for Indianapolis Motor Speedway format');
+        // Handle array data mapping based on entity type
+        if (isArrayFormat && arrayData && Array.isArray(arrayData)) {
+          console.log('FieldMappingArea: Auto-mapping fields for array-based data');
           
-          // Add missing mappings from numeric indices
-          if (!hasNameMapping && sourceFieldValues['0']) {
-            try {
-              onFieldMapping('0', 'name');
-              console.log('FieldMappingArea: Auto-mapped name field from position 0:', sourceFieldValues['0']);
-            } catch (error) {
-              console.error('Error mapping name field:', error);
-            }
-          }
-          
-          if (!hasCityMapping && sourceFieldValues['2']) {
-            try {
-              onFieldMapping('2', 'city');
-              console.log('FieldMappingArea: Auto-mapped city field from position 2:', sourceFieldValues['2']);
-            } catch (error) {
-              console.error('Error mapping city field:', error);
-            }
-          }
-          
-          if (!hasStateMapping && sourceFieldValues['3']) {
-            try {
-              onFieldMapping('3', 'state');
-              console.log('FieldMappingArea: Auto-mapped state field from position 3:', sourceFieldValues['3']);
-            } catch (error) {
-              console.error('Error mapping state field:', error);
-            }
-          }
-          
-          if (!hasCountryMapping && sourceFieldValues['4']) {
-            try {
-              onFieldMapping('4', 'country');
-              console.log('FieldMappingArea: Auto-mapped country field from position 4:', sourceFieldValues['4']);
-            } catch (error) {
-              console.error('Error mapping country field:', error);
-            }
-          }
+          // Apply different mapping strategies based on entity type
+          if (selectedEntityType === 'stadium') {
+            // Common stadium field positions in many datasets
+            const requiredFields = {
+              name: !mappingsObj.name && arrayData[0] !== undefined ? '0' : null,
+              city: !mappingsObj.city && arrayData[2] !== undefined ? '2' : null,
+              state: !mappingsObj.state && arrayData[3] !== undefined ? '3' : null,
+              country: !mappingsObj.country && arrayData[4] !== undefined ? '4' : null,
+            };
+            
+            // Apply mappings for stadium
+            Object.entries(requiredFields).forEach(([field, sourceIndex]) => {
+              if (sourceIndex !== null) {
+                try {
+                  onFieldMapping(sourceIndex, field);
+                  console.log(`FieldMappingArea: Auto-mapped ${field} field from position ${sourceIndex}:`, sourceFieldValues[sourceIndex]);
+                } catch (error) {
+                  console.error(`Error mapping ${field} field:`, error);
+                }
+              }
+            });
+          } 
+          // Add handling for other entity types
+          // This can be expanded for other entity types with common array patterns
         }
       }
     } catch (error) {
@@ -298,108 +293,77 @@ const FieldMappingArea: React.FC<FieldMappingAreaProps> = ({
   if (currentRecordIndex !== null) {
     console.log(`FieldMappingArea: Displaying record ${currentRecordIndex + 1} of ${totalRecords}`);
     
-    // Second pass special handling for Indianapolis Motor Speedway array format
+    // Secondary pass for array-based data mapping
     // This runs when the component is already rendered and we're looking at a specific record
-    if (selectedEntityType === 'stadium' && typeof sourceFieldValues === 'object' && sourceFieldValues !== null) {
+    if (selectedEntityType && typeof sourceFieldValues === 'object' && sourceFieldValues !== null) {
       try {
-        // Look for the data in raw array form
-        let rawArray = null;
+        // Look for array data format
+        let arrayData = null;
         
-        // Check if we have a raw array in the source field values directly
+        // First check for nested arrays
         if (typeof sourceFieldValues === 'object') {
-          // First check keys with arrays
           for (const key in sourceFieldValues) {
-            if (Array.isArray(sourceFieldValues[key]) && sourceFieldValues[key].length >= 5) {
-              rawArray = [...sourceFieldValues[key]]; // Create a copy to be safe
-              console.log('Found raw array in key:', key, rawArray);
+            if (Array.isArray(sourceFieldValues[key]) && sourceFieldValues[key].length >= 3) {
+              arrayData = [...sourceFieldValues[key]]; // Create a copy to be safe
+              console.log('Found array data in key:', key, arrayData);
               break;
             }
           }
           
-          // If not found but numeric keys exist, reconstruct the array
-          if (!rawArray && 
-              sourceFieldValues['0'] !== undefined && 
-              sourceFieldValues['2'] !== undefined && 
-              sourceFieldValues['3'] !== undefined && 
-              sourceFieldValues['4'] !== undefined) {
-            
-            rawArray = [];
+          // If no array found, check for numeric indices
+          if (!arrayData && sourceFieldValues['0'] !== undefined) {
+            arrayData = [];
             for (let i = 0; i < 10; i++) {
               const key = i.toString();
               if (sourceFieldValues[key] !== undefined) {
-                rawArray.push(sourceFieldValues[key]);
+                arrayData.push(sourceFieldValues[key]);
               }
             }
-            console.log('Reconstructed array from numeric keys:', rawArray);
+            if (arrayData.length >= 3) {
+              console.log('Constructed array from numeric indices:', arrayData);
+            } else {
+              arrayData = null; // Not enough elements to be useful
+            }
           }
         }
         
-        // Check if we found a valid Indianapolis Motor Speedway format array
-        // Must have at least 5 elements for name, city, state, country, capacity
-        if (rawArray && Array.isArray(rawArray) && rawArray.length >= 5) {
-          console.log('Stadium mapping special handler - source data:', rawArray);
-          console.log('Stadium mapping special handler applied for Indianapolis Motor Speedway format');
+        // Process array data if found
+        if (arrayData && Array.isArray(arrayData) && arrayData.length >= 3) {
+          console.log('Array data mapper - processing:', arrayData);
           
           // Get current mappings to avoid duplicates
           const mappingsObj = mappings || {};
           
-          // Check for stadium name field (position 0)
-          if (!mappingsObj.name && rawArray[0]) {
-            try {
-              console.log('FieldMappingArea: Mapping stadium name from position 0');
-              onFieldMapping('0', 'name');
-              console.log('FieldMappingArea: Auto-mapped stadium name from position 0:', rawArray[0]);
-            } catch (error) {
-              console.error('Error mapping name field:', error);
-            }
+          // Map fields based on entity type
+          if (selectedEntityType === 'stadium') {
+            // Map common stadium fields from array positions
+            const fieldMap = {
+              name: { position: 0, required: true },
+              city: { position: 2, required: true },
+              state: { position: 3, required: false },
+              country: { position: 4, required: true },
+              capacity: { position: 5, required: false }
+            };
+            
+            // Apply mappings
+            Object.entries(fieldMap).forEach(([field, config]) => {
+              const { position, required } = config;
+              if (!mappingsObj[field] && arrayData[position] !== undefined) {
+                try {
+                  console.log(`FieldMappingArea: Mapping ${field} from position ${position}`);
+                  onFieldMapping(position.toString(), field);
+                  console.log(`FieldMappingArea: Auto-mapped ${field} from position ${position}:`, arrayData[position]);
+                } catch (error) {
+                  console.error(`Error mapping ${field} field:`, error);
+                }
+              }
+            });
           }
-          
-          // Check for city field (position 2)
-          if (!mappingsObj.city && rawArray[2]) {
-            try {
-              console.log('FieldMappingArea: Mapping city from position 2');
-              onFieldMapping('2', 'city');
-              console.log('FieldMappingArea: Auto-mapped city from position 2:', rawArray[2]);
-            } catch (error) {
-              console.error('Error mapping city field:', error);
-            }
-          }
-          
-          // Check for state field (position 3)
-          if (!mappingsObj.state && rawArray[3]) {
-            try {
-              console.log('FieldMappingArea: Mapping state from position 3');
-              onFieldMapping('3', 'state');
-              console.log('FieldMappingArea: Auto-mapped state from position 3:', rawArray[3]);
-            } catch (error) {
-              console.error('Error mapping state field:', error);
-            }
-          }
-          
-          // Check for country field (position 4 - should be USA, not Indiana)
-          if (!mappingsObj.country && rawArray[4]) {
-            try {
-              console.log('FieldMappingArea: Mapping country from position 4');
-              onFieldMapping('4', 'country');
-              console.log('FieldMappingArea: Auto-mapped country from position 4:', rawArray[4]);
-            } catch (error) {
-              console.error('Error mapping country field:', error);
-            }
-          }
-          
-          // Check for capacity field (position 5)
-          if (!mappingsObj.capacity && rawArray[5]) {
-            try {
-              console.log('FieldMappingArea: Mapping capacity from position 5');
-              onFieldMapping('5', 'capacity');
-              console.log('FieldMappingArea: Auto-mapped capacity from position 5:', rawArray[5]);
-            } catch (error) {
-              console.error('Error mapping capacity field:', error);
-            }
-          }
+          // Add mapping for other entity types as needed
+          // This could be expanded based on common data formats for different entities
         }
       } catch (error) {
-        console.error('Error in stadium mapping special handler:', error);
+        console.error('Error in array data mapping handler:', error);
       }
     }
   }

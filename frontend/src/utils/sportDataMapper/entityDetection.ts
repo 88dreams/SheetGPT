@@ -51,13 +51,20 @@ export const detectEntityType = (
   
   // Stadium detection - check for stadium-specific fields and values
   const hasStadiumField = sourceFields.some(field => 
-    field.toLowerCase() === 'stadium'
+    field.toLowerCase() === 'stadium' ||
+    field.toLowerCase() === 'arena' ||
+    field.toLowerCase() === 'venue' ||
+    field.toLowerCase() === 'track name' ||
+    field.toLowerCase() === 'stadium name'
   );
   
   const hasStadiumNameField = sourceFields.some(field => 
     field.toLowerCase().includes('stadium') || 
     field.toLowerCase().includes('arena') || 
-    field.toLowerCase().includes('venue')
+    field.toLowerCase().includes('venue') ||
+    field.toLowerCase().includes('track') ||
+    field.toLowerCase().includes('park') ||
+    field.toLowerCase().includes('field')
   );
   
   const hasStadiumValue = valuesList.some(value => 
@@ -65,16 +72,36 @@ export const detectEntityType = (
       value.toLowerCase().includes('stadium') || 
       value.toLowerCase().includes('arena') || 
       value.toLowerCase().includes('center') ||
-      value.toLowerCase().includes('garden')
+      value.toLowerCase().includes('garden') ||
+      value.toLowerCase().includes('track') ||
+      value.toLowerCase().includes('park') ||
+      value.toLowerCase().includes('field') ||
+      value.toLowerCase().includes('venue')
     )
+  );
+  
+  // Additional stadium detection - check for location fields often present in stadium data
+  const hasStadiumLocationFields = (
+    sourceFields.some(field => field.toLowerCase().includes('city')) && 
+    (sourceFields.some(field => field.toLowerCase().includes('country')) ||
+     sourceFields.some(field => field.toLowerCase().includes('state')))
   );
   
   // Prioritize League over Stadium if both are detected
   if (hasLeagueField || (hasLeagueNameField && hasLeagueValue)) {
     console.log('Detected entity type: league based on League field or value');
     return 'league';
-  } else if (hasStadiumField || (hasStadiumNameField && hasStadiumValue)) {
+  } else if (hasStadiumField || (hasStadiumNameField && hasStadiumValue) || hasStadiumLocationFields) {
     console.log('Detected entity type: stadium based on Stadium field or value');
+    
+    // Log detection criteria for debugging
+    console.log('Stadium detection criteria match:', {
+      hasStadiumField,
+      hasStadiumNameField,
+      hasStadiumValue,
+      hasStadiumLocationFields
+    });
+    
     return 'stadium';
   } else {
     const recommended = getRecommendedEntityType(sourceFields, sourceFieldValues);

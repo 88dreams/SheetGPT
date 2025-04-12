@@ -18,24 +18,35 @@ export function useRecordNavigation(dataToImport: any[]) {
   // Total number of records (memoized to prevent unnecessary recalculations)
   const totalRecords = useMemo(() => dataToImport.length, [dataToImport.length]);
   
+  // For debugging in production
+  useEffect(() => {
+    console.log(`useRecordNavigation - data changed: ${dataToImport.length} records, current index: ${currentRecordIndex}`);
+  }, [dataFingerprint, dataToImport.length, currentRecordIndex]);
+  
   // Reset current record index when data changes
   useEffect(() => {
     if (dataToImport.length > 0) {
       // Initialize to the first record or keep the current one if it's valid
       if (currentRecordIndex === null || currentRecordIndex >= dataToImport.length) {
+        console.log(`Initializing current record to 0 (data length: ${dataToImport.length})`);
         setCurrentRecordIndex(0);
       }
     } else {
       // No data, no current record
+      console.log('No data available, setting current record to null');
       setCurrentRecordIndex(null);
     }
   }, [dataFingerprint, dataToImport.length]);
   
   /**
-   * Simple function to go to the next record
+   * Improved function to go to the next record
+   * Added debugging and error handling for production issues
    */
   const goToNextRecord = useCallback(() => {
+    console.log(`goToNextRecord called, current: ${currentRecordIndex}, total: ${dataToImport.length}`);
+    
     if (currentRecordIndex === null || dataToImport.length === 0) {
+      console.log("Can't go to next record - current is null or no data available");
       return false;
     }
     
@@ -50,9 +61,12 @@ export function useRecordNavigation(dataToImport: any[]) {
       loopGuard++;
       
       if (loopGuard > maxLoops) {
+        console.warn("Loop guard triggered in goToNextRecord - all records might be excluded");
         return false;
       }
     } while (excludedRecords.has(nextIndex) && loopGuard < maxLoops);
+    
+    console.log(`Moving to next record: ${nextIndex}`);
     
     // Update the current record index
     setCurrentRecordIndex(nextIndex);
@@ -60,10 +74,14 @@ export function useRecordNavigation(dataToImport: any[]) {
   }, [currentRecordIndex, dataToImport.length, excludedRecords]);
   
   /**
-   * Simple function to go to the previous record
+   * Improved function to go to the previous record
+   * Added debugging and error handling for production issues
    */
   const goToPreviousRecord = useCallback(() => {
+    console.log(`goToPreviousRecord called, current: ${currentRecordIndex}, total: ${dataToImport.length}`);
+    
     if (currentRecordIndex === null || dataToImport.length === 0) {
+      console.log("Can't go to previous record - current is null or no data available");
       return false;
     }
     
@@ -78,9 +96,12 @@ export function useRecordNavigation(dataToImport: any[]) {
       loopGuard++;
       
       if (loopGuard > maxLoops) {
+        console.warn("Loop guard triggered in goToPreviousRecord - all records might be excluded");
         return false;
       }
     } while (excludedRecords.has(prevIndex) && loopGuard < maxLoops);
+    
+    console.log(`Moving to previous record: ${prevIndex}`);
     
     // Update the current record index
     setCurrentRecordIndex(prevIndex);
@@ -101,8 +122,10 @@ export function useRecordNavigation(dataToImport: any[]) {
       // Toggle the exclusion status
       if (newExcluded.has(currentRecordIndex)) {
         newExcluded.delete(currentRecordIndex);
+        console.log(`Record ${currentRecordIndex} is now included`);
       } else {
         newExcluded.add(currentRecordIndex);
+        console.log(`Record ${currentRecordIndex} is now excluded`);
       }
       
       return newExcluded;

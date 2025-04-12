@@ -432,30 +432,36 @@ export default function useDataManagement() {
     
     console.log('Generated mapped data for entity type:', newMappedData);
     
-    // Only update if the mapped data has changed
-    setMappedData(prevMappedData => {
-      if (areEqual(prevMappedData, newMappedData)) {
-        console.log('Mapped data unchanged, skipping update');
-        return prevMappedData;
-      }
-      console.log('Mapped data changed, updating state');
-      return newMappedData;
-    });
+    // Force update mapped data for production environment
+    setMappedData(newMappedData);
   }, [dataToImport, sourceFields]);
   
   /**
-   * Simple update of source field values from a record
+   * Simple direct update of source field values from a record
+   * This fix ensures values are always updated during navigation
    */
   const updateSourceFieldValues = useCallback((recordIndex: number) => {
+    console.log(`updateSourceFieldValues for record ${recordIndex}, data length: ${dataToImport.length}`);
+    
     // Basic validation
     if (recordIndex < 0 || recordIndex >= dataToImport.length) {
+      console.warn(`Invalid recordIndex: ${recordIndex}, data length: ${dataToImport.length}`);
       return;
     }
     
     const record = dataToImport[recordIndex];
     if (!record) {
+      console.warn(`No record found at index ${recordIndex}`);
       return;
     }
+    
+    // For debugging production issues
+    console.log("updateSourceFieldValues - record:", {
+      type: Array.isArray(record) ? 'array' : typeof record,
+      keys: typeof record === 'object' && record !== null ? Object.keys(record).slice(0, 5) : [],
+      length: Array.isArray(record) ? record.length : 'n/a',
+      sample: JSON.stringify(record).substring(0, 100) + '...'
+    });
     
     // Create a fresh object for field values
     const newValues: Record<string, any> = {};
@@ -465,6 +471,8 @@ export default function useDataManagement() {
       Object.keys(record).forEach(key => {
         newValues[key] = record[key];
       });
+      
+      console.log("Object record processed, fields:", Object.keys(newValues).length);
     } 
     // ARRAY DATA: Map to field names (most common case)
     else if (Array.isArray(record)) {
@@ -475,12 +483,28 @@ export default function useDataManagement() {
         }
       });
       
+      // Also add numeric indices for direct access
+      for (let i = 0; i < record.length; i++) {
+        newValues[`${i}`] = record[i];
+      }
+      
       // Store index reference
       newValues['__recordIndex__'] = recordIndex;
+      
+      console.log("Array record processed, fields:", Object.keys(newValues).length);
     }
     
-    // Always create a fresh object to trigger React updates
+    // Debug the values before setting state
+    console.log("New source field values:", {
+      fieldCount: Object.keys(newValues).length,
+      sampleFields: Object.keys(newValues).slice(0, 5),
+      sampleValues: Object.entries(newValues).slice(0, 3).map(([k, v]) => `${k}: ${v}`)
+    });
+    
+    // CRITICAL FIX: Always create a fresh object to trigger React updates
+    // Force state update without conditional checks to ensure consistency
     setSourceFieldValues({...newValues});
+    
   }, [dataToImport, sourceFields]);
   
   /**
@@ -607,19 +631,11 @@ export default function useDataManagement() {
     
     // Only update if we found a value to map
     if (value !== undefined) {
-      setMappedData(prev => {
-        // Skip update if the value hasn't changed
-        if (prev[targetField] === value) {
-          console.log('Value unchanged, skipping update');
-          return prev;
-        }
-        
-        console.log('Updating mapped data with new value');
-        return {
-          ...prev,
-          [targetField]: value
-        };
-      });
+      // Force update to ensure state changes are applied
+      setMappedData(prev => ({
+        ...prev,
+        [targetField]: value
+      }));
     } else {
       console.warn(`No value found for source field "${sourceField}", not updating mapped data`);
     }

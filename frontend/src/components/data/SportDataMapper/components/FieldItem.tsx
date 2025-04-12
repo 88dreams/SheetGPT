@@ -32,18 +32,19 @@ interface DropCollectedProps {
   canDrop: boolean;
 }
 
-// Simple equality check that ensures source fields always update
+// Always re-render source fields and disable memoization
 const fieldItemPropsAreEqual = (prevProps: FieldItemProps, nextProps: FieldItemProps) => {  
-  // Source fields should always re-render to ensure they show current data
+  // IMPORTANT: Source fields should always re-render to ensure they show current data
   if (prevProps.isSource || nextProps.isSource) {
     return false;
   }
   
-  // For non-source fields (database fields), basic comparison
+  // For target fields (database fields), compare all relevant props
   return (
     prevProps.field === nextProps.field &&
     prevProps.className === nextProps.className &&
-    prevProps.id === nextProps.id
+    prevProps.id === nextProps.id &&
+    prevProps.value === nextProps.value // Add value to comparison
   );
 };
 
@@ -57,6 +58,13 @@ const FieldItem: React.FC<FieldItemProps> = ({
   id, 
   formatValue 
 }) => {
+  // Debug output for production issues
+  useEffect(() => {
+    if (isSource) {
+      console.log(`FieldItem (${field}) rendering with value:`, value);
+    }
+  }, [field, value, isSource]);
+
   // Memoize the onDrop callback to prevent needless rerenders
   const memoizedOnDrop = useCallback((sourceField: string, targetField: string) => {
     console.log(`Dropping ${sourceField} onto ${targetField}`);
@@ -155,6 +163,9 @@ const FieldItem: React.FC<FieldItemProps> = ({
       id={id}
       ref={ref}
       className={`p-3 mb-2 rounded border relative ${borderStyle} ${isDragging ? 'opacity-50' : 'opacity-100'} ${className}`}
+      data-source={isSource ? "true" : "false"}
+      data-field={field}
+      data-has-value={value !== undefined && value !== null ? "true" : "false"}
     >
       {dropIndicator}
       <div className="grid grid-cols-2 gap-2">
@@ -178,5 +189,5 @@ const FieldItem: React.FC<FieldItemProps> = ({
   );
 };
 
-// Use withRowMemo HOC with custom props equality function
+// Export component with memoization disabled for source fields
 export default withRowMemo<FieldItemProps>(FieldItem, fieldItemPropsAreEqual);

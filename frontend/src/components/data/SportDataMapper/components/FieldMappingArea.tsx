@@ -138,7 +138,38 @@ const FieldMappingArea: React.FC<FieldMappingAreaProps> = ({
     // Force component to update with the latest values
     setFieldValuesState(sourceFieldValues);
     setForceUpdateFlag(prev => prev + 1);
-  }, [currentRecordIndex, sourceFieldValues]);
+    
+    // Special handling for Indianapolis Motor Speedway format
+    if (selectedEntityType === 'stadium' && Object.keys(mappings).length > 0) {
+      // If we're mapping a stadium but missing required fields, try to auto-map them
+      const hasNameMapping = !!mappings.name;
+      const hasCityMapping = !!mappings.city;
+      const hasCountryMapping = !!mappings.country;
+      
+      // If missing any required field, check if we have numeric indices in sourceFieldValues
+      if ((!hasNameMapping || !hasCityMapping || !hasCountryMapping) && 
+          sourceFieldValues['0'] && sourceFieldValues['2'] && sourceFieldValues['4']) {
+        
+        console.log('FieldMappingArea: Auto-mapping fields for Indianapolis Motor Speedway format');
+        
+        // Add missing mappings from numeric indices
+        if (!hasNameMapping) {
+          onFieldMapping('0', 'name');
+          console.log('FieldMappingArea: Auto-mapped name field from position 0');
+        }
+        
+        if (!hasCityMapping) {
+          onFieldMapping('2', 'city');
+          console.log('FieldMappingArea: Auto-mapped city field from position 2');
+        }
+        
+        if (!hasCountryMapping) {
+          onFieldMapping('4', 'country');
+          console.log('FieldMappingArea: Auto-mapped country field from position 4 (USA)');
+        }
+      }
+    }
+  }, [currentRecordIndex, sourceFieldValues, selectedEntityType, mappings, onFieldMapping]);
 
   // Toggle sort for database fields
   const toggleSort = (column: ColumnType) => {
@@ -221,6 +252,76 @@ const FieldMappingArea: React.FC<FieldMappingAreaProps> = ({
   // Basic record info logging
   if (currentRecordIndex !== null) {
     console.log(`FieldMappingArea: Displaying record ${currentRecordIndex + 1} of ${totalRecords}`);
+    
+    // Special handling for Indianapolis Motor Speedway array format
+    if (selectedEntityType === 'stadium' && Array.isArray(sourceFieldValues)) {
+      // Look for the data in raw array form
+      let rawArray = null;
+      
+      // Check if we have a raw array in the source field values directly
+      for (const key in sourceFieldValues) {
+        if (Array.isArray(sourceFieldValues[key]) && sourceFieldValues[key].length > 5) {
+          rawArray = sourceFieldValues[key];
+          break;
+        }
+      }
+      
+      // If not found but a number key exists, try using the array indices directly
+      if (!rawArray && sourceFieldValues['0'] && sourceFieldValues['1'] && sourceFieldValues['2']) {
+        rawArray = [];
+        for (let i = 0; i < 9; i++) {
+          if (sourceFieldValues[i.toString()] !== undefined) {
+            rawArray.push(sourceFieldValues[i.toString()]);
+          }
+        }
+      }
+      
+      console.log('Stadium mapping special handler - source data:', rawArray);
+      
+      // If we found the raw Indianapolis Motor Speedway format, directly create mappings
+      if (rawArray && rawArray.length >= 5 && 
+          Object.keys(mappings).some(field => ['name', 'city', 'state', 'country'].includes(field))) {
+        
+        // If Indianapolis Motor Speedway format detected, set special mappings immediately
+        // with a timeout to allow the component to load first
+        setTimeout(() => {
+          console.log('Stadium mapping special handler applied for Indianapolis Motor Speedway format');
+          
+          // Only apply these if we don't already have valid mappings
+          if (!mappings.name || !mappings.city || !mappings.country) {
+            // Check for stadium name field (position 0)
+            if (!mappings.name && rawArray[0]) {
+              onFieldMapping('0', 'name');
+              console.log('FieldMappingArea: Auto-mapped stadium name from position 0:', rawArray[0]);
+            }
+            
+            // Check for city field (position 2)
+            if (!mappings.city && rawArray[2]) {
+              onFieldMapping('2', 'city');
+              console.log('FieldMappingArea: Auto-mapped city from position 2:', rawArray[2]);
+            }
+            
+            // Check for state field (position 3)
+            if (!mappings.state && rawArray[3]) {
+              onFieldMapping('3', 'state');
+              console.log('FieldMappingArea: Auto-mapped state from position 3:', rawArray[3]);
+            }
+            
+            // Check for country field (position 4 - should be USA, not Indiana)
+            if (!mappings.country && rawArray[4]) {
+              onFieldMapping('4', 'country');
+              console.log('FieldMappingArea: Auto-mapped country from position 4:', rawArray[4]);
+            }
+            
+            // Check for capacity field (position 5)
+            if (!mappings.capacity && rawArray[5]) {
+              onFieldMapping('5', 'capacity');
+              console.log('FieldMappingArea: Auto-mapped capacity from position 5:', rawArray[5]);
+            }
+          }
+        }, 500);
+      }
+    }
   }
   
   // Sort source fields based on the selected column and direction

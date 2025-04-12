@@ -219,7 +219,44 @@ const SportDataMapperContainer: React.FC<SportDataMapperProps> = ({ isOpen, onCl
   // Optimized handler for entity type selection
   const handleEntityTypeSelect = useCallback((entityType: MapperEntityType) => {
     setSelectedEntityType(entityType);
-  }, [setSelectedEntityType]);
+    
+    // Special auto-mapping for Stadium entity when selecting it
+    if (entityType === 'stadium' && currentRecordIndex !== null && dataToImport.length > 0) {
+      console.log('SportDataMapperContainer: Auto-mapping fields for Stadium entity');
+      
+      // Get the current record data
+      const currentRecord = dataToImport[currentRecordIndex];
+      
+      // If it's an array with at least 5 elements, apply Indianapolis Motor Speedway format mapping
+      if (Array.isArray(currentRecord) && currentRecord.length >= 5) {
+        console.log('SportDataMapperContainer: Detected Indianapolis Motor Speedway format');
+        
+        // Apply mappings for required fields
+        setTimeout(() => {
+          // Map name from position 0
+          if (currentRecord[0]) {
+            handleFieldMapping('0', 'name');
+            updateMappedDataForField('0', 'name', currentRecordIndex);
+            console.log('SportDataMapperContainer: Auto-mapped name from position 0:', currentRecord[0]);
+          }
+          
+          // Map city from position 2
+          if (currentRecord[2]) {
+            handleFieldMapping('2', 'city');
+            updateMappedDataForField('2', 'city', currentRecordIndex);
+            console.log('SportDataMapperContainer: Auto-mapped city from position 2:', currentRecord[2]);
+          }
+          
+          // Map country from position 4
+          if (currentRecord[4]) {
+            handleFieldMapping('4', 'country');
+            updateMappedDataForField('4', 'country', currentRecordIndex);
+            console.log('SportDataMapperContainer: Auto-mapped country from position 4:', currentRecord[4]);
+          }
+        }, 500); // Small delay to ensure component is ready
+      }
+    }
+  }, [setSelectedEntityType, currentRecordIndex, dataToImport, handleFieldMapping, updateMappedDataForField]);
   
   // Optimized handler for field mapping drop
   const handleFieldMappingDrop = useCallback((sourceField: string, targetField: string) => {

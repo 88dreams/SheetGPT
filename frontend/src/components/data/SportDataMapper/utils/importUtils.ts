@@ -24,10 +24,14 @@ export const transformMappedData = (
     hasParent: sourceRecord['__parent__'] ? 'yes' : 'no'
   });
   
-  // CRITICAL FIX: If we're working with production entity type, we need to handle
-  // typical field names for this data
+  // CRITICAL FIX: Detect entity types that need special handling
   const isProductionEntity = Object.keys(mappings).some(k => 
     ['production_company_id', 'service_type', 'entity_type'].includes(k)
+  );
+  
+  // Detect stadium entity type for special handling
+  const isStadiumEntity = Object.keys(mappings).some(k => 
+    ['name', 'city', 'country', 'capacity'].includes(k)
   );
   
   // If mappings contains sourceFields like "Name", "Company Name", we are using display names
@@ -37,7 +41,9 @@ export const transformMappedData = (
     [
       'Name', 'Company Name', 'Service Type', 'Entity Name', 'League Name', 'Start Date',
       // Add League-specific field names
-      'League Full Name', 'League Acronym', 'Sport', 'Country', 'Founded Year'
+      'League Full Name', 'League Acronym', 'Sport', 'Country', 'Founded Year',
+      // Add Stadium-specific field names
+      'Track Name', 'City', 'State', 'Capacity', 'Owner', 'Host Broadcaster'
     ].includes(v)
   );
   
@@ -70,7 +76,16 @@ export const transformMappedData = (
       'League Acronym': 1,    // League acronym is second column
       'Sport': 2,             // Sport is third column
       'Country': 3,           // Country is fourth column
-      'Founded Year': 4       // Founded year is fifth column
+      'Founded Year': 4,      // Founded year is fifth column
+      
+      // Stadium-specific fields - based on Indianapolis Motor Speedway example
+      'Track Name': 0,        // Stadium/Track name is first column
+      'City': 2,              // City is third column (Indianapolis)
+      'State': 3,             // State is fourth column (Indiana)
+      'Country': 4,           // Country is fifth column (USA)
+      'Capacity': 5,          // Capacity is sixth column
+      'Owner': 8,             // Owner is ninth column
+      'Host Broadcaster': 7   // Host broadcaster is eighth column
     };
     
     // Do direct mapping using the field positions
@@ -103,6 +118,20 @@ export const transformMappedData = (
           } else if (sourceFieldName.includes('Sport') && databaseField === 'sport') {
             transformedData[databaseField] = sourceRecord[2]; // Third element is often the sport
             console.log(`Fallback mapping for ${databaseField}: Using third element as sport:`, sourceRecord[2]);
+          } 
+          // Special stadium field fallbacks for Indianapolis Motor Speedway data
+          else if (sourceFieldName === 'Track Name' && databaseField === 'name') {
+            transformedData[databaseField] = sourceRecord[0]; // First element is the track/stadium name
+            console.log(`Fallback mapping for stadium name: Using first element:`, sourceRecord[0]);
+          } else if (sourceFieldName === 'City' && databaseField === 'city') {
+            transformedData[databaseField] = sourceRecord[2]; // Third element is the city
+            console.log(`Fallback mapping for stadium city: Using third element:`, sourceRecord[2]);
+          } else if (sourceFieldName === 'State' && databaseField === 'state') {
+            transformedData[databaseField] = sourceRecord[3]; // Fourth element is the state
+            console.log(`Fallback mapping for stadium state: Using fourth element:`, sourceRecord[3]);
+          } else if (sourceFieldName === 'Country' && databaseField === 'country') {
+            transformedData[databaseField] = sourceRecord[4]; // Fifth element is the country
+            console.log(`Fallback mapping for stadium country: Using fifth element:`, sourceRecord[4]);
           }
         }
       }
@@ -128,6 +157,50 @@ export const transformMappedData = (
       if (!transformedData.entity_type && mappings.entity_type) {
         transformedData.entity_type = 'league';
         console.log('Set default entity_type to "league"');
+      }
+    }
+    
+    // Special handling for stadium entity data using array indices
+    if (isStadiumEntity && isArrayData && Array.isArray(sourceRecord) && sourceRecord.length >= 5) {
+      console.log('Special stadium entity handling for array data with length:', sourceRecord.length);
+      
+      // Check if we're specifically missing any critical fields (city, country)
+      if (!transformedData.name && (mappings.name || Object.keys(mappings).includes('name'))) {
+        transformedData.name = sourceRecord[0];
+        console.log('Set stadium name from first element:', transformedData.name);
+      }
+      
+      if (!transformedData.city && (mappings.city || Object.keys(mappings).includes('city'))) {
+        transformedData.city = sourceRecord[2];
+        console.log('Set stadium city from third element:', transformedData.city);
+      }
+      
+      if (!transformedData.state && (mappings.state || Object.keys(mappings).includes('state'))) {
+        transformedData.state = sourceRecord[3];
+        console.log('Set stadium state from fourth element:', transformedData.state);
+      }
+      
+      if (!transformedData.country && (mappings.country || Object.keys(mappings).includes('country'))) {
+        // USA is in 5th position (index 4) for Indianapolis Motor Speedway
+        transformedData.country = sourceRecord[4];
+        console.log('Set stadium country from fifth element:', transformedData.country);
+      }
+      
+      if (!transformedData.capacity && (mappings.capacity || Object.keys(mappings).includes('capacity'))) {
+        transformedData.capacity = sourceRecord[5];
+        console.log('Set stadium capacity from sixth element:', transformedData.capacity);
+      }
+      
+      // Final validation check for required fields - make sure city and country are set
+      // These are required fields according to validationUtils.ts
+      if (Object.keys(mappings).includes('city') && !transformedData.city && sourceRecord[2]) {
+        transformedData.city = sourceRecord[2]; // Force map from index 2
+        console.log('CRITICAL: Forced city mapping for stadium from index 2:', sourceRecord[2]);
+      }
+      
+      if (Object.keys(mappings).includes('country') && !transformedData.country && sourceRecord[4]) {
+        transformedData.country = sourceRecord[4]; // Force map from index 4
+        console.log('CRITICAL: Forced country mapping for stadium from index 4:', sourceRecord[4]);
       }
     }
     

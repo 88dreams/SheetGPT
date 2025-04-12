@@ -58,35 +58,149 @@ export const transformMappedData = (
       )
     });
     
-    // Hard-coded maps for production services based on column positions in typical CSV data
-    const fieldPositions = {
-      // Production service fields
-      'Name': 0,          // Name is typically first column
-      'Company Name': 0,  // Production company name is typically first column
-      'Service Type': 1,  // Service type is typically second column
-      'Entity Name': 2,   // Entity being produced is typically third column
-      'Entity Type': 3,   // Entity type is typically fourth column  
-      'League Name': 4,   // League is typically fifth column
-      'Sport': 5,         // Sport is typically sixth column
-      'Start Date': 6,    // Start date is typically seventh column
-      'End Date': 7,      // End date is typically eighth column
-      
-      // League-specific fields
-      'League Full Name': 0,  // League name is first column
-      'League Acronym': 1,    // League acronym is second column
-      'Sport': 2,             // Sport is third column
-      'Country': 3,           // Country is fourth column
-      'Founded Year': 4,      // Founded year is fifth column
-      
-      // Stadium-specific fields - based on Indianapolis Motor Speedway example
-      'Track Name': 0,        // Stadium/Track name is first column
-      'City': 2,              // City is third column (Indianapolis)
-      'State': 3,             // State is fourth column (Indiana)
-      'Country': 4,           // Country is fifth column (USA)
-      'Capacity': 5,          // Capacity is sixth column
-      'Owner': 8,             // Owner is ninth column
-      'Host Broadcaster': 7   // Host broadcaster is eighth column
+    // Get estimated field positions using intelligent detection rather than hard-coding
+    // This allows us to work with different data formats without relying on specific positions
+    const fieldPositions: Record<string, number> = {};
+    
+    // Common field patterns to detect in array data
+    const fieldPatterns = {
+      'Name': ['name', 'title'],
+      'Company Name': ['company', 'organization', 'business', 'firm'],
+      'Service Type': ['service', 'type'],
+      'Entity Name': ['entity', 'subject', 'client'],
+      'Entity Type': ['type', 'category', 'classification'],
+      'League Name': ['league', 'conference', 'division'],
+      'Sport': ['sport', 'game', 'activity'],
+      'Start Date': ['start', 'begin', 'from'],
+      'End Date': ['end', 'finish', 'to', 'until'],
+      'Track Name': ['track', 'stadium', 'arena', 'venue', 'field', 'park', 'speedway'],
+      'City': ['city', 'town', 'municipality', 'locale'],
+      'State': ['state', 'province', 'region'],
+      'Country': ['country', 'nation', 'land'],
+      'Capacity': ['capacity', 'seats', 'size', 'attendance'],
+      'Owner': ['owner', 'ownership', 'proprietor'],
+      'Host Broadcaster': ['broadcaster', 'network', 'channel', 'station']
     };
+    
+    // Try to determine positions by analyzing the array data
+    if (Array.isArray(sourceRecord) && sourceRecord.length > 0) {
+      // First, check if we have header information that might help
+      const headers = sourceRecord['__headers__'] || [];
+      
+      // Log what we're working with
+      console.log('Smart field position detection:', {
+        hasHeaders: Array.isArray(headers) && headers.length > 0,
+        headerSample: Array.isArray(headers) ? headers.slice(0, 5) : [],
+        recordLength: sourceRecord.length,
+        recordSample: sourceRecord.slice(0, 5)
+      });
+      
+      // If we have headers, use them to map field positions
+      if (Array.isArray(headers) && headers.length > 0) {
+        // Map each field name to its position in the headers
+        Object.entries(fieldPatterns).forEach(([fieldName, patterns]) => {
+          // Try to find a match in the headers
+          const matchIndex = headers.findIndex(header => 
+            header && 
+            patterns.some(pattern => header.toLowerCase().includes(pattern))
+          );
+          
+          if (matchIndex >= 0) {
+            fieldPositions[fieldName] = matchIndex;
+            console.log(`Found position for ${fieldName} at index ${matchIndex} in headers`);
+          }
+        });
+      }
+      
+      // If we couldn't find positions from headers, try to infer from the data values
+      if (Object.keys(fieldPositions).length === 0) {
+        console.log('No header-based positions found, trying to infer from values');
+        
+        // Analyze the values to guess field types
+        sourceRecord.forEach((value, index) => {
+          const stringValue = String(value || '').trim().toLowerCase();
+          if (!stringValue) return; // Skip empty values
+          
+          // Look for patterns in the values
+          if (index === 0 && stringValue) {
+            // First position is typically a name
+            fieldPositions['Name'] = 0;
+            fieldPositions['Company Name'] = 0;
+            fieldPositions['Track Name'] = 0;
+            fieldPositions['League Full Name'] = 0;
+            console.log('Assuming first position is a name field');
+          }
+          
+          // Look for obvious stadium/track names
+          if (stringValue.includes('stadium') || 
+              stringValue.includes('arena') || 
+              stringValue.includes('field') || 
+              stringValue.includes('park') ||
+              stringValue.includes('speedway') ||
+              stringValue.includes('track')) {
+            fieldPositions['Track Name'] = index;
+            console.log(`Detected stadium/track name at position ${index}: ${stringValue}`);
+          }
+          
+          // Look for city names
+          const commonCities = ['new york', 'los angeles', 'chicago', 'houston', 'phoenix', 'philadelphia', 
+                               'san antonio', 'san diego', 'dallas', 'san jose', 'indianapolis', 'jacksonville', 
+                               'san francisco', 'austin', 'columbus', 'charlotte', 'denver'];
+          if (commonCities.includes(stringValue)) {
+            fieldPositions['City'] = index;
+            console.log(`Detected city at position ${index}: ${stringValue}`);
+          }
+          
+          // Look for state names or abbreviations
+          const usStateAbbrs = ['AL', 'AK', 'AZ', 'AR', 'CA', 'CO', 'CT', 'DE', 'FL', 'GA', 'HI', 'ID', 'IL', 'IN', 
+                               'IA', 'KS', 'KY', 'LA', 'ME', 'MD', 'MA', 'MI', 'MN', 'MS', 'MO', 'MT', 'NE', 'NV', 
+                               'NH', 'NJ', 'NM', 'NY', 'NC', 'ND', 'OH', 'OK', 'OR', 'PA', 'RI', 'SC', 'SD', 'TN', 
+                               'TX', 'UT', 'VT', 'VA', 'WA', 'WV', 'WI', 'WY'];
+          if (usStateAbbrs.includes(value) || usStateAbbrs.includes(stringValue.toUpperCase())) {
+            fieldPositions['State'] = index;
+            console.log(`Detected state abbreviation at position ${index}: ${value}`);
+          }
+          
+          // Look for country names
+          const commonCountries = ['usa', 'united states', 'us', 'canada', 'mexico', 'uk', 'united kingdom', 'germany', 'france'];
+          if (commonCountries.includes(stringValue)) {
+            fieldPositions['Country'] = index;
+            console.log(`Detected country at position ${index}: ${stringValue}`);
+          }
+          
+          // Look for capacity values (numeric values over 1000)
+          const numericValue = parseInt(stringValue.replace(/[^\d]/g, ''), 10);
+          if (!isNaN(numericValue) && numericValue > 1000) {
+            fieldPositions['Capacity'] = index;
+            console.log(`Detected possible capacity at position ${index}: ${numericValue}`);
+          }
+          
+          // Look for sport names
+          const commonSports = ['baseball', 'basketball', 'football', 'soccer', 'hockey', 'tennis', 
+                              'golf', 'racing', 'nascar', 'formula 1', 'f1', 'indycar'];
+          if (commonSports.includes(stringValue)) {
+            fieldPositions['Sport'] = index;
+            console.log(`Detected sport at position ${index}: ${stringValue}`);
+          }
+        });
+      }
+      
+      // Indianapolis Motor Speedway format fallbacks - as a last resort only
+      // These are only used if we couldn't detect fields using smarter methods
+      if (!fieldPositions['Track Name'] && isStadiumEntity) fieldPositions['Track Name'] = 0;
+      if (!fieldPositions['City'] && isStadiumEntity) fieldPositions['City'] = 2;
+      if (!fieldPositions['State'] && isStadiumEntity) fieldPositions['State'] = 3;
+      if (!fieldPositions['Country'] && isStadiumEntity) fieldPositions['Country'] = 4;
+      if (!fieldPositions['Capacity'] && isStadiumEntity) fieldPositions['Capacity'] = 5;
+      
+      // Production entity format fallbacks - as a last resort only
+      if (!fieldPositions['Company Name'] && isProductionEntity) fieldPositions['Company Name'] = 0;
+      if (!fieldPositions['Service Type'] && isProductionEntity) fieldPositions['Service Type'] = 1;
+      if (!fieldPositions['Entity Name'] && isProductionEntity) fieldPositions['Entity Name'] = 2;
+      if (!fieldPositions['Entity Type'] && isProductionEntity) fieldPositions['Entity Type'] = 3;
+      
+      console.log('Final field positions detected:', fieldPositions);
+    }
     
     // Do direct mapping using the field positions
     Object.entries(mappings).forEach(([databaseField, sourceFieldName]) => {
@@ -160,47 +274,171 @@ export const transformMappedData = (
       }
     }
     
-    // Special handling for stadium entity data using array indices
-    if (isStadiumEntity && isArrayData && Array.isArray(sourceRecord) && sourceRecord.length >= 5) {
-      console.log('Special stadium entity handling for array data with length:', sourceRecord.length);
+    // Special handling for stadium entity data using intelligent field detection
+    if (isStadiumEntity && isArrayData && Array.isArray(sourceRecord) && sourceRecord.length >= 3) {
+      console.log('Smart stadium entity mapping for array data with length:', sourceRecord.length);
+      console.log('Array data:', sourceRecord);
       
-      // Check if we're specifically missing any critical fields (city, country)
-      if (!transformedData.name && (mappings.name || Object.keys(mappings).includes('name'))) {
+      // Define patterns to search for in the array elements
+      const namePatterns = ['stadium', 'arena', 'track', 'field', 'park', 'complex', 'speedway', 'center'];
+      const cityPatterns = ['city', 'town', 'village', 'municipality'];
+      const statePatterns = ['state', 'province', 'region', 'territory'];
+      const countryPatterns = ['country', 'nation', 'land'];
+      const capacityPatterns = ['capacity', 'seats', 'attendance', 'size'];
+      
+      // Try to find data by evaluating each element in the array
+      for (let i = 0; i < sourceRecord.length; i++) {
+        const value = String(sourceRecord[i] || '').trim();
+        if (!value) continue; // Skip empty values
+        
+        // Fix name if missing - look for stadium-like terms or just use the first element if name is still missing
+        if (!transformedData.name && (mappings.name || Object.keys(mappings).includes('name'))) {
+          const isStadiumName = namePatterns.some(pattern => 
+            value.toLowerCase().includes(pattern)
+          );
+          
+          if (isStadiumName || i === 0) {
+            transformedData.name = value;
+            console.log(`Smart detected stadium name at position ${i}:`, value);
+          }
+        }
+        
+        // Try to find city
+        if (!transformedData.city && (mappings.city || Object.keys(mappings).includes('city'))) {
+          // Check if this looks like a city (common cities, or has "city" in the field name)
+          const looksLikeCity = cityPatterns.some(pattern => String(sourceRecord[i-1] || '').toLowerCase().includes(pattern)) ||
+                               ['indianapolis', 'chicago', 'new york', 'los angeles', 'miami', 'boston'].includes(value.toLowerCase());
+          
+          if (looksLikeCity) {
+            transformedData.city = value;
+            console.log(`Smart detected city at position ${i}:`, value);
+          }
+        }
+        
+        // Try to find state
+        if (!transformedData.state && (mappings.state || Object.keys(mappings).includes('state'))) {
+          // Check if this looks like a state
+          const usStates = ['alabama', 'alaska', 'arizona', 'arkansas', 'california', 'colorado', 'connecticut', 
+                          'delaware', 'florida', 'georgia', 'hawaii', 'idaho', 'illinois', 'indiana', 'iowa', 
+                          'kansas', 'kentucky', 'louisiana', 'maine', 'maryland', 'massachusetts', 'michigan', 
+                          'minnesota', 'mississippi', 'missouri', 'montana', 'nebraska', 'nevada', 'new hampshire', 
+                          'new jersey', 'new mexico', 'new york', 'north carolina', 'north dakota', 'ohio', 
+                          'oklahoma', 'oregon', 'pennsylvania', 'rhode island', 'south carolina', 'south dakota', 
+                          'tennessee', 'texas', 'utah', 'vermont', 'virginia', 'washington', 'west virginia', 
+                          'wisconsin', 'wyoming'];
+          
+          const usStateAbbrs = ['AL', 'AK', 'AZ', 'AR', 'CA', 'CO', 'CT', 'DE', 'FL', 'GA', 'HI', 'ID', 'IL', 'IN', 
+                               'IA', 'KS', 'KY', 'LA', 'ME', 'MD', 'MA', 'MI', 'MN', 'MS', 'MO', 'MT', 'NE', 'NV', 
+                               'NH', 'NJ', 'NM', 'NY', 'NC', 'ND', 'OH', 'OK', 'OR', 'PA', 'RI', 'SC', 'SD', 'TN', 
+                               'TX', 'UT', 'VT', 'VA', 'WA', 'WV', 'WI', 'WY'];
+          
+          const looksLikeState = statePatterns.some(pattern => String(sourceRecord[i-1] || '').toLowerCase().includes(pattern)) ||
+                                usStates.includes(value.toLowerCase()) ||
+                                usStateAbbrs.includes(value.toUpperCase());
+          
+          if (looksLikeState) {
+            transformedData.state = value;
+            console.log(`Smart detected state at position ${i}:`, value);
+          }
+        }
+        
+        // Try to find country
+        if (!transformedData.country && (mappings.country || Object.keys(mappings).includes('country'))) {
+          // Check if this looks like a country
+          const commonCountries = ['usa', 'united states', 'us', 'canada', 'mexico', 'uk', 'united kingdom', 
+                                 'australia', 'germany', 'france', 'spain', 'italy', 'brazil', 'china', 'japan'];
+          
+          const looksLikeCountry = countryPatterns.some(pattern => String(sourceRecord[i-1] || '').toLowerCase().includes(pattern)) ||
+                                  commonCountries.includes(value.toLowerCase());
+          
+          if (looksLikeCountry) {
+            transformedData.country = value;
+            console.log(`Smart detected country at position ${i}:`, value);
+          }
+        }
+        
+        // Try to find capacity
+        if (!transformedData.capacity && (mappings.capacity || Object.keys(mappings).includes('capacity'))) {
+          // Check if this looks like a capacity number
+          const isNumeric = /^[\d,]+$/.test(value.replace(/[^\d,]/g, ''));
+          const looksLikeCapacity = capacityPatterns.some(pattern => String(sourceRecord[i-1] || '').toLowerCase().includes(pattern)) ||
+                                   (isNumeric && parseInt(value.replace(/[^\d]/g, ''), 10) > 1000);
+          
+          if (looksLikeCapacity) {
+            // Clean the capacity value to ensure it's a number
+            transformedData.capacity = parseInt(value.replace(/[^\d]/g, ''), 10);
+            console.log(`Smart detected capacity at position ${i}:`, transformedData.capacity);
+          }
+        }
+      }
+      
+      // Apply additional inference for missing required fields
+      
+      // For stadium name - use first element if still missing
+      if (!transformedData.name && (mappings.name || Object.keys(mappings).includes('name')) && sourceRecord[0]) {
         transformedData.name = sourceRecord[0];
-        console.log('Set stadium name from first element:', transformedData.name);
+        console.log('Falling back to first element for stadium name:', transformedData.name);
       }
       
+      // For city - look for city-like string (not a state or country) if not found by other means
       if (!transformedData.city && (mappings.city || Object.keys(mappings).includes('city'))) {
+        for (let i = 0; i < sourceRecord.length; i++) {
+          const value = String(sourceRecord[i] || '').trim();
+          if (!value) continue;
+          
+          // Skip if this is already identified as another field
+          if (value === transformedData.name || 
+              value === transformedData.state || 
+              value === transformedData.country) {
+            continue;
+          }
+          
+          // Skip if it looks like a number or has "capacity" related patterns
+          if (/^\d+$/.test(value) || capacityPatterns.some(p => value.toLowerCase().includes(p))) {
+            continue;
+          }
+          
+          // If we get here, this might be a city - try it
+          transformedData.city = value;
+          console.log('Inferred city by elimination process:', transformedData.city);
+          break;
+        }
+      }
+      
+      // For country - use USA as default if we have a US state and no country
+      if (!transformedData.country && transformedData.state && (mappings.country || Object.keys(mappings).includes('country'))) {
+        const usStateAbbrs = ['AL', 'AK', 'AZ', 'AR', 'CA', 'CO', 'CT', 'DE', 'FL', 'GA', 'HI', 'ID', 'IL', 'IN', 
+                            'IA', 'KS', 'KY', 'LA', 'ME', 'MD', 'MA', 'MI', 'MN', 'MS', 'MO', 'MT', 'NE', 'NV', 
+                            'NH', 'NJ', 'NM', 'NY', 'NC', 'ND', 'OH', 'OK', 'OR', 'PA', 'RI', 'SC', 'SD', 'TN', 
+                            'TX', 'UT', 'VT', 'VA', 'WA', 'WV', 'WI', 'WY'];
+        
+        const usStates = ['alabama', 'alaska', 'arizona', 'arkansas', 'california', 'colorado', 'connecticut', 
+                        'delaware', 'florida', 'georgia', 'hawaii', 'idaho', 'illinois', 'indiana', 'iowa', 
+                        'kansas', 'kentucky', 'louisiana', 'maine', 'maryland', 'massachusetts', 'michigan', 
+                        'minnesota', 'mississippi', 'missouri', 'montana', 'nebraska', 'nevada', 'new hampshire', 
+                        'new jersey', 'new mexico', 'new york', 'north carolina', 'north dakota', 'ohio', 
+                        'oklahoma', 'oregon', 'pennsylvania', 'rhode island', 'south carolina', 'south dakota', 
+                        'tennessee', 'texas', 'utah', 'vermont', 'virginia', 'washington', 'west virginia', 
+                        'wisconsin', 'wyoming'];
+        
+        const isUSState = usStateAbbrs.includes(transformedData.state.toUpperCase()) || 
+                         usStates.includes(transformedData.state.toLowerCase());
+                         
+        if (isUSState) {
+          transformedData.country = 'USA';
+          console.log('Inferred USA as country from US state:', transformedData.state);
+        }
+      }
+      
+      // Final fallback for missing required fields - check raw array positions if we can't find anything else
+      if (!transformedData.city && sourceRecord[2] && (mappings.city || Object.keys(mappings).includes('city'))) {
         transformedData.city = sourceRecord[2];
-        console.log('Set stadium city from third element:', transformedData.city);
+        console.log('Last resort: Using position 2 for city:', transformedData.city);
       }
       
-      if (!transformedData.state && (mappings.state || Object.keys(mappings).includes('state'))) {
-        transformedData.state = sourceRecord[3];
-        console.log('Set stadium state from fourth element:', transformedData.state);
-      }
-      
-      if (!transformedData.country && (mappings.country || Object.keys(mappings).includes('country'))) {
-        // USA is in 5th position (index 4) for Indianapolis Motor Speedway
+      if (!transformedData.country && sourceRecord[4] && (mappings.country || Object.keys(mappings).includes('country'))) {
         transformedData.country = sourceRecord[4];
-        console.log('Set stadium country from fifth element:', transformedData.country);
-      }
-      
-      if (!transformedData.capacity && (mappings.capacity || Object.keys(mappings).includes('capacity'))) {
-        transformedData.capacity = sourceRecord[5];
-        console.log('Set stadium capacity from sixth element:', transformedData.capacity);
-      }
-      
-      // Final validation check for required fields - make sure city and country are set
-      // These are required fields according to validationUtils.ts
-      if (Object.keys(mappings).includes('city') && !transformedData.city && sourceRecord[2]) {
-        transformedData.city = sourceRecord[2]; // Force map from index 2
-        console.log('CRITICAL: Forced city mapping for stadium from index 2:', sourceRecord[2]);
-      }
-      
-      if (Object.keys(mappings).includes('country') && !transformedData.country && sourceRecord[4]) {
-        transformedData.country = sourceRecord[4]; // Force map from index 4
-        console.log('CRITICAL: Forced country mapping for stadium from index 4:', sourceRecord[4]);
+        console.log('Last resort: Using position 4 for country:', transformedData.country);
       }
     }
     

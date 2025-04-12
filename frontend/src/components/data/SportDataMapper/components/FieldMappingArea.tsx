@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { EntityType, ENTITY_TYPES } from '../../../../utils/sportDataMapper';
 import FieldItem from './FieldItem';
 import FieldHelpTooltip from './FieldHelpTooltip';
@@ -116,6 +116,10 @@ const FieldMappingArea: React.FC<FieldMappingAreaProps> = ({
   onToggleExcludeRecord,
   isCurrentRecordExcluded
 }) => {
+  // Force component to update when sourceFieldValues change
+  const [fieldValuesState, setFieldValuesState] = useState<Record<string, any>>({});
+  const [forceUpdateFlag, setForceUpdateFlag] = useState(0);
+  
   // State for sorting database fields
   const [sortColumn, setSortColumn] = useState<ColumnType | null>(null);
   const [sortDirection, setSortDirection] = useState<SortDirection>(null);
@@ -123,6 +127,18 @@ const FieldMappingArea: React.FC<FieldMappingAreaProps> = ({
   // State for sorting source fields
   const [sourceFieldsSortColumn, setSourceFieldsSortColumn] = useState<SourceColumnType | null>(null);
   const [sourceFieldsSortDirection, setSourceFieldsSortDirection] = useState<SortDirection>(null);
+
+  // Force update when record changes
+  useEffect(() => {
+    console.log('FieldMappingArea: Record changed, updating field values', { 
+      currentRecordIndex,
+      fieldsCount: Object.keys(sourceFieldValues).length
+    });
+    
+    // Force component to update with the latest values
+    setFieldValuesState(sourceFieldValues);
+    setForceUpdateFlag(prev => prev + 1);
+  }, [currentRecordIndex, sourceFieldValues]);
 
   // Toggle sort for database fields
   const toggleSort = (column: ColumnType) => {
@@ -217,8 +233,9 @@ const FieldMappingArea: React.FC<FieldMappingAreaProps> = ({
         }
         
         if (sourceFieldsSortColumn === 'value') {
-          const aValue = sourceFieldValues[a];
-          const bValue = sourceFieldValues[b];
+          // Use fieldValuesState to ensure we're using latest values
+          const aValue = fieldValuesState[a] ?? sourceFieldValues[a];
+          const bValue = fieldValuesState[b] ?? sourceFieldValues[b];
           
           // Handle undefined, null, or empty values
           if (aValue === undefined || aValue === null || aValue === "") {
@@ -352,12 +369,22 @@ const FieldMappingArea: React.FC<FieldMappingAreaProps> = ({
           {/* Source fields with array index based value lookup */}
           {sortedSourceFields && sortedSourceFields.length > 0 ? (
             sortedSourceFields.map((field, index) => {
-              // Simple, direct field value extraction with a single approach
-              const fieldValue = sourceFieldValues[field];
+              // Direct property access using fieldValuesState for the latest values
+              // Fall back to sourceFieldValues to ensure we always have a value
+              // This is the core fix for the production issue
+              const fieldValue = fieldValuesState[field] ?? sourceFieldValues[field];
+              
+              // Add key with currentRecordIndex to force re-render when records change
+              const uniqueKey = `source-${field}-${currentRecordIndex}-${forceUpdateFlag}`;
+              
+              // Log the values in production to help debug
+              if (field === 'League Full Name' || field === 'League Acronym' || field === 'Sport') {
+                console.log(`Field ${field} value for record ${currentRecordIndex}:`, fieldValue);
+              }
               
               return (
                 <FieldItem
-                  key={`${field}-${currentRecordIndex !== null ? currentRecordIndex : 'no-record'}`}
+                  key={uniqueKey}
                   field={field}
                   value={fieldValue}
                   isSource={true}
@@ -419,7 +446,7 @@ const FieldMappingArea: React.FC<FieldMappingAreaProps> = ({
             
             return (
               <DroppableField
-                key={field.name}
+                key={`${field.name}-${currentRecordIndex}-${forceUpdateFlag}`}
                 field={field}
                 sourceField={sourceField}
                 isMapped={isMapped}
@@ -430,7 +457,7 @@ const FieldMappingArea: React.FC<FieldMappingAreaProps> = ({
                 }}
                 onRemoveMapping={onRemoveMapping}
                 onShowFieldHelp={onShowFieldHelp}
-                sourceFieldValues={sourceFieldValues}
+                sourceFieldValues={fieldValuesState}
                 sourceFields={sourceFields}
                 formatFieldValue={formatFieldValue}
               />
@@ -446,7 +473,7 @@ const FieldMappingArea: React.FC<FieldMappingAreaProps> = ({
         <div className="space-y-1 overflow-y-auto pr-2 flex-grow">
           {Object.entries(mappings).length > 0 ? (
             Object.entries(mappings).map(([target, source]) => (
-              <div key={`${source}-${target}`} className="mb-1 p-2 bg-indigo-50 rounded-md border border-indigo-200 relative">
+              <div key={`${source}-${target}-${forceUpdateFlag}`} className="mb-1 p-2 bg-indigo-50 rounded-md border border-indigo-200 relative">
                 <div className="flex items-center justify-between">
                   <div className="font-medium text-indigo-700 truncate max-w-[40%] text-sm" title={source}>
                     {source}

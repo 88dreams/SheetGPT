@@ -224,36 +224,112 @@ const SportDataMapperContainer: React.FC<SportDataMapperProps> = ({ isOpen, onCl
     if (entityType === 'stadium' && currentRecordIndex !== null && dataToImport.length > 0) {
       console.log('SportDataMapperContainer: Auto-mapping fields for Stadium entity');
       
-      // Get the current record data
-      const currentRecord = dataToImport[currentRecordIndex];
-      
-      // If it's an array with at least 5 elements, apply Indianapolis Motor Speedway format mapping
-      if (Array.isArray(currentRecord) && currentRecord.length >= 5) {
-        console.log('SportDataMapperContainer: Detected Indianapolis Motor Speedway format');
+      try {
+        // Get the current record data
+        const recordIndex = currentRecordIndex;
+        const record = dataToImport[recordIndex];
         
-        // Apply mappings for required fields
-        setTimeout(() => {
+        // Safely handle both array and object record types
+        let rawArray = null;
+        
+        // If record is directly an array with at least 5 elements (Indianapolis Motor Speedway format)
+        if (Array.isArray(record) && record.length >= 5) {
+          console.log('SportDataMapperContainer: Detected direct array format for Indianapolis Motor Speedway');
+          rawArray = [...record]; // Create a safe copy
+        } 
+        // If record is an object, check for special keys
+        else if (record && typeof record === 'object') {
+          console.log('SportDataMapperContainer: Checking record object for Indianapolis Motor Speedway format');
+          
+          // Check if there's a nested array
+          for (const key in record) {
+            if (Array.isArray(record[key]) && record[key].length >= 5) {
+              rawArray = [...record[key]]; // Create a safe copy
+              console.log('SportDataMapperContainer: Found nested array in key', key);
+              break;
+            }
+          }
+          
+          // If no array found, check for numeric keys (0, 1, 2, etc.)
+          if (!rawArray && record['0'] !== undefined && record['2'] !== undefined && 
+              record['3'] !== undefined && record['4'] !== undefined) {
+            
+            // Build the array from numeric keys
+            rawArray = [];
+            for (let i = 0; i < 10; i++) {
+              const key = i.toString();
+              if (record[key] !== undefined) {
+                rawArray.push(record[key]);
+              }
+            }
+            console.log('SportDataMapperContainer: Constructed array from numeric keys', rawArray);
+          }
+        }
+        
+        // If we found a valid Indianapolis Motor Speedway format array, map the fields
+        if (rawArray && Array.isArray(rawArray) && rawArray.length >= 5) {
+          console.log('SportDataMapperContainer: Detected Indianapolis Motor Speedway format with fields', rawArray);
+          
           // Map name from position 0
-          if (currentRecord[0]) {
-            handleFieldMapping('0', 'name');
-            updateMappedDataForField('0', 'name', currentRecordIndex);
-            console.log('SportDataMapperContainer: Auto-mapped name from position 0:', currentRecord[0]);
+          if (rawArray[0]) {
+            try {
+              console.log('SportDataMapperContainer: Mapping name field from position 0');
+              handleFieldMapping('0', 'name');
+              console.log('SportDataMapperContainer: Auto-mapped name from position 0:', rawArray[0]);
+            } catch (error) {
+              console.error('Error mapping name field:', error);
+            }
           }
           
           // Map city from position 2
-          if (currentRecord[2]) {
-            handleFieldMapping('2', 'city');
-            updateMappedDataForField('2', 'city', currentRecordIndex);
-            console.log('SportDataMapperContainer: Auto-mapped city from position 2:', currentRecord[2]);
+          if (rawArray[2]) {
+            try {
+              console.log('SportDataMapperContainer: Mapping city field from position 2');
+              handleFieldMapping('2', 'city');
+              console.log('SportDataMapperContainer: Auto-mapped city from position 2:', rawArray[2]);
+            } catch (error) {
+              console.error('Error mapping city field:', error);
+            }
+          }
+          
+          // Map state from position 3
+          if (rawArray[3]) {
+            try {
+              console.log('SportDataMapperContainer: Mapping state field from position 3');
+              handleFieldMapping('3', 'state');
+              console.log('SportDataMapperContainer: Auto-mapped state from position 3:', rawArray[3]);
+            } catch (error) {
+              console.error('Error mapping state field:', error);
+            }
           }
           
           // Map country from position 4
-          if (currentRecord[4]) {
-            handleFieldMapping('4', 'country');
-            updateMappedDataForField('4', 'country', currentRecordIndex);
-            console.log('SportDataMapperContainer: Auto-mapped country from position 4:', currentRecord[4]);
+          if (rawArray[4]) {
+            try {
+              console.log('SportDataMapperContainer: Mapping country field from position 4');
+              handleFieldMapping('4', 'country');
+              console.log('SportDataMapperContainer: Auto-mapped country from position 4:', rawArray[4]);
+            } catch (error) {
+              console.error('Error mapping country field:', error);
+            }
           }
-        }, 500); // Small delay to ensure component is ready
+          
+          // Map capacity from position 5 if available
+          if (rawArray[5]) {
+            try {
+              console.log('SportDataMapperContainer: Mapping capacity field from position 5');
+              handleFieldMapping('5', 'capacity');
+              console.log('SportDataMapperContainer: Auto-mapped capacity from position 5:', rawArray[5]);
+            } catch (error) {
+              console.error('Error mapping capacity field:', error);
+            }
+          }
+        } else {
+          console.log('SportDataMapperContainer: No Indianapolis Motor Speedway format found in record', record);
+        }
+      } catch (error) {
+        // Catch any errors to prevent the UI from breaking
+        console.error('Error in auto-mapping stadium fields:', error);
       }
     }
   }, [setSelectedEntityType, currentRecordIndex, dataToImport, handleFieldMapping, updateMappedDataForField]);

@@ -55,6 +55,8 @@ export const detectEntityType = (
     field.toLowerCase() === 'arena' ||
     field.toLowerCase() === 'venue' ||
     field.toLowerCase() === 'track name' ||
+    field.toLowerCase() === 'track' ||
+    field.toLowerCase() === 'speedway' ||
     field.toLowerCase() === 'stadium name'
   );
   
@@ -64,7 +66,9 @@ export const detectEntityType = (
     field.toLowerCase().includes('venue') ||
     field.toLowerCase().includes('track') ||
     field.toLowerCase().includes('park') ||
-    field.toLowerCase().includes('field')
+    field.toLowerCase().includes('field') ||
+    field.toLowerCase().includes('speedway') ||
+    field.toLowerCase().includes('motor')
   );
   
   const hasStadiumValue = valuesList.some(value => 
@@ -76,7 +80,9 @@ export const detectEntityType = (
       value.toLowerCase().includes('track') ||
       value.toLowerCase().includes('park') ||
       value.toLowerCase().includes('field') ||
-      value.toLowerCase().includes('venue')
+      value.toLowerCase().includes('venue') ||
+      value.toLowerCase().includes('speedway') ||
+      value.toLowerCase().includes('motor')
     )
   );
   
@@ -87,8 +93,37 @@ export const detectEntityType = (
      sourceFields.some(field => field.toLowerCase().includes('state')))
   );
   
+  // Special case for Indianapolis Motor Speedway format
+  // Check if we have numeric indices as field names (0, 1, 2, 3, 4) which is a strong indicator
+  const hasNumericIndicesFields = 
+    (sourceFields.includes('0') || sourceFields.includes('0')) && 
+    (sourceFields.includes('2') || sourceFields.includes('2')) && 
+    (sourceFields.includes('3') || sourceFields.includes('3')) && 
+    (sourceFields.includes('4') || sourceFields.includes('4'));
+    
+  // Special check for array-based data which is a very strong indicator of Indianapolis format
+  let hasArrayBasedData = false;
+  if (Array.isArray(sourceFieldValues)) {
+    // If sourceFieldValues is directly an array with at least 5 elements
+    hasArrayBasedData = sourceFieldValues.length >= 5;
+  } else if (typeof sourceFieldValues === 'object' && sourceFieldValues !== null) {
+    // Check if any value is an array with at least 5 elements
+    hasArrayBasedData = Object.values(sourceFieldValues).some(val => 
+      Array.isArray(val) && val.length >= 5
+    );
+  }
+  
+  // Special case for Indianapolis Motor Speedway format - this should take precedence
+  if (hasNumericIndicesFields || hasArrayBasedData) {
+    console.log('Detected entity type: stadium based on Indianapolis Motor Speedway array format');
+    console.log('Indianapolis Motor Speedway array format detection:', {
+      hasNumericIndicesFields,
+      hasArrayBasedData
+    });
+    return 'stadium';
+  }
   // Prioritize League over Stadium if both are detected
-  if (hasLeagueField || (hasLeagueNameField && hasLeagueValue)) {
+  else if (hasLeagueField || (hasLeagueNameField && hasLeagueValue)) {
     console.log('Detected entity type: league based on League field or value');
     return 'league';
   } else if (hasStadiumField || (hasStadiumNameField && hasStadiumValue) || hasStadiumLocationFields) {

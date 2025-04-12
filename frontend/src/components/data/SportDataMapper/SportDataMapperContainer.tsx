@@ -182,39 +182,19 @@ const SportDataMapperContainer: React.FC<SportDataMapperProps> = ({ isOpen, onCl
     [createMemoEqualityFn(sourceFieldValues)]
   );
   
-  // Update source field values when current record changes
-  // ENHANCED FIX: Add debugging and ensure only one record is used throughout the component lifecycle
+  // Simple, focused update of source field values when record changes
   useEffect(() => {
-    if (memoizedDataLength === 0) {
+    // Skip if no data available
+    if (dataToImport.length === 0) {
       return;
     }
     
-    // Ensure index is valid
-    if (currentRecordIndex !== null && currentRecordIndex >= 0 && currentRecordIndex < memoizedDataLength) {
-      console.log('SportDataMapperContainer: Updating source field values for record', {
-        requestedIndex: currentRecordIndex,
-        dataLength: memoizedDataLength,
-        currentRecord: dataToImport[currentRecordIndex]?.slice?.(0, 3) || 'not an array',
-        recordType: Array.isArray(dataToImport[currentRecordIndex]) ? 'array' : 'object',
-      });
-      
-      // CRITICAL FIX: Update source field values immediately for the CURRENT record index
-      // To avoid stale data issues when the field values don't match the display
+    // Just update source field values when record index changes
+    if (currentRecordIndex !== null && currentRecordIndex >= 0 && currentRecordIndex < dataToImport.length) {
+      // Update source field values directly from current record index
       updateSourceFieldValues(currentRecordIndex);
-      
-      // Force update the mapped data as well for the currently selected entity type
-      if (selectedEntityType) {
-        console.log('SportDataMapperContainer: Force updating mapped data for current record and entity type', {
-          entityType: selectedEntityType,
-          currentRecordIndex
-        });
-        
-        // This should keep mappings in sync with the source fields
-        hookUpdateMappedDataForEntityType(selectedEntityType, mappingsByEntityType, currentRecordIndex);
-      }
     }
-  // Include all dependencies to ensure we update on any relevant change
-  }, [currentRecordIndex, memoizedDataLength, updateSourceFieldValues, selectedEntityType, mappingsByEntityType, hookUpdateMappedDataForEntityType, dataToImport]);
+  }, [currentRecordIndex, dataToImport, updateSourceFieldValues]);
   
   // Update mapped data when entity type or current record changes
   useEffect(() => {

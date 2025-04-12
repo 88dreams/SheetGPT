@@ -444,123 +444,43 @@ export default function useDataManagement() {
   }, [dataToImport, sourceFields]);
   
   /**
-   * Update source field values when current record changes
-   * Completely redesigned to ensure proper UI updates
-   * Enhanced with robust header handling for array-based records
+   * Simple update of source field values from a record
    */
   const updateSourceFieldValues = useCallback((recordIndex: number) => {
+    // Basic validation
     if (recordIndex < 0 || recordIndex >= dataToImport.length) {
-      console.warn('Invalid record index:', recordIndex);
       return;
     }
-    
-    console.log(`updateSourceFieldValues called with index ${recordIndex}`, {
-      dataLength: dataToImport.length,
-      recordIndex,
-      hasRecord: !!dataToImport[recordIndex],
-      isArray: Array.isArray(dataToImport[recordIndex])
-    });
     
     const record = dataToImport[recordIndex];
-    
     if (!record) {
-      console.error('No record found at index:', recordIndex);
       return;
     }
     
-    console.log('Forcefully updating source field values for record:', recordIndex);
-    
-    // Force a clean state update by creating a new object
-    // with explicit property assignments rather than object spread
+    // Create a fresh object for field values
     const newValues: Record<string, any> = {};
     
-    // For object data, copy each property individually
+    // OBJECT DATA: Simple copy of all properties
     if (typeof record === 'object' && record !== null && !Array.isArray(record)) {
       Object.keys(record).forEach(key => {
         newValues[key] = record[key];
       });
-      
-      // If this is an object record but we have sourceFields, add them as headers too
-      if (sourceFields.length > 0) {
-        newValues['__headers__'] = sourceFields;
-      }
     } 
-    // For array data, use a more robust approach to ensure header information
+    // ARRAY DATA: Map to field names (most common case)
     else if (Array.isArray(record)) {
-      // ENHANCED ARRAY HANDLING: Use multiple strategies to capture headers
-      
-      // Strategy 1: Add the sourceFields as headers (most reliable source)
-      newValues['__headers__'] = sourceFields;
-      console.log('Added __headers__ from sourceFields:', sourceFields);
-      
-      // Strategy 2: Transfer parent reference with its headers (if available)
-      let parentFound = false;
-      
-      // First check the record itself for a parent reference
-      if (record['__parent__']) {
-        newValues['__parent__'] = record['__parent__'];
-        parentFound = true;
-        console.log('Added __parent__ from record directly');
-      }
-      // Then check the dataToImport array for a parent reference
-      else if (dataToImport['__parent__']) {
-        newValues['__parent__'] = dataToImport['__parent__'];
-        parentFound = true;
-        console.log('Added __parent__ from dataToImport array');
-      }
-      
-      // Log parent headers for debugging if found
-      if (parentFound && newValues['__parent__']?.headers) {
-        console.log('Parent headers found:', newValues['__parent__'].headers);
-      }
-      
-      // Strategy 3: Map the array values to corresponding field names
-      // This creates properties like: "League Full Name": "NBA", "Sport": "Basketball"
+      // Add field names as keys with values from the array
       sourceFields.forEach((field, index) => {
         if (index < record.length) {
           newValues[field] = record[index];
-          console.log(`Mapped field[${index}] '${field}' = '${record[index]}'`);
         }
       });
       
-      // Strategy 4: Also add numeric indices directly for positional access
-      // This creates properties like: 0: "NBA", 1: "Basketball"
-      for (let i = 0; i < record.length; i++) {
-        newValues[i] = record[i];
-      }
-      
-      // Strategy 5: Explicitly log all array values for better debugging
-      console.log('Array values:', [...record]);
+      // Store index reference
+      newValues['__recordIndex__'] = recordIndex;
     }
     
-    // Add a metadata field with the record index to help with debugging
-    newValues['__recordIndex__'] = recordIndex;
-    
-    console.log('New source field values created:', {
-      keys: Object.keys(newValues).length,
-      hasHeaders: !!newValues['__headers__'],
-      headerCount: newValues['__headers__']?.length || 0,
-      hasParent: !!newValues['__parent__'],
-      parentHasHeaders: !!newValues['__parent__']?.headers,
-      sampleKeys: Object.keys(newValues).slice(0, 5),
-      valuesType: typeof newValues
-    });
-    
-    // ENHANCED FIX: Add specific debugging to track source field values updates
-    console.log('Setting new source field values immediately for record:', {
-      recordIndex,
-      newValuesCount: Object.keys(newValues).length,
-      newValuesSample: Object.entries(newValues).slice(0, 3).map(([k, v]) => `${k}: ${v}`),
-      hasHeaders: newValues.__headers__ ? 'yes' : 'no',
-      recordMetadata: newValues.__recordIndex__
-    });
-    
-    // Force a brand new object to break any reference equality issues
-    // This ensures React definitely sees this as a state change
-    const cleanNewValues = {...newValues};
-    
-    // Set the values directly - force a clean update
-    setSourceFieldValues(cleanNewValues);
+    // Always create a fresh object to trigger React updates
+    setSourceFieldValues({...newValues});
   }, [dataToImport, sourceFields]);
   
   /**

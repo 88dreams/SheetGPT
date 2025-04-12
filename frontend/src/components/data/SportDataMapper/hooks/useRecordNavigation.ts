@@ -32,56 +32,35 @@ export function useRecordNavigation(dataToImport: any[]) {
   }, [dataFingerprint, dataToImport.length]);
   
   /**
-   * Go to the next record (with circular navigation)
-   * Skips excluded records
-   * ENHANCED: Added debug logging and ensure synchronous state updates
+   * Simple function to go to the next record
    */
   const goToNextRecord = useCallback(() => {
     if (currentRecordIndex === null || dataToImport.length === 0) {
-      console.log('goToNextRecord: Cannot navigate - invalid current index or empty data');
       return false;
     }
-    
-    // Log the current state before navigation
-    console.log('goToNextRecord: Before navigation', {
-      currentIndex: currentRecordIndex,
-      totalRecords: dataToImport.length,
-      excludedCount: excludedRecords.size
-    });
     
     // Find the next non-excluded record
     let nextIndex = currentRecordIndex;
     let loopGuard = 0;
-    const maxLoops = dataToImport.length; // Prevent infinite loops
+    const maxLoops = dataToImport.length;
     
     do {
       // Move to the next record, wrapping around if we reach the end
       nextIndex = (nextIndex + 1) % dataToImport.length;
       loopGuard++;
       
-      // Break the loop if all records are excluded or we've done a full cycle
       if (loopGuard > maxLoops) {
-        console.warn('All records are excluded or navigation loop ran too long');
         return false;
       }
     } while (excludedRecords.has(nextIndex) && loopGuard < maxLoops);
     
-    // Log the navigation result
-    console.log('goToNextRecord: Navigation result', {
-      fromIndex: currentRecordIndex,
-      toIndex: nextIndex,
-      dataRecord: Array.isArray(dataToImport[nextIndex]) ? 
-        dataToImport[nextIndex].slice(0, 3) : 'not an array',
-    });
-    
     // Update the current record index
     setCurrentRecordIndex(nextIndex);
     return true;
-  }, [currentRecordIndex, dataToImport.length, excludedRecords, dataToImport]);
+  }, [currentRecordIndex, dataToImport.length, excludedRecords]);
   
   /**
-   * Go to the previous record (with circular navigation)
-   * Skips excluded records
+   * Simple function to go to the previous record
    */
   const goToPreviousRecord = useCallback(() => {
     if (currentRecordIndex === null || dataToImport.length === 0) {
@@ -91,16 +70,14 @@ export function useRecordNavigation(dataToImport: any[]) {
     // Find the previous non-excluded record
     let prevIndex = currentRecordIndex;
     let loopGuard = 0;
-    const maxLoops = dataToImport.length; // Prevent infinite loops
+    const maxLoops = dataToImport.length;
     
     do {
-      // Move to the previous record, wrapping around if we reach the beginning
+      // Move to the previous record, wrapping around if needed
       prevIndex = (prevIndex - 1 + dataToImport.length) % dataToImport.length;
       loopGuard++;
       
-      // Break the loop if all records are excluded or we've done a full cycle
       if (loopGuard > maxLoops) {
-        console.warn('All records are excluded or navigation loop ran too long');
         return false;
       }
     } while (excludedRecords.has(prevIndex) && loopGuard < maxLoops);

@@ -128,88 +128,18 @@ const FieldMappingArea: React.FC<FieldMappingAreaProps> = ({
   const [sourceFieldsSortColumn, setSourceFieldsSortColumn] = useState<SourceColumnType | null>(null);
   const [sourceFieldsSortDirection, setSourceFieldsSortDirection] = useState<SortDirection>(null);
 
-  // Force update when record changes
+  // Force update when record changes - simplifying to the basic functionality
   useEffect(() => {
     console.log('FieldMappingArea: Record changed, updating field values', { 
       currentRecordIndex,
       fieldsCount: Object.keys(sourceFieldValues || {}).length
     });
     
-    // Force component to update with the latest values
+    // Force component to update with the latest values - this is the only essential part
     setFieldValuesState(sourceFieldValues || {});
     setForceUpdateFlag(prev => prev + 1);
     
-    try {
-      // Generic handling for array-based data
-      if (selectedEntityType && typeof sourceFieldValues === 'object' && sourceFieldValues !== null) {
-        console.log('FieldMappingArea: Checking for array-based data format', sourceFieldValues);
-        
-        const mappingsObj = mappings || {};
-        let isArrayFormat = false;
-        let arrayData = null;
-        
-        // Check for numeric indices as direct properties
-        if (sourceFieldValues['0'] !== undefined) {
-          // Build array from numeric indices
-          arrayData = [];
-          for (let i = 0; i < 10; i++) {
-            const key = i.toString();
-            if (sourceFieldValues[key] !== undefined) {
-              arrayData.push(sourceFieldValues[key]);
-            }
-          }
-          isArrayFormat = arrayData.length >= 3; // Require at least 3 elements to be considered a valid array
-          if (isArrayFormat) {
-            console.log('FieldMappingArea: Detected array format via numeric indices');
-          }
-        }
-        
-        // Check for nested arrays if no numeric indices were found
-        if (!isArrayFormat) {
-          for (const key in sourceFieldValues) {
-            if (Array.isArray(sourceFieldValues[key]) && sourceFieldValues[key].length >= 3) {
-              arrayData = [...sourceFieldValues[key]]; // Create a safe copy
-              isArrayFormat = true;
-              console.log('FieldMappingArea: Detected array format via nested array');
-              break;
-            }
-          }
-        }
-        
-        // Handle array data mapping based on entity type
-        if (isArrayFormat && arrayData && Array.isArray(arrayData)) {
-          console.log('FieldMappingArea: Auto-mapping fields for array-based data');
-          
-          // Apply different mapping strategies based on entity type
-          if (selectedEntityType === 'stadium') {
-            // Common stadium field positions in many datasets
-            const requiredFields = {
-              name: !mappingsObj.name && arrayData[0] !== undefined ? '0' : null,
-              city: !mappingsObj.city && arrayData[2] !== undefined ? '2' : null,
-              state: !mappingsObj.state && arrayData[3] !== undefined ? '3' : null,
-              country: !mappingsObj.country && arrayData[4] !== undefined ? '4' : null,
-            };
-            
-            // Apply mappings for stadium
-            Object.entries(requiredFields).forEach(([field, sourceIndex]) => {
-              if (sourceIndex !== null) {
-                try {
-                  onFieldMapping(sourceIndex, field);
-                  console.log(`FieldMappingArea: Auto-mapped ${field} field from position ${sourceIndex}:`, sourceFieldValues[sourceIndex]);
-                } catch (error) {
-                  console.error(`Error mapping ${field} field:`, error);
-                }
-              }
-            });
-          } 
-          // Add handling for other entity types
-          // This can be expanded for other entity types with common array patterns
-        }
-      }
-    } catch (error) {
-      console.error('Error in stadium field auto-mapping:', error);
-    }
-  }, [currentRecordIndex, sourceFieldValues, selectedEntityType, mappings, onFieldMapping]);
+  }, [currentRecordIndex, sourceFieldValues]);
 
   // Toggle sort for database fields
   const toggleSort = (column: ColumnType) => {
@@ -289,104 +219,10 @@ const FieldMappingArea: React.FC<FieldMappingAreaProps> = ({
     return 0;
   });
 
-  // Basic record info logging
-  useEffect(() => {
-    if (currentRecordIndex !== null) {
-      console.log(`FieldMappingArea: Displaying record ${currentRecordIndex + 1} of ${totalRecords}`);
-      
-      // Defer to avoid uninitialized variable issues
-      setTimeout(() => {
-        // Safety checks
-        if (currentRecordIndex === null || !selectedEntityType) {
-          return;
-        }
-        
-        // Secondary pass for array-based data mapping using a deferred approach
-        // This runs when the component is already rendered and we're looking at a specific record
-        if (typeof sourceFieldValues === 'object' && sourceFieldValues !== null) {
-          try {
-            // Look for array data format
-            let arrayData = null;
-            
-            // Create a local copy of the source field values to avoid referencing issues
-            const localSourceFieldValues = {...sourceFieldValues};
-            
-            // First check for nested arrays
-            if (typeof localSourceFieldValues === 'object') {
-              for (const key in localSourceFieldValues) {
-                if (Array.isArray(localSourceFieldValues[key]) && localSourceFieldValues[key].length >= 3) {
-                  arrayData = [...localSourceFieldValues[key]]; // Create a copy to be safe
-                  console.log('Found array data in key:', key, arrayData);
-                  break;
-                }
-              }
-              
-              // If no array found, check for numeric indices
-              if (!arrayData && localSourceFieldValues['0'] !== undefined) {
-                arrayData = [];
-                for (let i = 0; i < 10; i++) {
-                  const key = i.toString();
-                  if (localSourceFieldValues[key] !== undefined) {
-                    arrayData.push(localSourceFieldValues[key]);
-                  }
-                }
-                if (arrayData.length >= 3) {
-                  console.log('Constructed array from numeric indices:', arrayData);
-                } else {
-                  arrayData = null; // Not enough elements to be useful
-                }
-              }
-            }
-            
-            // Safety check before proceeding
-            const localMappings = mappings || {};
-            const localFieldMapping = onFieldMapping;
-            
-            if (typeof localFieldMapping !== 'function') {
-              console.error('Field mapping function is not available');
-              return;
-            }
-            
-            // Process array data if found
-            if (arrayData && Array.isArray(arrayData) && arrayData.length >= 3) {
-              console.log('Array data mapper - processing:', arrayData);
-              
-              // Map fields based on entity type
-              if (selectedEntityType === 'stadium') {
-                // Map common stadium fields from array positions
-                const fieldMap = {
-                  name: { position: 0, required: true },
-                  city: { position: 2, required: true },
-                  state: { position: 3, required: false },
-                  country: { position: 4, required: true },
-                  capacity: { position: 5, required: false }
-                };
-                
-                // Apply mappings one by one with safe local references
-                for (const [field, config] of Object.entries(fieldMap)) {
-                  const { position, required } = config;
-                  if (!localMappings[field] && arrayData[position] !== undefined) {
-                    try {
-                      // Use local variables to avoid closure issues
-                      const positionStr = String(position);
-                      console.log(`FieldMappingArea: Mapping ${field} from position ${positionStr}`);
-                      localFieldMapping(positionStr, field);
-                      console.log(`FieldMappingArea: Auto-mapped ${field} from position ${positionStr}:`, arrayData[position]);
-                    } catch (error) {
-                      console.error(`Error mapping ${field} field:`, error);
-                    }
-                  }
-                }
-              }
-              // Add mapping for other entity types as needed
-            }
-          } catch (error) {
-            console.error('Error in array data mapping handler:', error);
-          }
-        }
-      }, 0);
-    }
-  }, [currentRecordIndex, totalRecords, selectedEntityType, sourceFieldValues, mappings, onFieldMapping]);
+  // Basic record info logging - keep it simple
+  if (currentRecordIndex !== null) {
+    console.log(`FieldMappingArea: Displaying record ${currentRecordIndex + 1} of ${totalRecords}`);
+  }
   
   // Sort source fields based on the selected column and direction
   const sortedSourceFields = Array.isArray(sourceFields) && sourceFields.length > 0 

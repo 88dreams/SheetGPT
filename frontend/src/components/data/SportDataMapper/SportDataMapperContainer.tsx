@@ -218,121 +218,24 @@ const SportDataMapperContainer: React.FC<SportDataMapperProps> = ({ isOpen, onCl
   
   // Optimized handler for entity type selection
   const handleEntityTypeSelect = useCallback((entityType: MapperEntityType) => {
-    // First update the selected entity type
+    // Just update the selected entity type - this is the simple approach that was working before
     setSelectedEntityType(entityType);
-
-    // We need to delay the auto-mapping to ensure component state has updated
-    // This prevents uninitialized variable access issues
-    setTimeout(() => {
-      // Only proceed if we have data and a valid record index
-      if (currentRecordIndex === null || dataToImport.length === 0) {
-        return;
-      }
+    
+    // Special case for Stadium entity only - keep this simple
+    if (entityType === 'stadium' && currentRecordIndex !== null && dataToImport.length > 0) {
+      const record = dataToImport[currentRecordIndex];
       
-      console.log(`SportDataMapperContainer: Auto-mapping fields for ${entityType} entity`);
-      
-      try {
-        // Get the current record data safely
-        const recordIndex = currentRecordIndex;
-        if (recordIndex < 0 || recordIndex >= dataToImport.length) {
-          console.error('SportDataMapperContainer: Invalid record index', recordIndex);
-          return;
-        }
+      // Only handle the array case - this is what we need for Indianapolis Motor Speedway
+      if (Array.isArray(record) && record.length >= 5) {
+        console.log('SportDataMapperContainer: Detected array format for stadium data');
         
-        const record = dataToImport[recordIndex];
-        if (record === undefined) {
-          console.error('SportDataMapperContainer: Record is undefined');
-          return;
-        }
-        
-        // Extract array data regardless of format
-        let arrayData = null;
-        
-        // Case 1: Record is directly an array
-        if (Array.isArray(record) && record.length >= 3) {
-          console.log('SportDataMapperContainer: Detected direct array format');
-          arrayData = [...record]; // Create a safe copy
-        } 
-        // Case 2: Record is an object that may contain arrays or numeric indices
-        else if (record && typeof record === 'object') {
-          console.log('SportDataMapperContainer: Checking record object for array-based data');
-          
-          // First check for nested arrays
-          for (const key in record) {
-            if (Array.isArray(record[key]) && record[key].length >= 3) {
-              arrayData = [...record[key]]; // Create a safe copy
-              console.log('SportDataMapperContainer: Found nested array in key', key);
-              break;
-            }
-          }
-          
-          // If no array found, check for numeric indices
-          if (!arrayData && record['0'] !== undefined) {
-            arrayData = [];
-            // Build array from numeric indices
-            for (let i = 0; i < 10; i++) {
-              const key = i.toString();
-              if (record[key] !== undefined) {
-                arrayData.push(record[key]);
-              }
-            }
-            
-            if (arrayData.length >= 3) {
-              console.log('SportDataMapperContainer: Constructed array from numeric indices', arrayData);
-            } else {
-              arrayData = null; // Not enough elements to be considered a valid array
-            }
-          }
-        }
-        
-        // Apply entity-specific mappings if array data is found
-        if (arrayData && Array.isArray(arrayData) && arrayData.length >= 3) {
-          console.log('SportDataMapperContainer: Processing array-based data:', arrayData);
-          
-          // Safety check that our field mapping function exists
-          if (typeof handleFieldMapping !== 'function') {
-            console.error('SportDataMapperContainer: handleFieldMapping is not a function');
-            return;
-          }
-          
-          // Entity-specific mapping logic
-          if (entityType === 'stadium') {
-            // Common field positions for stadium data
-            const fieldMap = {
-              name: { position: 0, required: true },
-              city: { position: 2, required: true },
-              state: { position: 3, required: false },
-              country: { position: 4, required: true },
-              capacity: { position: 5, required: false }
-            };
-            
-            // Apply mappings based on field map
-            Object.entries(fieldMap).forEach(([field, config]) => {
-              const { position, required } = config;
-              if (arrayData && arrayData[position] !== undefined) {
-                try {
-                  console.log(`SportDataMapperContainer: Mapping ${field} field from position ${position}`);
-                  // Make a local copy of the function and values to avoid closure issues
-                  const fieldMappingFn = handleFieldMapping;
-                  const sourceIdx = position.toString();
-                  const targetField = field;
-                  fieldMappingFn(sourceIdx, targetField);
-                  console.log(`SportDataMapperContainer: Auto-mapped ${field} from position ${position}:`, arrayData[position]);
-                } catch (error) {
-                  console.error(`Error mapping ${field} field:`, error);
-                }
-              }
-            });
-          }
-          // Add mappings for other entity types here as needed
-        } else {
-          console.log('SportDataMapperContainer: No array-based data format detected in record', record);
-        }
-      } catch (error) {
-        // Catch any errors to prevent the UI from breaking
-        console.error('Error in auto-mapping fields:', error);
+        // Map the standard stadium fields directly - no fancy logic
+        if (record[0]) handleFieldMapping('0', 'name');
+        if (record[2]) handleFieldMapping('2', 'city');
+        if (record[3]) handleFieldMapping('3', 'state');
+        if (record[4]) handleFieldMapping('4', 'country');
       }
-    }, 0); // Using a 0ms timeout to defer execution until after state updates
+    }
   }, [setSelectedEntityType, currentRecordIndex, dataToImport, handleFieldMapping]);
   
   // Optimized handler for field mapping drop

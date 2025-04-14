@@ -24,481 +24,308 @@ export const transformMappedData = (
     hasParent: sourceRecord['__parent__'] ? 'yes' : 'no'
   });
   
-  // CRITICAL FIX: Detect entity types that need special handling
-  const isProductionEntity = Object.keys(mappings).some(k => 
-    ['production_company_id', 'service_type', 'entity_type'].includes(k)
-  );
+  // STEP 1: Detect entity type
+  const entityTypeDetection = {
+    isLeagueEntity: Object.keys(mappings).some(k => 
+      ['name', 'sport', 'country', 'nickname'].includes(k) && !mappings.capacity
+    ),
+    isTeamEntity: Object.keys(mappings).some(k => 
+      ['name', 'league_id', 'division_conference_id', 'stadium_id'].includes(k)
+    ),
+    isStadiumEntity: Object.keys(mappings).some(k => 
+      ['name', 'city', 'country', 'capacity'].includes(k)
+    ),
+    isProductionEntity: Object.keys(mappings).some(k => 
+      ['production_company_id', 'service_type', 'entity_type'].includes(k)
+    ),
+    isBroadcastEntity: Object.keys(mappings).some(k => 
+      ['broadcast_company_id', 'entity_type', 'entity_id', 'territory'].includes(k)
+    ),
+    isBrandEntity: Object.keys(mappings).some(k => 
+      ['name', 'industry', 'company_type', 'partner', 'partner_relationship'].includes(k)
+    ),
+    isDivisionConferenceEntity: Object.keys(mappings).some(k => 
+      ['name', 'league_id', 'type', 'nickname'].includes(k) && !mappings.capacity
+    ),
+    isGameEntity: Object.keys(mappings).some(k => 
+      ['home_team_id', 'away_team_id', 'date', 'time'].includes(k)
+    ),
+    isGameBroadcastEntity: Object.keys(mappings).some(k => 
+      ['game_id', 'broadcast_company_id', 'broadcast_type'].includes(k)
+    ),
+    isLeagueExecutiveEntity: Object.keys(mappings).some(k => 
+      ['name', 'league_id', 'position', 'start_date'].includes(k)
+    )
+  };
   
-  // Detect stadium entity type for special handling
-  const isStadiumEntity = Object.keys(mappings).some(k => 
-    ['name', 'city', 'country', 'capacity'].includes(k)
-  );
-  
-  // Detect broadcast rights entity type for special handling
-  const isBroadcastEntity = Object.keys(mappings).some(k => 
-    ['broadcast_company_id', 'entity_type', 'entity_id', 'territory'].includes(k)
-  );
-  
-  // Detect brand entity type for special handling
-  const isBrandEntity = Object.keys(mappings).some(k => 
-    ['name', 'industry', 'company_type', 'partner', 'partner_relationship'].includes(k)
-  );
-  
-  // If mappings contains sourceFields like "Name", "Company Name", we are using display names
-  // and the sourceRecord seems to be a flat array of values. In this case, we need
-  // to directly map based on position, using the source field headers.
-  const usingDisplayNames = Object.values(mappings).some(v => 
-    [
-      'Name', 'Company Name', 'Service Type', 'Entity Name', 'League Name', 'Start Date',
-      // Add League-specific field names
-      'League Full Name', 'League Acronym', 'Sport', 'Country', 'Founded Year',
-      // Add Stadium-specific field names
-      'Track Name', 'City', 'State', 'Capacity', 'Owner', 'Host Broadcaster',
-      // Add Broadcast-specific field names
-      'Name of company', 'Broadcast Client', 'Client Type', 'Broadcast Territory', 
-      'Start date of Rights', 'End date of Rights',
-      // Add Brand-specific field names
-      'Type of Company', 'Brand Name', 'Company Type', 'Partner', 'Relationship Type',
-      'Industry', 'Partner Name', 'Partner Relationship'
-    ].includes(v)
-  );
-  
-  // Initialize field positions record - MOVED outside the if block to fix variable scope issue
-  const fieldPositions: Record<string, number> = {};
-  
-  // Special handling for common production service mappings
-  // This is a direct mapping based on actual headers to their indices
-  if (isArrayData && usingDisplayNames) {
-    console.log("USING DISPLAY NAMES WITH DIRECT INDEX MAPPING", {
-      mappingsList: Object.entries(mappings).map(([db, src]) => `${src} → ${db}`),
-      sourceRecord: Array.isArray(sourceRecord) ? sourceRecord : [],
-      detectedFields: Object.values(mappings).filter(v => 
-        ['League Full Name', 'League Acronym', 'Sport', 'Country', 'Founded Year'].includes(v)
-      )
-    });
+  // STEP 2: Define standard array positions for all entity types
+  //
+  // These are the default positions that we'll use for array-based data
+  // regardless of the UI field names, so we have one consistent approach
+  const standardPositions = {
+    // Standard entity positions (index 0-2)
+    name: 0,                    // Index 0: Name (applies to all entities with names)
+    partner: 1,                 // Index 1: Entity name or partner
+    industry: 2,                // Index 2: Type or category (generic)
     
-    // Common field patterns to detect in array data
-    const fieldPatterns = {
-      'Name': ['name', 'title'],
-      'Company Name': ['company', 'organization', 'business', 'firm', 'name of company', 'broadcaster'],
-      'Service Type': ['service', 'type'],
-      'Entity Name': ['entity', 'subject', 'client', 'league', 'team', 'event'],
-      'Entity Type': ['type', 'category', 'classification', 'client type'],
-      'League Name': ['league', 'conference', 'division'],
-      'Sport': ['sport', 'game', 'activity'],
-      'Start Date': ['start', 'begin', 'from'],
-      'End Date': ['end', 'finish', 'to', 'until'],
-      'Track Name': ['track', 'stadium', 'arena', 'venue', 'field', 'park', 'speedway'],
-      'City': ['city', 'town', 'municipality', 'locale'],
-      'State': ['state', 'province', 'region'],
-      'Country': ['country', 'nation', 'land'],
-      'Capacity': ['capacity', 'seats', 'size', 'attendance'],
-      'Owner': ['owner', 'ownership', 'proprietor'],
-      'Host Broadcaster': ['broadcaster', 'network', 'channel', 'station'],
-      'Territory': ['territory', 'region', 'area', 'market', 'broadcast territory'],
-      
-      // Add exact broadcast field mappings
-      'Name of company': ['company', 'broadcaster', 'network', 'name of company'],
-      'Broadcast Client': ['client', 'entity', 'league', 'team', 'broadcast client'],
-      'Client Type': ['type', 'category', 'client type', 'entity type'],
-      'Broadcast Territory': ['territory', 'region', 'area', 'market', 'broadcast territory'],
-      'Start date of Rights': ['start', 'begin', 'from', 'start date', 'start date of rights'],
-      'End date of Rights': ['end', 'finish', 'to', 'until', 'end date', 'end date of rights'],
-      
-      // Add exact brand field mappings
-      'Type of Company': ['industry', 'sector', 'business type', 'company category', 'type of company'],
-      'Brand Name': ['brand', 'name', 'company name', 'brand name'],
-      'Company Type': ['type', 'category', 'business model', 'company type'],
-      'Partner': ['partner', 'affiliate', 'associated company', 'partner name'],
-      'Relationship Type': ['relationship', 'association', 'partnership type', 'relationship type', 'partner relationship'],
-      'Industry': ['industry', 'sector', 'field', 'market segment']
-    };
+    // Entity type-specific positions
+    entity_type: 2,             // Index 2: Entity type for relations
+    entity_id: 1,               // Index 1: Entity ID for relations
     
-    // Try to determine positions by analyzing the array data
-    if (Array.isArray(sourceRecord) && sourceRecord.length > 0) {
-      // First, check if we have header information that might help
-      const headers = sourceRecord['__headers__'] || [];
-      
-      // Log what we're working with
-      console.log('Smart field position detection:', {
-        hasHeaders: Array.isArray(headers) && headers.length > 0,
-        headerSample: Array.isArray(headers) ? headers.slice(0, 5) : [],
-        recordLength: sourceRecord.length,
-        recordSample: sourceRecord.slice(0, 5)
-      });
-      
-      // If we have headers, use them to map field positions
-      if (Array.isArray(headers) && headers.length > 0) {
-        // Map each field name to its position in the headers
-        Object.entries(fieldPatterns).forEach(([fieldName, patterns]) => {
-          // Try to find a match in the headers
-          const matchIndex = headers.findIndex(header => 
-            header && 
-            patterns.some(pattern => header.toLowerCase().includes(pattern))
-          );
-          
-          if (matchIndex >= 0) {
-            fieldPositions[fieldName] = matchIndex;
-            console.log(`Found position for ${fieldName} at index ${matchIndex} in headers`);
-          }
-        });
-      }
-      
-      // If we couldn't find positions from headers, try to infer from the data values
-      if (Object.keys(fieldPositions).length === 0) {
-        console.log('No header-based positions found, trying to infer from values');
-        
-        // Analyze the values to guess field types
-        sourceRecord.forEach((value, index) => {
-          const stringValue = String(value || '').trim().toLowerCase();
-          if (!stringValue) return; // Skip empty values
-          
-          // Look for patterns in the values
-          if (index === 0 && stringValue) {
-            // First position is typically a name
-            fieldPositions['Name'] = 0;
-            fieldPositions['Company Name'] = 0;
-            fieldPositions['Track Name'] = 0;
-            fieldPositions['League Full Name'] = 0;
-            console.log('Assuming first position is a name field');
-          }
-          
-          // Look for obvious stadium/track names
-          if (stringValue.includes('stadium') || 
-              stringValue.includes('arena') || 
-              stringValue.includes('field') || 
-              stringValue.includes('park') ||
-              stringValue.includes('speedway') ||
-              stringValue.includes('track')) {
-            fieldPositions['Track Name'] = index;
-            console.log(`Detected stadium/track name at position ${index}: ${stringValue}`);
-          }
-          
-          // Look for city names
-          const commonCities = ['new york', 'los angeles', 'chicago', 'houston', 'phoenix', 'philadelphia', 
-                               'san antonio', 'san diego', 'dallas', 'san jose', 'indianapolis', 'jacksonville', 
-                               'san francisco', 'austin', 'columbus', 'charlotte', 'denver'];
-          if (commonCities.includes(stringValue)) {
-            fieldPositions['City'] = index;
-            console.log(`Detected city at position ${index}: ${stringValue}`);
-          }
-          
-          // Look for state names or abbreviations
-          const usStateAbbrs = ['AL', 'AK', 'AZ', 'AR', 'CA', 'CO', 'CT', 'DE', 'FL', 'GA', 'HI', 'ID', 'IL', 'IN', 
-                               'IA', 'KS', 'KY', 'LA', 'ME', 'MD', 'MA', 'MI', 'MN', 'MS', 'MO', 'MT', 'NE', 'NV', 
-                               'NH', 'NJ', 'NM', 'NY', 'NC', 'ND', 'OH', 'OK', 'OR', 'PA', 'RI', 'SC', 'SD', 'TN', 
-                               'TX', 'UT', 'VT', 'VA', 'WA', 'WV', 'WI', 'WY'];
-          if (usStateAbbrs.includes(value) || usStateAbbrs.includes(stringValue.toUpperCase())) {
-            fieldPositions['State'] = index;
-            console.log(`Detected state abbreviation at position ${index}: ${value}`);
-          }
-          
-          // Look for country names
-          const commonCountries = ['usa', 'united states', 'us', 'canada', 'mexico', 'uk', 'united kingdom', 'germany', 'france'];
-          if (commonCountries.includes(stringValue)) {
-            fieldPositions['Country'] = index;
-            console.log(`Detected country at position ${index}: ${stringValue}`);
-          }
-          
-          // Look for capacity values (numeric values over 1000)
-          const numericValue = parseInt(stringValue.replace(/[^\d]/g, ''), 10);
-          if (!isNaN(numericValue) && numericValue > 1000) {
-            fieldPositions['Capacity'] = index;
-            console.log(`Detected possible capacity at position ${index}: ${numericValue}`);
-          }
-          
-          // Look for sport names
-          const commonSports = ['baseball', 'basketball', 'football', 'soccer', 'hockey', 'tennis', 
-                              'golf', 'racing', 'nascar', 'formula 1', 'f1', 'indycar'];
-          if (commonSports.includes(stringValue)) {
-            fieldPositions['Sport'] = index;
-            console.log(`Detected sport at position ${index}: ${stringValue}`);
-          }
-        });
-      }
-      
-      // Indianapolis Motor Speedway format fallbacks - as a last resort only
-      // These are only used if we couldn't detect fields using smarter methods
-      if (!fieldPositions['Track Name'] && isStadiumEntity) fieldPositions['Track Name'] = 0;
-      if (!fieldPositions['City'] && isStadiumEntity) fieldPositions['City'] = 2;
-      if (!fieldPositions['State'] && isStadiumEntity) fieldPositions['State'] = 3;
-      if (!fieldPositions['Country'] && isStadiumEntity) fieldPositions['Country'] = 4;
-      if (!fieldPositions['Capacity'] && isStadiumEntity) fieldPositions['Capacity'] = 5;
-      
-      // Production entity format fallbacks - as a last resort only
-      if (!fieldPositions['Company Name'] && isProductionEntity) fieldPositions['Company Name'] = 0;
-      if (!fieldPositions['Service Type'] && isProductionEntity) fieldPositions['Service Type'] = 1;
-      if (!fieldPositions['Entity Name'] && isProductionEntity) fieldPositions['Entity Name'] = 2;
-      if (!fieldPositions['Entity Type'] && isProductionEntity) fieldPositions['Entity Type'] = 3;
-      
-      // Broadcast rights entity format fallbacks - as a last resort only
-      if (!fieldPositions['Company Name'] && isBroadcastEntity) fieldPositions['Company Name'] = 0;
-      if (!fieldPositions['Entity Name'] && isBroadcastEntity) fieldPositions['Entity Name'] = 1;
-      if (!fieldPositions['Entity Type'] && isBroadcastEntity) fieldPositions['Entity Type'] = 2;
-      if (!fieldPositions['Territory'] && isBroadcastEntity) fieldPositions['Territory'] = 3;
-      if (!fieldPositions['Start Date'] && isBroadcastEntity) fieldPositions['Start Date'] = 4;
-      if (!fieldPositions['End Date'] && isBroadcastEntity) fieldPositions['End Date'] = 5;
-      
-      // Add exact broadcast field name mappings for the UI field names
-      if (!fieldPositions['Name of company'] && isBroadcastEntity) fieldPositions['Name of company'] = 0;
-      if (!fieldPositions['Broadcast Client'] && isBroadcastEntity) fieldPositions['Broadcast Client'] = 1;
-      if (!fieldPositions['Client Type'] && isBroadcastEntity) fieldPositions['Client Type'] = 2;
-      if (!fieldPositions['Broadcast Territory'] && isBroadcastEntity) fieldPositions['Broadcast Territory'] = 3;
-      if (!fieldPositions['Start date of Rights'] && isBroadcastEntity) fieldPositions['Start date of Rights'] = 4;
-      if (!fieldPositions['End date of Rights'] && isBroadcastEntity) fieldPositions['End date of Rights'] = 5;
-      
-      // Add exact brand field name mappings for the UI field names
-      if (!fieldPositions['Name of company'] && isBrandEntity) fieldPositions['Name of company'] = 0;
-      if (!fieldPositions['Type of Company'] && isBrandEntity) fieldPositions['Type of Company'] = 2;
-      if (!fieldPositions['Industry'] && isBrandEntity) fieldPositions['Industry'] = 2;
-      if (!fieldPositions['Company Type'] && isBrandEntity) fieldPositions['Company Type'] = 6;
-      if (!fieldPositions['Partner'] && isBrandEntity) fieldPositions['Partner'] = 1;
-      if (!fieldPositions['Relationship Type'] && isBrandEntity) fieldPositions['Relationship Type'] = 3;
-      
-      // Add fallbacks for Brand entity with common field names
-      if (isBrandEntity) {
-        console.log('Setting fallback field positions for Brand entity');
-        fieldPositions['Name'] = 0; // Always map first position to name
-        fieldPositions['Industry'] = 2; // Map third position to industry
-        fieldPositions['Company Type'] = 6; // Map seventh position to company type
-      }
-      
-      console.log('Final field positions detected:', fieldPositions);
-    }
+    // Location and territory (index 3-4)
+    territory: 3,               // Index 3: Territory or location
+    country: 3,                 // Index 3: Country for entities (same as territory)
+    city: 1,                    // Index 1: City for stadium
+    state: 2,                   // Index 2: State for stadium
     
-    // Special handling for Brand entity when array data is detected but positions not set
-    if (isArrayData && isBrandEntity && Array.isArray(sourceRecord) && sourceRecord.length >= 3) {
-      // Force-set the positions for common brand fields
-      if (!fieldPositions['Name of company']) fieldPositions['Name of company'] = 0;
-      if (!fieldPositions['Type of Company']) fieldPositions['Type of Company'] = 2;
-      console.log('Force-added Brand entity position mappings');
-    }
+    // Dates and numerical values
+    start_date: 4,              // Index 4: Start date
+    end_date: 5,                // Index 5: End date
+    capacity: 4,                // Index 4: Capacity
     
-    // Do direct mapping using the field positions
-    Object.entries(mappings).forEach(([databaseField, sourceFieldName]) => {
-      // Find the position for this source field
-      const position = fieldPositions[sourceFieldName];
+    // Specific company fields
+    broadcast_company_id: 0,    // Index 0: Company name for broadcast
+    production_company_id: 0,   // Index 0: Company name for production
+    company_type: 6,            // Index 6: Company or broadcaster type
+    
+    // Specialized fields
+    service_type: 6,            // Index 6: Service type or broadcaster role
+    sport: 2,                   // Index 2: Sport information
+    division_conference_id: 1,  // Index 1: Division/conference
+    partner_relationship: 3     // Index 3: Relationship type
+  };
+  
+  // STEP 3: Map source field names to entity fields
+  //
+  // This creates the mapping between the UI field names (like "Name of company")
+  // and the standardized field names (like "broadcast_company_id")
+  const fieldNameMap: Record<string, string> = {
+    // Common fields
+    'Name': 'name',
+    'Company Name': 'name',
+    'Brand Name': 'name',
+    'Name of company': 'name',
+    'Track Name': 'name',
+    'League Name': 'name',
+    'League Full Name': 'name',
+    
+    // Type, category, and industry fields
+    'Type of Company': 'industry',
+    'Industry': 'industry',
+    'Service Type': 'service_type',
+    'Entity Type': 'entity_type',
+    'Client Type': 'entity_type',
+    'Sport': 'sport',
+    'Company Type': 'company_type',
+    
+    // Entity relation fields
+    'Broadcast Client': 'entity_id',
+    'Entity Name': 'entity_id',
+    'Partner': 'partner',
+    'Relationship Type': 'partner_relationship',
+    'League Acronym': 'nickname',
+    
+    // Location fields
+    'Territory': 'territory',
+    'Broadcast Territory': 'territory',
+    'Country': 'country',
+    'City': 'city',
+    'State': 'state',
+    
+    // Date fields
+    'Start Date': 'start_date',
+    'Start date of Rights': 'start_date',
+    'End Date': 'end_date',
+    'End date of Rights': 'end_date',
+    'Founded Year': 'founded_year',
+    
+    // Miscellaneous fields
+    'Capacity': 'capacity',
+    'Owner': 'owner',
+    'Host Broadcaster': 'host_broadcaster_id'
+  };
+  
+  // STEP 4: Process array data with consistent mapping
+  if (isArrayData && Array.isArray(sourceRecord)) {
+    console.log('Processing array data using standardized field positions');
+    
+    // Loop through all source fields in the mapping and apply the standard position mapping
+    // This ensures consistent handling regardless of UI field names
+    Object.entries(mappings).forEach(([dbField, sourceFieldName]) => {
+      // Find the standardized field name for this UI field name
+      const standardField = fieldNameMap[sourceFieldName] || dbField;
       
-      // Special case for Brand entity - use direct array mapping
-      if (isBrandEntity && isArrayData && Array.isArray(sourceRecord)) {
-        // Map critical brand fields directly by field name
-        if (databaseField === 'name' && !position) {
-          transformedData[databaseField] = sourceRecord[0]; // Name is at position 0
-          console.log(`Stadium field mapping for ${sourceFieldName} → ${databaseField}`);
-          console.log(`Strategy 1: Found array value for ${databaseField} at sourceFields index 0:`, sourceRecord[0]);
-          console.log(`Final mapping: ${sourceFieldName} → ${databaseField} =`, sourceRecord[0]);
-          return; // Skip regular mapping for this field
-        }
-        
-        if (databaseField === 'industry' && !position) {
-          // Use Racing Series to determine industry is Sports, otherwise use standard
-          const industryValue = sourceRecord[2] === 'Racing Series' ? 'Sports' : 
-                              sourceRecord[6] === 'Broadcaster' ? 'Broadcasting' : 
-                              'Media';
-          transformedData[databaseField] = industryValue;
-          console.log(`Industry field mapping for ${sourceFieldName} → ${databaseField}`);
-          console.log(`Strategy 1: Found array value for ${databaseField} from context:`, industryValue);
-          console.log(`Final mapping: ${sourceFieldName} → ${databaseField} =`, industryValue);
-          return; // Skip regular mapping for this field
-        }
-      }
+      // Get the standard position for this field
+      const position = standardPositions[standardField];
       
-      console.log(`Attempting position mapping for ${sourceFieldName} → ${databaseField}`, {
-        mappedPosition: position,
+      console.log(`Mapping ${sourceFieldName} (standard: ${standardField}) → ${dbField}`, { 
+        standardPosition: position, 
         hasValue: position !== undefined && sourceRecord[position] !== undefined,
-        valueAtPosition: position !== undefined ? sourceRecord[position] : 'no position',
-        rawSourceRecord: sourceRecord
+        valueAtPosition: position !== undefined ? sourceRecord[position] : 'no position'
       });
       
+      // If we have a position and a value, use it
       if (position !== undefined && sourceRecord[position] !== undefined) {
-        transformedData[databaseField] = sourceRecord[position];
-        console.log(`SUCCESSFUL Direct position mapping: ${sourceFieldName} (position ${position}) → ${databaseField} =`, sourceRecord[position]);
-      } else {
-        console.warn(`No direct position mapping for ${sourceFieldName} → ${databaseField}`);
-        
-        // Special fallback for array data with header mismatch
-        if (Array.isArray(sourceRecord) && sourceRecord.length > 0) {
-          // If the field has a typical structure (like "League Full Name"), try matching by parts
-          if (sourceFieldName.includes('Name') && databaseField === 'name') {
-            transformedData[databaseField] = sourceRecord[0]; // First element is often the name
-            console.log(`Fallback mapping for ${databaseField}: Using first element as name:`, sourceRecord[0]);
-          } else if (sourceFieldName.includes('Acronym') && databaseField === 'nickname') {
-            transformedData[databaseField] = sourceRecord[1]; // Second element is often the acronym/nickname
-            console.log(`Fallback mapping for ${databaseField}: Using second element as nickname:`, sourceRecord[1]);
-          } else if (sourceFieldName.includes('Sport') && databaseField === 'sport') {
-            transformedData[databaseField] = sourceRecord[2]; // Third element is often the sport
-            console.log(`Fallback mapping for ${databaseField}: Using third element as sport:`, sourceRecord[2]);
-          } 
-          // Special stadium field fallbacks for Indianapolis Motor Speedway data
-          else if (sourceFieldName === 'Track Name' && databaseField === 'name') {
-            transformedData[databaseField] = sourceRecord[0]; // First element is the track/stadium name
-            console.log(`Fallback mapping for stadium name: Using first element:`, sourceRecord[0]);
-          } else if (sourceFieldName === 'City' && databaseField === 'city') {
-            transformedData[databaseField] = sourceRecord[2]; // Third element is the city
-            console.log(`Fallback mapping for stadium city: Using third element:`, sourceRecord[2]);
-          } else if (sourceFieldName === 'State' && databaseField === 'state') {
-            transformedData[databaseField] = sourceRecord[3]; // Fourth element is the state
-            console.log(`Fallback mapping for stadium state: Using fourth element:`, sourceRecord[3]);
-          } else if (sourceFieldName === 'Country' && databaseField === 'country') {
-            transformedData[databaseField] = sourceRecord[4]; // Fifth element is the country
-            console.log(`Fallback mapping for stadium country: Using fifth element:`, sourceRecord[4]);
-          }
-        }
-      }
-    });
-    
-    // Set default values for required fields if missing
-    if (isProductionEntity) {
-      if (!transformedData.service_type && mappings.service_type) {
-        transformedData.service_type = 'Production';
-        console.log('Set default service_type to "Production"');
-      }
-      
-      if (!transformedData.start_date && mappings.start_date) {
-        transformedData.start_date = '2000-01-01';
-        console.log('Set default start_date to "2000-01-01"');
-      }
-      
-      if (!transformedData.end_date && mappings.end_date) {
-        transformedData.end_date = '2100-01-01';
-        console.log('Set default end_date to "2100-01-01"');
-      }
-      
-      if (!transformedData.entity_type && mappings.entity_type) {
-        transformedData.entity_type = 'league';
-        console.log('Set default entity_type to "league"');
-      }
-    }
-    
-    // Special handling for brand entity using intelligent field detection
-    if (isBrandEntity && isArrayData && Array.isArray(sourceRecord) && sourceRecord.length >= 3) {
-      console.log('Smart brand entity mapping for array data with length:', sourceRecord.length);
-      console.log('Array data:', sourceRecord);
-      
-      // For brand entities, make sure the critical fields are set correctly
-      if (!transformedData.name && (mappings.name || Object.keys(mappings).includes('name'))) {
-        transformedData.name = sourceRecord[0]; // First element is typically the brand/company name
-        console.log('Set brand name from first array element:', transformedData.name);
-      }
-      
-      if (!transformedData.industry && (mappings.industry || Object.keys(mappings).includes('industry'))) {
-        // Determine industry from array - typically in position 2 (client type) or 6 (broadcaster type)
-        // For broadcast data, the industry would be "Broadcasting"
+        transformedData[dbField] = sourceRecord[position];
+        console.log(`Standard position mapping: ${sourceFieldName} → ${dbField} = ${sourceRecord[position]}`);
+      } 
+      // Special handling for industry field in Brand entities
+      else if (dbField === 'industry' && entityTypeDetection.isBrandEntity) {
+        // Smart industry detection based on context
         const industryValue = sourceRecord[2] === 'Racing Series' ? 'Sports' : 
-                              sourceRecord[6] === 'Broadcaster' ? 'Broadcasting' : 
-                              'Media';
+                            sourceRecord[6] === 'Broadcaster' ? 'Broadcasting' : 
+                            'Media';
+        transformedData[dbField] = industryValue;
+        console.log(`Smart industry mapping for brand: ${dbField} = ${industryValue}`);
+      }
+      // Special handling for entity_type in Broadcast entities
+      else if (dbField === 'entity_type' && entityTypeDetection.isBroadcastEntity) {
+        let entityType = sourceRecord[2]; // Entity type is in position 2
         
-        transformedData.industry = industryValue;
-        console.log('Set industry from array data with intelligent detection:', transformedData.industry);
-      }
-      
-      if (!transformedData.company_type && (mappings.company_type || Object.keys(mappings).includes('company_type'))) {
-        // Use the broadcaster type from position 6 if available
-        if (sourceRecord[6] && typeof sourceRecord[6] === 'string') {
-          transformedData.company_type = sourceRecord[6];
-        } else {
-          // Default to "Broadcaster" for broadcast-related data
-          transformedData.company_type = 'Broadcaster';
-        }
-        console.log('Set company_type from array data:', transformedData.company_type);
-      }
-      
-      if (!transformedData.partner && (mappings.partner || Object.keys(mappings).includes('partner'))) {
-        // Partner is typically in position 1 (client/entity name)
-        transformedData.partner = sourceRecord[1];
-        console.log('Set partner from second array element:', transformedData.partner);
-      }
-      
-      if (!transformedData.partner_relationship && (mappings.partner_relationship || Object.keys(mappings).includes('partner_relationship'))) {
-        // Partner relationship can be derived from client type or assumed as "Broadcaster"
-        transformedData.partner_relationship = 'Broadcaster';
-        console.log('Set partner_relationship to default:', transformedData.partner_relationship);
-      }
-      
-      if (!transformedData.country && (mappings.country || Object.keys(mappings).includes('country'))) {
-        // Country is typically in position 3 (territory)
-        transformedData.country = sourceRecord[3];
-        console.log('Set country from territory position:', transformedData.country);
-      }
-    }
-    
-    // Special handling for broadcast rights entity using intelligent field detection
-    if (isBroadcastEntity && isArrayData && Array.isArray(sourceRecord) && sourceRecord.length >= 3) {
-      console.log('Smart broadcast rights entity mapping for array data with length:', sourceRecord.length);
-      console.log('Array data:', sourceRecord);
-      
-      // For broadcast rights, make sure the critical fields are set correctly
-      if (!transformedData.broadcast_company_id && (mappings.broadcast_company_id || Object.keys(mappings).includes('broadcast_company_id'))) {
-        transformedData.broadcast_company_id = sourceRecord[0]; // First element is typically the company name
-        console.log('Set broadcast company ID from first array element:', transformedData.broadcast_company_id);
-      }
-      
-      if (!transformedData.entity_id && (mappings.entity_id || Object.keys(mappings).includes('entity_id'))) {
-        transformedData.entity_id = sourceRecord[1]; // Second element is typically the entity name (league, team, etc.)
-        console.log('Set entity ID from second array element:', transformedData.entity_id);
-      }
-      
-      if (!transformedData.entity_type && (mappings.entity_type || Object.keys(mappings).includes('entity_type'))) {
-        let entityType = sourceRecord[2]; // Third element is typically the entity type
-        
-        // Normalize entity type to match expected values
-        if (entityType) {
-          // Remove "Series" suffix if present
-          if (typeof entityType === 'string' && entityType.includes('Series')) {
+        // Normalize entity type value
+        if (typeof entityType === 'string') {
+          if (entityType.includes('Series')) {
             entityType = 'league';
-          } else if (typeof entityType === 'string') {
+          } else {
             entityType = entityType.toLowerCase();
             if (entityType.includes('league')) entityType = 'league';
             else if (entityType.includes('team')) entityType = 'team';
-            else if (entityType.includes('game')) entityType = 'game';
-            else if (entityType.includes('stadium')) entityType = 'stadium';
             else if (entityType.includes('conference') || entityType.includes('division')) entityType = 'division_conference';
-            else entityType = 'league'; // Default to league if we can't determine
-          } else {
-            entityType = 'league'; // Default to league if not a string
+            else entityType = 'league'; // Default
           }
         } else {
-          entityType = 'league'; // Default to league if not provided
+          entityType = 'league'; // Default
         }
         
-        transformedData.entity_type = entityType;
-        console.log('Set entity type from third array element with normalization:', transformedData.entity_type);
+        transformedData[dbField] = entityType;
+        console.log(`Smart entity_type mapping: ${dbField} = ${entityType}`);
       }
-      
-      if (!transformedData.territory && (mappings.territory || Object.keys(mappings).includes('territory'))) {
-        transformedData.territory = sourceRecord[3]; // Fourth element is typically the territory
-        console.log('Set territory from fourth array element:', transformedData.territory);
-      }
-      
-      if (!transformedData.start_date && (mappings.start_date || Object.keys(mappings).includes('start_date'))) {
-        let startDate = sourceRecord[4]; // Fifth element is typically the start date
+      // Format dates when they're years only
+      else if ((dbField === 'start_date' || dbField === 'end_date') && sourceRecord[position] && typeof sourceRecord[position] === 'string') {
+        const dateValue = sourceRecord[position];
+        const yearRegex = /^\d{4}$/;
         
-        // Handle year-only dates
-        if (startDate && typeof startDate === 'string' && /^\d{4}$/.test(startDate)) {
-          startDate = `${startDate}-01-01`;
+        if (yearRegex.test(dateValue)) {
+          transformedData[dbField] = dbField === 'start_date' ? 
+            `${dateValue}-01-01` : // Start date: beginning of year
+            `${dateValue}-12-31`;  // End date: end of year
+          console.log(`Formatted year-only date: ${dbField} = ${transformedData[dbField]}`);
         }
-        
-        transformedData.start_date = startDate;
-        console.log('Set start date from fifth array element:', transformedData.start_date);
+      }
+      // Last resort: direct mapping to first element for name fields when nothing else works
+      else if (dbField === 'name') {
+        transformedData[dbField] = sourceRecord[0]; // First element is typically the name
+        console.log(`Fallback name mapping: ${dbField} = ${sourceRecord[0]}`);
+      }
+    });
+    
+    // STEP 5: Apply entity-specific fixes to ensure required fields are populated
+    
+    // Brand entity fixes
+    if (entityTypeDetection.isBrandEntity) {
+      if (!transformedData.name && sourceRecord[0]) {
+        transformedData.name = sourceRecord[0];
+        console.log(`Fixed missing brand name from position 0: ${transformedData.name}`);
       }
       
-      if (!transformedData.end_date && (mappings.end_date || Object.keys(mappings).includes('end_date'))) {
-        let endDate = sourceRecord[5]; // Sixth element is typically the end date
-        
-        // Handle year-only dates
-        if (endDate && typeof endDate === 'string' && /^\d{4}$/.test(endDate)) {
-          endDate = `${endDate}-12-31`;
-        }
-        
-        transformedData.end_date = endDate;
-        console.log('Set end date from sixth array element:', transformedData.end_date);
+      if (!transformedData.industry) {
+        // Use context to determine industry
+        transformedData.industry = sourceRecord[2] === 'Racing Series' ? 'Sports' : 
+                                  sourceRecord[6] === 'Broadcaster' ? 'Broadcasting' : 
+                                  'Media';
+        console.log(`Fixed missing brand industry: ${transformedData.industry}`);
+      }
+      
+      if (!transformedData.company_type && sourceRecord[6]) {
+        transformedData.company_type = sourceRecord[6];
+        console.log(`Fixed missing company_type: ${transformedData.company_type}`);
       }
     }
     
-    // Special handling for stadium entity data using intelligent field detection
-    if (isStadiumEntity && isArrayData && Array.isArray(sourceRecord) && sourceRecord.length >= 3) {
-      console.log('Smart stadium entity mapping for array data with length:', sourceRecord.length);
-      console.log('Array data:', sourceRecord);
+    // Broadcast entity fixes
+    if (entityTypeDetection.isBroadcastEntity) {
+      if (!transformedData.broadcast_company_id && sourceRecord[0]) {
+        transformedData.broadcast_company_id = sourceRecord[0];
+        console.log(`Fixed missing broadcast_company_id: ${transformedData.broadcast_company_id}`);
+      }
+      
+      if (!transformedData.entity_id && sourceRecord[1]) {
+        transformedData.entity_id = sourceRecord[1];
+        console.log(`Fixed missing entity_id: ${transformedData.entity_id}`);
+      }
+      
+      if (!transformedData.entity_type && sourceRecord[2]) {
+        let entityType = sourceRecord[2];
+        // Normalize entity type
+        if (typeof entityType === 'string') {
+          if (entityType.includes('Series')) {
+            entityType = 'league';
+          } else {
+            entityType = entityType.toLowerCase();
+            if (entityType.includes('league')) entityType = 'league';
+            else if (entityType.includes('team')) entityType = 'team';
+            else if (entityType.includes('conference') || entityType.includes('division')) entityType = 'division_conference';
+            else entityType = 'league'; // Default
+          }
+        } else {
+          entityType = 'league'; // Default
+        }
+        
+        transformedData.entity_type = entityType;
+        console.log(`Fixed missing entity_type: ${transformedData.entity_type}`);
+      }
+      
+      if (!transformedData.territory && sourceRecord[3]) {
+        transformedData.territory = sourceRecord[3];
+        console.log(`Fixed missing territory: ${transformedData.territory}`);
+      }
+    }
+    
+    // Production entity fixes
+    if (entityTypeDetection.isProductionEntity) {
+      if (!transformedData.production_company_id && sourceRecord[0]) {
+        transformedData.production_company_id = sourceRecord[0];
+        console.log(`Fixed missing production_company_id: ${transformedData.production_company_id}`);
+      }
+      
+      if (!transformedData.service_type) {
+        transformedData.service_type = 'Production';
+        console.log(`Set default service_type: ${transformedData.service_type}`);
+      }
+      
+      if (!transformedData.entity_type) {
+        transformedData.entity_type = 'league';
+        console.log(`Set default entity_type: ${transformedData.entity_type}`);
+      }
+    }
+    
+    // Stadium entity fixes
+    if (entityTypeDetection.isStadiumEntity) {
+      if (!transformedData.name && sourceRecord[0]) {
+        transformedData.name = sourceRecord[0];
+        console.log(`Fixed missing stadium name: ${transformedData.name}`);
+      }
+      
+      if (!transformedData.city && sourceRecord[1]) {
+        transformedData.city = sourceRecord[1];
+        console.log(`Fixed missing city: ${transformedData.city}`);
+      }
+    }
+  } 
+  // STEP 6: Process object data (normal object with properties)
+  else {
+    console.log('Processing object data with direct property mapping');
+    
+    // Traditional object property access
+    Object.entries(mappings).forEach(([databaseField, sourceField]) => {
+      transformedData[databaseField] = sourceRecord[sourceField];
+      console.log(`Mapped ${databaseField} from object property "${sourceField}" with value:`, transformedData[databaseField]);
+    });
+  }
+  
+  console.log('Final transformed data result:', transformedData);
+  return transformedData;
+};
       
       // Define patterns to search for in the array elements
       const namePatterns = ['stadium', 'arena', 'track', 'field', 'park', 'complex', 'speedway', 'center'];

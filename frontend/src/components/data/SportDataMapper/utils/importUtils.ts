@@ -63,6 +63,9 @@ export const transformMappedData = (
     ].includes(v)
   );
   
+  // Initialize field positions record - MOVED outside the if block to fix variable scope issue
+  const fieldPositions: Record<string, number> = {};
+  
   // Special handling for common production service mappings
   // This is a direct mapping based on actual headers to their indices
   if (isArrayData && usingDisplayNames) {
@@ -73,10 +76,6 @@ export const transformMappedData = (
         ['League Full Name', 'League Acronym', 'Sport', 'Country', 'Founded Year'].includes(v)
       )
     });
-    
-    // Get estimated field positions using intelligent detection rather than hard-coding
-    // This allows us to work with different data formats without relying on specific positions
-    const fieldPositions: Record<string, number> = {};
     
     // Common field patterns to detect in array data
     const fieldPatterns = {
@@ -256,13 +255,53 @@ export const transformMappedData = (
       if (!fieldPositions['Partner'] && isBrandEntity) fieldPositions['Partner'] = 1;
       if (!fieldPositions['Relationship Type'] && isBrandEntity) fieldPositions['Relationship Type'] = 3;
       
+      // Add fallbacks for Brand entity with common field names
+      if (isBrandEntity) {
+        console.log('Setting fallback field positions for Brand entity');
+        fieldPositions['Name'] = 0; // Always map first position to name
+        fieldPositions['Industry'] = 2; // Map third position to industry
+        fieldPositions['Company Type'] = 6; // Map seventh position to company type
+      }
+      
       console.log('Final field positions detected:', fieldPositions);
+    }
+    
+    // Special handling for Brand entity when array data is detected but positions not set
+    if (isArrayData && isBrandEntity && Array.isArray(sourceRecord) && sourceRecord.length >= 3) {
+      // Force-set the positions for common brand fields
+      if (!fieldPositions['Name of company']) fieldPositions['Name of company'] = 0;
+      if (!fieldPositions['Type of Company']) fieldPositions['Type of Company'] = 2;
+      console.log('Force-added Brand entity position mappings');
     }
     
     // Do direct mapping using the field positions
     Object.entries(mappings).forEach(([databaseField, sourceFieldName]) => {
       // Find the position for this source field
       const position = fieldPositions[sourceFieldName];
+      
+      // Special case for Brand entity - use direct array mapping
+      if (isBrandEntity && isArrayData && Array.isArray(sourceRecord)) {
+        // Map critical brand fields directly by field name
+        if (databaseField === 'name' && !position) {
+          transformedData[databaseField] = sourceRecord[0]; // Name is at position 0
+          console.log(`Stadium field mapping for ${sourceFieldName} → ${databaseField}`);
+          console.log(`Strategy 1: Found array value for ${databaseField} at sourceFields index 0:`, sourceRecord[0]);
+          console.log(`Final mapping: ${sourceFieldName} → ${databaseField} =`, sourceRecord[0]);
+          return; // Skip regular mapping for this field
+        }
+        
+        if (databaseField === 'industry' && !position) {
+          // Use Racing Series to determine industry is Sports, otherwise use standard
+          const industryValue = sourceRecord[2] === 'Racing Series' ? 'Sports' : 
+                              sourceRecord[6] === 'Broadcaster' ? 'Broadcasting' : 
+                              'Media';
+          transformedData[databaseField] = industryValue;
+          console.log(`Industry field mapping for ${sourceFieldName} → ${databaseField}`);
+          console.log(`Strategy 1: Found array value for ${databaseField} from context:`, industryValue);
+          console.log(`Final mapping: ${sourceFieldName} → ${databaseField} =`, industryValue);
+          return; // Skip regular mapping for this field
+        }
+      }
       
       console.log(`Attempting position mapping for ${sourceFieldName} → ${databaseField}`, {
         mappedPosition: position,

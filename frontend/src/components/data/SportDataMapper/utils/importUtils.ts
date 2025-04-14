@@ -48,7 +48,10 @@ export const transformMappedData = (
       // Add League-specific field names
       'League Full Name', 'League Acronym', 'Sport', 'Country', 'Founded Year',
       // Add Stadium-specific field names
-      'Track Name', 'City', 'State', 'Capacity', 'Owner', 'Host Broadcaster'
+      'Track Name', 'City', 'State', 'Capacity', 'Owner', 'Host Broadcaster',
+      // Add Broadcast-specific field names
+      'Name of company', 'Broadcast Client', 'Client Type', 'Broadcast Territory', 
+      'Start date of Rights', 'End date of Rights'
     ].includes(v)
   );
   
@@ -85,7 +88,14 @@ export const transformMappedData = (
       'Capacity': ['capacity', 'seats', 'size', 'attendance'],
       'Owner': ['owner', 'ownership', 'proprietor'],
       'Host Broadcaster': ['broadcaster', 'network', 'channel', 'station'],
-      'Territory': ['territory', 'region', 'area', 'market', 'broadcast territory']
+      'Territory': ['territory', 'region', 'area', 'market', 'broadcast territory'],
+      // Add exact broadcast field mappings
+      'Name of company': ['company', 'broadcaster', 'network', 'name of company'],
+      'Broadcast Client': ['client', 'entity', 'league', 'team', 'broadcast client'],
+      'Client Type': ['type', 'category', 'client type', 'entity type'],
+      'Broadcast Territory': ['territory', 'region', 'area', 'market', 'broadcast territory'],
+      'Start date of Rights': ['start', 'begin', 'from', 'start date', 'start date of rights'],
+      'End date of Rights': ['end', 'finish', 'to', 'until', 'end date', 'end date of rights']
     };
     
     // Try to determine positions by analyzing the array data
@@ -212,6 +222,14 @@ export const transformMappedData = (
       if (!fieldPositions['Territory'] && isBroadcastEntity) fieldPositions['Territory'] = 3;
       if (!fieldPositions['Start Date'] && isBroadcastEntity) fieldPositions['Start Date'] = 4;
       if (!fieldPositions['End Date'] && isBroadcastEntity) fieldPositions['End Date'] = 5;
+      
+      // Add exact broadcast field name mappings for the UI field names
+      if (!fieldPositions['Name of company'] && isBroadcastEntity) fieldPositions['Name of company'] = 0;
+      if (!fieldPositions['Broadcast Client'] && isBroadcastEntity) fieldPositions['Broadcast Client'] = 1;
+      if (!fieldPositions['Client Type'] && isBroadcastEntity) fieldPositions['Client Type'] = 2;
+      if (!fieldPositions['Broadcast Territory'] && isBroadcastEntity) fieldPositions['Broadcast Territory'] = 3;
+      if (!fieldPositions['Start date of Rights'] && isBroadcastEntity) fieldPositions['Start date of Rights'] = 4;
+      if (!fieldPositions['End date of Rights'] && isBroadcastEntity) fieldPositions['End date of Rights'] = 5;
       
       console.log('Final field positions detected:', fieldPositions);
     }

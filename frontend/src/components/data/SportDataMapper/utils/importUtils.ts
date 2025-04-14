@@ -34,6 +34,11 @@ export const transformMappedData = (
     ['name', 'city', 'country', 'capacity'].includes(k)
   );
   
+  // Detect broadcast rights entity type for special handling
+  const isBroadcastEntity = Object.keys(mappings).some(k => 
+    ['broadcast_company_id', 'entity_type', 'entity_id', 'territory'].includes(k)
+  );
+  
   // If mappings contains sourceFields like "Name", "Company Name", we are using display names
   // and the sourceRecord seems to be a flat array of values. In this case, we need
   // to directly map based on position, using the source field headers.
@@ -65,10 +70,10 @@ export const transformMappedData = (
     // Common field patterns to detect in array data
     const fieldPatterns = {
       'Name': ['name', 'title'],
-      'Company Name': ['company', 'organization', 'business', 'firm'],
+      'Company Name': ['company', 'organization', 'business', 'firm', 'name of company', 'broadcaster'],
       'Service Type': ['service', 'type'],
-      'Entity Name': ['entity', 'subject', 'client'],
-      'Entity Type': ['type', 'category', 'classification'],
+      'Entity Name': ['entity', 'subject', 'client', 'league', 'team', 'event'],
+      'Entity Type': ['type', 'category', 'classification', 'client type'],
       'League Name': ['league', 'conference', 'division'],
       'Sport': ['sport', 'game', 'activity'],
       'Start Date': ['start', 'begin', 'from'],
@@ -79,7 +84,8 @@ export const transformMappedData = (
       'Country': ['country', 'nation', 'land'],
       'Capacity': ['capacity', 'seats', 'size', 'attendance'],
       'Owner': ['owner', 'ownership', 'proprietor'],
-      'Host Broadcaster': ['broadcaster', 'network', 'channel', 'station']
+      'Host Broadcaster': ['broadcaster', 'network', 'channel', 'station'],
+      'Territory': ['territory', 'region', 'area', 'market', 'broadcast territory']
     };
     
     // Try to determine positions by analyzing the array data
@@ -199,6 +205,14 @@ export const transformMappedData = (
       if (!fieldPositions['Entity Name'] && isProductionEntity) fieldPositions['Entity Name'] = 2;
       if (!fieldPositions['Entity Type'] && isProductionEntity) fieldPositions['Entity Type'] = 3;
       
+      // Broadcast rights entity format fallbacks - as a last resort only
+      if (!fieldPositions['Company Name'] && isBroadcastEntity) fieldPositions['Company Name'] = 0;
+      if (!fieldPositions['Entity Name'] && isBroadcastEntity) fieldPositions['Entity Name'] = 1;
+      if (!fieldPositions['Entity Type'] && isBroadcastEntity) fieldPositions['Entity Type'] = 2;
+      if (!fieldPositions['Territory'] && isBroadcastEntity) fieldPositions['Territory'] = 3;
+      if (!fieldPositions['Start Date'] && isBroadcastEntity) fieldPositions['Start Date'] = 4;
+      if (!fieldPositions['End Date'] && isBroadcastEntity) fieldPositions['End Date'] = 5;
+      
       console.log('Final field positions detected:', fieldPositions);
     }
     
@@ -271,6 +285,79 @@ export const transformMappedData = (
       if (!transformedData.entity_type && mappings.entity_type) {
         transformedData.entity_type = 'league';
         console.log('Set default entity_type to "league"');
+      }
+    }
+    
+    // Special handling for broadcast rights entity using intelligent field detection
+    if (isBroadcastEntity && isArrayData && Array.isArray(sourceRecord) && sourceRecord.length >= 3) {
+      console.log('Smart broadcast rights entity mapping for array data with length:', sourceRecord.length);
+      console.log('Array data:', sourceRecord);
+      
+      // For broadcast rights, make sure the critical fields are set correctly
+      if (!transformedData.broadcast_company_id && (mappings.broadcast_company_id || Object.keys(mappings).includes('broadcast_company_id'))) {
+        transformedData.broadcast_company_id = sourceRecord[0]; // First element is typically the company name
+        console.log('Set broadcast company ID from first array element:', transformedData.broadcast_company_id);
+      }
+      
+      if (!transformedData.entity_id && (mappings.entity_id || Object.keys(mappings).includes('entity_id'))) {
+        transformedData.entity_id = sourceRecord[1]; // Second element is typically the entity name (league, team, etc.)
+        console.log('Set entity ID from second array element:', transformedData.entity_id);
+      }
+      
+      if (!transformedData.entity_type && (mappings.entity_type || Object.keys(mappings).includes('entity_type'))) {
+        let entityType = sourceRecord[2]; // Third element is typically the entity type
+        
+        // Normalize entity type to match expected values
+        if (entityType) {
+          // Remove "Series" suffix if present
+          if (typeof entityType === 'string' && entityType.includes('Series')) {
+            entityType = 'league';
+          } else if (typeof entityType === 'string') {
+            entityType = entityType.toLowerCase();
+            if (entityType.includes('league')) entityType = 'league';
+            else if (entityType.includes('team')) entityType = 'team';
+            else if (entityType.includes('game')) entityType = 'game';
+            else if (entityType.includes('stadium')) entityType = 'stadium';
+            else if (entityType.includes('conference') || entityType.includes('division')) entityType = 'division_conference';
+            else entityType = 'league'; // Default to league if we can't determine
+          } else {
+            entityType = 'league'; // Default to league if not a string
+          }
+        } else {
+          entityType = 'league'; // Default to league if not provided
+        }
+        
+        transformedData.entity_type = entityType;
+        console.log('Set entity type from third array element with normalization:', transformedData.entity_type);
+      }
+      
+      if (!transformedData.territory && (mappings.territory || Object.keys(mappings).includes('territory'))) {
+        transformedData.territory = sourceRecord[3]; // Fourth element is typically the territory
+        console.log('Set territory from fourth array element:', transformedData.territory);
+      }
+      
+      if (!transformedData.start_date && (mappings.start_date || Object.keys(mappings).includes('start_date'))) {
+        let startDate = sourceRecord[4]; // Fifth element is typically the start date
+        
+        // Handle year-only dates
+        if (startDate && typeof startDate === 'string' && /^\d{4}$/.test(startDate)) {
+          startDate = `${startDate}-01-01`;
+        }
+        
+        transformedData.start_date = startDate;
+        console.log('Set start date from fifth array element:', transformedData.start_date);
+      }
+      
+      if (!transformedData.end_date && (mappings.end_date || Object.keys(mappings).includes('end_date'))) {
+        let endDate = sourceRecord[5]; // Sixth element is typically the end date
+        
+        // Handle year-only dates
+        if (endDate && typeof endDate === 'string' && /^\d{4}$/.test(endDate)) {
+          endDate = `${endDate}-12-31`;
+        }
+        
+        transformedData.end_date = endDate;
+        console.log('Set end date from sixth array element:', transformedData.end_date);
       }
     }
     

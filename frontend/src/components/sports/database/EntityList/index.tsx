@@ -241,6 +241,8 @@ const EntityList: React.FC<EntityListProps> = ({ className = '' }) => {
       ];
       
       console.log(`EntityList: Searching for: ${query} - applying global search filter`);
+      // Apply filters and always reset to page 1 when searching
+      setCurrentPage(1);
       handleApplyFilters(searchFilters);
     }
   };

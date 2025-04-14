@@ -248,7 +248,10 @@ const EntityTable: React.FC<EntityTableProps> = ({
   // Count matches for the search query
   const matchingEntitiesCount = useMemo(() => {
     if (!searchQuery || searchQuery.length < 3) return 0;
-    const filteredCount = entities.filter(entity => entityMatchesSearch(entity)).length;
+    
+    // Since we're no longer filtering client-side, just report the total number of entities
+    // as they have already been filtered by the server
+    const filteredCount = entities.length;
     
     // Report the filtered count back to the parent component
     if (onFilteredCountChange) {
@@ -256,7 +259,7 @@ const EntityTable: React.FC<EntityTableProps> = ({
     }
     
     return filteredCount;
-  }, [searchQuery, entities, onFilteredCountChange, entityMatchesSearch]);
+  }, [searchQuery, entities, onFilteredCountChange]);
 
   return (
     <div className="overflow-auto border border-gray-200 rounded-md relative">
@@ -352,7 +355,7 @@ const EntityTable: React.FC<EntityTableProps> = ({
         </thead>
         
         <tbody className="bg-white divide-y divide-gray-200">
-          {entities.filter(entityMatchesSearch).map(entity => (
+          {entities.map(entity => (
             <tr 
               key={entity.id}
               className="hover:bg-gray-50 border-b border-gray-200"

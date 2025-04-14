@@ -1,6 +1,7 @@
 import { useState, useCallback } from 'react';
 import { EntityType, validateEntityData, enhancedMapToDatabaseFieldNames } from '../../../../utils/sportDataMapper';
 import { api } from '../../../../utils/api';
+import { useQueryClient } from '@tanstack/react-query';
 
 // Import utility functions and types
 import { formatErrorMessage, transformMappedData, processDivisionConferenceReference, saveEntityToDatabase } from '../utils/importUtils';
@@ -17,6 +18,9 @@ export default function useImportProcess() {
   
   // Results tracking
   const [importResults, setImportResults] = useState<ImportResults | null>(null);
+  
+  // Get query client for cache invalidation
+  const queryClient = useQueryClient();
   
   // Notification management
   const { notification, showNotification, clearNotification } = useNotificationManager();
@@ -185,6 +189,10 @@ export default function useImportProcess() {
         const success = await saveEntityToDatabase(entityType, processedData, effectiveUpdateMode);
         
         if (success) {
+          // Invalidate cache for the entity type to ensure fresh data after creation
+          console.log(`Invalidating ${entityType} entity cache after successful creation`);
+          queryClient.invalidateQueries(['sportsEntities', entityType]);
+          
           // Check if a new broadcast company was created or a brand was used
           if (processedData._newBroadcastCompanyCreated) {
             const { name, id } = processedData._newBroadcastCompanyCreated;
@@ -281,7 +289,7 @@ export default function useImportProcess() {
     } finally {
       setIsSaving(false);
     }
-  }, [showNotification]);
+  }, [showNotification, queryClient]);
   
   /**
    * Batch import multiple records to the database
@@ -361,6 +369,12 @@ export default function useImportProcess() {
       results.errorTypes = errorTypes;
       
       setImportResults(results);
+      
+      // Invalidate query cache for the entity type if any were created
+      if (results.success > 0) {
+        console.log(`Invalidating ${entityType} entity cache after batch import of ${results.success} records`);
+        queryClient.invalidateQueries(['sportsEntities', entityType]);
+      }
       
       // Show final results notification with better error reporting
       if (results.failed === 0) {
@@ -471,7 +485,7 @@ export default function useImportProcess() {
     } finally {
       setIsBatchImporting(false);
     }
-  }, [showNotification]);
+  }, [showNotification, queryClient]);
 
   return {
     isSaving,

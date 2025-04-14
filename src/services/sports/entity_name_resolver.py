@@ -377,6 +377,29 @@ class EntityNameResolver:
                     position = entity.get('position', 'Executive')
                     item_dict["name"] = f"{entity['name']} - {position} ({league_name})"
             
+            # Handle stadiums (has host_broadcaster_id)
+            elif entity_type in ['stadium', 'stadiums']:
+                if 'host_broadcaster_id' in entity and entity['host_broadcaster_id']:
+                    try:
+                        # First try looking up in BroadcastCompany
+                        broadcaster_result = await db.execute(
+                            select(BroadcastCompany.name).where(BroadcastCompany.id == entity['host_broadcaster_id'])
+                        )
+                        broadcaster_name = broadcaster_result.scalar()
+
+                        # If not found, try looking up in Brand table
+                        if not broadcaster_name:
+                            brand_result = await db.execute(
+                                select(Brand.name).where(Brand.id == entity['host_broadcaster_id'])
+                            )
+                            broadcaster_name = brand_result.scalar()
+                            
+                        item_dict["host_broadcaster_name"] = broadcaster_name
+                    except Exception as e:
+                        logger.error(f"Error fetching host broadcaster name for stadium {entity.get('id')}: {str(e)}")
+                        # Don't let this error affect the rest of the response
+                        item_dict["host_broadcaster_name"] = None
+            
             # Handle brands - check for partner field
             elif entity_type in ['brand', 'brands']:
                 if 'partner' in entity and entity['partner']:
@@ -444,6 +467,10 @@ class EntityNameResolver:
         
         if entity_type in ['game_broadcast', 'game_broadcasts']:
             allowed_fields.add('game_name')
+            
+        # Add host_broadcaster_name field for stadium entities
+        if entity_type in ['stadium', 'stadiums']:
+            allowed_fields.add('host_broadcaster_name')
             
         # Add partner fields for brand entities
         if entity_type in ['brand', 'brands']:

@@ -153,7 +153,7 @@ async def errors_handling(request: Request, call_next):
         # Add CORS headers explicitly for error responses
         origin = request.headers.get('origin')
         # In production, check against whitelist; in development, allow all origins
-        if ENVIRONMENT != "production" or origin in settings.CORS_ORIGINS:
+        if origin and (ENVIRONMENT != "production" or origin in settings.CORS_ORIGINS):
             response.headers['Access-Control-Allow-Origin'] = origin
             response.headers['Access-Control-Allow-Credentials'] = 'true'
             response.headers['Access-Control-Allow-Methods'] = "GET, POST, PUT, DELETE, OPTIONS, PATCH"

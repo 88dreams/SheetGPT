@@ -269,10 +269,9 @@ export const SportsDatabaseProvider: React.FC<SportsDatabaseProviderProps> = ({ 
     sortField,
     sortDirection,
     JSON.stringify(activeFilters),
-    // Add timestamp for production services or when sorting to force refetching
-    ...(selectedEntityType === 'production' || selectedEntityType === 'broadcast' 
-      ? [Date.now()] 
-      : [])
+    // Add timestamp to force refetching for all entity types
+    // This ensures consistent behavior across all entities
+    Date.now()
   ], [selectedEntityType, currentPage, pageSize, sortField, sortDirection, activeFilters]);
   
   // Add debugging output for query key changes that highlights sorting parameters
@@ -355,21 +354,21 @@ export const SportsDatabaseProvider: React.FC<SportsDatabaseProviderProps> = ({ 
       }
     },
     enabled: isAuthenticated && isReady,
-    // Use a minimal staleTime for pagination to ensure data is always fresh when changing pages
-    staleTime: 1000 * 10, // 10 seconds - shorter to ensure fresher data
-    // Keep data in cache to improve pagination performance, but don't rely on it completely
-    gcTime: 1000 * 60 * 5, // 5 minutes
+    // Use a minimal staleTime for all entity types to ensure data is always fresh 
+    staleTime: 0, // No stale time - always refetch when requested
+    // Keep data in cache briefly to improve navigation performance within the same session
+    gcTime: 1000 * 60, // 1 minute
     refetchOnWindowFocus: false,
     // Always refetch when mounting or page changes to ensure consistent data
     refetchOnMount: true,
     // Debug key to track API requests and their triggers
     meta: { debug: `${selectedEntityType}_page_${currentPage}` },
-    // Force refetch for production and broadcast services - these need fresher data
-    refetchInterval: selectedEntityType === 'production' || selectedEntityType === 'broadcast' ? 0 : undefined,
-    // This causes issues with complex entity types sometimes
-    keepPreviousData: selectedEntityType !== 'production' && selectedEntityType !== 'broadcast',
-    // Force option ensures fresh data for complex entities like production services
-    refetchForceRetry: selectedEntityType === 'production' || selectedEntityType === 'broadcast',
+    // No automatic refetch interval for any entity type
+    refetchInterval: undefined,
+    // Keep previous data during fetching for all entity types to reduce UI flicker
+    keepPreviousData: true,
+    // Enable force retry for all entity types for consistent behavior
+    refetchForceRetry: true,
     useErrorBoundary: false // Handle errors gracefully
   });
 

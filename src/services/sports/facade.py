@@ -291,7 +291,7 @@ class SportsService:
             result[column.name] = getattr(model, column.name)
         return result
     
-    async def get_entities_with_related_names(self, db: AsyncSession, entity_type: str, page: int = 1, limit: int = 50, sort_by: str = "id", sort_direction: str = "asc") -> Dict[str, Any]:
+    async def get_entities_with_related_names(self, db: AsyncSession, entity_type: str, page: int = 1, limit: int = 50, sort_by: str = "id", sort_direction: str = "asc", filters: Optional[List[Dict[str, Any]]] = None) -> Dict[str, Any]:
         """Get entities with related entity names for better display in the UI."""
         if entity_type not in self.ENTITY_TYPES:
             raise ValueError(f"Invalid entity type: {entity_type}")
@@ -300,8 +300,60 @@ class SportsService:
         relationship_sort = await self.get_relationship_sort_config(entity_type, sort_by)
         logger.info(f"get_entities_with_related_names: Sorting {entity_type} by {sort_by} ({sort_direction}) - Relationship config: {relationship_sort}")
         
-        # Get paginated entities with appropriate sorting
-        result = await self.get_entities(db, entity_type, page, limit, sort_by, sort_direction)
+        # Log filters for debugging
+        if filters:
+            logger.info(f"Applying filters to {entity_type}: {filters}")
+            
+        # TODO: Implement filters in get_entities method
+        # This is a temporary workaround for the current implementation
+        if filters:
+            # Apply manual filtering for "contains" operator
+            model_class = self.ENTITY_TYPES[entity_type]
+            filter_query = select(model_class)
+            
+            for filter_item in filters:
+                field = filter_item.get("field")
+                operator = filter_item.get("operator")
+                value = filter_item.get("value")
+                
+                if field and operator and value is not None:
+                    if field == "name" and operator == "contains":
+                        from sqlalchemy import func
+                        # Apply case-insensitive LIKE filter
+                        filter_query = filter_query.where(
+                            func.lower(getattr(model_class, field)).contains(value.lower())
+                        )
+            
+            # Add sorting
+            if hasattr(model_class, sort_by):
+                sort_column = getattr(model_class, sort_by)
+                if sort_direction.lower() == "desc":
+                    filter_query = filter_query.order_by(sort_column.desc())
+                else:
+                    filter_query = filter_query.order_by(sort_column.asc())
+            
+            # Get count for pagination info
+            count_query = select(func.count()).select_from(filter_query.subquery())
+            total_count = await db.scalar(count_query)
+            
+            # Add pagination
+            filter_query = filter_query.offset((page - 1) * limit).limit(limit)
+            
+            # Execute query
+            result = await db.execute(filter_query)
+            filtered_entities = result.scalars().all()
+            
+            # Create result structure
+            result = {
+                "items": [self._model_to_dict(entity) for entity in filtered_entities],
+                "total": total_count,
+                "page": page,
+                "size": limit,
+                "pages": math.ceil(total_count / limit)
+            }
+        else:
+            # Get paginated entities with appropriate sorting (no filters)
+            result = await self.get_entities(db, entity_type, page, limit, sort_by, sort_direction)
         
         # Get the entities list from the result
         entities = result["items"]

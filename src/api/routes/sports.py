@@ -78,23 +78,42 @@ async def get_entities(
     limit: int = Query(50, ge=1, le=100, description="Items per page"),
     sort_by: str = Query("id", description="Field to sort by"),
     sort_direction: str = Query("asc", description="Sort direction (asc or desc)"),
+    filters: Optional[str] = Query(None, description="JSON string of filter conditions"),
     db: AsyncSession = Depends(get_db),
     current_user: Dict = Depends(get_current_user)
 ):
     """Get paginated entities of a specific type."""
     try:
+        # Parse filters if provided
+        filter_conditions = None
+        if filters:
+            import json
+            try:
+                filter_conditions = json.loads(filters)
+                print(f"Parsed filters: {filter_conditions}")
+            except json.JSONDecodeError:
+                raise ValueError(f"Invalid filter format: {filters}")
+
         # Standard, consistent handling for all entity types
-        return await sports_service.get_entities_with_related_names(
+        result = await sports_service.get_entities_with_related_names(
             db=db,
             entity_type=entity_type,
             page=page,
             limit=limit,
             sort_by=sort_by,
-            sort_direction=sort_direction
+            sort_direction=sort_direction,
+            filters=filter_conditions
         )
+        
+        # Log the number of results for debugging
+        print(f"Found {len(result.get('items', []))} results for {entity_type} with filters: {filter_conditions}")
+        
+        return result
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
+        import traceback
+        traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))
 
 # League endpoints

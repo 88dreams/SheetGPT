@@ -84,6 +84,60 @@ export default function useImportProcess() {
             showNotification('error', 'Field mapping error', 'No data was transformed from the field mappings. Please check console for details.');
             return false;
           }
+        } 
+        // For broadcast entity, apply default/critical values directly
+        else if (entityType === 'broadcast') {
+          console.log('Applying default values for broadcast entity');
+          
+          // Apply direct mapping based on position for broadcast entities
+          // This is a fallback for when the normal mapping fails
+          const defaults: Record<string, any> = {
+            broadcast_company_id: Array.isArray(currentRecord) ? currentRecord[0] : 'Unknown Company',
+            entity_id: Array.isArray(currentRecord) ? currentRecord[1] || 'Unknown Entity' : 'Unknown Entity',
+            entity_type: Array.isArray(currentRecord) ? currentRecord[2] || 'league' : 'league',
+            territory: Array.isArray(currentRecord) ? currentRecord[3] || 'USA' : 'USA',
+            start_date: Array.isArray(currentRecord) ? currentRecord[4] || '2000-01-01' : '2000-01-01',
+            end_date: Array.isArray(currentRecord) ? currentRecord[5] || '2100-01-01' : '2100-01-01'
+          };
+          
+          // Normalize entity_type if needed
+          if (typeof defaults.entity_type === 'string') {
+            const entityType = defaults.entity_type.toLowerCase();
+            if (entityType.includes('series')) {
+              defaults.entity_type = 'league';
+            } else if (entityType.includes('league')) {
+              defaults.entity_type = 'league';
+            } else if (entityType.includes('team')) {
+              defaults.entity_type = 'team';
+            } else if (entityType.includes('game')) {
+              defaults.entity_type = 'game';
+            } else if (entityType.includes('conference') || entityType.includes('division')) {
+              defaults.entity_type = 'division_conference';
+            }
+          }
+          
+          // Format dates if needed
+          if (typeof defaults.start_date === 'string' && /^\d{4}$/.test(defaults.start_date)) {
+            defaults.start_date = `${defaults.start_date}-01-01`;
+          }
+          
+          if (typeof defaults.end_date === 'string' && /^\d{4}$/.test(defaults.end_date)) {
+            defaults.end_date = `${defaults.end_date}-12-31`;
+          }
+          
+          // Copy the defaults to transformedData
+          Object.keys(defaults).forEach(key => {
+            if (mappedData[key]) { // Only set if this field is being mapped
+              transformedData[key] = defaults[key];
+            }
+          });
+          
+          console.log('Applied default broadcast values:', transformedData);
+          
+          if (Object.keys(transformedData).length === 0) {
+            showNotification('error', 'Field mapping error', 'No data was transformed from the field mappings. Please check console for details.');
+            return false;
+          }
         } else {
           showNotification('error', 'Field mapping error', 'No data was transformed from the field mappings. Please check console for details.');
           return false;

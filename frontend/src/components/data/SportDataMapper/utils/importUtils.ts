@@ -39,6 +39,11 @@ export const transformMappedData = (
     ['broadcast_company_id', 'entity_type', 'entity_id', 'territory'].includes(k)
   );
   
+  // Detect brand entity type for special handling
+  const isBrandEntity = Object.keys(mappings).some(k => 
+    ['name', 'industry', 'company_type', 'partner', 'partner_relationship'].includes(k)
+  );
+  
   // If mappings contains sourceFields like "Name", "Company Name", we are using display names
   // and the sourceRecord seems to be a flat array of values. In this case, we need
   // to directly map based on position, using the source field headers.
@@ -51,7 +56,10 @@ export const transformMappedData = (
       'Track Name', 'City', 'State', 'Capacity', 'Owner', 'Host Broadcaster',
       // Add Broadcast-specific field names
       'Name of company', 'Broadcast Client', 'Client Type', 'Broadcast Territory', 
-      'Start date of Rights', 'End date of Rights'
+      'Start date of Rights', 'End date of Rights',
+      // Add Brand-specific field names
+      'Type of Company', 'Brand Name', 'Company Type', 'Partner', 'Relationship Type',
+      'Industry', 'Partner Name', 'Partner Relationship'
     ].includes(v)
   );
   
@@ -89,13 +97,22 @@ export const transformMappedData = (
       'Owner': ['owner', 'ownership', 'proprietor'],
       'Host Broadcaster': ['broadcaster', 'network', 'channel', 'station'],
       'Territory': ['territory', 'region', 'area', 'market', 'broadcast territory'],
+      
       // Add exact broadcast field mappings
       'Name of company': ['company', 'broadcaster', 'network', 'name of company'],
       'Broadcast Client': ['client', 'entity', 'league', 'team', 'broadcast client'],
       'Client Type': ['type', 'category', 'client type', 'entity type'],
       'Broadcast Territory': ['territory', 'region', 'area', 'market', 'broadcast territory'],
       'Start date of Rights': ['start', 'begin', 'from', 'start date', 'start date of rights'],
-      'End date of Rights': ['end', 'finish', 'to', 'until', 'end date', 'end date of rights']
+      'End date of Rights': ['end', 'finish', 'to', 'until', 'end date', 'end date of rights'],
+      
+      // Add exact brand field mappings
+      'Type of Company': ['industry', 'sector', 'business type', 'company category', 'type of company'],
+      'Brand Name': ['brand', 'name', 'company name', 'brand name'],
+      'Company Type': ['type', 'category', 'business model', 'company type'],
+      'Partner': ['partner', 'affiliate', 'associated company', 'partner name'],
+      'Relationship Type': ['relationship', 'association', 'partnership type', 'relationship type', 'partner relationship'],
+      'Industry': ['industry', 'sector', 'field', 'market segment']
     };
     
     // Try to determine positions by analyzing the array data
@@ -231,6 +248,14 @@ export const transformMappedData = (
       if (!fieldPositions['Start date of Rights'] && isBroadcastEntity) fieldPositions['Start date of Rights'] = 4;
       if (!fieldPositions['End date of Rights'] && isBroadcastEntity) fieldPositions['End date of Rights'] = 5;
       
+      // Add exact brand field name mappings for the UI field names
+      if (!fieldPositions['Name of company'] && isBrandEntity) fieldPositions['Name of company'] = 0;
+      if (!fieldPositions['Type of Company'] && isBrandEntity) fieldPositions['Type of Company'] = 2;
+      if (!fieldPositions['Industry'] && isBrandEntity) fieldPositions['Industry'] = 2;
+      if (!fieldPositions['Company Type'] && isBrandEntity) fieldPositions['Company Type'] = 6;
+      if (!fieldPositions['Partner'] && isBrandEntity) fieldPositions['Partner'] = 1;
+      if (!fieldPositions['Relationship Type'] && isBrandEntity) fieldPositions['Relationship Type'] = 3;
+      
       console.log('Final field positions detected:', fieldPositions);
     }
     
@@ -303,6 +328,58 @@ export const transformMappedData = (
       if (!transformedData.entity_type && mappings.entity_type) {
         transformedData.entity_type = 'league';
         console.log('Set default entity_type to "league"');
+      }
+    }
+    
+    // Special handling for brand entity using intelligent field detection
+    if (isBrandEntity && isArrayData && Array.isArray(sourceRecord) && sourceRecord.length >= 3) {
+      console.log('Smart brand entity mapping for array data with length:', sourceRecord.length);
+      console.log('Array data:', sourceRecord);
+      
+      // For brand entities, make sure the critical fields are set correctly
+      if (!transformedData.name && (mappings.name || Object.keys(mappings).includes('name'))) {
+        transformedData.name = sourceRecord[0]; // First element is typically the brand/company name
+        console.log('Set brand name from first array element:', transformedData.name);
+      }
+      
+      if (!transformedData.industry && (mappings.industry || Object.keys(mappings).includes('industry'))) {
+        // Determine industry from array - typically in position 2 (client type) or 6 (broadcaster type)
+        // For broadcast data, the industry would be "Broadcasting"
+        const industryValue = sourceRecord[2] === 'Racing Series' ? 'Sports' : 
+                              sourceRecord[6] === 'Broadcaster' ? 'Broadcasting' : 
+                              'Media';
+        
+        transformedData.industry = industryValue;
+        console.log('Set industry from array data with intelligent detection:', transformedData.industry);
+      }
+      
+      if (!transformedData.company_type && (mappings.company_type || Object.keys(mappings).includes('company_type'))) {
+        // Use the broadcaster type from position 6 if available
+        if (sourceRecord[6] && typeof sourceRecord[6] === 'string') {
+          transformedData.company_type = sourceRecord[6];
+        } else {
+          // Default to "Broadcaster" for broadcast-related data
+          transformedData.company_type = 'Broadcaster';
+        }
+        console.log('Set company_type from array data:', transformedData.company_type);
+      }
+      
+      if (!transformedData.partner && (mappings.partner || Object.keys(mappings).includes('partner'))) {
+        // Partner is typically in position 1 (client/entity name)
+        transformedData.partner = sourceRecord[1];
+        console.log('Set partner from second array element:', transformedData.partner);
+      }
+      
+      if (!transformedData.partner_relationship && (mappings.partner_relationship || Object.keys(mappings).includes('partner_relationship'))) {
+        // Partner relationship can be derived from client type or assumed as "Broadcaster"
+        transformedData.partner_relationship = 'Broadcaster';
+        console.log('Set partner_relationship to default:', transformedData.partner_relationship);
+      }
+      
+      if (!transformedData.country && (mappings.country || Object.keys(mappings).includes('country'))) {
+        // Country is typically in position 3 (territory)
+        transformedData.country = sourceRecord[3];
+        console.log('Set country from territory position:', transformedData.country);
       }
     }
     

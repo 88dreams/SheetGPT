@@ -240,9 +240,20 @@ const SportDataMapperContainer: React.FC<SportDataMapperProps> = ({ isOpen, onCl
   
   // Optimized handler for field mapping drop
   const handleFieldMappingDrop = useCallback((sourceField: string, targetField: string) => {
+    // Log the original mapping for debugging
+    console.log(`handleFieldMappingDrop - ORIGINAL MAPPING: source=${sourceField}, target=${targetField}`);
+    
+    // Use the handleFieldMapping function to update the mappings state
     handleFieldMapping(sourceField, targetField);
+    
+    // Update the mapped data with the new mapping
     updateMappedDataForField(sourceField, targetField, currentRecordIndex);
-  }, [handleFieldMapping, updateMappedDataForField, currentRecordIndex]);
+    
+    // Log the current state of mappings for this entity type for debugging
+    setTimeout(() => {
+      console.log(`MAPPING DEBUG - Current mappings for ${selectedEntityType}:`, getCurrentMappings());
+    }, 10);
+  }, [handleFieldMapping, updateMappedDataForField, currentRecordIndex, selectedEntityType, getCurrentMappings]);
   
   // Optimized save to database function using memoization
   const handleSaveToDatabase = useCallback(async () => {

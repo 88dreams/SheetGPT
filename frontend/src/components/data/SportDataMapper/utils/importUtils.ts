@@ -19,31 +19,60 @@ export const transformMappedData = (
   const transformedData: Record<string, any> = {};
   const isArrayData = Array.isArray(sourceRecord);
   
-  console.log('transformMappedData:', {
-    mappings,
-    isArrayData,
-    sourceRecordSample: JSON.stringify(sourceRecord).substring(0, 100) + '...'
-  });
+  // Extended debugging
+  console.log('------------------ TRANSFORM MAPPED DATA ------------------');
+  console.log('TRANSFORM - Input mappings:', JSON.stringify(mappings, null, 2));
+  console.log('TRANSFORM - Input source record (sample):', JSON.stringify(sourceRecord).substring(0, 100) + '...');
+  console.log('TRANSFORM - Record type:', isArrayData ? 'Array' : 'Object');
+  
+  if (mappings.name === "Broadcast Client") {
+    console.log('FOUND CRITICAL BUG: Field "Broadcast Client" is mapped to name instead of entity_id!');
+  }
 
   // CRITICAL: Check all mappings for "Broadcast Client" field mapping
   // If "Broadcast Client" is mapped to any field in a broadcast entity, ensure it goes to entity_id
+  console.log('CORRECTING MAPPINGS - Looking for "Broadcast Client" incorrectly mapped...');
+  let broadcastClientFound = false;
+  let remappingApplied = false;
+  
   Object.entries(mappings).forEach(([dbField, sourceField]) => {
-    if (sourceField === "Broadcast Client" && mappings.broadcast_company_id) {
-      // Broadcast entities need the Broadcast Client as entity_id
-      if (dbField !== "entity_id") {
-        console.log(`CORRECTING MAPPING: 'Broadcast Client' should be entity_id, not ${dbField}`);
+    console.log(`CHECKING MAPPING - Database field "${dbField}" is mapped to source "${sourceField}"`);
+    
+    if (sourceField === "Broadcast Client") {
+      broadcastClientFound = true;
+      console.log(`FOUND! Broadcast Client is mapped to ${dbField}`);
+      
+      // Check if this is a broadcast entity (has broadcast_company_id)
+      if (mappings.broadcast_company_id) {
+        console.log(`This IS a broadcast entity - checking if remapping needed...`);
         
-        // Save the original field mapping for reference
-        const originalMapping = dbField;
-        
-        // Remove the incorrect mapping
-        delete mappings[originalMapping];
-        
-        // Add the correct mapping to entity_id
-        mappings.entity_id = "Broadcast Client";
+        // Broadcast entities need the Broadcast Client as entity_id
+        if (dbField !== "entity_id") {
+          console.log(`CORRECTING MAPPING: 'Broadcast Client' should be entity_id, not ${dbField}`);
+          
+          // Save the original field mapping for reference
+          const originalMapping = dbField;
+          
+          // Remove the incorrect mapping
+          delete mappings[originalMapping];
+          console.log(`Removed mapping from ${originalMapping}`);
+          
+          // Add the correct mapping to entity_id
+          mappings.entity_id = "Broadcast Client";
+          console.log(`Added mapping to entity_id`);
+          
+          remappingApplied = true;
+        } else {
+          console.log(`Already mapped correctly to entity_id - no change needed`);
+        }
+      } else {
+        console.log(`Not a broadcast entity - no remapping required`);
       }
     }
   });
+  
+  console.log(`MAPPING CHECK COMPLETE - Broadcast Client Found: ${broadcastClientFound}, Remapping Applied: ${remappingApplied}`);
+  console.log(`FINAL MAPPINGS:`, JSON.stringify(mappings, null, 2));
   
   // Process array data
   if (isArrayData && Array.isArray(sourceRecord)) {

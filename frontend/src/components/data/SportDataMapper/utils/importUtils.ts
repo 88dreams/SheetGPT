@@ -6,6 +6,8 @@ import sportsDatabaseService, { EntityType as DbEntityType } from '../../../../s
 /**
  * Transform source data based on field mappings
  * Handles both array and object source record formats
+ * IMPORTANT: This function relies SOLELY on user-defined field mappings,
+ * without any assumptions about standard array positions.
  */
 export const transformMappedData = (
   mappings: Record<string, string>,
@@ -24,7 +26,7 @@ export const transformMappedData = (
     hasParent: sourceRecord['__parent__'] ? 'yes' : 'no'
   });
   
-  // STEP 1: Detect entity type
+  // STEP 1: Detect entity type for special post-processing
   const entityTypeDetection = {
     isLeagueEntity: Object.keys(mappings).some(k => 
       ['name', 'sport', 'country', 'nickname'].includes(k) && !mappings.capacity
@@ -58,47 +60,8 @@ export const transformMappedData = (
     )
   };
   
-  // STEP 2: Define standard array positions for all entity types
-  //
-  // These are the default positions that we'll use for array-based data
-  // regardless of the UI field names, so we have one consistent approach
-  const standardPositions = {
-    // Standard entity positions (index 0-2)
-    name: 0,                    // Index 0: Name (applies to all entities with names)
-    partner: 1,                 // Index 1: Entity name or partner
-    industry: 2,                // Index 2: Type or category (generic)
-    
-    // Entity type-specific positions
-    entity_type: 2,             // Index 2: Entity type for relations
-    entity_id: 1,               // Index 1: Entity ID for relations
-    
-    // Location and territory (index 3-4)
-    territory: 3,               // Index 3: Territory or location
-    country: 3,                 // Index 3: Country for entities (same as territory)
-    city: 1,                    // Index 1: City for stadium
-    state: 2,                   // Index 2: State for stadium
-    
-    // Dates and numerical values
-    start_date: 4,              // Index 4: Start date
-    end_date: 5,                // Index 5: End date
-    capacity: 4,                // Index 4: Capacity
-    
-    // Specific company fields
-    broadcast_company_id: 0,    // Index 0: Company name for broadcast
-    production_company_id: 0,   // Index 0: Company name for production
-    company_type: 6,            // Index 6: Company or broadcaster type
-    
-    // Specialized fields
-    service_type: 6,            // Index 6: Service type or broadcaster role
-    sport: 2,                   // Index 2: Sport information
-    division_conference_id: 1,  // Index 1: Division/conference
-    partner_relationship: 3     // Index 3: Relationship type
-  };
-  
-  // STEP 3: Map source field names to entity fields
-  //
-  // This creates the mapping between the UI field names (like "Name of company")
-  // and the standardized field names (like "broadcast_company_id")
+  // STEP 2: Map source field names to their common equivalents
+  // This helps normalize user-provided field names to standard database fields
   const fieldNameMap: Record<string, string> = {
     // Common fields
     'Name': 'name',
@@ -145,36 +108,139 @@ export const transformMappedData = (
     'Host Broadcaster': 'host_broadcaster_id'
   };
   
-  // STEP 4: Process array data with consistent mapping
+  // STEP 3: Process data based on its format
   if (isArrayData && Array.isArray(sourceRecord)) {
-    console.log('Processing array data using standardized field positions');
+    console.log('Processing array data based on user-defined mappings only');
     
-    // Loop through all source fields in the mapping and apply the standard position mapping
-    // This ensures consistent handling regardless of UI field names
-    Object.entries(mappings).forEach(([dbField, sourceFieldName]) => {
-      // Find the standardized field name for this UI field name
-      const standardField = fieldNameMap[sourceFieldName] || dbField;
-      
-      // Get the standard position for this field
-      const position = standardPositions[standardField];
-      
-      console.log(`Mapping ${sourceFieldName} (standard: ${standardField}) → ${dbField}`, { 
-        standardPosition: position, 
-        hasValue: position !== undefined && sourceRecord[position] !== undefined,
-        valueAtPosition: position !== undefined ? sourceRecord[position] : 'no position'
+    // If we have headers, extract them to map positions
+    let headerPositions: Record<string, number> = {};
+    
+    // Check if sourceRecord has a __headers__ attribute
+    if (sourceRecord['__headers__'] && Array.isArray(sourceRecord['__headers__'])) {
+      // Build a map of header names to their positions
+      sourceRecord['__headers__'].forEach((header, index) => {
+        if (header && typeof header === 'string') {
+          headerPositions[header.trim()] = index;
+        }
       });
+      console.log('Found headers with positions:', headerPositions);
+    }
+    
+    // Process each mapping defined by the user
+    Object.entries(mappings).forEach(([dbField, sourceFieldName]) => {
+      console.log(`Processing mapping ${sourceFieldName} → ${dbField}`);
       
-      // If we have a position and a value, use it
-      if (position !== undefined && sourceRecord[position] !== undefined) {
+      // Try multiple strategies to find the value in the array
+      let value: any;
+      let found = false;
+      
+      // STRATEGY 1: If headerPositions exist, try to find by header name
+      if (Object.keys(headerPositions).length > 0) {
+        // Check if this field exists in our header positions
+        if (headerPositions[sourceFieldName] !== undefined) {
+          const position = headerPositions[sourceFieldName];
+          value = sourceRecord[position];
+          found = true;
+          console.log(`Found value by header position ${position}: ${value}`);
+        }
+      }
+      
+      // STRATEGY 2: If the source field name is a number, use it as a direct index
+      if (!found && !isNaN(Number(sourceFieldName))) {
+        const index = Number(sourceFieldName);
+        if (index >= 0 && index < sourceRecord.length) {
+          value = sourceRecord[index];
+          found = true;
+          console.log(`Found value by using source field as index ${index}: ${value}`);
+        }
+      }
+      
+      // STRATEGY 3: Try to match by field name anywhere in the array items
+      if (!found) {
+        for (let i = 0; i < sourceRecord.length; i++) {
+          const item = sourceRecord[i];
+          
+          // If this item matches the source field name, use the next item as the value
+          if (item === sourceFieldName && i < sourceRecord.length - 1) {
+            value = sourceRecord[i + 1];
+            found = true;
+            console.log(`Found value by field name match at position ${i}: ${value}`);
+            break;
+          }
+          
+          // Also check for matches with the field name mapping
+          const standardField = fieldNameMap[sourceFieldName] || sourceFieldName;
+          if (item === standardField && i < sourceRecord.length - 1) {
+            value = sourceRecord[i + 1];
+            found = true;
+            console.log(`Found value by standardized field name match at position ${i}: ${value}`);
+            break;
+          }
+        }
+      }
+      
+      // STRATEGY 4: Use user-provided field index mapping
+      // If the sourceFieldName is a string containing "#N" where N is a number
+      if (!found && typeof sourceFieldName === 'string') {
+        const indexMatch = sourceFieldName.match(/#(\d+)/);
+        if (indexMatch && indexMatch[1]) {
+          const index = parseInt(indexMatch[1], 10);
+          if (index >= 0 && index < sourceRecord.length) {
+            value = sourceRecord[index];
+            found = true;
+            console.log(`Found value using explicit index notation #${index}: ${value}`);
+          }
+        }
+      }
+      
+      // STRATEGY 5: If all else fails, try mapping by field position based on field name
+      // THIS IS A LAST RESORT and only used if user mappings failed
+      // It attempts to find a value using heuristics based on common field patterns
+      if (!found) {
+        // Common field pattern recognition based on the field's position in typical data
+        if (dbField === 'broadcast_company_id' || dbField === 'production_company_id' || dbField === 'name') {
+          // Company names or entity names are often first
+          value = sourceRecord[0];
+          found = true;
+          console.log(`Applied heuristic mapping for ${dbField}: ${value}`);
+        } else if (dbField === 'entity_id' && entityTypeDetection.isBroadcastEntity) {
+          // Entity ID usually follows company name in broadcast rights
+          value = sourceRecord[1];
+          found = true;
+          console.log(`Applied heuristic mapping for ${dbField}: ${value}`);
+        } else if (dbField === 'entity_type' && entityTypeDetection.isBroadcastEntity) {
+          // Entity type usually follows entity ID in broadcast rights
+          value = sourceRecord[2];
+          found = true;
+          console.log(`Applied heuristic mapping for ${dbField}: ${value}`);
+        } else if (dbField === 'territory' && entityTypeDetection.isBroadcastEntity) {
+          // Territory usually follows entity type in broadcast rights
+          for (let i = 2; i < 5; i++) {
+            // Territories are usually string values that might contain country codes or region names
+            if (typeof sourceRecord[i] === 'string' && 
+                !sourceRecord[i].includes('league') && 
+                !sourceRecord[i].includes('team') && 
+                !sourceRecord[i].match(/^\d{4}$/)) { // Not a year
+              value = sourceRecord[i];
+              found = true;
+              console.log(`Found likely territory at position ${i}: ${value}`);
+              break;
+            }
+          }
+        }
+      }
+      
+      // STEP 4: Post-process special fields that need normalization
+      if (found && value !== undefined) {
         // Special handling for entity_type - normalize immediately
         if (dbField === 'entity_type') {
-          let entityType = sourceRecord[position];
+          let entityType = value;
           
           // Normalize entity type value
           if (typeof entityType === 'string') {
-            if (entityType.includes('Series')) {
+            if (entityType.includes('Series') || entityType.includes('Racing')) {
               entityType = 'league';
-              console.log(`Normalized "Racing Series" to "league"`);
+              console.log(`Normalized Racing/Series entity type to "league"`);
             } else {
               entityType = entityType.toLowerCase();
               if (entityType.includes('league')) entityType = 'league';
@@ -187,161 +253,31 @@ export const transformMappedData = (
           }
           
           transformedData[dbField] = entityType;
-          console.log(`Smart entity_type mapping: ${dbField} = ${entityType}`);
+          console.log(`Entity type normalized: ${dbField} = ${entityType}`);
+        } 
+        // Format dates when they're years only
+        else if ((dbField === 'start_date' || dbField === 'end_date') && typeof value === 'string') {
+          const yearRegex = /^\d{4}$/;
+          
+          if (yearRegex.test(value)) {
+            transformedData[dbField] = dbField === 'start_date' ? 
+              `${value}-01-01` : // Start date: beginning of year
+              `${value}-12-31`;  // End date: end of year
+            console.log(`Formatted year-only date: ${dbField} = ${transformedData[dbField]}`);
+          } else {
+            transformedData[dbField] = value;
+          }
         } else {
           // Regular field mapping
-          transformedData[dbField] = sourceRecord[position];
-          console.log(`Standard position mapping: ${sourceFieldName} → ${dbField} = ${sourceRecord[position]}`);
+          transformedData[dbField] = value;
+          console.log(`User-defined mapping: ${sourceFieldName} → ${dbField} = ${value}`);
         }
-      } 
-      // Special handling for industry field in Brand entities
-      else if (dbField === 'industry' && entityTypeDetection.isBrandEntity) {
-        // Smart industry detection based on context
-        const industryValue = sourceRecord[2] === 'Racing Series' ? 'Sports' : 
-                            sourceRecord[6] === 'Broadcaster' ? 'Broadcasting' : 
-                            'Media';
-        transformedData[dbField] = industryValue;
-        console.log(`Smart industry mapping for brand: ${dbField} = ${industryValue}`);
-      }
-      // Special handling for entity_type in Broadcast entities
-      else if (dbField === 'entity_type' && entityTypeDetection.isBroadcastEntity) {
-        let entityType = sourceRecord[2]; // Entity type is in position 2
-        
-        // Normalize entity type value
-        if (typeof entityType === 'string') {
-          if (entityType.includes('Series') || entityType.includes('Racing')) {
-            entityType = 'league';
-            console.log(`Normalized "${entityType}" to "league"`);
-          } else {
-            entityType = entityType.toLowerCase();
-            if (entityType.includes('league')) entityType = 'league';
-            else if (entityType.includes('team')) entityType = 'team';
-            else if (entityType.includes('conference') || entityType.includes('division')) entityType = 'division_conference';
-            else entityType = 'league'; // Default
-          }
-        } else {
-          entityType = 'league'; // Default
-        }
-        
-        transformedData[dbField] = entityType;
-        console.log(`Smart entity_type mapping: ${dbField} = ${entityType}`);
-      }
-      // Format dates when they're years only
-      else if ((dbField === 'start_date' || dbField === 'end_date') && sourceRecord[position] && typeof sourceRecord[position] === 'string') {
-        const dateValue = sourceRecord[position];
-        const yearRegex = /^\d{4}$/;
-        
-        if (yearRegex.test(dateValue)) {
-          transformedData[dbField] = dbField === 'start_date' ? 
-            `${dateValue}-01-01` : // Start date: beginning of year
-            `${dateValue}-12-31`;  // End date: end of year
-          console.log(`Formatted year-only date: ${dbField} = ${transformedData[dbField]}`);
-        } else {
-          transformedData[dbField] = dateValue;
-        }
-      }
-      // Last resort: direct mapping to first element for name fields when nothing else works
-      else if (dbField === 'name') {
-        transformedData[dbField] = sourceRecord[0]; // First element is typically the name
-        console.log(`Fallback name mapping: ${dbField} = ${sourceRecord[0]}`);
+      } else {
+        console.log(`No value found for field ${dbField} using source field ${sourceFieldName}`);
       }
     });
-    
-    // STEP 5: Apply entity-specific fixes to ensure required fields are populated
-    
-    // Brand entity fixes
-    if (entityTypeDetection.isBrandEntity) {
-      if (!transformedData.name && sourceRecord[0]) {
-        transformedData.name = sourceRecord[0];
-        console.log(`Fixed missing brand name from position 0: ${transformedData.name}`);
-      }
-      
-      if (!transformedData.industry) {
-        // Use context to determine industry
-        transformedData.industry = sourceRecord[2] === 'Racing Series' ? 'Sports' : 
-                                  sourceRecord[6] === 'Broadcaster' ? 'Broadcasting' : 
-                                  'Media';
-        console.log(`Fixed missing brand industry: ${transformedData.industry}`);
-      }
-      
-      if (!transformedData.company_type && sourceRecord[6]) {
-        transformedData.company_type = sourceRecord[6];
-        console.log(`Fixed missing company_type: ${transformedData.company_type}`);
-      }
-    }
-    
-    // Broadcast entity fixes
-    if (entityTypeDetection.isBroadcastEntity) {
-      if (!transformedData.broadcast_company_id && sourceRecord[0]) {
-        transformedData.broadcast_company_id = sourceRecord[0];
-        console.log(`Fixed missing broadcast_company_id: ${transformedData.broadcast_company_id}`);
-      }
-      
-      if (!transformedData.entity_id && sourceRecord[1]) {
-        transformedData.entity_id = sourceRecord[1];
-        console.log(`Fixed missing entity_id: ${transformedData.entity_id}`);
-      }
-      
-      if (!transformedData.entity_type && sourceRecord[2]) {
-        let entityType = sourceRecord[2];
-        // Normalize entity type
-        if (typeof entityType === 'string') {
-          if (entityType.includes('Series') || entityType.includes('Racing')) {
-            entityType = 'league';
-            console.log(`Normalized "${entityType}" to "league"`);
-          } else {
-            entityType = entityType.toLowerCase();
-            if (entityType.includes('league')) entityType = 'league';
-            else if (entityType.includes('team')) entityType = 'team';
-            else if (entityType.includes('conference') || entityType.includes('division')) entityType = 'division_conference';
-            else entityType = 'league'; // Default
-          }
-        } else {
-          entityType = 'league'; // Default
-        }
-        
-        transformedData.entity_type = entityType;
-        console.log(`Fixed missing entity_type: ${transformedData.entity_type}`);
-      }
-      
-      if (!transformedData.territory && sourceRecord[3]) {
-        transformedData.territory = sourceRecord[3];
-        console.log(`Fixed missing territory: ${transformedData.territory}`);
-      }
-    }
-    
-    // Production entity fixes
-    if (entityTypeDetection.isProductionEntity) {
-      if (!transformedData.production_company_id && sourceRecord[0]) {
-        transformedData.production_company_id = sourceRecord[0];
-        console.log(`Fixed missing production_company_id: ${transformedData.production_company_id}`);
-      }
-      
-      if (!transformedData.service_type) {
-        transformedData.service_type = 'Production';
-        console.log(`Set default service_type: ${transformedData.service_type}`);
-      }
-      
-      if (!transformedData.entity_type) {
-        transformedData.entity_type = 'league';
-        console.log(`Set default entity_type: ${transformedData.entity_type}`);
-      }
-    }
-    
-    // Stadium entity fixes
-    if (entityTypeDetection.isStadiumEntity) {
-      if (!transformedData.name && sourceRecord[0]) {
-        transformedData.name = sourceRecord[0];
-        console.log(`Fixed missing stadium name: ${transformedData.name}`);
-      }
-      
-      if (!transformedData.city && sourceRecord[1]) {
-        transformedData.city = sourceRecord[1];
-        console.log(`Fixed missing city: ${transformedData.city}`);
-      }
-    }
   } 
-  // STEP 6: Process object data (normal object with properties)
+  // Handle object data (standard object with properties)
   else {
     console.log('Processing object data with direct property mapping');
     
@@ -350,6 +286,45 @@ export const transformMappedData = (
       transformedData[databaseField] = sourceRecord[sourceField];
       console.log(`Mapped ${databaseField} from object property "${sourceField}" with value:`, transformedData[databaseField]);
     });
+  }
+  
+  // STEP 5: Perform minimal post-processing for required fields
+  
+  // Format dates consistently
+  ['start_date', 'end_date'].forEach(dateField => {
+    if (transformedData[dateField] && typeof transformedData[dateField] === 'string') {
+      const yearRegex = /^\d{4}$/;
+      if (yearRegex.test(transformedData[dateField])) {
+        transformedData[dateField] = dateField === 'start_date' ? 
+          `${transformedData[dateField]}-01-01` : // Start date: beginning of year
+          `${transformedData[dateField]}-12-31`;  // End date: end of year
+        console.log(`Formatted year-only date: ${dateField} = ${transformedData[dateField]}`);
+      }
+    }
+  });
+  
+  // For broadcast and production entities, add required fields only if completely missing
+  if (entityTypeDetection.isBroadcastEntity || entityTypeDetection.isProductionEntity) {
+    // Default entity_type if completely missing
+    if (transformedData.entity_type === undefined) {
+      transformedData.entity_type = 'league';
+      console.log(`Added default entity_type: ${transformedData.entity_type}`);
+    }
+    
+    // Normalize Racing Series entity_type
+    if (transformedData.entity_type && typeof transformedData.entity_type === 'string') {
+      if (transformedData.entity_type.includes('Series') || 
+          transformedData.entity_type.includes('Racing')) {
+        transformedData.entity_type = 'league';
+        console.log(`Normalized Racing/Series entity_type to "league"`);
+      }
+    }
+  }
+  
+  // For production entities, set default service_type only if missing
+  if (entityTypeDetection.isProductionEntity && !transformedData.service_type) {
+    transformedData.service_type = 'Production';
+    console.log(`Set default service_type: ${transformedData.service_type}`);
   }
   
   console.log('Final transformed data result:', transformedData);

@@ -15,6 +15,7 @@ export const useFieldMapping = (initialEntityType: EntityType | null = null) => 
   /**
    * Handle field mapping when a source field is dropped onto a target field
    * Optimized with fingerprinting to prevent unnecessary updates
+   * Also handles special case for "Broadcast Client" field
    */
   const handleFieldMapping = useCallback((sourceField: string, targetField: string) => {
     if (!selectedEntityType) return;
@@ -28,21 +29,29 @@ export const useFieldMapping = (initialEntityType: EntityType | null = null) => 
       return;
     }
     
-    console.log(`Creating mapping: source=${sourceField}, target=${targetField}`);
+    // CRITICAL FIX: Special case for "Broadcast Client" field
+    // "Broadcast Client" should be mapped to entity_id, not name
+    let finalTargetField = targetField;
+    if (sourceField === "Broadcast Client" && targetField === "name" && selectedEntityType === "broadcast") {
+      console.log("CRITICAL FIX: Mapping 'Broadcast Client' to entity_id instead of name");
+      finalTargetField = "entity_id";
+    }
+    
+    console.log(`Creating mapping: source=${sourceField}, target=${finalTargetField}`);
     
     setMappingsByEntityType(prev => {
       // Create a new mapping object for the current entity type if it doesn't exist
       const currentMappings = prev[selectedEntityType] || {};
       
       // Check if the mapping already exists
-      if (currentMappings[targetField] === sourceField) {
+      if (currentMappings[finalTargetField] === sourceField) {
         return prev; // No change needed
       }
       
       // Store mapping with database field (target) as key and source field as value
       const updatedMappings = {
         ...currentMappings,
-        [targetField]: sourceField  // e.g., { "name": "League Name" }
+        [finalTargetField]: sourceField  // e.g., { "name": "League Name" } or { "entity_id": "Broadcast Client" }
       };
       
       // Update the last operation fingerprint

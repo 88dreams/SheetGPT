@@ -255,8 +255,17 @@ export const transformMappedData = (
       
       // STEP 4: Post-process special fields that need normalization
       if (found && value !== undefined) {
+        // CRITICAL FIX FOR BROADCAST CLIENT FIELD
+        // In broadcast entities, "Broadcast Client" should be mapped to entity_id, not name
+        if (dbField === 'name' && sourceFieldName === 'Broadcast Client' && entityTypeDetection.isBroadcastEntity) {
+          console.log(`CRITICAL FIX: "Broadcast Client" field should be entity_id, not name`);
+          // Set value as entity_id instead of name
+          transformedData['entity_id'] = value;
+          // Broadcast rights don't need a name field, so don't set it
+          found = false;
+        }
         // Special handling for entity_type - normalize immediately
-        if (dbField === 'entity_type') {
+        else if (dbField === 'entity_type') {
           let entityType = value;
           
           // Normalize entity type value

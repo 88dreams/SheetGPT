@@ -47,10 +47,16 @@ ENTITY_TYPES = {
     # Additional mappings for frontend entity types
     "broadcast": BroadcastRights,
     "production": ProductionService,
+    # Racing-specific entity types (mapped to League)
+    "racing_series": League,
+    "racing series": League,
+    "racing": League,
+    "series": League,
     # Special entity types (handled through mapping)
     "championship": None,  # Handled in validator
     "playoff": None,       # Handled in validator
-    "playoffs": None       # Handled in validator
+    "playoffs": None,      # Handled in validator
+    "tournament": None     # Handled in validator
 }
 
 def normalize_entity_type(entity_type: str) -> str:
@@ -61,6 +67,7 @@ def normalize_entity_type(entity_type: str) -> str:
         'division' or 'conference' -> 'division_conference'
         'broadcast_right' -> 'broadcast_rights' 
         'Team' -> 'team'
+        'Racing Series' or 'racing' -> 'league'
     """
     if not entity_type:
         return ""
@@ -77,6 +84,11 @@ def normalize_entity_type(entity_type: str) -> str:
         return 'production_services'
     elif normalized in ['championship', 'playoff', 'playoffs', 'tournament']:
         return normalized  # Keep these as is for special handling
+    
+    # Handle racing series and variations
+    elif 'racing' in normalized or 'series' in normalized:
+        logger.info(f"Normalizing racing entity type: {entity_type} -> league")
+        return 'league'
     
     # Check if it's a valid entity type (handles pluralization)
     if normalized in ENTITY_TYPES:

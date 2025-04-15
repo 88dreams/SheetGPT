@@ -166,8 +166,33 @@ export const transformMappedData = (
       
       // If we have a position and a value, use it
       if (position !== undefined && sourceRecord[position] !== undefined) {
-        transformedData[dbField] = sourceRecord[position];
-        console.log(`Standard position mapping: ${sourceFieldName} → ${dbField} = ${sourceRecord[position]}`);
+        // Special handling for entity_type - normalize immediately
+        if (dbField === 'entity_type') {
+          let entityType = sourceRecord[position];
+          
+          // Normalize entity type value
+          if (typeof entityType === 'string') {
+            if (entityType.includes('Series')) {
+              entityType = 'league';
+              console.log(`Normalized "Racing Series" to "league"`);
+            } else {
+              entityType = entityType.toLowerCase();
+              if (entityType.includes('league')) entityType = 'league';
+              else if (entityType.includes('team')) entityType = 'team';
+              else if (entityType.includes('conference') || entityType.includes('division')) entityType = 'division_conference';
+              else entityType = 'league'; // Default
+            }
+          } else {
+            entityType = 'league'; // Default
+          }
+          
+          transformedData[dbField] = entityType;
+          console.log(`Smart entity_type mapping: ${dbField} = ${entityType}`);
+        } else {
+          // Regular field mapping
+          transformedData[dbField] = sourceRecord[position];
+          console.log(`Standard position mapping: ${sourceFieldName} → ${dbField} = ${sourceRecord[position]}`);
+        }
       } 
       // Special handling for industry field in Brand entities
       else if (dbField === 'industry' && entityTypeDetection.isBrandEntity) {
@@ -184,8 +209,9 @@ export const transformMappedData = (
         
         // Normalize entity type value
         if (typeof entityType === 'string') {
-          if (entityType.includes('Series')) {
+          if (entityType.includes('Series') || entityType.includes('Racing')) {
             entityType = 'league';
+            console.log(`Normalized "${entityType}" to "league"`);
           } else {
             entityType = entityType.toLowerCase();
             if (entityType.includes('league')) entityType = 'league';
@@ -260,8 +286,9 @@ export const transformMappedData = (
         let entityType = sourceRecord[2];
         // Normalize entity type
         if (typeof entityType === 'string') {
-          if (entityType.includes('Series')) {
+          if (entityType.includes('Series') || entityType.includes('Racing')) {
             entityType = 'league';
+            console.log(`Normalized "${entityType}" to "league"`);
           } else {
             entityType = entityType.toLowerCase();
             if (entityType.includes('league')) entityType = 'league';
@@ -544,7 +571,16 @@ export const saveEntityToDatabase = async (
       if (data.entity_id && typeof data.entity_id === 'string' && !isValidUUID(data.entity_id)) {
         // It's an entity name, not a UUID - try to resolve it
         const entityName = data.entity_id;
-        let entityType = data.entity_type.toLowerCase();
+        
+        // CRITICAL: Normalize entity_type if it contains "racing" or "series"
+        if (data.entity_type && 
+            (data.entity_type.toLowerCase().includes('racing') || 
+             data.entity_type.toLowerCase().includes('series'))) {
+          console.log(`Normalizing entity_type "${data.entity_type}" to "league" for entity lookup`);
+          data.entity_type = 'league';
+        }
+        
+        let entityType = (data.entity_type || 'league').toLowerCase();
         
         // Normalize entity type
         if (['division', 'conference', 'divisions', 'conferences'].includes(entityType)) {
@@ -561,6 +597,22 @@ export const saveEntityToDatabase = async (
             throw new Error(`${entityType} not found: ${entityName}`);
           }
         } catch (lookupError) {
+          // If the error indicates invalid entity type, try using "league" instead
+          if (lookupError.message && lookupError.message.includes('Invalid entity type')) {
+            console.log(`Entity type "${entityType}" is invalid, trying with "league" instead`);
+            try {
+              const leagueResult = await api.sports.lookup('league', entityName);
+              if (leagueResult && leagueResult.id) {
+                console.log(`Found entity "${entityName}" as a league with ID: ${leagueResult.id}`);
+                data.entity_type = 'league'; // Update to the proper entity type
+                data.entity_id = leagueResult.id;
+                return; // Skip to next step
+              }
+            } catch (secondError) {
+              console.error(`Failed to find entity "${entityName}" as a league`);
+            }
+          }
+          
           console.error(`Failed to find entity ${entityType}: ${entityName}`);
           throw new Error(`Entity "${entityName}" not found. Please create it first in the database.`);
         }

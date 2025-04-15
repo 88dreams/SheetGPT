@@ -242,6 +242,10 @@ class EntityValidator:
         elif normalized_type in ('championship', 'playoff', 'playoffs', 'tournament'):
             normalized_type = 'championship_playoff'
             logger.info(f"Mapped {entity_type} to championship_playoff category")
+        # Handle racing series variations - map to league
+        elif 'racing' in normalized_type or 'series' in normalized_type:
+            normalized_type = 'league'
+            logger.info(f"Mapped racing entity type: {entity_type} to league category")
             
         logger.info(f"Validating entity type {normalized_type} with ID {entity_id}")
         

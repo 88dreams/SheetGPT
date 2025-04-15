@@ -25,13 +25,25 @@ export const transformMappedData = (
     sourceRecordSample: JSON.stringify(sourceRecord).substring(0, 100) + '...'
   });
 
-  // CRITICAL: For broadcast entities with "Broadcast Client" mapped to name,
-  // remap it to entity_id instead as this is a common source of confusion
-  if (mappings.name === "Broadcast Client" && mappings.broadcast_company_id) {
-    console.log("REMAPPING: 'Broadcast Client' should be entity_id, not name");
-    mappings.entity_id = mappings.name;
-    delete mappings.name;
-  }
+  // CRITICAL: Check all mappings for "Broadcast Client" field mapping
+  // If "Broadcast Client" is mapped to any field in a broadcast entity, ensure it goes to entity_id
+  Object.entries(mappings).forEach(([dbField, sourceField]) => {
+    if (sourceField === "Broadcast Client" && mappings.broadcast_company_id) {
+      // Broadcast entities need the Broadcast Client as entity_id
+      if (dbField !== "entity_id") {
+        console.log(`CORRECTING MAPPING: 'Broadcast Client' should be entity_id, not ${dbField}`);
+        
+        // Save the original field mapping for reference
+        const originalMapping = dbField;
+        
+        // Remove the incorrect mapping
+        delete mappings[originalMapping];
+        
+        // Add the correct mapping to entity_id
+        mappings.entity_id = "Broadcast Client";
+      }
+    }
+  });
   
   // Process array data
   if (isArrayData && Array.isArray(sourceRecord)) {
@@ -94,12 +106,21 @@ export const transformMappedData = (
   
   // Minimal post-processing (apply to all entity types)
   
-  // Convert Racing Series/similar to league in entity_type
+  // Convert Racing Series/similar to league in entity_type - comprehensive handling
   if (transformedData.entity_type && typeof transformedData.entity_type === 'string') {
-    if (transformedData.entity_type.includes('Series') || 
-        transformedData.entity_type.includes('Racing')) {
+    const entityType = transformedData.entity_type.toLowerCase();
+    
+    // More robust detection for racing-related entity types
+    if (entityType.includes('series') || 
+        entityType.includes('racing') ||
+        entityType.includes('motorsport') ||
+        entityType === 'indycar' ||
+        entityType === 'nascar' ||
+        entityType === 'formula one' ||
+        entityType === 'formula 1' ||
+        entityType === 'f1') {
       transformedData.entity_type = 'league';
-      console.log(`Normalized entity_type to "league"`);
+      console.log(`Normalized racing-related entity_type "${transformedData.entity_type}" to "league"`);
     }
   }
   
@@ -337,11 +358,21 @@ export const saveEntityToDatabase = async (
         const entityName = data.entity_id;
         
         // CRITICAL: Normalize entity_type if it contains "racing" or "series"
-        if (data.entity_type && 
-            (data.entity_type.toLowerCase().includes('racing') || 
-             data.entity_type.toLowerCase().includes('series'))) {
-          console.log(`Normalizing entity_type "${data.entity_type}" to "league" for entity lookup`);
-          data.entity_type = 'league';
+        if (data.entity_type && typeof data.entity_type === 'string') {
+          const entityType = data.entity_type.toLowerCase();
+          
+          // Comprehensive detection for racing-related entity types
+          if (entityType.includes('series') || 
+              entityType.includes('racing') ||
+              entityType.includes('motorsport') ||
+              entityType === 'indycar' ||
+              entityType === 'nascar' ||
+              entityType === 'formula one' ||
+              entityType === 'formula 1' ||
+              entityType === 'f1') {
+            console.log(`Normalizing entity_type "${data.entity_type}" to "league" for entity lookup`);
+            data.entity_type = 'league';
+          }
         }
         
         let entityType = (data.entity_type || 'league').toLowerCase();

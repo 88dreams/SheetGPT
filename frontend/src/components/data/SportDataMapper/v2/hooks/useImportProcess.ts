@@ -80,6 +80,7 @@ export function useImportProcess(notificationHandler: ImportNotificationHandler)
   
   /**
    * Transform mapped data for saving to database
+   * Relies solely on user-defined field mappings
    */
   const transformMappedData = useCallback((
     mappings: Record<string, string>,
@@ -87,9 +88,77 @@ export function useImportProcess(notificationHandler: ImportNotificationHandler)
   ): Record<string, any> => {
     const result: Record<string, any> = {};
     
-    Object.entries(mappings).forEach(([targetField, sourceField]) => {
-      result[targetField] = record[sourceField];
-    });
+    // Handle different types of source records
+    if (Array.isArray(record)) {
+      // For array data, we need more sophisticated handling
+      console.log('Processing array data based on user-defined mappings only');
+      
+      // Process each mapping defined by the user
+      Object.entries(mappings).forEach(([dbField, sourceFieldName]) => {
+        console.log(`Processing mapping ${sourceFieldName} → ${dbField}`);
+        
+        // Try multiple strategies to find the value in the array
+        let value;
+        let found = false;
+        
+        // STRATEGY 1: If the source field name is a number, use it as a direct index
+        if (!isNaN(Number(sourceFieldName))) {
+          const index = Number(sourceFieldName);
+          if (index >= 0 && index < record.length) {
+            value = record[index];
+            found = true;
+            console.log(`Found value by using source field as index ${index}: ${value}`);
+          }
+        }
+        
+        // STRATEGY 2: Use user-provided field index mapping
+        // If the sourceFieldName is a string containing "#N" where N is a number
+        if (!found && typeof sourceFieldName === 'string') {
+          const indexMatch = sourceFieldName.match(/#(\d+)/);
+          if (indexMatch && indexMatch[1]) {
+            const index = parseInt(indexMatch[1], 10);
+            if (index >= 0 && index < record.length) {
+              value = record[index];
+              found = true;
+              console.log(`Found value using explicit index notation #${index}: ${value}`);
+            }
+          }
+        }
+        
+        // If a value was found, process special cases
+        if (found && value !== undefined) {
+          // Special handling for entity_type
+          if (dbField === 'entity_type' && typeof value === 'string') {
+            if (value.includes('Series') || value.includes('Racing')) {
+              value = 'league';
+              console.log(`Normalized Racing/Series entity type to "league"`);
+            }
+          }
+          
+          // Format dates when they're years only
+          if ((dbField === 'start_date' || dbField === 'end_date') && typeof value === 'string') {
+            const yearRegex = /^\d{4}$/;
+            if (yearRegex.test(value)) {
+              value = dbField === 'start_date' ? 
+                `${value}-01-01` : // Start date: beginning of year
+                `${value}-12-31`;  // End date: end of year
+              console.log(`Formatted year-only date: ${dbField} = ${value}`);
+            }
+          }
+          
+          result[dbField] = value;
+        } else {
+          // Direct mapping
+          result[dbField] = record[sourceFieldName];
+        }
+      });
+    } else {
+      // For object records, use direct property access
+      console.log('Processing object data with direct property mapping');
+      Object.entries(mappings).forEach(([targetField, sourceField]) => {
+        result[targetField] = record[sourceField];
+      });
+    }
     
     return result;
   }, []);

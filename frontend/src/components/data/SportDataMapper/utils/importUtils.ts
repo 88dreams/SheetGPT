@@ -244,11 +244,11 @@ export const transformMappedData = (
       
       // Set territory if missing
       if (!transformedData.territory) {
-        // Try to find USA or equivalent in positions 5-6
+        // Try to find any territory in positions 5-6
         for (let i = 5; i <= 6 && i < sourceRecord.length; i++) {
-          if (['USA', 'US', 'United States', 'America'].includes(String(sourceRecord[i]))) {
-            transformedData.territory = 'USA';
-            console.log(`Set territory = USA from position ${i}`);
+          if (typeof sourceRecord[i] === 'string' && sourceRecord[i].trim() !== '') {
+            transformedData.territory = sourceRecord[i];
+            console.log(`Set territory = ${sourceRecord[i]} from position ${i}`);
             break;
           }
         }
@@ -405,16 +405,68 @@ export const saveEntityToDatabase = async (
         // 1.3 Look up the entity by name to get its ID
         console.log(`Looking up ${lookupEntityType} with name "${entityName}"`);
         try {
-          const entityLookup = await api.sports.lookup(lookupEntityType, entityName);
-          if (entityLookup && entityLookup.id) {
-            console.log(`Found ${lookupEntityType} "${entityName}" with ID: ${entityLookup.id}`);
-            processedData.entity_id = entityLookup.id;
-          } else {
-            throw new Error(`${lookupEntityType} not found: ${entityName}`);
+          // Try a few different entity types for better chance of matching
+          const typesToTry = [lookupEntityType, 'league', 'division_conference'];
+          let foundEntity = false;
+          
+          for (const typeToTry of typesToTry) {
+            if (foundEntity) break;
+            
+            try {
+              console.log(`Trying to lookup ${entityName} as ${typeToTry}`);
+              const entityLookup = await api.sports.lookup(typeToTry, entityName);
+              
+              if (entityLookup && entityLookup.id) {
+                console.log(`Found ${typeToTry} "${entityName}" with ID: ${entityLookup.id}`);
+                // Use the type we found it with
+                processedData.entity_type = typeToTry;
+                processedData.entity_id = entityLookup.id;
+                foundEntity = true;
+              }
+            } catch (lookupErr) {
+              console.log(`Lookup failed for ${typeToTry}: ${lookupErr.message}`);
+            }
+          }
+          
+          if (!foundEntity) {
+            throw new Error(`Entity "${entityName}" not found under any type. Please create it first.`);
           }
         } catch (lookupError) {
+          // Try one more time for racing series, specifically with "division_conference"
+          if (entityName.includes('Racing') || entityName.includes('Series') || 
+              entityName.includes('NASCAR') || entityName.includes('IndyCar') || 
+              entityName.includes('Formula') || entityName.includes('Prix')) {
+            console.log(`Trying special racing series lookup for ${entityName}`);
+            
+            // Try a few entity types commonly misused for racing series
+            const racingEntityTypes = ['division_conference', 'league', 'championship', 'tournament'];
+            let foundRacingEntity = false;
+            
+            for (const raceType of racingEntityTypes) {
+              if (foundRacingEntity) break;
+              
+              try {
+                console.log(`Trying racing series as ${raceType}: ${entityName}`);
+                const raceEntityLookup = await api.sports.lookup(raceType, entityName);
+                
+                if (raceEntityLookup && raceEntityLookup.id) {
+                  console.log(`Found ${entityName} as ${raceType} with ID: ${raceEntityLookup.id}`);
+                  processedData.entity_type = raceType; 
+                  processedData.entity_id = raceEntityLookup.id;
+                  foundRacingEntity = true;
+                  break;
+                }
+              } catch (raceError) {
+                console.log(`Racing lookup as ${raceType} failed: ${raceError.message}`);
+              }
+            }
+            
+            if (!foundRacingEntity) {
+              throw new Error(`Racing series "${entityName}" not found. Please create it as a league first.`);
+            }
+          } 
           // If entity type is invalid, try as league
-          if (lookupError.message && lookupError.message.includes('Invalid entity type')) {
+          else if (lookupError.message && lookupError.message.includes('Invalid entity type')) {
             console.log(`Entity type "${lookupEntityType}" is invalid, trying as "league" instead`);
             try {
               const leagueLookup = await api.sports.lookup('league', entityName);

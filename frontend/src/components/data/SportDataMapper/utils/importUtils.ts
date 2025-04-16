@@ -33,9 +33,12 @@ export const transformMappedData = (
     // Print the array data for easier debugging
     console.log('Source array:', sourceRecord);
     
-    // Detect if this looks like broadcast rights data based on mapped fields
+    // Detect entity type based on mapped fields
     const isBroadcastData = Object.keys(mappings).some(field => 
       field === 'broadcast_company_id' || field === 'territory');
+      
+    const isBrandData = Object.keys(mappings).some(field =>
+      field === 'name') && !isBroadcastData;
       
     // If this is broadcast data, set critical fields if they're not already in mappings
     if (isBroadcastData) {
@@ -152,6 +155,75 @@ export const transformMappedData = (
         }
       }
     });
+    
+    // Special handling for brand data
+    if (isBrandData) {
+      console.log('This appears to be brand data - ensuring required fields are set');
+      
+      // Check if industry is mapped/present
+      if (!transformedData.industry) {
+        // Look for industry in position 8 or based on data patterns
+        let detectedIndustry = 'Media'; // Default
+        
+        // Check specifically for "Broadcaster" in position 8
+        if (sourceRecord[8] === 'Broadcaster') {
+          detectedIndustry = 'Broadcasting';
+          console.log(`Setting brand industry to "Broadcasting" based on broadcaster type in position 8`);
+        }
+        // Check for "Production Company" in position 8
+        else if (sourceRecord[8] === 'Production Company') {
+          detectedIndustry = 'Media';
+          console.log(`Setting brand industry to "Media" based on production company type in position 8`);
+        }
+        // Try to detect sports-related from other data
+        else if (sourceRecord.some(item => 
+          typeof item === 'string' && 
+          (item.includes('Sport') || item.includes('League') || item.includes('Racing') || item.includes('Motorsport'))
+        )) {
+          detectedIndustry = 'Sports';
+          console.log(`Setting brand industry to "Sports" based on sports keywords in data`);
+        }
+        
+        transformedData.industry = detectedIndustry;
+      }
+      
+      // Also set company_type if not set
+      if (!transformedData.company_type) {
+        let companyType = 'Broadcaster'; // Default
+        
+        // Check position 8 for typical company type values
+        if (sourceRecord[8] === 'Production Company') {
+          companyType = 'Production Company';
+        } else if (sourceRecord[8] === 'Broadcaster' || sourceRecord[8] === 'Network') {
+          companyType = 'Broadcaster';
+        }
+        
+        transformedData.company_type = companyType;
+        console.log(`Setting company_type to "${companyType}" based on data analysis`);
+      }
+      
+      // Set country if not set
+      if (!transformedData.country) {
+        // Try to find country in positions 5-6
+        for (let i = 5; i <= 6 && i < sourceRecord.length; i++) {
+          const value = sourceRecord[i];
+          if (typeof value === 'string' && 
+              (value === 'USA' || value === 'United States' || 
+               value === 'UK' || value === 'United Kingdom' || 
+               value === 'Canada' || value === 'Australia')) {
+            transformedData.country = value;
+            console.log(`Setting country to "${value}" from position ${i}`);
+            break;
+          }
+        }
+        
+        // Default to USA if not found
+        if (!transformedData.country) {
+          transformedData.country = 'USA';
+          console.log(`Setting default country to "USA"`);
+        }
+      }
+    }
     
     // Special handling for broadcast data - make sure we have entity_type and entity_id
     if (isBroadcastData) {

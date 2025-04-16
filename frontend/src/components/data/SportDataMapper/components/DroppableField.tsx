@@ -36,8 +36,12 @@ const DroppableField: React.FC<DroppableFieldProps> = ({
   const [{ isOver, canDrop }, drop] = useDrop({
     accept: ItemType,
     drop: (item: DragItem) => {
+      // Log the item being dropped for debugging
+      console.log(`DroppableField: Dropping source field "${item.field}" onto target field "${field.name}"`);
+      
       // Verify we have the correct value before mapping
       let valueToMap;
+      let actualSourceField = item.field; // Store the actual source field name, not a label
       
       // Handle both array and object source field values
       if (Array.isArray(sourceFieldValues)) {
@@ -45,16 +49,26 @@ const DroppableField: React.FC<DroppableFieldProps> = ({
         const index = sourceFields.indexOf(item.field);
         if (index >= 0 && index < sourceFieldValues.length) {
           valueToMap = sourceFieldValues[index];
+          // For array data, store the index or actual field name based on context
+          console.log(`Value found at index ${index} for field ${item.field}:`, valueToMap);
+          actualSourceField = String(index); // Use index as the source field for array data
         }
       } else {
         // Traditional object access
         valueToMap = sourceFieldValues[item.field];
+        console.log(`Value found for object field ${item.field}:`, valueToMap);
       }
       
       if (valueToMap !== undefined) {
-        onFieldMapping(item.field, field.name);
+        console.log(`Mapping source field "${actualSourceField}" to target field "${field.name}" with value:`, valueToMap);
+        onFieldMapping(actualSourceField, field.name);
       } else {
         console.warn(`No value found for source field ${item.field}`);
+        
+        // Even if no value was found, still create the mapping 
+        // (sometimes fields are empty but need to be mapped)
+        console.log(`Creating mapping anyway for ${item.field} -> ${field.name}`);
+        onFieldMapping(item.field, field.name);
       }
       return { field: field.name };
     },

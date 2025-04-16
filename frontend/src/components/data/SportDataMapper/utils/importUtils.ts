@@ -33,8 +33,68 @@ export const transformMappedData = (
     // Print the array data for easier debugging
     console.log('Source array:', sourceRecord);
     
+    // Detect if this looks like broadcast rights data based on mapped fields
+    const isBroadcastData = Object.keys(mappings).some(field => 
+      field === 'broadcast_company_id' || field === 'territory');
+      
+    // If this is broadcast data, set critical fields if they're not already in mappings
+    if (isBroadcastData) {
+      console.log('This appears to be broadcast data - ensuring critical fields are set');
+      
+      // Check if entity_type and entity_id are not in mappings
+      const hasEntityType = Object.keys(mappings).includes('entity_type');
+      const hasEntityId = Object.keys(mappings).includes('entity_id');
+      
+      // Set default values for entity_type and entity_id if they are missing from mappings
+      if (!hasEntityType || !hasEntityId) {
+        console.log('Critical fields missing from mappings - adding defaults based on data pattern');
+        
+        // For common IndyCar/NASCAR/F1 patterns, entity_type should be "league"
+        // Position 1 typically has the entity name (IndyCar)
+        // Positions 3-4 often contain entity type hints (Motorsport, League, etc.)
+        
+        // 1. First look for entity type hints in positions 3-5
+        let entityType = 'league'; // Default to league for racing series
+        
+        for (let i = 3; i <= 5 && i < sourceRecord.length; i++) {
+          const value = String(sourceRecord[i]).toLowerCase();
+          if (value.includes('league')) {
+            entityType = 'league';
+            break;
+          } else if (value.includes('team')) {
+            entityType = 'team';
+            break;
+          } else if (value.includes('motorsport') || value.includes('racing') || value.includes('series')) {
+            entityType = 'league'; // Normalize racing series to league
+            break;
+          } else if (value.includes('division') || value.includes('conference')) {
+            entityType = 'division_conference';
+            break;
+          }
+        }
+        
+        // 2. Set entity_type if it's not in mappings
+        if (!hasEntityType) {
+          transformedData['entity_type'] = entityType;
+          console.log(`Set missing entity_type = ${entityType} based on broadcast data pattern`);
+        }
+        
+        // 3. Set entity_id if it's not in mappings (from position 1, which is typically the entity name)
+        if (!hasEntityId && sourceRecord[1]) {
+          transformedData['entity_id'] = sourceRecord[1];
+          console.log(`Set missing entity_id = ${sourceRecord[1]} from position 1`);
+        }
+      }
+    }
+    
     // Map each field directly using two simple strategies
     Object.entries(mappings).forEach(([dbField, sourceField]) => {
+      // Skip if we already set this field with defaults above
+      if (transformedData[dbField] !== undefined) {
+        console.log(`Field ${dbField} already set - skipping standard mapping`);
+        return;
+      }
+      
       // Strategy 1: Direct numeric index mapping
       if (!isNaN(Number(sourceField))) {
         // If the source field is a number, use it as an array index
@@ -92,6 +152,65 @@ export const transformMappedData = (
         }
       }
     });
+    
+    // Special handling for broadcast data - make sure we have entity_type and entity_id
+    if (isBroadcastData) {
+      // Additional validations/defaults for broadcast data
+      
+      // If we have a broadcast_company_id but no entity_id, set entity_id to position 1
+      if (transformedData.broadcast_company_id && !transformedData.entity_id && sourceRecord[1]) {
+        transformedData.entity_id = sourceRecord[1];
+        console.log(`Set entity_id = ${transformedData.entity_id} for broadcast from position 1`);
+      }
+      
+      // If we have an entity_id but no entity_type, default to league for racing series
+      if (transformedData.entity_id && !transformedData.entity_type) {
+        const entityType = 'league'; // Default to league for racing series
+        transformedData.entity_type = entityType;
+        console.log(`Set default entity_type = ${entityType} for broadcast`);
+      }
+      
+      // Set territory if missing
+      if (!transformedData.territory) {
+        // Try to find USA or equivalent in positions 5-6
+        for (let i = 5; i <= 6 && i < sourceRecord.length; i++) {
+          if (['USA', 'US', 'United States', 'America'].includes(String(sourceRecord[i]))) {
+            transformedData.territory = 'USA';
+            console.log(`Set territory = USA from position ${i}`);
+            break;
+          }
+        }
+        
+        // If still not set, default to USA
+        if (!transformedData.territory) {
+          transformedData.territory = 'USA';
+          console.log(`Set default territory = USA`);
+        }
+      }
+      
+      // Set start_date and end_date if missing but years are in the data
+      if (!transformedData.start_date) {
+        // Look for year (4 digits) in positions 6-7
+        for (let i = 6; i <= 7 && i < sourceRecord.length; i++) {
+          if (/^\d{4}$/.test(String(sourceRecord[i]))) {
+            transformedData.start_date = sourceRecord[i];
+            console.log(`Set start_date = ${transformedData.start_date} from position ${i}`);
+            break;
+          }
+        }
+      }
+      
+      if (!transformedData.end_date) {
+        // Look for year (4 digits) in positions 7-8
+        for (let i = 7; i <= 8 && i < sourceRecord.length; i++) {
+          if (/^\d{4}$/.test(String(sourceRecord[i]))) {
+            transformedData.end_date = sourceRecord[i];
+            console.log(`Set end_date = ${transformedData.end_date} from position ${i}`);
+            break;
+          }
+        }
+      }
+    }
   } 
   // Process object data (simple property access)
   else if (!isArrayData && typeof sourceRecord === 'object' && sourceRecord !== null) {
@@ -163,8 +282,8 @@ export const processDivisionConferenceReference = async (
 /**
  * Save an entity to the database
  * 
- * Simplified version that focuses on direct saving via the API
- * with minimal preprocessing
+ * This implementation handles entity resolution for IDs before saving,
+ * while maintaining a clean approach without special case handling
  */
 export const saveEntityToDatabase = async (
   entityType: EntityType,
@@ -174,28 +293,153 @@ export const saveEntityToDatabase = async (
   console.log(`Saving ${entityType} to database:`, data);
   
   try {
+    // Create a copy of the data for modifications
+    const processedData = { ...data };
+    
     // Format dates for all entity types
     ['start_date', 'end_date'].forEach(dateField => {
-      if (data[dateField] && typeof data[dateField] === 'string') {
+      if (processedData[dateField] && typeof processedData[dateField] === 'string') {
         const yearRegex = /^\d{4}$/;
-        if (yearRegex.test(data[dateField])) {
-          data[dateField] = dateField === 'start_date' ? 
-            `${data[dateField]}-01-01` : // Start date: beginning of year
-            `${data[dateField]}-12-31`;  // End date: end of year
-          console.log(`Formatted ${dateField}: ${data[dateField]}`);
+        if (yearRegex.test(processedData[dateField])) {
+          processedData[dateField] = dateField === 'start_date' ? 
+            `${processedData[dateField]}-01-01` : // Start date: beginning of year
+            `${processedData[dateField]}-12-31`;  // End date: end of year
+          console.log(`Formatted ${dateField}: ${processedData[dateField]}`);
         }
       }
     });
     
-    // Handle update mode for entities with a name field
-    if (isUpdateMode && data.name) {
-      console.log(`Update mode: Attempting to update ${entityType} with name "${data.name}"`);
+    // CRITICAL: Resolve entity ID references
+    
+    // 1. For broadcast entities, handle entity_id resolution
+    if (entityType === 'broadcast') {
+      console.log('Processing broadcast entity for saving');
+      
+      // 1.1 Resolve entity_id if it's a string name and not a UUID
+      if (processedData.entity_id && typeof processedData.entity_id === 'string' && !isValidUUID(processedData.entity_id)) {
+        const entityName = processedData.entity_id;
+        let lookupEntityType = (processedData.entity_type || 'league').toLowerCase();
+        
+        // 1.2 Normalize entity_type values like 'racing series' to 'league'
+        if (lookupEntityType.includes('series') || 
+            lookupEntityType.includes('racing') ||
+            lookupEntityType.includes('motorsport')) {
+          lookupEntityType = 'league';
+          // Also update the actual entity_type field
+          processedData.entity_type = 'league';
+          console.log(`Normalized entity_type to "league" for lookup`);
+        }
+        
+        // 1.3 Look up the entity by name to get its ID
+        console.log(`Looking up ${lookupEntityType} with name "${entityName}"`);
+        try {
+          const entityLookup = await api.sports.lookup(lookupEntityType, entityName);
+          if (entityLookup && entityLookup.id) {
+            console.log(`Found ${lookupEntityType} "${entityName}" with ID: ${entityLookup.id}`);
+            processedData.entity_id = entityLookup.id;
+          } else {
+            throw new Error(`${lookupEntityType} not found: ${entityName}`);
+          }
+        } catch (lookupError) {
+          // If entity type is invalid, try as league
+          if (lookupError.message && lookupError.message.includes('Invalid entity type')) {
+            console.log(`Entity type "${lookupEntityType}" is invalid, trying as "league" instead`);
+            try {
+              const leagueLookup = await api.sports.lookup('league', entityName);
+              if (leagueLookup && leagueLookup.id) {
+                console.log(`Found "${entityName}" as a league with ID: ${leagueLookup.id}`);
+                processedData.entity_type = 'league';
+                processedData.entity_id = leagueLookup.id;
+              } else {
+                throw new Error(`Entity "${entityName}" not found as league`);
+              }
+            } catch (secondError) {
+              throw new Error(`Entity "${entityName}" not found. Please create it first.`);
+            }
+          } else {
+            throw lookupError;
+          }
+        }
+      }
+      
+      // 1.4 Resolve broadcast_company_id if it's a string name and not a UUID
+      if (processedData.broadcast_company_id && typeof processedData.broadcast_company_id === 'string' && 
+          !isValidUUID(processedData.broadcast_company_id)) {
+        
+        const companyName = processedData.broadcast_company_id;
+        console.log(`Looking up broadcast company "${companyName}"`);
+        
+        try {
+          // Try broadcast_company lookup
+          const companyLookup = await api.sports.lookup('broadcast_company', companyName);
+          if (companyLookup && companyLookup.id) {
+            console.log(`Found broadcast company "${companyName}" with ID: ${companyLookup.id}`);
+            processedData.broadcast_company_id = companyLookup.id;
+          } else {
+            // If not found, try brand lookup
+            console.log(`Broadcast company not found, checking for brand: ${companyName}`);
+            const brandLookup = await api.sports.lookup('brand', companyName);
+            if (brandLookup && brandLookup.id) {
+              console.log(`Found brand "${companyName}" with ID: ${brandLookup.id}`);
+              processedData.broadcast_company_id = brandLookup.id;
+            } else {
+              throw new Error(`Broadcast company "${companyName}" not found. Please create it first.`);
+            }
+          }
+        } catch (lookupError) {
+          throw lookupError;
+        }
+      }
+      
+      // 1.5 Save broadcast entity with resolved IDs
+      console.log('Saving broadcast rights with resolved IDs:', processedData);
+      const result = await sportsService.createBroadcastRightsWithErrorHandling(processedData);
+      console.log('Successfully created broadcast rights:', result);
+      return true;
+    }
+    
+    // 2. For other entity types, handle common ID resolutions
+    
+    // 2.1 For teams, resolve stadium_id, league_id, etc.
+    if (entityType === 'team') {
+      // Resolve stadium_id if it's a name
+      if (processedData.stadium_id && typeof processedData.stadium_id === 'string' && !isValidUUID(processedData.stadium_id)) {
+        console.log(`Looking up stadium "${processedData.stadium_id}"`);
+        try {
+          const stadiumLookup = await api.sports.lookup('stadium', processedData.stadium_id);
+          if (stadiumLookup && stadiumLookup.id) {
+            console.log(`Found stadium "${processedData.stadium_id}" with ID: ${stadiumLookup.id}`);
+            processedData.stadium_id = stadiumLookup.id;
+          }
+        } catch (error) {
+          console.log(`Stadium lookup failed: ${error.message}`);
+        }
+      }
+      
+      // Resolve league_id if it's a name
+      if (processedData.league_id && typeof processedData.league_id === 'string' && !isValidUUID(processedData.league_id)) {
+        console.log(`Looking up league "${processedData.league_id}"`);
+        try {
+          const leagueLookup = await api.sports.lookup('league', processedData.league_id);
+          if (leagueLookup && leagueLookup.id) {
+            console.log(`Found league "${processedData.league_id}" with ID: ${leagueLookup.id}`);
+            processedData.league_id = leagueLookup.id;
+          }
+        } catch (error) {
+          console.log(`League lookup failed: ${error.message}`);
+        }
+      }
+    }
+    
+    // 3. Handle update mode for entities with a name field
+    if (isUpdateMode && processedData.name) {
+      console.log(`Update mode: Attempting to update ${entityType} with name "${processedData.name}"`);
       
       try {
         const response = await sportsService.updateEntityByName(
           entityType,
-          data.name,
-          data
+          processedData.name,
+          processedData
         );
         
         console.log(`Successfully updated ${entityType}:`, response);
@@ -203,7 +447,7 @@ export const saveEntityToDatabase = async (
       } catch (updateError) {
         // If entity not found, fall through to create
         if (updateError.message && updateError.message.includes('not found')) {
-          console.log(`${entityType} with name "${data.name}" not found, will create instead`);
+          console.log(`${entityType} with name "${processedData.name}" not found, will create instead`);
         } else {
           // For other errors, throw
           throw updateError;
@@ -211,19 +455,11 @@ export const saveEntityToDatabase = async (
       }
     }
     
-    // For broadcast entities, handle via specialized service
-    if (entityType === 'broadcast') {
-      console.log('Using broadcast service to save broadcast rights');
-      const result = await sportsService.createBroadcastRightsWithErrorHandling(data);
-      console.log('Successfully created broadcast rights:', result);
-      return true;
-    }
-    
-    // Default path: create entity using standard service
-    console.log(`Creating new ${entityType}`);
+    // 4. Default path: create entity using standard service
+    console.log(`Creating new ${entityType}:`, processedData);
     const response = await sportsDatabaseService.createEntity(
       entityType as DbEntityType, 
-      data,
+      processedData,
       isUpdateMode
     );
     

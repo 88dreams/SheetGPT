@@ -5,6 +5,11 @@ import { fingerprint, areEqual } from '../../../../utils/fingerprint';
 /**
  * Custom hook for managing field mappings in the SportDataMapper component
  * Optimized with fingerprinting for better performance
+ * 
+ * SIMPLIFIED VERSION:
+ * - Removes special case logic
+ * - Provides direct mapping between source and target fields
+ * - Maintains performance optimizations
  */
 export const useFieldMapping = (initialEntityType: EntityType | null = null) => {
   // State for field mappings
@@ -14,7 +19,7 @@ export const useFieldMapping = (initialEntityType: EntityType | null = null) => 
   
   /**
    * Handle field mapping when a source field is dropped onto a target field
-   * Optimized with fingerprinting to prevent unnecessary updates
+   * Simple direct mapping with performance optimization
    */
   const handleFieldMapping = useCallback((sourceField: string, targetField: string) => {
     if (!selectedEntityType) return;
@@ -30,6 +35,7 @@ export const useFieldMapping = (initialEntityType: EntityType | null = null) => 
     
     console.log(`Creating mapping: source=${sourceField}, target=${targetField}`);
     
+    // Update mappings with the new field mapping
     setMappingsByEntityType(prev => {
       // Create a new mapping object for the current entity type if it doesn't exist
       const currentMappings = prev[selectedEntityType] || {};

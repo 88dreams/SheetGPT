@@ -677,8 +677,7 @@ export default function useDataManagement() {
   
   /**
    * Update mapped data when a field is mapped
-   * Optimized with fingerprinting to prevent unnecessary updates
-   * Enhanced with multiple strategies for handling array-based data
+   * Simplified version with direct value lookup strategies
    */
   const updateMappedDataForField = useCallback((
     sourceField: string, 
@@ -692,179 +691,69 @@ export default function useDataManagement() {
     // Get the current record
     const currentRecord = dataToImport[currentRecordIndex];
     
-    console.log(`updateMappedDataForField: mapping ${sourceField} to ${targetField}`, {
-      recordType: Array.isArray(currentRecord) ? 'array' : 'object',
-      sourceFields: sourceFields.slice(0, 5), // Show sample of source fields
-      currentRecordKeys: Object.keys(currentRecord).slice(0, 5), // Show sample of record keys
-      hasHeaders: currentRecord['__headers__'] ? 'yes' : 'no',
-      hasParent: currentRecord['__parent__'] ? 'yes' : 'no',
-      sourceField
-    });
+    console.log(`Updating mapped data for field: ${sourceField} → ${targetField}`);
     
-    // Handle both array and object data formats with enhanced strategies
+    // Value to be set for the target field
     let value;
     let valueFound = false;
     
+    // Handle array data
     if (Array.isArray(currentRecord)) {
-      // ENHANCED ARRAY HANDLING: Try multiple strategies to find the value
+      console.log('Processing array data for mapping');
       
-      // Check if we're mapping Stadium fields which need special handling
-      const isStadiumMapping = targetField === 'name' || 
-                              targetField === 'city' || 
-                              targetField === 'state' || 
-                              targetField === 'country' || 
-                              targetField === 'capacity';
-      
-      console.log(`Attempting position mapping for ${sourceField} → ${targetField}`, {
-        isStadiumMapping,
-        mappedPosition: sourceFields.indexOf(sourceField),
-        hasValue: sourceField in sourceFieldValues,
-        valueAtPosition: sourceFields.indexOf(sourceField) >= 0 ? 
-                        currentRecord[sourceFields.indexOf(sourceField)] : 
-                        "no position"
-      });
-      
-      // Special handling for Stadium type with pattern-based mapping
-      if (isStadiumMapping) {
-        console.log(`Stadium field mapping for ${sourceField} → ${targetField}`);
-        
-        // Strategy S1: Try pattern-based mapping for Stadium fields
-        const patternMap: Record<string, string[]> = {
-          'name': ['stadium', 'arena', 'venue', 'track', 'park', 'field'],
-          'city': ['city', 'location', 'town'],
-          'state': ['state', 'province', 'region'],
-          'country': ['country', 'nation'],
-          'capacity': ['capacity', 'seats', 'size']
-        };
-        
-        // Check if any of our source fields match patterns for this target field
-        if (patternMap[targetField]) {
-          const patterns = patternMap[targetField];
-          let bestMatchIndex = -1;
-          
-          // Find best match for this pattern
-          sourceFields.forEach((field, index) => {
-            if (patterns.some(pattern => field.toLowerCase().includes(pattern))) {
-              bestMatchIndex = index;
-            }
-          });
-          
-          if (bestMatchIndex >= 0 && bestMatchIndex < currentRecord.length) {
-            value = currentRecord[bestMatchIndex];
-            valueFound = true;
-            console.log(`Stadium Strategy: Found ${targetField} at pattern-matched position ${bestMatchIndex}:`, value);
-          }
+      // Strategy 1: Direct numeric index (if sourceField is a number)
+      if (!isNaN(Number(sourceField))) {
+        const index = Number(sourceField);
+        if (index >= 0 && index < currentRecord.length) {
+          value = currentRecord[index];
+          valueFound = true;
+          console.log(`Found value at array index ${index}: ${value}`);
         }
       }
       
-      // Standard strategies if special Stadium handling didn't work
+      // Strategy 2: Look for the field in the source fields array
       if (!valueFound) {
-        // Strategy 1: Use sourceFields array for position mapping (most reliable)
         const sourceIndex = sourceFields.indexOf(sourceField);
         if (sourceIndex >= 0 && sourceIndex < currentRecord.length) {
           value = currentRecord[sourceIndex];
           valueFound = true;
-          console.log(`Strategy 1: Found array value for ${targetField} at sourceFields index ${sourceIndex}:`, value);
-        }
-        
-        // Strategy 2: Try numeric index if the sourceField looks like a number
-        if (!valueFound) {
-          const index = parseInt(sourceField, 10);
-          if (!isNaN(index) && index >= 0 && index < currentRecord.length) {
-            value = currentRecord[index];
-            valueFound = true;
-            console.log(`Strategy 2: Found array value for ${targetField} using numeric index ${index}:`, value);
-          }
-        }
-        
-        // Strategy 3: Check if record has __headers__ and use that for indexing
-        if (!valueFound && currentRecord['__headers__'] && Array.isArray(currentRecord['__headers__'])) {
-          const headerIndex = currentRecord['__headers__'].indexOf(sourceField);
-          if (headerIndex >= 0 && headerIndex < currentRecord.length) {
-            value = currentRecord[headerIndex];
-            valueFound = true;
-            console.log(`Strategy 3: Found array value for ${targetField} using __headers__ index ${headerIndex}:`, value);
-          }
-        }
-        
-        // Strategy 4: Check if the parent has headers and use that for indexing
-        if (!valueFound && currentRecord['__parent__'] && currentRecord['__parent__'].headers) {
-          const parentHeaders = currentRecord['__parent__'].headers;
-          if (Array.isArray(parentHeaders)) {
-            const headerIndex = parentHeaders.indexOf(sourceField);
-            if (headerIndex >= 0 && headerIndex < currentRecord.length) {
-              value = currentRecord[headerIndex];
-              valueFound = true;
-              console.log(`Strategy 4: Found array value for ${targetField} using parent.headers index ${headerIndex}:`, value);
-            }
-          }
-        }
-        
-        // Strategy 5: Try direct property access as fallback (unusual for arrays but possible)
-        if (!valueFound && sourceField in currentRecord) {
-          value = currentRecord[sourceField];
-          valueFound = true;
-          console.log(`Strategy 5: Found array value for ${targetField} using direct property access:`, value);
-        }
-        
-        // Strategy 6: Look for the sourceField in the dataToImport.__headers__ as fallback
-        if (!valueFound && dataToImport['__headers__'] && Array.isArray(dataToImport['__headers__'])) {
-          const headerIndex = dataToImport['__headers__'].indexOf(sourceField);
-          if (headerIndex >= 0 && headerIndex < currentRecord.length) {
-            value = currentRecord[headerIndex];
-            valueFound = true;
-            console.log(`Strategy 6: Found array value for ${targetField} using dataToImport.__headers__ index ${headerIndex}:`, value);
-          }
-        }
-        
-        // Strategy 7: For case-insensitive matching
-        if (!valueFound && typeof sourceField === 'string') {
-          const sourceFieldLower = sourceField.toLowerCase();
-          
-          // Check if sourceField is a case-insensitive match for any property name in currentRecord
-          Object.keys(currentRecord).forEach(key => {
-            if (typeof key === 'string' && key.toLowerCase() === sourceFieldLower) {
-              value = currentRecord[key];
-              valueFound = true;
-              console.log(`Strategy 7: Found array value for ${targetField} using case-insensitive match on key ${key}:`, value);
-            }
-          });
+          console.log(`Found value at sourceFields index ${sourceIndex}: ${value}`);
         }
       }
       
+      // Strategy 3: If sourceField is a header label, find in array and use next value
       if (!valueFound) {
-        // Last attempt for Stadium fields - try a direct lookup from sourceFieldValues
-        if (isStadiumMapping && targetField in sourceFieldValues) {
-          value = sourceFieldValues[targetField];
-          valueFound = true;
-          console.log(`Stadium Fallback: Using already mapped value for ${targetField}:`, value);
-        } else {
-          console.warn(`No direct position mapping for ${sourceField} → ${targetField}`);
+        for (let i = 0; i < currentRecord.length - 1; i++) {
+          if (currentRecord[i] === sourceField) {
+            value = currentRecord[i + 1];
+            valueFound = true;
+            console.log(`Found value at position after field name: ${value}`);
+            break;
+          }
         }
       }
-    } else {
-      // Traditional object access
-      value = currentRecord[sourceField];
-      if (value !== undefined) {
+    } 
+    // Handle object data
+    else if (typeof currentRecord === 'object' && currentRecord !== null) {
+      // Direct property access
+      if (sourceField in currentRecord) {
+        value = currentRecord[sourceField];
         valueFound = true;
-        console.log(`Found object property value for ${targetField}:`, value);
-      } else {
-        console.warn(`Could not find object property "${sourceField}" for target field "${targetField}"`);
+        console.log(`Found value in object property: ${value}`);
       }
     }
     
-    // Log the mapping for debugging
-    console.log(`Final mapping: ${sourceField} → ${targetField} =`, value);
-    
-    // Only update if we found a value to map
-    if (value !== undefined) {
-      // Force update to ensure state changes are applied
+    // Only update if we found a value
+    if (valueFound && value !== undefined) {
+      console.log(`Setting ${targetField} = ${value}`);
+      
+      // Update the mapped data
       setMappedData(prev => ({
         ...prev,
         [targetField]: value
       }));
     } else {
-      console.warn(`No value found for source field "${sourceField}", not updating mapped data`);
+      console.log(`No value found for ${sourceField}, not updating ${targetField}`);
     }
   }, [dataToImport, sourceFields]);
   

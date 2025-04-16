@@ -216,62 +216,27 @@ const SportDataMapperContainer: React.FC<SportDataMapperProps> = ({ isOpen, onCl
   // Use the hook's navigation functions directly with memoization
   const goToNextRecord = useMemo(() => hookGoToNextRecord, [hookGoToNextRecord]);
   
-  // Optimized handler for entity type selection
+  // Simple entity type selection handler
   const handleEntityTypeSelect = useCallback((entityType: MapperEntityType) => {
-    // Just update the selected entity type - this is the simple approach that was working before
+    // Just update the selected entity type
     setSelectedEntityType(entityType);
+    console.log(`Selected entity type: ${entityType}`);
     
-    // Special case for Stadium entity only - keep this simple
-    if (entityType === 'stadium' && currentRecordIndex !== null && dataToImport.length > 0) {
-      const record = dataToImport[currentRecordIndex];
-      
-      // Only handle the array case - this is what we need for Indianapolis Motor Speedway
-      if (Array.isArray(record) && record.length >= 5) {
-        console.log('SportDataMapperContainer: Detected array format for stadium data');
-        
-        // Map the standard stadium fields directly - no fancy logic
-        if (record[0]) handleFieldMapping('0', 'name');
-        if (record[2]) handleFieldMapping('2', 'city');
-        if (record[3]) handleFieldMapping('3', 'state');
-        if (record[4]) handleFieldMapping('4', 'country');
-      }
-    }
-  }, [setSelectedEntityType, currentRecordIndex, dataToImport, handleFieldMapping]);
+    // No special case handling - let the user map fields manually
+  }, [setSelectedEntityType]);
   
-  // Optimized handler for field mapping drop - COMPLETELY REWRITTEN (April 15)
+  // Simple, direct field mapping handler
   const handleFieldMappingDrop = useCallback((sourceField: string, targetField: string) => {
-    console.log(`====== NEW FIELD MAPPING HANDLER (Apr 15) ======`);
-    console.log(`MAPPING: User is mapping "${sourceField}" → "${targetField}"`);
+    console.log(`Field mapping: "${sourceField}" → "${targetField}"`);
     
-    // Special case debug check for Broadcast Client
-    if (sourceField === "Broadcast Client") {
-      console.log(`MONITORING: Broadcast Client is being mapped to ${targetField}`);
-      
-      if (selectedEntityType === "broadcast") {
-        console.log(`MONITORING: This is a broadcast entity - client SHOULD go to entity_id`);
-      }
-    }
-    
-    // Use the original handlers with our version
+    // Update the field mapping in state
     handleFieldMapping(sourceField, targetField);
+    
+    // Update the mapped data with this new field mapping
     updateMappedDataForField(sourceField, targetField, currentRecordIndex);
     
-    // Log the current state of mappings for this entity type for debugging
-    setTimeout(() => {
-      const currentMappings = getCurrentMappings();
-      console.log(`MAPPING RESULT: Current mappings for ${selectedEntityType}:`, currentMappings);
-      
-      // Check if Broadcast Client got mapped correctly
-      Object.entries(currentMappings).forEach(([dbField, srcField]) => {
-        if (srcField === "Broadcast Client") {
-          console.log(`MONITORING: Broadcast Client is now mapped to "${dbField}"`);
-          
-          if (dbField !== "entity_id" && selectedEntityType === "broadcast") {
-            console.log(`WARNING: Broadcast Client SHOULD be mapped to entity_id, not ${dbField}!`);
-          }
-        }
-      });
-    }, 50);
+    // Log the current state of mappings
+    console.log(`Current mappings for ${selectedEntityType}:`, getCurrentMappings());
   }, [handleFieldMapping, updateMappedDataForField, currentRecordIndex, selectedEntityType, getCurrentMappings]);
   
   // Optimized save to database function using memoization

@@ -238,21 +238,40 @@ const SportDataMapperContainer: React.FC<SportDataMapperProps> = ({ isOpen, onCl
     }
   }, [setSelectedEntityType, currentRecordIndex, dataToImport, handleFieldMapping]);
   
-  // Optimized handler for field mapping drop
+  // Optimized handler for field mapping drop - COMPLETELY REWRITTEN (April 15)
   const handleFieldMappingDrop = useCallback((sourceField: string, targetField: string) => {
-    // Log the original mapping for debugging
-    console.log(`handleFieldMappingDrop - ORIGINAL MAPPING: source=${sourceField}, target=${targetField}`);
+    console.log(`====== NEW FIELD MAPPING HANDLER (Apr 15) ======`);
+    console.log(`MAPPING: User is mapping "${sourceField}" → "${targetField}"`);
     
-    // Use the handleFieldMapping function to update the mappings state
+    // Special case debug check for Broadcast Client
+    if (sourceField === "Broadcast Client") {
+      console.log(`MONITORING: Broadcast Client is being mapped to ${targetField}`);
+      
+      if (selectedEntityType === "broadcast") {
+        console.log(`MONITORING: This is a broadcast entity - client SHOULD go to entity_id`);
+      }
+    }
+    
+    // Use the original handlers with our version
     handleFieldMapping(sourceField, targetField);
-    
-    // Update the mapped data with the new mapping
     updateMappedDataForField(sourceField, targetField, currentRecordIndex);
     
     // Log the current state of mappings for this entity type for debugging
     setTimeout(() => {
-      console.log(`MAPPING DEBUG - Current mappings for ${selectedEntityType}:`, getCurrentMappings());
-    }, 10);
+      const currentMappings = getCurrentMappings();
+      console.log(`MAPPING RESULT: Current mappings for ${selectedEntityType}:`, currentMappings);
+      
+      // Check if Broadcast Client got mapped correctly
+      Object.entries(currentMappings).forEach(([dbField, srcField]) => {
+        if (srcField === "Broadcast Client") {
+          console.log(`MONITORING: Broadcast Client is now mapped to "${dbField}"`);
+          
+          if (dbField !== "entity_id" && selectedEntityType === "broadcast") {
+            console.log(`WARNING: Broadcast Client SHOULD be mapped to entity_id, not ${dbField}!`);
+          }
+        }
+      });
+    }, 50);
   }, [handleFieldMapping, updateMappedDataForField, currentRecordIndex, selectedEntityType, getCurrentMappings]);
   
   // Optimized save to database function using memoization

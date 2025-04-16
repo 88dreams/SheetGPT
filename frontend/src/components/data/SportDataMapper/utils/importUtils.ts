@@ -25,8 +25,26 @@ export const transformMappedData = (
   console.log('TRANSFORM - Input source record (sample):', JSON.stringify(sourceRecord).substring(0, 100) + '...');
   console.log('TRANSFORM - Record type:', isArrayData ? 'Array' : 'Object');
   
-  if (mappings.name === "Broadcast Client") {
-    console.log('FOUND CRITICAL BUG: Field "Broadcast Client" is mapped to name instead of entity_id!');
+  // EMERGENCY HACK: Monkey patch the field mapping process
+  // This is not ideal but will help diagnose and fix the issue
+  if (mappings.name === "Broadcast Client" && !mappings.entity_id) {
+    console.log('EMERGENCY FIX APPLIED: Broadcast Client is mapped to name, redirecting to entity_id');
+    
+    // Copy the mapping to the correct field
+    mappings.entity_id = mappings.name;
+    // Remove the incorrect mapping
+    delete mappings.name;
+    
+    // Global notification for bug tracking
+    try {
+      if (window) {
+        // @ts-ignore - Adding global debugging variable
+        window.__lastBroadcastClientFix = new Date().toISOString();
+        console.log('Set global debugger flag: window.__lastBroadcastClientFix');
+      }
+    } catch (e) {
+      // Ignore errors in non-browser contexts
+    }
   }
 
   // CRITICAL: Check all mappings for "Broadcast Client" field mapping

@@ -30,20 +30,7 @@ const EntityDetail: React.FC = () => {
     refetch
   } = useQuery({
     queryKey: ['entityDetail', entityType, id],
-    queryFn: async () => {
-      try {
-        console.log(`EntityDetail: Fetching ${entityType} with ID ${id}`);
-        const result = await SportsDatabaseService.getEntityById(entityType as EntityType, id as string);
-        console.log(`EntityDetail: Received data:`, { 
-          hasRelationships: !!result?.relationships,
-          relationshipTypes: result?.relationships ? Object.keys(result.relationships) : []
-        });
-        return result;
-      } catch (err) {
-        console.error(`EntityDetail: Error fetching entity:`, err);
-        throw err;
-      }
-    },
+    queryFn: () => SportsDatabaseService.getEntityById(entityType as EntityType, id as string),
     enabled: isAuthenticated && isReady && !!entityType && !!id
   });
   
@@ -131,18 +118,6 @@ const EntityDetail: React.FC = () => {
     );
   }
 
-  // Add debugging render check
-  useEffect(() => {
-    if (entity) {
-      console.log(`EntityDetail: Rendering with entity:`, {
-        id: entity.id,
-        name: entity.name,
-        hasRelationships: !!entity.relationships,
-        relationshipCount: entity.relationships ? Object.keys(entity.relationships).length : 0
-      });
-    }
-  }, [entity]);
-
   return (
     <PageContainer
       title={`${entityType?.charAt(0).toUpperCase()}${entityType?.slice(1)} Details`}
@@ -214,16 +189,11 @@ const EntityDetail: React.FC = () => {
             </div>
             
             {/* Relationships */}
-            {entity.relationships && typeof entity.relationships === 'object' && Object.keys(entity.relationships || {}).length > 0 && (
+            {entity.relationships && Object.keys(entity.relationships).length > 0 && (
               <div className="mt-6 bg-white p-6 rounded-lg shadow-sm border border-gray-200">
                 <h3 className="text-lg font-medium text-gray-900 mb-4">Relationships</h3>
                 <div className="space-y-6">
-                  {entity.relationships && Object.entries(entity.relationships || {}).map(([relationType, entities]) => {
-                    // Explicitly handle null or undefined cases
-                    if (!relationType || entities === undefined || entities === null) {
-                      return null;
-                    }
-
+                  {Object.entries(entity.relationships).map(([relationType, entities]) => {
                     // Map legacy relationship types to their new unified types
                     let displayType = relationType;
                     let targetType = relationType.slice(0, -1); // Default: remove trailing 's'
@@ -242,38 +212,25 @@ const EntityDetail: React.FC = () => {
                         .replace(/\b\w/g, l => l.toUpperCase());
                     }
 
-                    // Ensure entities is always an array
-                    const entityArray = Array.isArray(entities) ? entities : [];
-
                     return (
                       <div key={relationType}>
                         <h4 className="text-md font-medium text-gray-800 mb-2">
                           {displayType}
                         </h4>
-                        {entityArray.length > 0 ? (
+                        {Array.isArray(entities) && entities.length > 0 ? (
                           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                            {entityArray.map((relatedEntity: any) => {
-                              // Skip invalid entities
-                              if (!relatedEntity || !relatedEntity.id) {
-                                return null;
-                              }
-                              return (
-                                <div 
-                                  key={relatedEntity.id}
-                                  className="p-3 border border-gray-200 rounded-md hover:bg-gray-50 cursor-pointer"
-                                  onClick={() => navigate(`/sports/${targetType}/${relatedEntity.id}`)}
-                                >
-                                  <div className="font-medium text-indigo-600">
-                                    {relatedEntity.name || 'Unnamed Entity'}
-                                  </div>
-                                  <div className="text-xs text-gray-500 mt-1">
-                                    {relatedEntity.id && typeof relatedEntity.id === 'string' 
-                                      ? `${relatedEntity.id.substring(0, 8)}...` 
-                                      : 'Invalid ID'}
-                                  </div>
+                            {entities.map((relatedEntity: any) => (
+                              <div 
+                                key={relatedEntity.id}
+                                className="p-3 border border-gray-200 rounded-md hover:bg-gray-50 cursor-pointer"
+                                onClick={() => navigate(`/sports/${targetType}/${relatedEntity.id}`)}
+                              >
+                                <div className="font-medium text-indigo-600">{relatedEntity.name}</div>
+                                <div className="text-xs text-gray-500 mt-1">
+                                  {relatedEntity.id.substring(0, 8)}...
                                 </div>
-                              );
-                            })}
+                              </div>
+                            ))}
                           </div>
                         ) : (
                           <div className="text-sm text-gray-500">No {displayType.toLowerCase()} found</div>

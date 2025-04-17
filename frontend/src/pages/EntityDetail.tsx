@@ -193,31 +193,51 @@ const EntityDetail: React.FC = () => {
               <div className="mt-6 bg-white p-6 rounded-lg shadow-sm border border-gray-200">
                 <h3 className="text-lg font-medium text-gray-900 mb-4">Relationships</h3>
                 <div className="space-y-6">
-                  {Object.entries(entity.relationships).map(([relationType, entities]) => (
-                    <div key={relationType}>
-                      <h4 className="text-md font-medium text-gray-800 mb-2">
-                        {relationType.charAt(0).toUpperCase() + relationType.slice(1)}
-                      </h4>
-                      {Array.isArray(entities) && entities.length > 0 ? (
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                          {entities.map((relatedEntity: any) => (
-                            <div 
-                              key={relatedEntity.id}
-                              className="p-3 border border-gray-200 rounded-md hover:bg-gray-50 cursor-pointer"
-                              onClick={() => navigate(`/sports/${relationType.slice(0, -1)}/${relatedEntity.id}`)}
-                            >
-                              <div className="font-medium text-indigo-600">{relatedEntity.name}</div>
-                              <div className="text-xs text-gray-500 mt-1">
-                                {relatedEntity.id.substring(0, 8)}...
+                  {Object.entries(entity.relationships).map(([relationType, entities]) => {
+                    // Map legacy relationship types to their new unified types
+                    let displayType = relationType;
+                    let targetType = relationType.slice(0, -1); // Default: remove trailing 's'
+
+                    // Handle legacy relationship types
+                    if (relationType === 'broadcast_companies') {
+                      displayType = 'Broadcasters';
+                      targetType = 'brand'; // Point to the new unified Brand model
+                    } else if (relationType === 'production_companies') {
+                      displayType = 'Production Companies';
+                      targetType = 'brand'; // Point to the new unified Brand model
+                    } else {
+                      // Format other relationship types for display
+                      displayType = relationType
+                        .replace(/_/g, ' ')
+                        .replace(/\b\w/g, l => l.toUpperCase());
+                    }
+
+                    return (
+                      <div key={relationType}>
+                        <h4 className="text-md font-medium text-gray-800 mb-2">
+                          {displayType}
+                        </h4>
+                        {Array.isArray(entities) && entities.length > 0 ? (
+                          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                            {entities.map((relatedEntity: any) => (
+                              <div 
+                                key={relatedEntity.id}
+                                className="p-3 border border-gray-200 rounded-md hover:bg-gray-50 cursor-pointer"
+                                onClick={() => navigate(`/sports/${targetType}/${relatedEntity.id}`)}
+                              >
+                                <div className="font-medium text-indigo-600">{relatedEntity.name}</div>
+                                <div className="text-xs text-gray-500 mt-1">
+                                  {relatedEntity.id.substring(0, 8)}...
+                                </div>
                               </div>
-                            </div>
-                          ))}
-                        </div>
-                      ) : (
-                        <div className="text-sm text-gray-500">No {relationType} found</div>
-                      )}
-                    </div>
-                  ))}
+                            ))}
+                          </div>
+                        ) : (
+                          <div className="text-sm text-gray-500">No {displayType.toLowerCase()} found</div>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
             )}

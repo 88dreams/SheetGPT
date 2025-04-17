@@ -92,6 +92,7 @@ export interface GameBroadcast extends BaseEntity {
   game_id: string;
   broadcast_company_id: string;
   production_company_id?: string;
+  production_brand_id?: string; // Added for the new unified Brand model
   broadcast_type: string;
   territory: string;
   start_time?: string;

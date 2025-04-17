@@ -13,9 +13,6 @@ import { FaArrowLeft, FaEdit, FaTrash } from 'react-icons/fa';
 const EntityDetail: React.FC = () => {
   const { entityType, id } = useParams<{ entityType: string; id: string }>();
   
-  // Set the page title with entity type for better navigation
-  usePageTitle(entityType ? `${entityType.charAt(0).toUpperCase() + entityType.slice(1)} Details` : 'Entity Details');
-  
   const { isAuthenticated, isReady } = useAuth();
   const navigate = useNavigate();
   const { showNotification } = useNotification();
@@ -34,13 +31,15 @@ const EntityDetail: React.FC = () => {
     enabled: isAuthenticated && isReady && !!entityType && !!id
   });
   
-  // Update the page title when entity data loads
-  useEffect(() => {
-    if (entity && entity.name) {
-      // Update with actual entity name for better navigation
-      usePageTitle(`${entity.name} | ${entityType?.charAt(0).toUpperCase()}${entityType?.slice(1)}`);
-    }
-  }, [entity, entityType]);
+  // Set the page title - this must be outside of any conditional logic or useEffect
+  const pageTitle = entity && entity.name 
+    ? `${entity.name} | ${entityType?.charAt(0).toUpperCase() || ''}${entityType?.slice(1) || ''}`
+    : entityType 
+      ? `${entityType.charAt(0).toUpperCase()}${entityType.slice(1)} Details` 
+      : 'Entity Details';
+  
+  // Use the hook directly at the top level
+  usePageTitle(pageTitle);
 
   // Redirect if not authenticated
   useEffect(() => {
@@ -189,7 +188,7 @@ const EntityDetail: React.FC = () => {
             </div>
             
             {/* Relationships */}
-            {entity.relationships && Object.keys(entity.relationships).length > 0 && (
+            {entity.relationships && typeof entity.relationships === 'object' && Object.keys(entity.relationships || {}).length > 0 && (
               <div className="mt-6 bg-white p-6 rounded-lg shadow-sm border border-gray-200">
                 <h3 className="text-lg font-medium text-gray-900 mb-4">Relationships</h3>
                 <div className="space-y-6">
@@ -219,18 +218,27 @@ const EntityDetail: React.FC = () => {
                         </h4>
                         {Array.isArray(entities) && entities.length > 0 ? (
                           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                            {entities.map((relatedEntity: any) => (
-                              <div 
-                                key={relatedEntity.id}
-                                className="p-3 border border-gray-200 rounded-md hover:bg-gray-50 cursor-pointer"
-                                onClick={() => navigate(`/sports/${targetType}/${relatedEntity.id}`)}
-                              >
-                                <div className="font-medium text-indigo-600">{relatedEntity.name}</div>
-                                <div className="text-xs text-gray-500 mt-1">
-                                  {relatedEntity.id.substring(0, 8)}...
+                            {entities.map((relatedEntity: any) => {
+                              // Skip if the entity is null/undefined or doesn't have an ID
+                              if (!relatedEntity || !relatedEntity.id) return null;
+                              
+                              return (
+                                <div 
+                                  key={relatedEntity.id}
+                                  className="p-3 border border-gray-200 rounded-md hover:bg-gray-50 cursor-pointer"
+                                  onClick={() => navigate(`/sports/${targetType}/${relatedEntity.id}`)}
+                                >
+                                  <div className="font-medium text-indigo-600">
+                                    {relatedEntity.name || 'Unnamed Entity'}
+                                  </div>
+                                  <div className="text-xs text-gray-500 mt-1">
+                                    {typeof relatedEntity.id === 'string' 
+                                      ? `${relatedEntity.id.substring(0, 8)}...`
+                                      : String(relatedEntity.id).substring(0, 8)}...
+                                  </div>
                                 </div>
-                              </div>
-                            ))}
+                              );
+                            })}
                           </div>
                         ) : (
                           <div className="text-sm text-gray-500">No {displayType.toLowerCase()} found</div>

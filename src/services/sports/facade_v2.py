@@ -7,8 +7,7 @@ import logging
 
 from src.models.sports_models import (
     League, Team, Player, Game, Stadium, 
-    BroadcastCompany, BroadcastRights, 
-    ProductionCompany, ProductionService,
+    BroadcastRights, ProductionService,
     Brand, GameBroadcast, LeagueExecutive,
     DivisionConference
 )
@@ -54,10 +53,10 @@ class SportsFacadeV2:
         "player": Player,
         "game": Game,
         "stadium": Stadium,
-        "broadcast_company": BroadcastCompany,
+        "broadcast_company": Brand,  # Now using Brand with company_type='Broadcaster'
         "broadcast_rights": BroadcastRights,
         "broadcast": BroadcastRights,  # Alias
-        "production_company": ProductionCompany,
+        "production_company": Brand,  # Now using Brand with company_type='Production Company'
         "production_service": ProductionService,
         "production": ProductionService,  # Alias
         "brand": Brand,

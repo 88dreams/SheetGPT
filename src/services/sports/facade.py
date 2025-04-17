@@ -7,8 +7,7 @@ from sqlalchemy import select, func
 
 from src.models.sports_models import (
     League, Team, Player, Game, Stadium, 
-    BroadcastCompany, BroadcastRights, 
-    ProductionCompany, ProductionService,
+    BroadcastRights, ProductionService,
     Brand, GameBroadcast, LeagueExecutive,
     DivisionConference
 )
@@ -90,11 +89,11 @@ class SportsService:
             },
             "game_broadcast": {
                 "game_name": {"join_model": Game, "join_field": "game_id", "sort_field": "name"},
-                "broadcast_company_name": {"join_model": BroadcastCompany, "join_field": "broadcast_company_id", "sort_field": "name"},
-                "production_company_name": {"join_model": ProductionCompany, "join_field": "production_company_id", "sort_field": "name"},
+                "broadcast_company_name": {"join_model": Brand, "join_field": "broadcast_company_id", "sort_field": "name"},
+                "production_company_name": {"join_model": Brand, "join_field": "production_company_id", "sort_field": "name"},
             },
             "broadcast": {
-                "broadcast_company_name": {"join_model": BroadcastCompany, "join_field": "broadcast_company_id", "sort_field": "name"},
+                "broadcast_company_name": {"join_model": Brand, "join_field": "broadcast_company_id", "sort_field": "name"},
                 "entity_name": None,  # Special case, depends on entity_type
                 "league_name": None,  # Special case, populated based on relationships
                 "league_sport": None,  # Special case, populated based on relationships
@@ -458,11 +457,12 @@ class SportsService:
         For broadcast_company and production_company entity types, if not found with the given name,
         will also attempt to look up a brand with the same name as a fallback.
         """
-        # Handle special case for broadcast_company
+        # Handle special case for broadcast_company (using Brand with company_type='Broadcaster')
         if entity_type == 'broadcast_company':
-            # First try to find a broadcast company with this name
-            broadcast_company_query = select(BroadcastCompany).where(
-                func.lower(BroadcastCompany.name) == func.lower(name)
+            # Try to find a Brand with company_type='Broadcaster' and matching name
+            broadcast_company_query = select(Brand).where(
+                (func.lower(Brand.name) == func.lower(name)) &
+                (Brand.company_type == "Broadcaster")
             )
             bc_result = await db.execute(broadcast_company_query)
             broadcast_company = bc_result.scalars().first()
@@ -471,18 +471,21 @@ class SportsService:
                 # Found a broadcast company, convert to dict and return
                 return self._model_to_dict(broadcast_company)
             
-            # No broadcast company found, try looking up a brand instead
-            logger.info(f"No broadcast company found with name '{name}', checking brands...")
-            brand_query = select(Brand).where(func.lower(Brand.name) == func.lower(name))
+            # No broadcast company brand found, try looking up a generic brand 
+            logger.info(f"No broadcaster brand found with name '{name}', checking generic brands...")
+            brand_query = select(Brand).where(
+                (func.lower(Brand.name) == func.lower(name)) &
+                ((Brand.company_type.is_(None)) | (Brand.company_type != "Production Company"))
+            )
             brand_result = await db.execute(brand_query)
             brand = brand_result.scalars().first()
             
             if brand:
                 # Found a brand, convert to a broadcast company-like dict
-                logger.info(f"Found brand '{brand.name}' with ID {brand.id}, returning as broadcast company")
+                logger.info(f"Found brand '{brand.name}' with ID {brand.id}, marking as broadcast company")
                 brand_dict = self._model_to_dict(brand)
                 
-                # Add a special field to indicate this is actually a brand
+                # Add a special field to indicate this is a brand being used as a broadcaster
                 brand_dict['_is_brand'] = True
                 
                 # Set company type if not already set
@@ -498,11 +501,12 @@ class SportsService:
             # Neither broadcast company nor brand found
             return None
             
-        # Handle special case for production_company
+        # Handle special case for production_company (using Brand with company_type='Production Company')
         elif entity_type == 'production_company':
-            # First try to find a production company with this name
-            production_company_query = select(ProductionCompany).where(
-                func.lower(ProductionCompany.name) == func.lower(name)
+            # Try to find a Brand with company_type='Production Company' and matching name
+            production_company_query = select(Brand).where(
+                (func.lower(Brand.name) == func.lower(name)) &
+                (Brand.company_type == "Production Company")
             )
             pc_result = await db.execute(production_company_query)
             production_company = pc_result.scalars().first()
@@ -511,18 +515,21 @@ class SportsService:
                 # Found a production company, convert to dict and return
                 return self._model_to_dict(production_company)
             
-            # No production company found, try looking up a brand instead
-            logger.info(f"No production company found with name '{name}', checking brands...")
-            brand_query = select(Brand).where(func.lower(Brand.name) == func.lower(name))
+            # No production company brand found, try looking up a generic brand 
+            logger.info(f"No production company brand found with name '{name}', checking generic brands...")
+            brand_query = select(Brand).where(
+                (func.lower(Brand.name) == func.lower(name)) &
+                ((Brand.company_type.is_(None)) | (Brand.company_type != "Broadcaster"))
+            )
             brand_result = await db.execute(brand_query)
             brand = brand_result.scalars().first()
             
             if brand:
                 # Found a brand, convert to a production company-like dict
-                logger.info(f"Found brand '{brand.name}' with ID {brand.id}, returning as production company")
+                logger.info(f"Found brand '{brand.name}' with ID {brand.id}, marking as production company")
                 brand_dict = self._model_to_dict(brand)
                 
-                # Add a special field to indicate this is actually a brand
+                # Add a special field to indicate this is a brand being used as a production company
                 brand_dict['_is_brand'] = True
                 
                 # Set company type if not already set
@@ -548,36 +555,29 @@ class SportsService:
             if brand:
                 return self._model_to_dict(brand)
                 
-            # Try broadcast company
-            broadcast_query = select(BroadcastCompany).where(func.lower(BroadcastCompany.name) == func.lower(name))
+            # Try looking for a brand with company_type='Broadcaster'
+            broadcast_query = select(Brand).where(
+                (func.lower(Brand.name) == func.lower(name)) &
+                (Brand.company_type == "Broadcaster")
+            )
             broadcast_result = await db.execute(broadcast_query)
             broadcast = broadcast_result.scalars().first()
             
             if broadcast:
-                logger.info(f"Found broadcast company '{broadcast.name}', creating brand")
-                # Create a brand from this broadcast company
-                brand_service = BrandService()
-                brand = await brand_service.create_broadcast_company(db, {
-                    "name": broadcast.name,
-                    "industry": "Media",
-                    "country": broadcast.country
-                })
-                return self._model_to_dict(brand)
+                logger.info(f"Found broadcaster brand '{broadcast.name}'")
+                return self._model_to_dict(broadcast)
                 
-            # Try production company
-            production_query = select(ProductionCompany).where(func.lower(ProductionCompany.name) == func.lower(name))
+            # Try looking for a brand with company_type='Production Company'
+            production_query = select(Brand).where(
+                (func.lower(Brand.name) == func.lower(name)) &
+                (Brand.company_type == "Production Company")
+            )
             production_result = await db.execute(production_query)
             production = production_result.scalars().first()
             
             if production:
-                logger.info(f"Found production company '{production.name}', creating brand")
-                # Create a brand from this production company
-                brand_service = BrandService()
-                brand = await brand_service.create_production_company(db, {
-                    "name": production.name,
-                    "industry": "Production"
-                })
-                return self._model_to_dict(brand)
+                logger.info(f"Found production company brand '{production.name}'")
+                return self._model_to_dict(production)
                 
             return None
         

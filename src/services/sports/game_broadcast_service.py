@@ -5,7 +5,7 @@ from uuid import UUID
 import logging
 from sqlalchemy import select
 
-from src.models.sports_models import GameBroadcast, Game, BroadcastCompany, ProductionCompany
+from src.models.sports_models import GameBroadcast, Game, Brand
 from src.schemas.sports import GameBroadcastCreate, GameBroadcastUpdate
 from src.services.sports.base_service import BaseEntityService
 from src.services.sports.validators import EntityValidator

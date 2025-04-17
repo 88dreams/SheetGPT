@@ -7,7 +7,7 @@ import math
 from sqlalchemy import select, func
 import importlib
 
-from src.models.sports_models import ProductionCompany, ProductionService, Brand
+from src.models.sports_models import ProductionService, Brand
 from src.models import sports_models as models
 from src.schemas.sports import ProductionCompanyCreate, ProductionCompanyUpdate, ProductionServiceCreate, ProductionServiceUpdate
 from src.services.sports.base_service import BaseEntityService

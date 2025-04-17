@@ -11,8 +11,7 @@ from src.services.export.sheets_service import GoogleSheetsService as SheetsServ
 from src.config.sheets_config import GoogleSheetsConfig
 from src.models.sports_models import (
     League, Team, Player, Game, Stadium, 
-    BroadcastCompany, BroadcastRights, 
-    ProductionCompany, ProductionService,
+    BroadcastRights, ProductionService,
     Brand
 )
 

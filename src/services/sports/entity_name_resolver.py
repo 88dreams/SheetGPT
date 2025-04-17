@@ -6,8 +6,7 @@ import logging
 
 from src.models.sports_models import (
     League, Team, Player, Game, Stadium, 
-    BroadcastCompany, BroadcastRights, 
-    ProductionCompany, ProductionService,
+    BroadcastRights, ProductionService,
     Brand, GameBroadcast, LeagueExecutive,
     DivisionConference
 )

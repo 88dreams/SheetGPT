@@ -173,12 +173,13 @@ class Stadium(TimestampedBase):
     )
     host_broadcaster_id: Mapped[Optional[UUID]] = mapped_column(
         SQLUUID,
-        ForeignKey("broadcast_companies.id"),
+        ForeignKey("brands.id"),
         nullable=True
     )
 
     # Relationships
-    host_broadcaster_company: Mapped[Optional["BroadcastCompany"]] = relationship(
+    host_broadcaster_company: Mapped[Optional["Brand"]] = relationship(
+        "Brand",
         foreign_keys=[host_broadcaster_id]
     )
     teams: Mapped[List["Team"]] = relationship(
@@ -389,38 +390,8 @@ class Game(TimestampedBase):
     )
 
 
-class BroadcastCompany(TimestampedBase):
-    """Model for broadcast companies."""
-    
-    __tablename__ = "broadcast_companies"
-
-    id: Mapped[UUID] = mapped_column(
-        SQLUUID,
-        primary_key=True,
-        default=uuid4
-    )
-    name: Mapped[str] = mapped_column(
-        String(100),
-        nullable=False
-    )
-    type: Mapped[str] = mapped_column(
-        String(50),
-        nullable=False
-    )
-    country: Mapped[str] = mapped_column(
-        String(100),
-        nullable=False
-    )
-
-    # Relationships
-    broadcast_rights: Mapped[List["BroadcastRights"]] = relationship(
-        back_populates="broadcast_company",
-        cascade="all, delete-orphan"
-    )
-    game_broadcasts: Mapped[List["GameBroadcast"]] = relationship(
-        back_populates="broadcast_company",
-        cascade="all, delete-orphan"
-    )
+# The BroadcastCompany model has been removed
+# All broadcast company functionality is now handled by the Brand model
 
 
 class BroadcastRights(TimestampedBase):
@@ -443,7 +414,7 @@ class BroadcastRights(TimestampedBase):
     )
     broadcast_company_id: Mapped[UUID] = mapped_column(
         SQLUUID,
-        ForeignKey("broadcast_companies.id"),
+        ForeignKey("brands.id"),
         nullable=False
     )
     division_conference_id: Mapped[Optional[UUID]] = mapped_column(
@@ -470,41 +441,17 @@ class BroadcastRights(TimestampedBase):
     )
 
     # Relationships
-    broadcast_company: Mapped["BroadcastCompany"] = relationship(
-        back_populates="broadcast_rights"
-    )
-    brand: Mapped["Brand"] = relationship(
-        foreign_keys=[broadcast_company_id],
-        primaryjoin="BroadcastRights.broadcast_company_id == Brand.id",
-        overlaps="broadcast_company,broadcast_rights"
+    broadcaster: Mapped["Brand"] = relationship(
+        "Brand",
+        foreign_keys=[broadcast_company_id]
     )
     division_conference: Mapped[Optional["DivisionConference"]] = relationship(
         back_populates="broadcast_rights"
     )
 
 
-class ProductionCompany(TimestampedBase):
-    """Model for production companies."""
-    
-    __tablename__ = "production_companies"
-
-    id: Mapped[UUID] = mapped_column(
-        SQLUUID,
-        primary_key=True,
-        default=uuid4
-    )
-    name: Mapped[str] = mapped_column(
-        String(100),
-        nullable=False
-    )
-
-    # Relationships
-    # Note: This relationship is now maintained only for backwards compatibility
-    # Production services now point to brands directly
-    game_broadcasts: Mapped[List["GameBroadcast"]] = relationship(
-        back_populates="production_company",
-        cascade="all, delete-orphan"
-    )
+# The ProductionCompany model has been removed
+# All production company functionality is now handled by the Brand model
 
 
 class ProductionService(TimestampedBase):
@@ -612,9 +559,8 @@ class Brand(TimestampedBase):
         primaryjoin="Brand.id == ProductionService.production_company_id"
     )
     broadcast_rights: Mapped[List["BroadcastRights"]] = relationship(
-        back_populates="brand",
+        back_populates="broadcaster",
         foreign_keys="[BroadcastRights.broadcast_company_id]",
-        overlaps="broadcast_company,broadcast_rights",
         primaryjoin="Brand.id == BroadcastRights.broadcast_company_id"
     )
 
@@ -754,11 +700,11 @@ class GameBroadcast(TimestampedBase):
         nullable=False
     )
     broadcast_company_id: Mapped[UUID] = mapped_column(
-        ForeignKey("broadcast_companies.id"),
+        ForeignKey("brands.id"),
         nullable=False
     )
     production_company_id: Mapped[Optional[UUID]] = mapped_column(
-        ForeignKey("production_companies.id"),
+        ForeignKey("brands.id"),
         nullable=True
     )
     broadcast_type: Mapped[str] = mapped_column(
@@ -782,9 +728,11 @@ class GameBroadcast(TimestampedBase):
     game: Mapped["Game"] = relationship(
         back_populates="broadcasts"
     )
-    broadcast_company: Mapped["BroadcastCompany"] = relationship(
-        back_populates="game_broadcasts"
+    broadcaster: Mapped["Brand"] = relationship(
+        "Brand",
+        foreign_keys=[broadcast_company_id]
     )
-    production_company: Mapped[Optional["ProductionCompany"]] = relationship(
-        back_populates="game_broadcasts"
+    production_company: Mapped[Optional["Brand"]] = relationship(
+        "Brand",
+        foreign_keys=[production_company_id]
     ) 

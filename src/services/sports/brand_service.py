@@ -1,6 +1,6 @@
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.exc import SQLAlchemyError
-from typing import List, Optional, Dict, Any
+from typing import List, Optional, Dict, Any, Union
 from uuid import UUID
 import logging
 from sqlalchemy import select
@@ -31,22 +31,30 @@ class BrandService(BaseEntityService[Brand]):
         result = await db.execute(query)
         return result.scalars().all()
     
-    async def create_brand(self, db: AsyncSession, brand: BrandCreate) -> Brand:
+    async def create_brand(self, db: AsyncSession, brand: Union[BrandCreate, Dict[str, Any]]) -> Brand:
         """Create a new brand or update if it already exists."""
+        # Convert dict to Pydantic model if needed
+        if isinstance(brand, dict):
+            brand_name = brand.get("name")
+            brand_data = brand
+        else:
+            brand_name = brand.name
+            brand_data = brand.dict()
+            
         # Check if a brand with the same name already exists
         existing_brand = await db.execute(
-            select(Brand).where(Brand.name == brand.name)
+            select(Brand).where(Brand.name == brand_name)
         )
         db_brand = existing_brand.scalars().first()
 
         if db_brand:
             # Update existing brand
-            for key, value in brand.dict().items():
+            for key, value in brand_data.items():
                 if value is not None:  # Only update non-None values
                     setattr(db_brand, key, value)
         else:
             # Create new brand
-            db_brand = Brand(**brand.dict())
+            db_brand = Brand(**brand_data)
             db.add(db_brand)
         
         try:

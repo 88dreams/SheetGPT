@@ -6,8 +6,7 @@ import logging
 
 from src.models.sports_models import (
     League, Team, Player, Game, Stadium, 
-    BroadcastCompany, BroadcastRights, 
-    ProductionCompany, ProductionService,
+    BroadcastRights, ProductionService,
     Brand, GameBroadcast, LeagueExecutive,
     DivisionConference
 )
@@ -54,43 +53,21 @@ class EntityValidator:
         return stadium
     
     @staticmethod
-    async def validate_broadcast_company(db: AsyncSession, company_id: UUID) -> Optional[Any]:
+    async def validate_broadcast_company(db: AsyncSession, company_id: UUID) -> Optional[Brand]:
         """
         Validate that a broadcast company exists.
         
-        First checks if a broadcast company exists, then falls back to checking if a brand exists.
-        Uses the brand directly without creating temporary entities, since brand is now the 
-        universal company entity.
+        Checks if a Brand with the given ID exists and ensures it has company_type="Broadcaster".
         """
-        # First try looking for a broadcast company for backward compatibility
-        result = await db.execute(select(BroadcastCompany).where(BroadcastCompany.id == company_id))
-        company = result.scalars().first()
-        
-        if company:
-            # Find corresponding brand
-            brand_result = await db.execute(select(Brand).where(Brand.id == company_id))
-            brand = brand_result.scalars().first()
-            
-            if brand:
-                logger.info(f"Found both broadcast company and brand with ID {company_id}")
-                if not brand.company_type:
-                    brand.company_type = "Broadcaster"
-                    try:
-                        await db.commit()
-                    except:
-                        await db.rollback()
-                return brand
-            return company
-            
-        # Check if it's a brand directly
-        logger.info(f"No broadcast company found with ID {company_id}, checking if it's a brand ID")
+        # Check if it's a brand
         brand_result = await db.execute(select(Brand).where(Brand.id == company_id))
         brand = brand_result.scalars().first()
         
         if brand:
             logger.info(f"Found brand '{brand.name}' with ID {company_id}")
-            # Update brand.company_type if not set
-            if not brand.company_type:
+            # Update brand.company_type if not set or not a broadcaster
+            if brand.company_type != "Broadcaster":
+                logger.info(f"Setting company_type to Broadcaster for brand {brand.name}")
                 brand.company_type = "Broadcaster"
                 try:
                     await db.commit()
@@ -99,47 +76,25 @@ class EntityValidator:
                     await db.rollback()
             return brand
             
-        # If neither broadcast company nor brand is found, raise the error
-        raise ValueError(f"No brand or broadcast company with ID {company_id} not found")
+        # If brand is not found, raise the error
+        raise ValueError(f"Brand with ID {company_id} not found")
     
     @staticmethod
-    async def validate_production_company(db: AsyncSession, company_id: UUID) -> Optional[Any]:
+    async def validate_production_company(db: AsyncSession, company_id: UUID) -> Optional[Brand]:
         """
         Validate that a production company exists.
         
-        First checks if a production company exists, then falls back to checking if a brand exists.
-        Uses the brand directly without creating temporary entities, since brand is now the 
-        universal company entity.
+        Checks if a Brand with the given ID exists and ensures it has company_type="Production Company".
         """
-        # First try looking for a production company for backward compatibility
-        result = await db.execute(select(ProductionCompany).where(ProductionCompany.id == company_id))
-        company = result.scalars().first()
-        
-        if company:
-            # Find corresponding brand
-            brand_result = await db.execute(select(Brand).where(Brand.id == company_id))
-            brand = brand_result.scalars().first()
-            
-            if brand:
-                logger.info(f"Found both production company and brand with ID {company_id}")
-                if not brand.company_type:
-                    brand.company_type = "Production Company"
-                    try:
-                        await db.commit()
-                    except:
-                        await db.rollback()
-                return brand
-            return company
-            
-        # Check if it's a brand directly
-        logger.info(f"No production company found with ID {company_id}, checking if it's a brand ID")
+        # Check if it's a brand
         brand_result = await db.execute(select(Brand).where(Brand.id == company_id))
         brand = brand_result.scalars().first()
         
         if brand:
             logger.info(f"Found brand '{brand.name}' with ID {company_id}")
-            # Update brand.company_type if not set
-            if not brand.company_type:
+            # Update brand.company_type if not set or not a production company
+            if brand.company_type != "Production Company":
+                logger.info(f"Setting company_type to Production Company for brand {brand.name}")
                 brand.company_type = "Production Company"
                 try:
                     await db.commit()
@@ -148,8 +103,8 @@ class EntityValidator:
                     await db.rollback()
             return brand
             
-        # If neither production company nor brand is found, raise the error
-        raise ValueError(f"No brand or production company with ID {company_id} not found")
+        # If brand is not found, raise the error
+        raise ValueError(f"Brand with ID {company_id} not found")
     
     @staticmethod
     async def validate_brand(db: AsyncSession, brand_id: UUID) -> Optional[Brand]:

@@ -8,8 +8,7 @@ from pydantic import ValidationError
 
 from src.models.sports_models import (
     League, Team, Player, Game, Stadium, 
-    BroadcastCompany, BroadcastRights, 
-    ProductionCompany, ProductionService,
+    BroadcastRights, ProductionService,
     Brand, DivisionConference
 )
 from src.schemas.sports import (
@@ -738,8 +737,24 @@ async def get_broadcast_companies(
     db: AsyncSession = Depends(get_db),
     current_user: Dict = Depends(get_current_user)
 ):
-    """Get all broadcast companies."""
-    return await sports_service.get_broadcast_companies(db)
+    """
+    Get all broadcast companies.
+    
+    Note: This endpoint now uses the unified Brand model with company_type='Broadcaster'
+    """
+    # Get brands with company_type='Broadcaster'
+    from src.services.sports.broadcast_service import BroadcastCompanyService
+    broadcast_service = BroadcastCompanyService()
+    
+    # Use the specialized service method that filters by company type
+    result = await broadcast_service.get_broadcast_companies(db)
+    
+    # Convert the result from paginated dict to list of items
+    if isinstance(result, dict) and "items" in result:
+        return result["items"]
+    
+    # Fallback in case the result is already a list
+    return result
 
 @router.post("/broadcast-companies", response_model=BroadcastCompanyResponse, status_code=status.HTTP_201_CREATED)
 async def create_broadcast_company(
@@ -747,8 +762,17 @@ async def create_broadcast_company(
     db: AsyncSession = Depends(get_db),
     current_user: Dict = Depends(get_current_user)
 ):
-    """Create a new broadcast company."""
-    return await sports_service.create_broadcast_company(db, broadcast_company)
+    """
+    Create a new broadcast company.
+    
+    Note: This endpoint now creates a Brand with company_type='Broadcaster'
+    """
+    # Use the broadcast service to create a broadcaster brand
+    from src.services.sports.broadcast_service import BroadcastCompanyService
+    broadcast_service = BroadcastCompanyService()
+    
+    # Create the broadcast company as a Brand
+    return await broadcast_service.create_broadcast_company(db, broadcast_company)
 
 @router.get("/broadcast-companies/{company_id}", response_model=BroadcastCompanyResponse)
 async def get_broadcast_company(
@@ -756,11 +780,22 @@ async def get_broadcast_company(
     db: AsyncSession = Depends(get_db),
     current_user: Dict = Depends(get_current_user)
 ):
-    """Get a specific broadcast company by ID."""
-    company = await sports_service.get_broadcast_company(db, company_id)
-    if not company:
-        raise HTTPException(status_code=404, detail="Broadcast company not found")
-    return company
+    """
+    Get a specific broadcast company by ID.
+    
+    Note: This endpoint now retrieves a Brand with company_type='Broadcaster'
+    """
+    # Use the broadcast service to get a brand by ID
+    from src.services.sports.broadcast_service import BroadcastCompanyService
+    broadcast_service = BroadcastCompanyService()
+    
+    try:
+        # Get the broadcast company (Brand)
+        company = await broadcast_service.get_broadcast_company(db, company_id)
+        return company
+    except Exception as e:
+        # Handle any errors, including EntityNotFoundError
+        raise HTTPException(status_code=404, detail=f"Broadcast company not found: {str(e)}")
 
 @router.put("/broadcast-companies/{company_id}", response_model=BroadcastCompanyResponse)
 async def update_broadcast_company(
@@ -769,11 +804,22 @@ async def update_broadcast_company(
     db: AsyncSession = Depends(get_db),
     current_user: Dict = Depends(get_current_user)
 ):
-    """Update a specific broadcast company."""
-    company = await sports_service.update_broadcast_company(db, company_id, company_update)
-    if not company:
-        raise HTTPException(status_code=404, detail="Broadcast company not found")
-    return company
+    """
+    Update a specific broadcast company.
+    
+    Note: This endpoint now updates a Brand with company_type='Broadcaster'
+    """
+    # Use the broadcast service to update a brand
+    from src.services.sports.broadcast_service import BroadcastCompanyService
+    broadcast_service = BroadcastCompanyService()
+    
+    try:
+        # Update the broadcast company (Brand)
+        company = await broadcast_service.update_broadcast_company(db, company_id, company_update)
+        return company
+    except Exception as e:
+        # Handle any errors, including EntityNotFoundError
+        raise HTTPException(status_code=404, detail=f"Broadcast company not found or update failed: {str(e)}")
 
 @router.delete("/broadcast-companies/{company_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_broadcast_company(
@@ -781,11 +827,24 @@ async def delete_broadcast_company(
     db: AsyncSession = Depends(get_db),
     current_user: Dict = Depends(get_current_user)
 ):
-    """Delete a specific broadcast company."""
-    success = await sports_service.delete_broadcast_company(db, company_id)
-    if not success:
-        raise HTTPException(status_code=404, detail="Broadcast company not found")
-    return None
+    """
+    Delete a specific broadcast company.
+    
+    Note: This endpoint now deletes a Brand with company_type='Broadcaster'
+    """
+    # Use the broadcast service to delete a brand
+    from src.services.sports.broadcast_service import BroadcastCompanyService
+    broadcast_service = BroadcastCompanyService()
+    
+    try:
+        # Delete the broadcast company (Brand)
+        success = await broadcast_service.delete_broadcast_company(db, company_id)
+        if not success:
+            raise HTTPException(status_code=404, detail="Broadcast company not found")
+        return None
+    except Exception as e:
+        # Handle any errors, including EntityNotFoundError
+        raise HTTPException(status_code=404, detail=f"Broadcast company not found or delete failed: {str(e)}")
 
 # Broadcast Rights endpoints
 @router.get("/broadcast-rights", response_model=List[BroadcastRightsResponse])
@@ -865,8 +924,24 @@ async def get_production_companies(
     db: AsyncSession = Depends(get_db),
     current_user: Dict = Depends(get_current_user)
 ):
-    """Get all production companies."""
-    return await sports_service.get_production_companies(db)
+    """
+    Get all production companies.
+    
+    Note: This endpoint now uses the unified Brand model with company_type='Production Company'
+    """
+    # Get brands with company_type='Production Company'
+    from src.services.sports.production_service import ProductionCompanyService
+    production_service = ProductionCompanyService()
+    
+    # Use the specialized service method that filters by company type
+    result = await production_service.get_production_companies(db)
+    
+    # Convert the result from paginated dict to list of items
+    if isinstance(result, dict) and "items" in result:
+        return result["items"]
+    
+    # Fallback in case the result is already a list
+    return result
 
 @router.post("/production-companies", response_model=ProductionCompanyResponse, status_code=status.HTTP_201_CREATED)
 async def create_production_company(
@@ -874,8 +949,17 @@ async def create_production_company(
     db: AsyncSession = Depends(get_db),
     current_user: Dict = Depends(get_current_user)
 ):
-    """Create a new production company."""
-    return await sports_service.create_production_company(db, production_company)
+    """
+    Create a new production company.
+    
+    Note: This endpoint now creates a Brand with company_type='Production Company'
+    """
+    # Use the production service to create a production company brand
+    from src.services.sports.production_service import ProductionCompanyService
+    production_service = ProductionCompanyService()
+    
+    # Create the production company as a Brand
+    return await production_service.create_production_company(db, production_company)
 
 @router.get("/production-companies/{company_id}", response_model=ProductionCompanyResponse)
 async def get_production_company(
@@ -883,11 +967,22 @@ async def get_production_company(
     db: AsyncSession = Depends(get_db),
     current_user: Dict = Depends(get_current_user)
 ):
-    """Get a specific production company by ID."""
-    company = await sports_service.get_production_company(db, company_id)
-    if not company:
-        raise HTTPException(status_code=404, detail="Production company not found")
-    return company
+    """
+    Get a specific production company by ID.
+    
+    Note: This endpoint now retrieves a Brand with company_type='Production Company'
+    """
+    # Use the production service to get a brand by ID
+    from src.services.sports.production_service import ProductionCompanyService
+    production_service = ProductionCompanyService()
+    
+    try:
+        # Get the production company (Brand)
+        company = await production_service.get_production_company(db, company_id)
+        return company
+    except Exception as e:
+        # Handle any errors, including EntityNotFoundError
+        raise HTTPException(status_code=404, detail=f"Production company not found: {str(e)}")
 
 @router.put("/production-companies/{company_id}", response_model=ProductionCompanyResponse)
 async def update_production_company(
@@ -896,11 +991,22 @@ async def update_production_company(
     db: AsyncSession = Depends(get_db),
     current_user: Dict = Depends(get_current_user)
 ):
-    """Update a specific production company."""
-    company = await sports_service.update_production_company(db, company_id, company_update)
-    if not company:
-        raise HTTPException(status_code=404, detail="Production company not found")
-    return company
+    """
+    Update a specific production company.
+    
+    Note: This endpoint now updates a Brand with company_type='Production Company'
+    """
+    # Use the production service to update a brand
+    from src.services.sports.production_service import ProductionCompanyService
+    production_service = ProductionCompanyService()
+    
+    try:
+        # Update the production company (Brand)
+        company = await production_service.update_production_company(db, company_id, company_update)
+        return company
+    except Exception as e:
+        # Handle any errors, including EntityNotFoundError
+        raise HTTPException(status_code=404, detail=f"Production company not found or update failed: {str(e)}")
 
 @router.delete("/production-companies/{company_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_production_company(
@@ -908,11 +1014,24 @@ async def delete_production_company(
     db: AsyncSession = Depends(get_db),
     current_user: Dict = Depends(get_current_user)
 ):
-    """Delete a specific production company."""
-    success = await sports_service.delete_production_company(db, company_id)
-    if not success:
-        raise HTTPException(status_code=404, detail="Production company not found")
-    return None
+    """
+    Delete a specific production company.
+    
+    Note: This endpoint now deletes a Brand with company_type='Production Company'
+    """
+    # Use the production service to delete a brand
+    from src.services.sports.production_service import ProductionCompanyService
+    production_service = ProductionCompanyService()
+    
+    try:
+        # Delete the production company (Brand)
+        success = await production_service.delete_production_company(db, company_id)
+        if not success:
+            raise HTTPException(status_code=404, detail="Production company not found")
+        return None
+    except Exception as e:
+        # Handle any errors, including EntityNotFoundError
+        raise HTTPException(status_code=404, detail=f"Production company not found or delete failed: {str(e)}")
 
 # Production Service endpoints
 @router.get("/production-services", response_model=List[ProductionServiceResponse])

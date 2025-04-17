@@ -6,8 +6,7 @@ import logging
 
 from src.models.sports_models import (
     League, Team, Player, Game, Stadium, 
-    BroadcastCompany, BroadcastRights, 
-    ProductionCompany, ProductionService,
+    BroadcastRights, ProductionService,
     Brand, GameBroadcast, LeagueExecutive,
     DivisionConference
 )
@@ -22,9 +21,9 @@ ENTITY_TYPES = {
     "players": Player,
     "games": Game,
     "stadiums": Stadium,
-    "broadcast_companies": BroadcastCompany,
+    "broadcast_companies": Brand,  # Now using Brand with company_type='Broadcaster'
     "broadcast_rights": BroadcastRights,
-    "production_companies": ProductionCompany,
+    "production_companies": Brand,  # Now using Brand with company_type='Production Company'
     "production_services": ProductionService,
     "brands": Brand,
     "game_broadcasts": GameBroadcast,
@@ -36,9 +35,9 @@ ENTITY_TYPES = {
     "player": Player,
     "game": Game,
     "stadium": Stadium,
-    "broadcast_company": BroadcastCompany,
+    "broadcast_company": Brand,  # Now using Brand with company_type='Broadcaster'
     "broadcast_right": BroadcastRights,
-    "production_company": ProductionCompany,
+    "production_company": Brand,  # Now using Brand with company_type='Production Company'
     "production_service": ProductionService,
     "brand": Brand,
     "game_broadcast": GameBroadcast,

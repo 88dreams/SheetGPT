@@ -55,6 +55,7 @@ const GlobalEntityView: React.FC<GlobalEntityViewProps> = ({ className = '' }) =
   useEffect(() => {
     const fetchAllEntityMetadata = async () => {
       try {
+        console.log("GlobalEntityView: Fetching entity metadata");
         // First fetch counts to ensure we have the latest data
         await fetchEntityCounts();
         
@@ -78,6 +79,7 @@ const GlobalEntityView: React.FC<GlobalEntityViewProps> = ({ className = '' }) =
         }
         
         setEntityMetadata(metadata);
+        console.log("GlobalEntityView: Entity metadata updated");
       } catch (error) {
         console.error('Error fetching entity metadata:', error);
       }
@@ -94,7 +96,7 @@ const GlobalEntityView: React.FC<GlobalEntityViewProps> = ({ className = '' }) =
     
     // Clean up interval on unmount
     return () => clearInterval(refreshInterval);
-  }, [fetchEntityCounts, entityCounts]); // Include proper dependencies
+  }, [fetchEntityCounts]); // Remove entityCounts from dependencies to prevent infinite loop
 
   // Handle view change
   const handleViewEntity = (entityId: EntityType) => {
@@ -102,8 +104,9 @@ const GlobalEntityView: React.FC<GlobalEntityViewProps> = ({ className = '' }) =
     setViewMode('entity');
   };
 
-  // Generate summary data for all entity types
-  const generateEntitySummaries = () => {
+  // Generate summary data for all entity types - memoize to prevent recalculation on every render
+  const generateEntitySummaries = React.useMemo(() => {
+    console.log("GlobalEntityView: Generating entity summaries");
     return ENTITY_TYPES.map(entityType => {
       const metadata = entityMetadata[entityType.id] || { count: 0, lastUpdated: null };
       
@@ -115,23 +118,25 @@ const GlobalEntityView: React.FC<GlobalEntityViewProps> = ({ className = '' }) =
         entityType: entityType.name
       };
     });
-  };
+  }, [entityMetadata, entityCounts]);
 
-  // Sort entity summaries
-  const sortedSummaries = generateEntitySummaries().sort((a, b) => {
-    const aValue = a[sortField as keyof typeof a] ?? '';
-    const bValue = b[sortField as keyof typeof b] ?? '';
-    
-    if (sortField === 'lastUpdated') {
-      const aDate = aValue ? new Date(aValue).getTime() : 0;
-      const bDate = bValue ? new Date(bValue).getTime() : 0;
-      return sortDirection === 'asc' ? aDate - bDate : bDate - aDate;
-    }
-    
-    if (aValue < bValue) return sortDirection === 'asc' ? -1 : 1;
-    if (aValue > bValue) return sortDirection === 'asc' ? 1 : -1;
-    return 0;
-  });
+  // Sort entity summaries - also memoize the sorting operation
+  const sortedSummaries = React.useMemo(() => {
+    return [...generateEntitySummaries].sort((a, b) => {
+      const aValue = a[sortField as keyof typeof a] ?? '';
+      const bValue = b[sortField as keyof typeof b] ?? '';
+      
+      if (sortField === 'lastUpdated') {
+        const aDate = aValue ? new Date(aValue).getTime() : 0;
+        const bDate = bValue ? new Date(bValue).getTime() : 0;
+        return sortDirection === 'asc' ? aDate - bDate : bDate - aDate;
+      }
+      
+      if (aValue < bValue) return sortDirection === 'asc' ? -1 : 1;
+      if (aValue > bValue) return sortDirection === 'asc' ? 1 : -1;
+      return 0;
+    });
+  }, [generateEntitySummaries, sortField, sortDirection]);
 
   return (
     <div className={`p-4 ${className}`}>

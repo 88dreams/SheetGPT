@@ -215,9 +215,8 @@ const DocumentationBrowser: React.FC = () => {
           console.error(`Error loading document ${docPath}:`, error);
           setError(`Failed to load document: ${docPath}`);
           
-          // If document fetch fails, try multiple fallback approaches
+          // If document fetch fails, try finding by filename without path
           if (docPath.includes('/')) {
-            // First approach: Try finding by filename without path
             const fileName = docPath.split('/').pop() || '';
             console.log(`Trying to fetch by filename only: ${fileName}`);
             
@@ -228,47 +227,6 @@ const DocumentationBrowser: React.FC = () => {
               setError(null); // Clear error if fallback succeeds
             } catch (fallbackError) {
               console.error(`Error loading fallback document ${fileName}:`, fallbackError);
-              
-              // Second approach: Try with lowercase path
-              const lowerCasePath = docPath.toLowerCase();
-              if (lowerCasePath !== docPath) {
-                console.log(`Trying with lowercase path: ${lowerCasePath}`);
-                try {
-                  const content = await api.docs.getContent(lowerCasePath);
-                  console.log(`Document found with lowercase path ${lowerCasePath}, content length: ${content.length}`);
-                  setDocContent({ content, path: lowerCasePath });
-                  setError(null); // Clear error if fallback succeeds
-                } catch (lowercaseError) {
-                  console.error(`Error loading lowercase path ${lowerCasePath}:`, lowercaseError);
-                  
-                  // Third approach: Try adjusting path with directories
-                  // This handles files that might have different directory structures
-                  try {
-                    // Try prepending 'architecture/', 'features/', or 'maintenance/' if not present
-                    let altPath = '';
-                    if (!docPath.includes('architecture/') && 
-                        (fileName.includes('API') || fileName.includes('TECHNICAL'))) {
-                      altPath = `architecture/${fileName}`;
-                    } else if (!docPath.includes('features/') && 
-                               (fileName.includes('COLUMN') || fileName.includes('VIRTUALIZATION'))) {
-                      altPath = `features/${fileName}`;
-                    } else if (!docPath.includes('maintenance/') && 
-                               (fileName.includes('TROUBLESHOOTING'))) {
-                      altPath = `maintenance/${fileName}`;
-                    }
-                    
-                    if (altPath) {
-                      console.log(`Trying with adjusted path: ${altPath}`);
-                      const content = await api.docs.getContent(altPath);
-                      console.log(`Document found with adjusted path ${altPath}, content length: ${content.length}`);
-                      setDocContent({ content, path: altPath });
-                      setError(null); // Clear error if fallback succeeds
-                    }
-                  } catch (altPathError) {
-                    console.error(`Error with all fallback attempts for ${docPath}`);
-                  }
-                }
-              }
             }
           }
         }
@@ -350,27 +308,15 @@ const DocumentationBrowser: React.FC = () => {
         return match;
       }
       
-      // Simple link handling - mostly use absolute paths
+      // Handle relative links
+      const currentDir = docPath ? docPath.split('/').slice(0, -1).join('/') : '';
       let newPath = url;
-
-      // Handle relative URLs - convert to absolute for simplicity
-      if (url.startsWith('./') || url.startsWith('../') || (!url.startsWith('/') && !url.startsWith('http'))) {
-        // Get the current directory
-        const currentDir = docPath ? docPath.split('/').slice(0, -1).join('/') : '';
-        
-        if (url.startsWith('./')) {
-          // Remove ./ and handle with current directory
-          newPath = currentDir ? `${currentDir}/${url.substring(2)}` : url.substring(2);
-        } else if (url.startsWith('../')) {
-          // Go up one directory level
-          const parentDir = currentDir.split('/').slice(0, -1).join('/');
-          newPath = parentDir ? `${parentDir}/${url.substring(3)}` : url.substring(3);
-        } else {
-          // Regular relative path - add current directory
-          newPath = currentDir ? `${currentDir}/${url}` : url;
-        }
+      
+      if (url.startsWith('./')) {
+        newPath = url.substring(2);
+      } else if (!url.startsWith('/')) {
+        newPath = currentDir ? `${currentDir}/${url}` : url;
       } else if (url.startsWith('/')) {
-        // Remove leading slash for consistency with router paths
         newPath = url.substring(1);
       }
       
@@ -379,8 +325,12 @@ const DocumentationBrowser: React.FC = () => {
         newPath = newPath.substring(0, newPath.length - 3);
       }
       
-      console.log(`Converted link: ${url} -> ${newPath}`);
-      return `[${text}](/${newPath})`;
+      // Create absolute path for React Router that works in both local and production environments
+      // Don't add "help/" prefix to avoid path duplication issues
+      const routePath = newPath;
+      console.log(`Converted link: ${url} -> ${routePath}`);
+      
+      return `[${text}](/${routePath})`;
     });
   };
 

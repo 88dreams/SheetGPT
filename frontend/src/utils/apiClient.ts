@@ -284,21 +284,6 @@ export async function request<T>(endpoint: string, options: RequestOptions = {})
   }
 
   try {
-    // Special handling for document requests to troubleshoot encoding issues
-    if (endpoint.startsWith('/docs/content')) {
-      console.log(`DOCUMENT REQUEST URL: '${endpoint}'`);
-      
-      // Check for potential encoding issues in the URL
-      if (endpoint.includes('%F') && !endpoint.includes('%2F')) {
-        console.warn(`Potential URL encoding issue detected: %F found but not %2F`);
-        
-        // Try to fix the encoding manually
-        const fixedEndpoint = endpoint.replace(/%F/g, '%2F');
-        console.log(`Attempting to fix encoding issue: '${endpoint}' -> '${fixedEndpoint}'`);
-        endpoint = fixedEndpoint;
-      }
-    }
-    
     console.log(`API Request: ${options.method || 'GET'} ${endpoint}`, {
       hasBody: !!options.body,
       headers: {
@@ -336,18 +321,6 @@ export async function request<T>(endpoint: string, options: RequestOptions = {})
     
     return response.status === 204 ? undefined as unknown as T : response.data as T;
   } catch (error) {
-    // For doc content requests - try to extract detailed error message
-    if (endpoint.startsWith('/docs/content') && 
-        (error as any)?.response?.data && 
-        typeof (error as any).response.data === 'string') {
-      try {
-        const errorData = JSON.parse((error as any).response.data);
-        console.error(`Detailed document load error: ${JSON.stringify(errorData, null, 2)}`);
-      } catch(e) {
-        console.error(`Raw error response: ${(error as any).response.data}`);
-      }
-    }
-    
     // Use our standardized error handling
     const appError = handleError(error);
     console.error(`API Request failed: ${options.method || 'GET'} ${endpoint}`, appError);

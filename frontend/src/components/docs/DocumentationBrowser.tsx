@@ -66,99 +66,96 @@ const DocumentationBrowser: React.FC = () => {
       try {
         console.log("Fetching documentation structure using API service");
         
-        try {
-          const data = await api.docs.getStructure();
-          console.log("Documentation structure loaded successfully:", data);
-          
-          // Recursive function to filter items
-          const filterHiddenFiles = (items: DocItem[]): DocItem[] => {
-            return items
-              .filter(item => {
-                // If it's a file, check if it's in the hidden list
-                if (item.type === 'file') {
-                  return !isHiddenFile(item.path);
-                }
-                return true; // Keep all directories
-              })
-              .map(item => {
-                // If it's a directory with children, filter its children
-                if (item.type === 'directory' && item.children) {
-                  return {
-                    ...item,
-                    children: filterHiddenFiles(item.children)
-                  };
-                }
-                return item;
-              })
-              // Filter out empty directories after their children have been filtered
-              .filter(item => !(item.type === 'directory' && item.children && item.children.length === 0));
-          };
-          
-          // Filter hidden files first
-          const filteredData = filterHiddenFiles(data);
-          
-          // Function to get priority index (lower = higher priority)
-          const getPriorityIndex = (path: string): number => {
-            const fileName = path.split('/').pop() || '';
-            const index = priorityDocs.findIndex(doc => 
-              doc.toLowerCase() === fileName.toLowerCase()
-            );
-            return index === -1 ? Number.MAX_SAFE_INTEGER : index;
-          };
-          
-          // Custom sort function to prioritize specific documents
-          const customSort = (a: DocItem, b: DocItem): number => {
-            // First check if either item is in the priority list
-            if (a.type === 'file' && b.type === 'file') {
-              const priorityA = getPriorityIndex(a.path);
-              const priorityB = getPriorityIndex(b.path);
-              
-              // If both are priority docs, sort by priority order
-              if (priorityA < Number.MAX_SAFE_INTEGER && priorityB < Number.MAX_SAFE_INTEGER) {
-                return priorityA - priorityB;
+        const data = await api.docs.getStructure();
+        console.log("Documentation structure loaded successfully:", data);
+        
+        // Recursive function to filter items
+        const filterHiddenFiles = (items: DocItem[]): DocItem[] => {
+          return items
+            .filter(item => {
+              // If it's a file, check if it's in the hidden list
+              if (item.type === 'file') {
+                return !isHiddenFile(item.path);
               }
-              
-              // If only one is a priority doc, it goes first
-              if (priorityA < Number.MAX_SAFE_INTEGER) return -1;
-              if (priorityB < Number.MAX_SAFE_INTEGER) return 1;
-            }
-            
-            // Default sort: directories first, then alphabetically
-            if (a.type === 'directory' && b.type !== 'directory') return -1;
-            if (a.type !== 'directory' && b.type === 'directory') return 1;
-            
-            return a.name.localeCompare(b.name);
-          };
-          
-          // Function to sort the tree recursively
-          const sortTree = (items: DocItem[]): DocItem[] => {
-            // Sort the current level
-            const sortedItems = [...items].sort(customSort);
-            
-            // Recursively sort children
-            return sortedItems.map(item => {
+              return true; // Keep all directories
+            })
+            .map(item => {
+              // If it's a directory with children, filter its children
               if (item.type === 'directory' && item.children) {
                 return {
                   ...item,
-                  children: sortTree(item.children)
+                  children: filterHiddenFiles(item.children)
                 };
               }
               return item;
-            });
-          };
+            })
+            // Filter out empty directories after their children have been filtered
+            .filter(item => !(item.type === 'directory' && item.children && item.children.length === 0));
+        };
+        
+        // Filter hidden files first
+        const filteredData = filterHiddenFiles(data);
+        
+        // Function to get priority index (lower = higher priority)
+        const getPriorityIndex = (path: string): number => {
+          const fileName = path.split('/').pop() || '';
+          const index = priorityDocs.findIndex(doc => 
+            doc.toLowerCase() === fileName.toLowerCase()
+          );
+          return index === -1 ? Number.MAX_SAFE_INTEGER : index;
+        };
+        
+        // Custom sort function to prioritize specific documents
+        const customSort = (a: DocItem, b: DocItem): number => {
+          // First check if either item is in the priority list
+          if (a.type === 'file' && b.type === 'file') {
+            const priorityA = getPriorityIndex(a.path);
+            const priorityB = getPriorityIndex(b.path);
+            
+            // If both are priority docs, sort by priority order
+            if (priorityA < Number.MAX_SAFE_INTEGER && priorityB < Number.MAX_SAFE_INTEGER) {
+              return priorityA - priorityB;
+            }
+            
+            // If only one is a priority doc, it goes first
+            if (priorityA < Number.MAX_SAFE_INTEGER) return -1;
+            if (priorityB < Number.MAX_SAFE_INTEGER) return 1;
+          }
           
-          // Apply sorting to the filtered data
-          const sortedData = sortTree(filteredData);
-          console.log("Filtered and sorted documentation structure:", sortedData);
+          // Default sort: directories first, then alphabetically
+          if (a.type === 'directory' && b.type !== 'directory') return -1;
+          if (a.type !== 'directory' && b.type === 'directory') return 1;
           
-          // Set the tree state
-          setDocTree(sortedData);
-        } else {
-          console.error('Failed to fetch documentation structure after retries');
-        }
-        setIsLoading(false);
+          return a.name.localeCompare(b.name);
+        };
+        
+        // Function to sort the tree recursively
+        const sortTree = (items: DocItem[]): DocItem[] => {
+          // Sort the current level
+          const sortedItems = [...items].sort(customSort);
+          
+          // Recursively sort children
+          return sortedItems.map(item => {
+            if (item.type === 'directory' && item.children) {
+              return {
+                ...item,
+                children: sortTree(item.children)
+              };
+            }
+            return item;
+          });
+        };
+        
+        // Apply sorting to the filtered data
+        const sortedData = sortTree(filteredData);
+        console.log("Filtered and sorted documentation structure:", sortedData);
+        
+        // Set the tree state
+        setDocTree(sortedData);
       } catch (error) {
-        console.error('Error fetching documentation structure:', error);
+        console.error('Failed to fetch documentation structure:', error);
+        setError("Failed to load documentation structure. Please try again later.");
+      } finally {
         setIsLoading(false);
       }
     };

@@ -28,8 +28,19 @@ COPY . .
 # Expose Vite dev server port
 EXPOSE 5173
 
-# Start development server with HMR disabled for Docker
+# Start development server using the docker-specific script
+# Environment variables for Docker development
 ENV VITE_USE_POLLING=true
 
-# Always run in no-HMR mode to avoid WebSocket connectivity issues
-CMD echo "Starting in no-HMR mode..." && npm run dev:nohmr
+# Choose which mode to run based on USE_FALLBACK arg
+# Default to fallback mode which is more reliable in Docker
+ENV USE_FALLBACK=true
+
+# Script that decides which mode to run based on environment variable
+CMD if [ "$USE_FALLBACK" = "true" ]; then \
+      echo "Starting in fallback mode (HMR disabled)..." && \
+      npm run dev:fallback; \
+    else \
+      echo "Starting with HMR enabled..." && \
+      npm run dev:docker; \
+    fi

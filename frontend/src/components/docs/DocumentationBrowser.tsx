@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import ReactMarkdown from 'react-markdown';
+import rehypeSanitize from 'rehype-sanitize';
+import rehypeExternalLinks from 'rehype-external-links';
 import { FaFolder, FaFile, FaChevronRight, FaHome, FaSearch } from 'react-icons/fa';
 import '../../styles/markdown.css';
 
@@ -374,13 +376,31 @@ const DocumentationBrowser: React.FC = () => {
     setSearchResults(searchInTree(docTree));
   }, [searchTerm, docTree]);
 
-  // Convert document links to work with our router
+  // Convert document links to work with our router and sanitize content
   const processMarkdown = (content: string): string => {
     // Add debug log to track content processing
     console.log("Processing markdown content of length:", content.length);
     
+    // First, sanitize the content to remove any potential unsafe elements
+    let processedContent = content;
+    
+    // Remove any script tags that might be in the content
+    processedContent = processedContent.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '');
+    
+    // Remove any onclick, onload, and other event handlers
+    processedContent = processedContent.replace(/on\w+="[^"]*"/g, '');
+    processedContent = processedContent.replace(/on\w+='[^']*'/g, '');
+    
+    // Remove iframes
+    processedContent = processedContent.replace(/<iframe\b[^<]*(?:(?!<\/iframe>)<[^<]*)*<\/iframe>/gi, '');
+    
+    // Check if the content has been modified during sanitization
+    if (processedContent.length !== content.length) {
+      console.warn("Content was sanitized - potential security issues detected");
+    }
+    
     // Convert Markdown links to relative paths
-    return content.replace(/\[([^\]]+)\]\(([^)]+)\)/g, (match, text, url) => {
+    return processedContent.replace(/\[([^\]]+)\]\(([^)]+)\)/g, (match, text, url) => {
       if (url.startsWith('http')) {
         // External links remain unchanged
         console.log("External link preserved:", url);
@@ -489,9 +509,19 @@ const DocumentationBrowser: React.FC = () => {
 
     try {
       const processedContent = processMarkdown(docContent.content);
+      // Remove any script tags from the markdown content as an additional safety measure
+      const sanitizedContent = processedContent.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '');
+      
       return (
         <div className="prose max-w-full">
-          <ReactMarkdown>{processedContent}</ReactMarkdown>
+          <ReactMarkdown
+            rehypePlugins={[
+              rehypeSanitize, // Sanitizes HTML in markdown to prevent XSS
+              [rehypeExternalLinks, { target: '_blank', rel: ['nofollow', 'noopener', 'noreferrer'] }] // Makes external links safe
+            ]}
+          >
+            {sanitizedContent}
+          </ReactMarkdown>
         </div>
       );
     } catch (err) {

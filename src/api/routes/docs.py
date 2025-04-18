@@ -123,7 +123,11 @@ async def get_documentation_content(
             
         # Process the content to fix links
         content = process_markdown_links(content, str(file_path.relative_to(DOCS_DIR)))
-        print("Content processed successfully")
+        
+        # Sanitize content to remove potentially harmful elements
+        content = sanitize_content(content)
+        
+        print("Content processed and sanitized successfully")
             
         return content
     except HTTPException:
@@ -205,3 +209,42 @@ def process_link(match, current_path):
         print(f"Error processing link {url}: {str(e)}")
         # Return original link if processing fails
         return f'[{text}]({url})'
+        
+def sanitize_content(content: str) -> str:
+    """
+    Sanitize markdown content to remove potentially harmful HTML elements.
+    """
+    import re
+    
+    try:
+        # Log original content length for debugging
+        original_length = len(content)
+        print(f"Sanitizing content of length {original_length}")
+        
+        # Remove script tags
+        content = re.sub(r'<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>', '', content, flags=re.IGNORECASE)
+        
+        # Remove on* attributes (JavaScript event handlers)
+        content = re.sub(r'\s+on\w+="[^"]*"', '', content, flags=re.IGNORECASE)
+        content = re.sub(r'\s+on\w+='[^']*'', '', content, flags=re.IGNORECASE)
+        
+        # Remove iframe tags
+        content = re.sub(r'<iframe\b[^<]*(?:(?!<\/iframe>)<[^<]*)*<\/iframe>', '', content, flags=re.IGNORECASE)
+        
+        # Remove object tags
+        content = re.sub(r'<object\b[^<]*(?:(?!<\/object>)<[^<]*)*<\/object>', '', content, flags=re.IGNORECASE)
+        
+        # Remove embed tags
+        content = re.sub(r'<embed\b[^<]*(?:(?!<\/embed>)<[^<]*)*<\/embed>', '', content, flags=re.IGNORECASE)
+        
+        # Check if content was modified
+        if len(content) != original_length:
+            print(f"Content was sanitized: removed {original_length - len(content)} characters")
+        
+        return content
+    except Exception as e:
+        import traceback
+        print(f"Error sanitizing content: {str(e)}")
+        print(traceback.format_exc())
+        # Return original content if sanitization fails
+        return content

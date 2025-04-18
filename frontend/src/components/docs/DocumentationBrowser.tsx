@@ -387,12 +387,22 @@ const DocumentationBrowser: React.FC = () => {
     // Remove any script tags that might be in the content
     processedContent = processedContent.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '');
     
+    // Remove any link tags (CSS stylesheets)
+    processedContent = processedContent.replace(/<link\b[^<]*(?:(?!<\/link>)<[^<]*)*<\/link>/gi, '');
+    processedContent = processedContent.replace(/<link[^>]*>/gi, '');
+    
+    // Remove style tags
+    processedContent = processedContent.replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, '');
+    
     // Remove any onclick, onload, and other event handlers
     processedContent = processedContent.replace(/on\w+="[^"]*"/g, '');
     processedContent = processedContent.replace(/on\w+='[^']*'/g, '');
     
     // Remove iframes
     processedContent = processedContent.replace(/<iframe\b[^<]*(?:(?!<\/iframe>)<[^<]*)*<\/iframe>/gi, '');
+    
+    // Remove meta tags
+    processedContent = processedContent.replace(/<meta[^>]*>/gi, '');
     
     // Check if the content has been modified during sanitization
     if (processedContent.length !== content.length) {
@@ -512,11 +522,36 @@ const DocumentationBrowser: React.FC = () => {
       // Remove any script tags from the markdown content as an additional safety measure
       const sanitizedContent = processedContent.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '');
       
+      // Create strict sanitization configuration
+      const sanitizeConfig = {
+        // Define allowed tags - very restrictive
+        allowedTags: [
+          'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
+          'p', 'ul', 'ol', 'li', 'blockquote',
+          'strong', 'em', 'code', 'pre', 'hr',
+          'br', 'a', 'table', 'thead', 'tbody',
+          'tr', 'th', 'td'
+        ],
+        // Only allow these attributes
+        allowedAttributes: {
+          a: ['href', 'title'],
+          code: ['className'],
+          th: ['scope', 'align'],
+          td: ['align']
+        },
+        // Ensure all URLs are sanitized
+        allowedSchemes: ['http', 'https', 'mailto'],
+        // Don't allow any classes or IDs except code highlighting classes
+        allowedClasses: {
+          code: [/^language-.*$/]
+        }
+      };
+      
       return (
         <div className="prose max-w-full">
           <ReactMarkdown
             rehypePlugins={[
-              rehypeSanitize, // Sanitizes HTML in markdown to prevent XSS
+              [rehypeSanitize, sanitizeConfig], // Sanitizes HTML in markdown with strict config
               [rehypeExternalLinks, { target: '_blank', rel: ['nofollow', 'noopener', 'noreferrer'] }] // Makes external links safe
             ]}
           >

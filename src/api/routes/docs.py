@@ -127,6 +127,15 @@ async def get_documentation_content(
         # Sanitize content to remove potentially harmful elements
         content = sanitize_content(content)
         
+        # Final verification step - check for any remaining HTML tags that shouldn't be there
+        final_check_result = perform_final_security_check(content)
+        if not final_check_result['is_safe']:
+            print(f"WARNING: Potentially unsafe content detected after sanitization: {final_check_result['unsafe_elements']}")
+            # Apply additional cleanup for specific unsafe elements
+            for pattern in final_check_result['unsafe_elements']:
+                content = re.sub(pattern, '', content, flags=re.IGNORECASE)
+            print("Applied additional sanitization to remove unsafe elements")
+        
         print("Content processed and sanitized successfully")
             
         return content
@@ -210,6 +219,52 @@ def process_link(match, current_path):
         # Return original link if processing fails
         return f'[{text}]({url})'
         
+def perform_final_security_check(content: str) -> dict:
+    """
+    Perform a final security check to ensure all dangerous content has been removed.
+    Returns a dict with 'is_safe' flag and any 'unsafe_elements' detected.
+    """
+    import re
+    
+    # List of patterns to check for potentially harmful content
+    unsafe_patterns = [
+        r'<script',
+        r'<link',
+        r'<style',
+        r'<meta',
+        r'<iframe',
+        r'<object',
+        r'<embed',
+        r'javascript:',
+        r'on\w+=["\']',
+        r'data:text/html',
+        r'base64',
+        r'crossorigin',
+        r'<form',
+        r'<input',
+        r'<button',
+        r'<img\s+[^>]*onerror',
+        r'document\.write',
+        r'document\.cookie',
+        r'window\.location',
+        r'<div\s+[^>]*style=',
+        r'<html',
+        r'<body',
+        r'<head'
+    ]
+    
+    unsafe_found = []
+    
+    for pattern in unsafe_patterns:
+        if re.search(pattern, content, re.IGNORECASE):
+            print(f"Found unsafe pattern: {pattern}")
+            unsafe_found.append(pattern)
+    
+    return {
+        'is_safe': len(unsafe_found) == 0,
+        'unsafe_elements': unsafe_found
+    }
+
 def sanitize_content(content: str) -> str:
     """
     Sanitize markdown content to remove potentially harmful HTML elements.
@@ -224,6 +279,16 @@ def sanitize_content(content: str) -> str:
         # Remove script tags
         content = re.sub(r'<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>', '', content, flags=re.IGNORECASE)
         
+        # Remove link tags (CSS stylesheets)
+        content = re.sub(r'<link\b[^<]*(?:(?!<\/link>)<[^<]*)*<\/link>', '', content, flags=re.IGNORECASE)
+        content = re.sub(r'<link[^>]*>', '', content, flags=re.IGNORECASE)
+        
+        # Remove style tags
+        content = re.sub(r'<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>', '', content, flags=re.IGNORECASE)
+        
+        # Remove meta tags
+        content = re.sub(r'<meta[^>]*>', '', content, flags=re.IGNORECASE)
+        
         # Remove on* attributes (JavaScript event handlers)
         content = re.sub(r'\s+on\w+="[^"]*"', '', content, flags=re.IGNORECASE)
         content = re.sub(r'\s+on\w+='[^']*'', '', content, flags=re.IGNORECASE)
@@ -236,6 +301,9 @@ def sanitize_content(content: str) -> str:
         
         # Remove embed tags
         content = re.sub(r'<embed\b[^<]*(?:(?!<\/embed>)<[^<]*)*<\/embed>', '', content, flags=re.IGNORECASE)
+        
+        # Handle crossorigin attributes
+        content = re.sub(r'\s+crossorigin=["\'][^"\']*["\']', '', content, flags=re.IGNORECASE)
         
         # Check if content was modified
         if len(content) != original_length:

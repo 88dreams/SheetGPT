@@ -1,5 +1,4 @@
 services:
-  # Development frontend service with HMR completely disabled
-  frontend:
-    # Override command - no need to rebuild image
-    command: echo "Starting in no-HMR mode..." && npm run dev:nohmr
+  # Simple override with no modifications
+  # Let the Dockerfile's built-in command run
+  frontend: {}

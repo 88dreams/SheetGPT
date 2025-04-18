@@ -9,7 +9,7 @@
   "scripts": {
     "dev": "vite --host 0.0.0.0",
     "dev:docker": "VITE_USE_POLLING=true vite --host 0.0.0.0 --force",
-    "dev:nohmr": "VITE_USE_POLLING=true vite --host 0.0.0.0 --force --config vite.config.ts",
+    "dev:nohmr": "VITE_USE_POLLING=true VITE_DISABLE_WS=true vite --host 0.0.0.0 --force",
     "build": "vite build",
     "build:clean": "bash ./clean.sh",
     "build:typecheck": "tsc && vite build",

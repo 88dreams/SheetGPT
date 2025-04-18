@@ -14,20 +14,11 @@ export default defineConfig({
     host: '0.0.0.0',
     port: 5173,
     strictPort: true,
-    hmr: disableWs ? false : {
-      // Configure HMR for Docker networking
-      protocol: 'ws',
-      // Don't use 0.0.0.0 as browsers block this address
-      host: 'localhost',
-      port: 5173,
-      // Disable host check for Docker networking
-      clientPort: 5173,
-      // Always show overlay for better debugging
-      overlay: true,
-    },
+    // In docker, completely disable HMR to avoid WebSocket issues
+    hmr: false,
     watch: {
       // Use polling for file changes to fix Docker issues
-      usePolling: usePolling, 
+      usePolling: true, 
       interval: 1000,
     },
     proxy: {

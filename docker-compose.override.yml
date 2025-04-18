@@ -1,16 +1,5 @@
 services:
-  # Development frontend service
+  # Development frontend service with HMR completely disabled
   frontend:
-    environment:
-      - USE_FALLBACK=true  # Set to true to disable WebSockets completely
     # Override command - no need to rebuild image
-    command: >
-      sh -c "
-        if [ \"$${USE_FALLBACK}\" = \"true\" ]; then 
-          echo 'Starting in fallback mode (HMR disabled)...' && 
-          npm run dev:fallback; 
-        else 
-          echo 'Starting with HMR enabled...' && 
-          npm run dev:docker; 
-        fi
-      "
+    command: echo "Starting in no-HMR mode..." && npm run dev:nohmr

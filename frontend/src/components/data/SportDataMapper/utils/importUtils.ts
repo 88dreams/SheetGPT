@@ -37,9 +37,27 @@ export const transformMappedData = (
     const isBroadcastData = Object.keys(mappings).some(field => 
       field === 'broadcast_company_id' || field === 'territory');
       
-    const isBrandData = Object.keys(mappings).some(field =>
-      field === 'name') && !isBroadcastData;
+    // Check for league-specific fields
+    const isLeagueData = Object.keys(mappings).some(field => 
+      field === 'sport' || field === 'founded_year' || field === 'nickname');
       
+    // Check for division/conference-specific fields
+    const isDivisionConferenceData = Object.keys(mappings).some(field => 
+      field === 'league_id' || field === 'type' || 
+      (field === 'name' && Object.keys(mappings).some(f => f === 'league_id')));
+      
+    // Brand data has name but is not broadcast, league, or division/conference data
+    const isBrandData = Object.keys(mappings).some(field =>
+      field === 'name') && !isBroadcastData && !isLeagueData && !isDivisionConferenceData;
+      
+    // Log detection results for easier debugging
+    console.log('Entity type detection results:', {
+      isBroadcastData,
+      isLeagueData,
+      isDivisionConferenceData,
+      isBrandData
+    });
+    
     // If this is broadcast data, set critical fields if they're not already in mappings
     if (isBroadcastData) {
       console.log('This appears to be broadcast data - ensuring critical fields are set');
@@ -90,11 +108,16 @@ export const transformMappedData = (
       }
     }
     
+    // We'll map the fields based on the strategies first, without modifying transformedData yet
+    const mappedFields = {};
+    
     // Map each field directly using two simple strategies
     Object.entries(mappings).forEach(([dbField, sourceField]) => {
-      // Skip if we already set this field with defaults above
+      // Skip if this field is already set in transformedData
       if (transformedData[dbField] !== undefined) {
         console.log(`Field ${dbField} already set - skipping standard mapping`);
+        // Store what's already in transformedData
+        mappedFields[dbField] = transformedData[dbField];
         return;
       }
       
@@ -103,8 +126,8 @@ export const transformMappedData = (
         // If the source field is a number, use it as an array index
         const index = Number(sourceField);
         if (index >= 0 && index < sourceRecord.length) {
-          transformedData[dbField] = sourceRecord[index];
-          console.log(`Mapped ${dbField} = ${transformedData[dbField]} (from index ${index})`);
+          mappedFields[dbField] = sourceRecord[index];
+          console.log(`Mapped ${dbField} = ${mappedFields[dbField]} (from index ${index})`);
         } else {
           console.log(`Index ${index} out of bounds for field ${dbField}`);
         }
@@ -117,51 +140,184 @@ export const transformMappedData = (
           // Check if this item matches our source field name
           if (sourceRecord[i] === sourceField) {
             // Use the next value as the field value
-            transformedData[dbField] = sourceRecord[i + 1];
-            console.log(`Mapped ${dbField} = ${transformedData[dbField]} (via field name match at position ${i})`);
+            mappedFields[dbField] = sourceRecord[i + 1];
+            console.log(`Mapped ${dbField} = ${mappedFields[dbField]} (via field name match at position ${i})`);
             break;
           }
         }
         
         // If no match was found after scanning the array
-        if (transformedData[dbField] === undefined) {
+        if (!mappedFields[dbField]) {
           // If the source field name matches a known field at a specific position,
           // we can use that position as a last resort
           
           // Common field position patterns - these are just sensible defaults
           if (sourceField === 'Name of company' || sourceField === 'Company Name') {
             // Often in first position
-            transformedData[dbField] = sourceRecord[0];
-            console.log(`Mapped ${dbField} = ${transformedData[dbField]} (from common position 0)`);
+            mappedFields[dbField] = sourceRecord[0];
+            console.log(`Mapped ${dbField} = ${mappedFields[dbField]} (from common position 0)`);
           }
           else if ((sourceField === 'Broadcast Client' || sourceField === 'League Name') && sourceRecord[1]) {
             // Often in second position
-            transformedData[dbField] = sourceRecord[1];
-            console.log(`Mapped ${dbField} = ${transformedData[dbField]} (from common position 1)`);
+            mappedFields[dbField] = sourceRecord[1];
+            console.log(`Mapped ${dbField} = ${mappedFields[dbField]} (from common position 1)`);
           }
           else if (sourceField === 'Sport' && sourceRecord.find(x => typeof x === 'string' && 
                   (x === 'Motorsport' || x === 'Racing' || x.includes('Sport')))) {
             // Find sport in array
             const sport = sourceRecord.find(x => typeof x === 'string' && 
                           (x === 'Motorsport' || x === 'Racing' || x.includes('Sport')));
-            transformedData[dbField] = sport;
-            console.log(`Mapped ${dbField} = ${transformedData[dbField]} (from sport pattern match)`);
+            mappedFields[dbField] = sport;
+            console.log(`Mapped ${dbField} = ${mappedFields[dbField]} (from sport pattern match)`);
           }
           else if (sourceField === 'Broadcast Territory' && sourceRecord.find(x => x === 'USA')) {
             // Find territory in array
-            transformedData[dbField] = 'USA';
+            mappedFields[dbField] = 'USA';
             console.log(`Mapped ${dbField} = USA (from territory match)`);
           }
         }
       }
     });
     
+    // Log the mapped fields before any entity-specific processing
+    console.log('Mapped fields before entity processing:', mappedFields);
+    
+    // Special handling for league data
+    if (isLeagueData) {
+      console.log('This appears to be league data - ensuring required fields are set');
+      
+      // Check if name is mapped/present (required field)
+      if (!mappedFields.name && sourceRecord[0]) {
+        mappedFields.name = sourceRecord[0];
+        console.log(`Setting missing league name = "${mappedFields.name}" from position 0`);
+      }
+      
+      // Check if sport is mapped/present (required field)
+      if (!mappedFields.sport) {
+        // 1. Check for sport in explicit value at position 2 (common format)
+        if (sourceRecord[2] && typeof sourceRecord[2] === 'string') {
+          const sportValue = sourceRecord[2];
+          const validSports = ['Basketball', 'Football', 'Soccer', 'Baseball', 'Hockey', 'Golf', 'Tennis', 'Motorsport'];
+          
+          if (validSports.includes(sportValue) || 
+              validSports.some(sport => sportValue.toLowerCase().includes(sport.toLowerCase()))) {
+            mappedFields.sport = sportValue;
+            console.log(`Setting sport to "${sportValue}" from position 2`);
+          }
+        }
+        
+        // 2. If not found, try to detect from the data
+        if (!mappedFields.sport) {
+          let detectedSport = 'Basketball'; // Default
+          
+          // Use sourceRecord[0] (league name) to detect sport
+          if (sourceRecord[0] && typeof sourceRecord[0] === 'string') {
+            const leagueName = sourceRecord[0].toLowerCase();
+            if (leagueName.includes('golf') || leagueName.includes('pga')) {
+              detectedSport = 'Golf';
+            } else if (leagueName.includes('soccer') || leagueName.includes('football') && !leagueName.includes('american')) {
+              detectedSport = 'Soccer';
+            } else if (leagueName.includes('football') || leagueName.includes('nfl')) {
+              detectedSport = 'Football';
+            } else if (leagueName.includes('basketball') || leagueName.includes('nba')) {
+              detectedSport = 'Basketball';
+            } else if (leagueName.includes('baseball') || leagueName.includes('mlb')) {
+              detectedSport = 'Baseball';
+            } else if (leagueName.includes('hockey') || leagueName.includes('nhl')) {
+              detectedSport = 'Hockey';
+            } else if (leagueName.includes('tennis')) {
+              detectedSport = 'Tennis';
+            } else if (leagueName.includes('racing') || leagueName.includes('nascar') || leagueName.includes('formula')) {
+              detectedSport = 'Motorsport';
+            }
+          }
+          
+          mappedFields.sport = detectedSport;
+          console.log(`Setting sport to "${detectedSport}" based on league name analysis`);
+        }
+      }
+      
+      // Check if country is mapped/present
+      if (!mappedFields.country) {
+        // Try to find country in position 3 first (common format)
+        if (sourceRecord[3] && typeof sourceRecord[3] === 'string' && 
+            (sourceRecord[3] === 'USA' || sourceRecord[3] === 'United States' || 
+             sourceRecord[3] === 'UK' || sourceRecord[3] === 'United Kingdom' ||
+             sourceRecord[3] === 'Canada' || sourceRecord[3] === 'Australia')) {
+          mappedFields.country = sourceRecord[3];
+          console.log(`Setting country to "${mappedFields.country}" from position 3`);
+        }
+        // Default to USA if not found
+        else {
+          mappedFields.country = 'USA';
+          console.log(`Setting default country to "USA"`);
+        }
+      }
+      
+      console.log('Enhanced league data:', mappedFields);
+    }
+    
+    // Special handling for division/conference data
+    else if (isDivisionConferenceData) {
+      console.log('This appears to be division/conference data - ensuring required fields are set');
+      
+      // Check if name is mapped/present (required field)
+      if (!mappedFields.name && sourceRecord[0]) {
+        mappedFields.name = sourceRecord[0];
+        console.log(`Setting missing division/conference name = "${mappedFields.name}" from position 0`);
+      }
+      
+      // Set type if not set (required field)
+      if (!mappedFields.type) {
+        // Try to detect if this is a division or conference from the data
+        let detectedType = 'Division'; // Default
+        
+        // First try to detect from the name
+        if (mappedFields.name && typeof mappedFields.name === 'string') {
+          const nameLower = mappedFields.name.toLowerCase();
+          if (nameLower.includes('conference')) {
+            detectedType = 'Conference';
+          } else if (nameLower.includes('division')) {
+            detectedType = 'Division';
+          }
+        }
+        
+        // If not found in name, check all source record values
+        if (detectedType === 'Division') {
+          for (let i = 0; i < sourceRecord.length; i++) {
+            const value = sourceRecord[i];
+            if (typeof value === 'string') {
+              const valueLower = value.toLowerCase();
+              if (valueLower.includes('conference')) {
+                detectedType = 'Conference';
+                break;
+              } else if (valueLower.includes('division')) {
+                detectedType = 'Division';
+                break;
+              }
+            }
+          }
+        }
+        
+        mappedFields.type = detectedType;
+        console.log(`Setting division/conference type to "${detectedType}" based on data analysis`);
+      }
+      
+      console.log('Enhanced division/conference data:', mappedFields);
+    }
+    
     // Special handling for brand data
-    if (isBrandData) {
+    else if (isBrandData) {
       console.log('This appears to be brand data - ensuring required fields are set');
       
-      // Check if industry is mapped/present
-      if (!transformedData.industry) {
+      // Check if name is mapped/present (required field)
+      if (!mappedFields.name && sourceRecord[0]) {
+        mappedFields.name = sourceRecord[0];
+        console.log(`Setting missing brand name = "${mappedFields.name}" from position 0`);
+      }
+      
+      // Check if industry is mapped/present (required field)
+      if (!mappedFields.industry) {
         // Look for industry in position 8 or based on data patterns
         let detectedIndustry = 'Media'; // Default
         
@@ -184,11 +340,11 @@ export const transformMappedData = (
           console.log(`Setting brand industry to "Sports" based on sports keywords in data`);
         }
         
-        transformedData.industry = detectedIndustry;
+        mappedFields.industry = detectedIndustry;
       }
       
       // Also set company_type if not set
-      if (!transformedData.company_type) {
+      if (!mappedFields.company_type) {
         let companyType = 'Broadcaster'; // Default
         
         // Check position 8 for typical company type values
@@ -198,12 +354,12 @@ export const transformMappedData = (
           companyType = 'Broadcaster';
         }
         
-        transformedData.company_type = companyType;
+        mappedFields.company_type = companyType;
         console.log(`Setting company_type to "${companyType}" based on data analysis`);
       }
       
       // Set country if not set
-      if (!transformedData.country) {
+      if (!mappedFields.country) {
         // Try to find country in positions 5-6
         for (let i = 5; i <= 6 && i < sourceRecord.length; i++) {
           const value = sourceRecord[i];
@@ -211,90 +367,104 @@ export const transformMappedData = (
               (value === 'USA' || value === 'United States' || 
                value === 'UK' || value === 'United Kingdom' || 
                value === 'Canada' || value === 'Australia')) {
-            transformedData.country = value;
+            mappedFields.country = value;
             console.log(`Setting country to "${value}" from position ${i}`);
             break;
           }
         }
         
         // Default to USA if not found
-        if (!transformedData.country) {
-          transformedData.country = 'USA';
+        if (!mappedFields.country) {
+          mappedFields.country = 'USA';
           console.log(`Setting default country to "USA"`);
         }
       }
+      
+      console.log('Enhanced brand data:', mappedFields);
     }
     
     // Special handling for broadcast data - make sure we have entity_type and entity_id
     if (isBroadcastData) {
-      // Additional validations/defaults for broadcast data
+      console.log('This appears to be broadcast data - ensuring required fields are set');
       
       // If we have a broadcast_company_id but no entity_id, set entity_id to position 1
-      if (transformedData.broadcast_company_id && !transformedData.entity_id && sourceRecord[1]) {
-        transformedData.entity_id = sourceRecord[1];
-        console.log(`Set entity_id = ${transformedData.entity_id} for broadcast from position 1`);
+      if (mappedFields.broadcast_company_id && !mappedFields.entity_id && sourceRecord[1]) {
+        mappedFields.entity_id = sourceRecord[1];
+        console.log(`Set entity_id = ${mappedFields.entity_id} for broadcast from position 1`);
       }
       
       // If we have an entity_id but no entity_type, default to league for racing series
-      if (transformedData.entity_id && !transformedData.entity_type) {
+      if (mappedFields.entity_id && !mappedFields.entity_type) {
         const entityType = 'league'; // Default to league for racing series
-        transformedData.entity_type = entityType;
+        mappedFields.entity_type = entityType;
         console.log(`Set default entity_type = ${entityType} for broadcast`);
       }
       
       // Set territory if missing
-      if (!transformedData.territory) {
+      if (!mappedFields.territory) {
         // Try to find any territory in positions 5-6
         for (let i = 5; i <= 6 && i < sourceRecord.length; i++) {
           if (typeof sourceRecord[i] === 'string' && sourceRecord[i].trim() !== '') {
-            transformedData.territory = sourceRecord[i];
+            mappedFields.territory = sourceRecord[i];
             console.log(`Set territory = ${sourceRecord[i]} from position ${i}`);
             break;
           }
         }
         
         // If still not set, default to USA
-        if (!transformedData.territory) {
-          transformedData.territory = 'USA';
+        if (!mappedFields.territory) {
+          mappedFields.territory = 'USA';
           console.log(`Set default territory = USA`);
         }
       }
       
       // Set start_date and end_date if missing but years are in the data
-      if (!transformedData.start_date) {
+      if (!mappedFields.start_date) {
         // Look for year (4 digits) in positions 6-7
         for (let i = 6; i <= 7 && i < sourceRecord.length; i++) {
           if (/^\d{4}$/.test(String(sourceRecord[i]))) {
-            transformedData.start_date = sourceRecord[i];
-            console.log(`Set start_date = ${transformedData.start_date} from position ${i}`);
+            mappedFields.start_date = sourceRecord[i];
+            console.log(`Set start_date = ${mappedFields.start_date} from position ${i}`);
             break;
           }
         }
       }
       
-      if (!transformedData.end_date) {
+      if (!mappedFields.end_date) {
         // Look for year (4 digits) in positions 7-8
         for (let i = 7; i <= 8 && i < sourceRecord.length; i++) {
           if (/^\d{4}$/.test(String(sourceRecord[i]))) {
-            transformedData.end_date = sourceRecord[i];
-            console.log(`Set end_date = ${transformedData.end_date} from position ${i}`);
+            mappedFields.end_date = sourceRecord[i];
+            console.log(`Set end_date = ${mappedFields.end_date} from position ${i}`);
             break;
           }
         }
       }
+      
+      console.log('Enhanced broadcast data:', mappedFields);
     }
+    
+    // Merge all mapped fields into transformedData
+    Object.assign(transformedData, mappedFields);
+    console.log('Final array data after merging mapped fields:', transformedData);
   } 
   // Process object data (simple property access)
   else if (!isArrayData && typeof sourceRecord === 'object' && sourceRecord !== null) {
     console.log('Processing object data');
+    const mappedFields = {};
     Object.entries(mappings).forEach(([dbField, sourceField]) => {
       if (sourceField in sourceRecord) {
-        transformedData[dbField] = sourceRecord[sourceField];
-        console.log(`Mapped ${dbField} = ${transformedData[dbField]} (from object property)`);
+        mappedFields[dbField] = sourceRecord[sourceField];
+        console.log(`Mapped ${dbField} = ${mappedFields[dbField]} (from object property)`);
       } else {
         console.log(`Source field "${sourceField}" not found in object`);
       }
     });
+    
+    console.log('Object data mapped fields:', mappedFields);
+    
+    // Merge mapped fields into transformedData
+    Object.assign(transformedData, mappedFields);
   }
   
   // Minimal post-processing: format dates only
@@ -312,6 +482,7 @@ export const transformMappedData = (
     }
   });
   
+  // Simple final transformed data logging
   console.log('Final transformed data:', transformedData);
   return transformedData;
 };

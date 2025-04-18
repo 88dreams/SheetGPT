@@ -29,11 +29,18 @@ COPY . .
 EXPOSE 5173
 
 # Start development server using the docker-specific script
-# Environment variables passed as ARGs in case we need to toggle fallback mode
+# Environment variables for Docker development
 ENV VITE_USE_POLLING=true
 
-# Run with the docker-specific configuration
-CMD ["npm", "run", "dev:docker"]
+# Choose which mode to run based on USE_FALLBACK arg
+# Default to fallback mode which is more reliable in Docker
+ENV USE_FALLBACK=true
 
-# If WebSocket issues persist, you can uncomment this line and comment out the line above
-# CMD ["npm", "run", "dev:fallback"]
+# Script that decides which mode to run based on environment variable
+CMD if [ "$USE_FALLBACK" = "true" ]; then \
+      echo "Starting in fallback mode (HMR disabled)..." && \
+      npm run dev:fallback; \
+    else \
+      echo "Starting with HMR enabled..." && \
+      npm run dev:docker; \
+    fi

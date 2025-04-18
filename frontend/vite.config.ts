@@ -17,7 +17,8 @@ export default defineConfig({
     hmr: disableWs ? false : {
       // Configure HMR for Docker networking
       protocol: 'ws',
-      host: '0.0.0.0', 
+      // Don't use 0.0.0.0 as browsers block this address
+      host: 'localhost',
       port: 5173,
       // Disable host check for Docker networking
       clientPort: 5173,

@@ -7,9 +7,6 @@ WORKDIR /app
 # Install Claude Code globally
 RUN npm install -g @anthropic-ai/claude-code@0.2.35
 
-# Install serve for static file serving
-RUN npm install -g serve@14.2.1
-
 # Copy package files
 COPY package*.json ./
 
@@ -28,18 +25,11 @@ RUN npm install @ant-design/icons@5.0.0 --save
 # Copy project files
 COPY . .
 
-# Build the app for production
-RUN npm run build
-
-# Expose port
+# Expose Vite dev server port
 EXPOSE 5173
 
-# Create startup script
-RUN echo '#!/bin/sh\n\
-echo "Starting static file server..."\n\
-cd /app/dist\n\
-serve -s -l 5173 --cors\n\
-' > /app/start.sh && chmod +x /app/start.sh
+# Start development server with HMR disabled for Docker
+ENV VITE_USE_POLLING=true
 
-# Run static file server
-CMD ["/app/start.sh"]
+# Always run in no-HMR mode to avoid WebSocket connectivity issues
+CMD echo "Starting in no-HMR mode..." && npm run dev:nohmr

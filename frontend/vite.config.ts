@@ -2,6 +2,10 @@ import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import path from 'path';
 
+// Environment variables for configuration
+const usePolling = process.env.VITE_USE_POLLING === 'true';
+const disableWs = process.env.VITE_DISABLE_WS === 'true';
+
 // https://vitejs.dev/config/
 export default defineConfig({
   plugins: [react()],
@@ -10,6 +14,13 @@ export default defineConfig({
     host: '0.0.0.0',
     port: 5173,
     strictPort: true,
+    // In docker, completely disable HMR to avoid WebSocket issues
+    hmr: false,
+    watch: {
+      // Use polling for file changes to fix Docker issues
+      usePolling: true, 
+      interval: 1000,
+    },
     proxy: {
       '/api': {
         target: process.env.VITE_API_URL || 'http://backend:8000',

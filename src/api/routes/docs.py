@@ -139,6 +139,69 @@ def process_markdown_links(content: str, current_path: str) -> str:
     Process markdown links to ensure they work in the frontend app.
     This converts relative links to absolute paths within the documentation.
     """
-    # This is a simplified implementation - a more sophisticated one would
-    # handle relative paths more thoroughly
-    return content
+    try:
+        # Log content details for debugging
+        print(f"Processing content for {current_path}, length: {len(content)}")
+        
+        # Convert relative links to absolute
+        import re
+        processed_content = re.sub(
+            r'\[([^\]]+)\]\(([^)]+)\)',
+            lambda m: process_link(m, current_path),
+            content
+        )
+        
+        print(f"Content processed successfully for {current_path}")
+        return processed_content
+    except Exception as e:
+        import traceback
+        print(f"Error processing links in {current_path}: {str(e)}")
+        print(traceback.format_exc())
+        # Return original content if processing fails
+        return content
+        
+def process_link(match, current_path):
+    """Helper function to process individual links in markdown."""
+    text, url = match.groups()
+    
+    try:
+        # Skip external links
+        if url.startswith(('http://', 'https://', 'mailto:')):
+            return f'[{text}]({url})'
+            
+        # Handle relative paths
+        if url.startswith('./'):
+            # Convert to relative path based on current document
+            parent_dir = '/'.join(current_path.split('/')[:-1])
+            if parent_dir:
+                new_url = f"{parent_dir}/{url[2:]}"
+            else:
+                new_url = url[2:]
+        elif url.startswith('../'):
+            # Go up one directory level
+            parts = current_path.split('/')
+            if len(parts) > 1:
+                parent_dir = '/'.join(parts[:-2])
+                new_url = f"{parent_dir}/{url[3:]}"
+            else:
+                new_url = url[3:]
+        elif not url.startswith('/'):
+            # Relative to current directory
+            parent_dir = '/'.join(current_path.split('/')[:-1])
+            if parent_dir:
+                new_url = f"{parent_dir}/{url}"
+            else:
+                new_url = url
+        else:
+            # Absolute path within docs
+            new_url = url[1:]  # Remove leading slash
+            
+        # Ensure consistent formatting
+        new_url = new_url.replace('\\', '/')
+        
+        print(f"Converted link: {url} -> {new_url}")
+        return f'[{text}]({new_url})'
+    except Exception as e:
+        print(f"Error processing link {url}: {str(e)}")
+        # Return original link if processing fails
+        return f'[{text}]({url})'

@@ -77,14 +77,57 @@ const DocumentationBrowser: React.FC = () => {
         const headers = token ? { 'Authorization': `Bearer ${token}` } : {};
         
         console.log("Fetching documentation structure with token:", !!token);
-        const response = await fetch('/api/v1/docs/structure', { 
-          headers,
-          credentials: 'include'
-        });
+        console.log("API base URL from window:", window.location.origin);
         
-        if (response.ok) {
-          const data: DocItem[] = await response.json();
-          console.log("Documentation structure loaded successfully:", data);
+        // Determine API URL based on environment
+        let apiUrl = '/api/v1/docs/structure';
+        
+        // Add retries for production environment
+        let retries = 0;
+        const maxRetries = 3;
+        let success = false;
+        let response;
+        
+        while (!success && retries < maxRetries) {
+          try {
+            console.log(`Attempt ${retries + 1} to fetch docs structure from: ${apiUrl}`);
+            response = await fetch(apiUrl, { 
+              headers,
+              credentials: 'include',
+              // Adding cache control to avoid stale responses
+              cache: 'no-cache'
+            });
+            
+            if (response.ok) {
+              success = true;
+            } else {
+              console.warn(`Attempt ${retries + 1} failed with status: ${response.status}`);
+              // Wait before retrying
+              await new Promise(resolve => setTimeout(resolve, 1000 * (retries + 1)));
+              retries++;
+            }
+          } catch (fetchError) {
+            console.error(`Fetch error on attempt ${retries + 1}:`, fetchError);
+            retries++;
+            if (retries < maxRetries) {
+              // Wait before retrying
+              await new Promise(resolve => setTimeout(resolve, 1000 * (retries + 1)));
+            }
+          }
+        }
+        
+        if (success && response) {
+          // Parse the response JSON
+          let data: DocItem[];
+          try {
+            data = await response.json();
+            console.log("Documentation structure loaded successfully:", data);
+          } catch (jsonError) {
+            console.error("Error parsing JSON response:", jsonError);
+            console.log("Raw response:", await response.text());
+            setIsLoading(false);
+            return;
+          }
           
           // Recursive function to filter items
           const filterHiddenFiles = (items: DocItem[]): DocItem[] => {
@@ -170,7 +213,7 @@ const DocumentationBrowser: React.FC = () => {
           // Set the tree state
           setDocTree(sortedData);
         } else {
-          console.error('Failed to fetch documentation structure:', response.status, await response.text());
+          console.error('Failed to fetch documentation structure after retries');
         }
         setIsLoading(false);
       } catch (error) {
@@ -190,28 +233,69 @@ const DocumentationBrowser: React.FC = () => {
       const headers = token ? { 'Authorization': `Bearer ${token}` } : {};
       const requestOptions = { 
         headers,
-        credentials: 'include' as RequestCredentials
+        credentials: 'include' as RequestCredentials,
+        // Adding cache control to avoid stale responses
+        cache: 'no-cache'
       };
       
       // Check if the requested document is in the hidden list
       if (docPath && isHiddenFile(docPath)) {
         console.log(`Attempted to access hidden document: ${docPath}`);
         // Redirect to main documentation page
-        navigate('/help');
+        navigate('help');
         return;
       }
+      
+      // Function to fetch with retries
+      const fetchWithRetries = async (url: string, options: RequestInit) => {
+        let retries = 0;
+        const maxRetries = 3;
+        
+        while (retries < maxRetries) {
+          try {
+            console.log(`Attempt ${retries + 1} to fetch content from: ${url}`);
+            const response = await fetch(url, options);
+            
+            if (response.ok) {
+              return { success: true, response };
+            } else {
+              console.warn(`Attempt ${retries + 1} failed with status: ${response.status}`);
+              // Log response text for debugging
+              try {
+                const errorText = await response.text();
+                console.warn(`Error response: ${errorText.substring(0, 200)}${errorText.length > 200 ? '...' : ''}`);
+              } catch (e) {
+                console.warn('Could not read error response text');
+              }
+            }
+          } catch (error) {
+            console.error(`Fetch error on attempt ${retries + 1}:`, error);
+          }
+          
+          retries++;
+          if (retries < maxRetries) {
+            // Exponential backoff
+            const delay = Math.min(1000 * Math.pow(2, retries), 5000);
+            console.log(`Retrying in ${delay}ms...`);
+            await new Promise(resolve => setTimeout(resolve, delay));
+          }
+        }
+        
+        return { success: false, response: null };
+      };
       
       if (!docPath) {
         // Load README.md as default
         try {
           console.log("Loading default README.md");
-          const response = await fetch('/api/v1/docs/content?path=README.md', requestOptions);
-          if (response.ok) {
+          const { success, response } = await fetchWithRetries('/api/v1/docs/content?path=README.md', requestOptions);
+          
+          if (success && response) {
             const content = await response.text();
             console.log("README.md loaded successfully");
             setDocContent({ content, path: 'README.md' });
           } else {
-            console.error('Failed to fetch README.md:', response.status, await response.text());
+            console.error('Failed to fetch README.md after retries');
           }
         } catch (error) {
           console.error('Error fetching default document:', error);
@@ -222,13 +306,37 @@ const DocumentationBrowser: React.FC = () => {
       setIsLoading(true);
       try {
         console.log(`Loading document: ${docPath}`);
-        const response = await fetch(`/api/v1/docs/content?path=${encodeURIComponent(docPath)}`, requestOptions);
-        if (response.ok) {
+        const encodedPath = encodeURIComponent(docPath);
+        const { success, response } = await fetchWithRetries(
+          `/api/v1/docs/content?path=${encodedPath}`, 
+          requestOptions
+        );
+        
+        if (success && response) {
           const content = await response.text();
-          console.log(`Document ${docPath} loaded successfully`);
+          console.log(`Document ${docPath} loaded successfully, content length: ${content.length}`);
           setDocContent({ content, path: docPath });
         } else {
-          console.error('Failed to fetch document content:', response.status, await response.text());
+          console.error(`Failed to fetch document content for ${docPath} after retries`);
+          
+          // If document fetch fails, try finding by filename without path
+          if (docPath.includes('/')) {
+            const fileName = docPath.split('/').pop() || '';
+            console.log(`Trying to fetch by filename only: ${fileName}`);
+            
+            const { success: fileSuccess, response: fileResponse } = await fetchWithRetries(
+              `/api/v1/docs/content?path=${encodeURIComponent(fileName)}`, 
+              requestOptions
+            );
+            
+            if (fileSuccess && fileResponse) {
+              const content = await fileResponse.text();
+              console.log(`Document found by filename ${fileName}, content length: ${content.length}`);
+              setDocContent({ content, path: fileName });
+            } else {
+              console.error(`Could not find document by filename either: ${fileName}`);
+            }
+          }
         }
       } catch (error) {
         console.error('Error fetching document content:', error);
@@ -237,7 +345,7 @@ const DocumentationBrowser: React.FC = () => {
     };
 
     fetchDocument();
-  }, [docPath, navigate]);
+  }, [docPath, navigate, isHiddenFile]);
 
   // Handle search
   useEffect(() => {
@@ -268,10 +376,14 @@ const DocumentationBrowser: React.FC = () => {
 
   // Convert document links to work with our router
   const processMarkdown = (content: string): string => {
+    // Add debug log to track content processing
+    console.log("Processing markdown content of length:", content.length);
+    
     // Convert Markdown links to relative paths
     return content.replace(/\[([^\]]+)\]\(([^)]+)\)/g, (match, text, url) => {
       if (url.startsWith('http')) {
         // External links remain unchanged
+        console.log("External link preserved:", url);
         return match;
       }
       
@@ -287,7 +399,17 @@ const DocumentationBrowser: React.FC = () => {
         newPath = url.substring(1);
       }
       
-      return `[${text}](#/help/${newPath})`;
+      // Remove .md extension if present
+      if (newPath.endsWith('.md')) {
+        newPath = newPath.substring(0, newPath.length - 3);
+      }
+      
+      // Create absolute path for React Router that works in both local and production environments
+      // The absence of leading slash is critical for basename to work correctly in production
+      const routePath = `help/${newPath}`;
+      console.log(`Converted link: ${url} -> ${routePath}`);
+      
+      return `[${text}](/${routePath})`;
     });
   };
 
@@ -341,7 +463,7 @@ const DocumentationBrowser: React.FC = () => {
                 </>
               ) : (
                 <Link 
-                  to={`/help/${item.path}`} 
+                  to={`help/${item.path}`} 
                   className="flex items-center text-gray-700 hover:text-blue-600"
                 >
                   <FaFile className="mr-2 text-gray-500" />
@@ -354,6 +476,36 @@ const DocumentationBrowser: React.FC = () => {
         ))}
       </ul>
     );
+  };
+
+  // Track errors for display
+  const [error, setError] = useState<string | null>(null);
+
+  // Error boundary function for document rendering
+  const renderDocumentWithErrorHandling = () => {
+    if (!docContent) {
+      return <div className="text-center text-gray-500 mt-10">Select a document to view</div>;
+    }
+
+    try {
+      const processedContent = processMarkdown(docContent.content);
+      return (
+        <div className="prose max-w-full">
+          <ReactMarkdown>{processedContent}</ReactMarkdown>
+        </div>
+      );
+    } catch (err) {
+      console.error('Error rendering markdown:', err);
+      return (
+        <div className="text-red-500 p-4 border border-red-200 rounded-md">
+          <h3 className="font-bold">Error Rendering Document</h3>
+          <p>There was an error rendering this document. Please try a different document or refresh the page.</p>
+          <pre className="mt-2 bg-red-50 p-2 rounded text-sm overflow-auto">
+            {err instanceof Error ? err.message : 'Unknown error'}
+          </pre>
+        </div>
+      );
+    }
   };
 
   return (
@@ -382,7 +534,7 @@ const DocumentationBrowser: React.FC = () => {
               {searchResults.map((item) => (
                 <li key={item.path} className="py-1">
                   <Link 
-                    to={`/help/${item.path}`} 
+                    to={`help/${item.path}`} 
                     className="flex items-center text-gray-700 hover:text-blue-600"
                     onClick={() => setSearchTerm('')}
                   >
@@ -400,7 +552,7 @@ const DocumentationBrowser: React.FC = () => {
           <h3 className="font-medium text-gray-700 mb-2">Documentation</h3>
           <div className="mb-2">
             <Link 
-              to="/help" 
+              to="help" 
               className="flex items-center text-gray-700 hover:text-blue-600"
             >
               <FaHome className="mr-2 text-gray-500" />
@@ -409,43 +561,48 @@ const DocumentationBrowser: React.FC = () => {
           </div>
           
           {/* Priority Documents Section */}
-          {!isLoading && (
+          {!isLoading && docTree.length > 0 && (
             <div className="mb-4">
               <h4 className="font-medium text-gray-600 mb-1 text-sm">Quick Access</h4>
               <ul className="space-y-1 border-l-2 border-blue-100 pl-2">
                 {/* Find and display priority documents from anywhere in the tree */}
                 {(() => {
-                  // Flatten the tree to find priority documents
-                  const flattenTree = (items: DocItem[], results: DocItem[] = []): DocItem[] => {
-                    items.forEach(item => {
-                      if (item.type === 'file') {
-                        results.push(item);
-                      }
-                      if (item.children) {
-                        flattenTree(item.children, results);
-                      }
-                    });
-                    return results;
-                  };
-                  
-                  const allFiles = flattenTree(docTree);
-                  const priorityFiles = priorityDocs.map(doc => {
-                    return allFiles.find(file => 
-                      file.path.toLowerCase().endsWith(doc.toLowerCase())
-                    );
-                  }).filter(Boolean) as DocItem[];
-                  
-                  return priorityFiles.map((item) => (
-                    <li key={`priority-${item.path}`} className="py-1">
-                      <Link 
-                        to={`/help/${item.path}`} 
-                        className="flex items-center text-gray-700 hover:text-blue-600"
-                      >
-                        <FaFile className="mr-2 text-blue-500" />
-                        <span className="font-medium">{formatTitle(item.name.replace('.md', ''))}</span>
-                      </Link>
-                    </li>
-                  ));
+                  try {
+                    // Flatten the tree to find priority documents
+                    const flattenTree = (items: DocItem[], results: DocItem[] = []): DocItem[] => {
+                      items.forEach(item => {
+                        if (item.type === 'file') {
+                          results.push(item);
+                        }
+                        if (item.children) {
+                          flattenTree(item.children, results);
+                        }
+                      });
+                      return results;
+                    };
+                    
+                    const allFiles = flattenTree(docTree);
+                    const priorityFiles = priorityDocs.map(doc => {
+                      return allFiles.find(file => 
+                        file.path.toLowerCase().endsWith(doc.toLowerCase())
+                      );
+                    }).filter(Boolean) as DocItem[];
+                    
+                    return priorityFiles.map((item) => (
+                      <li key={`priority-${item.path}`} className="py-1">
+                        <Link 
+                          to={`help/${item.path}`} 
+                          className="flex items-center text-gray-700 hover:text-blue-600"
+                        >
+                          <FaFile className="mr-2 text-blue-500" />
+                          <span className="font-medium">{formatTitle(item.name.replace('.md', ''))}</span>
+                        </Link>
+                      </li>
+                    ));
+                  } catch (err) {
+                    console.error('Error rendering priority files:', err);
+                    return <li className="text-red-500">Error loading priority documents</li>;
+                  }
                 })()}
               </ul>
             </div>
@@ -456,6 +613,10 @@ const DocumentationBrowser: React.FC = () => {
             <h4 className="font-medium text-gray-600 mb-1 text-sm">All Documentation</h4>
             {isLoading ? (
               <div className="text-gray-500">Loading documentation...</div>
+            ) : docTree.length === 0 ? (
+              <div className="text-amber-600 p-2 bg-amber-50 rounded-md text-sm">
+                Unable to load documentation structure. Please try refreshing the page.
+              </div>
             ) : (
               renderTree(processedTree)
             )}
@@ -465,17 +626,24 @@ const DocumentationBrowser: React.FC = () => {
 
       {/* Content */}
       <div className="flex-1 bg-white p-8 overflow-y-auto">
+        {error && (
+          <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-md text-red-600">
+            <p className="font-medium">Error loading documentation</p>
+            <p className="text-sm mt-1">{error}</p>
+            <button 
+              className="mt-2 text-xs bg-red-100 hover:bg-red-200 text-red-800 px-2 py-1 rounded"
+              onClick={() => setError(null)}
+            >
+              Dismiss
+            </button>
+          </div>
+        )}
+        
         {isLoading ? (
           <div className="flex justify-center items-center h-full">
             <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-500"></div>
           </div>
-        ) : docContent ? (
-          <div className="prose max-w-full">
-            <ReactMarkdown>{processMarkdown(docContent.content)}</ReactMarkdown>
-          </div>
-        ) : (
-          <div className="text-center text-gray-500 mt-10">Select a document to view</div>
-        )}
+        ) : renderDocumentWithErrorHandling()}
       </div>
     </div>
   );

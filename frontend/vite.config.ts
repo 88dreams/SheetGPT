@@ -7,6 +7,22 @@ export default defineConfig({
   plugins: [react()],
   base: process.env.VITE_BASE_PATH || '/', // Use env variable or default to root
   server: {
+    host: '0.0.0.0',
+    port: 5173,
+    strictPort: true,
+    hmr: {
+      // Use WebSockets for HMR with Docker
+      protocol: 'ws',
+      host: 'localhost',
+      port: 5173,
+      // Fallback to polling if WebSockets fail
+      clientPort: 5173,
+    },
+    watch: {
+      // Use polling for file changes to fix Docker issues
+      usePolling: true,
+      interval: 1000,
+    },
     proxy: {
       '/api': {
         target: process.env.VITE_API_URL || 'http://backend:8000',

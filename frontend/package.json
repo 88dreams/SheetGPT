@@ -7,7 +7,8 @@
     "node": "18.x"
   },
   "scripts": {
-    "dev": "vite",
+    "dev": "vite --host 0.0.0.0",
+    "dev:docker": "vite --host 0.0.0.0",
     "build": "vite build",
     "build:clean": "bash ./clean.sh",
     "build:typecheck": "tsc && vite build",

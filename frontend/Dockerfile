@@ -28,5 +28,5 @@ COPY . .
 # Expose Vite dev server port
 EXPOSE 5173
 
-# Start development server with host flag to allow external access
-CMD ["npm", "run", "dev", "--", "--host"] 
+# Start development server using the docker-specific script
+CMD ["npm", "run", "dev:docker"]

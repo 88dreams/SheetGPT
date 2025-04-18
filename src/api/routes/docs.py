@@ -301,7 +301,7 @@ def sanitize_content(content: str) -> str:
         
         # Remove on* attributes (JavaScript event handlers)
         content = re.sub(r'\s+on\w+="[^"]*"', '', content, flags=re.IGNORECASE)
-        content = re.sub(r'\s+on\w+='[^']*'', '', content, flags=re.IGNORECASE)
+        content = re.sub(r'\s+on\w+=[\'"][^\']*[\'"]', '', content, flags=re.IGNORECASE)
         
         # Remove iframe tags
         content = re.sub(r'<iframe\b[^<]*(?:(?!<\/iframe>)<[^<]*)*<\/iframe>', '', content, flags=re.IGNORECASE)

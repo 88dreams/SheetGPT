@@ -11,6 +11,7 @@ import dataService from '../services/dataService';
 import exportService from '../services/exportService';
 import sportsService from '../services/sportsService';
 import adminService from '../services/adminService';
+import docsService from '../services/docsService';
 
 // Re-export types that consumers might need
 export { APIError } from './apiClient';
@@ -29,6 +30,7 @@ export const api = {
   sports: sportsService,
   admin: adminService,
   dbManagement: adminService, // For backward compatibility
+  docs: docsService, // Documentation service
 };
 
 export default api; 

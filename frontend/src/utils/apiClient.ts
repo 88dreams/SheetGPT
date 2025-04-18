@@ -266,7 +266,7 @@ export interface RequestOptions extends Omit<RequestInit, 'headers'> {
   requiresAuth?: boolean;
   headers?: Record<string, string>;
   timeout?: number; // Optional timeout in milliseconds
-  responseType?: 'json' | 'blob'; // Response type (default is 'json')
+  responseType?: 'json' | 'blob' | 'text'; // Response type (default is 'json')
 }
 
 export async function request<T>(endpoint: string, options: RequestOptions = {}): Promise<T> {
@@ -300,17 +300,22 @@ export async function request<T>(endpoint: string, options: RequestOptions = {})
       url: endpoint,
       method: options.method || 'GET',
       headers: requestHeaders,
-      data: options.body ? JSON.parse(options.body as string) : undefined,
+      data: options.body ? 
+        (typeof options.body === 'string' ? JSON.parse(options.body) : options.body) : 
+        undefined,
       withCredentials: true,
       timeout: timeout,
-      responseType: options.responseType === 'blob' ? 'blob' : 'json'
+      responseType: options.responseType === 'blob' ? 'blob' : 
+                   options.responseType === 'text' ? 'text' : 'json'
     });
 
     console.log(`API Response: ${response.status} ${endpoint}`, {
       dataType: options.responseType || 'json',
       dataSize: options.responseType === 'blob' 
         ? response.data?.size || 'unknown' 
-        : typeof response.data === 'object' ? JSON.stringify(response.data).length : 'unknown',
+        : options.responseType === 'text'
+          ? response.data?.length || 'unknown'
+          : typeof response.data === 'object' ? JSON.stringify(response.data).length : 'unknown',
       status: response.status
     });
     

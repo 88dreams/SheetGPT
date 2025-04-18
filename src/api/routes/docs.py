@@ -25,6 +25,18 @@ async def get_documentation_structure():
     """
     Get the structure of all documentation files.
     """
+    # Files to hide from the UI but keep in the filesystem
+    HIDDEN_FILES = [
+        "DIGITAL_OCEAN_SSL_FIX.md",
+        "PERFORMANCE_MEASUREMENTS.md",
+        "PERFORMANCE_OPTIMIZATION.md",
+        "RELATIONSHIP_LOADING.md",
+        "SPORT_FIELD_FEATURE.md",
+        "SPORTDATAMAPPER_ISSUE.md",
+        "NETLIFY_DEPLOYMENT_STEPS.md",  # This file has been consolidated into FRONTEND_DEPLOYMENT.md
+        "PRODUCTION_PREPARATION.md"     # No longer needed as production deployment is complete
+    ]
+    
     def get_directory_structure(directory: Path, base_path: Path = DOCS_DIR):
         items = []
         
@@ -36,6 +48,10 @@ async def get_documentation_structure():
             relative_path = str(path.relative_to(base_path))
             
             if path.name.startswith("."):
+                continue
+            
+            # Skip files that should be hidden from UI
+            if path.name in HIDDEN_FILES:
                 continue
                 
             if path.is_dir():

@@ -559,6 +559,11 @@ User → api.88gpts.com (Digital Ocean) → Backend API → PostgreSQL Database
    - Custom SSL context for asyncpg driver
    - Environment-specific settings with proper security
    - Application runs in production mode with optimized settings
+   - Automatic HTTPS certificate management
+   - Horizontal scaling with multiple containers
+   - Database connection pooling for performance
+   - Rate limiting for API endpoints
+   - Centralized error logging with structured format
 
 2. **Frontend on Netlify**
    - React application with optimized build
@@ -566,6 +571,11 @@ User → api.88gpts.com (Digital Ocean) → Backend API → PostgreSQL Database
    - Environment variables configured for production mode
    - Static assets served with proper caching
    - Netlify configuration with Node 18 for build compatibility
+   - Automatic CI/CD pipeline with GitHub integration
+   - Preview deployments for pull requests
+   - Optimized asset compression and CDN delivery
+   - Environment-specific redirects
+   - Custom domain configuration with SSL
 
 3. **Cross-Domain Communication**
    - CORS configured to allow cross-domain requests
@@ -573,6 +583,11 @@ User → api.88gpts.com (Digital Ocean) → Backend API → PostgreSQL Database
    - Error handling middleware preserves CORS headers
    - Production configuration with whitelisted domains
    - Development-friendly settings for testing with flexible origins
+   - WebSocket connections for streaming data
+   - Preflight request handling for complex operations
+   - Proper handling of credentials across domains
+   - Secure headers configuration (Content-Security-Policy, etc.)
+   - Response compression for bandwidth optimization
 
 4. **Authentication Flow**
    - JWT token-based authentication across domains
@@ -580,11 +595,22 @@ User → api.88gpts.com (Digital Ocean) → Backend API → PostgreSQL Database
    - Proper error handling and diagnostics
    - Enhanced logging for troubleshooting
    - Debug endpoints for environment verification
+   - Token refresh mechanism with automatic renewal
+   - Session expiration controls
+   - IP-based rate limiting for authentication attempts
+   - User role verification in middleware
+   - Cross-domain authentication state persistence
 
 5. **SSL Configuration**
    - HTTPS for all endpoints (Netlify and Digital Ocean)
    - PostgreSQL database connection with SSL security
    - Custom SSL context for asyncpg compatibility
    - Proper certificate validation with security settings
+   - TLS 1.3 protocol support
+   - Strong cipher suite configuration
+   - Certificate auto-renewal
+   - HTTP to HTTPS redirection
+   - HSTS header implementation
+   - SSL certificate monitoring
 
-Updated: April 9, 2025
+Updated: April 18, 2025

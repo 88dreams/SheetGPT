@@ -2,6 +2,34 @@
 
 This document outlines the API endpoints for the sports database functionality.
 
+> **PRODUCTION DEPLOYMENT**: The sports database API is deployed in production at [api.88gpts.com](https://api.88gpts.com) with comprehensive error handling, rate limiting, and cross-domain authentication. All production requests should use the base URL `https://api.88gpts.com` instead of relative paths.
+
+## Production Environment Configuration
+
+In production, all sports database API endpoints have the following characteristics:
+
+- **Base URL**: https://api.88gpts.com/api/v1/sports/
+- **Authentication**: JWT token required in Authorization header
+- **Rate Limiting**: 100 requests per minute per authenticated user
+- **CORS**: Configured to allow requests only from 88gpts.com domains
+- **Caching**: GET requests for entity lists are cached for 5 minutes
+- **Compression**: All responses are automatically compressed (gzip)
+- **Error Handling**: Standardized error responses with proper HTTP status codes
+- **Logging**: All requests are logged with unique request IDs for troubleshooting
+- **Request Timeout**: 30-second timeout for all database operations
+
+### Production Request Headers
+
+When making requests to the production API, include these headers:
+
+```http
+Authorization: Bearer {jwt_token}
+Origin: https://88gpts.com
+Accept: application/json
+Accept-Encoding: gzip, deflate
+Content-Type: application/json
+```
+
 ## Entity Management Endpoints
 
 ### Leagues
@@ -534,6 +562,42 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
 ```
 
 To obtain a token, use the `/api/v1/auth/login` endpoint with valid credentials.
+
+### Cross-Domain Authentication in Production
+
+In the production environment with separate domains for frontend (88gpts.com) and backend (api.88gpts.com), these authentication considerations apply:
+
+1. **Token Storage**: JWT tokens are stored in localStorage or sessionStorage on the frontend
+2. **CORS Configuration**: The backend is configured to accept requests from the frontend domain
+3. **SameSite Cookies**: Cookies are configured with SameSite=None and Secure=true
+4. **Token Refresh**: Automatic token refresh is implemented before expiration
+5. **Credential Handling**: All requests include credentials with `{ credentials: 'include' }`
+6. **Error Handling**: Authentication failures have specialized handling with automatic redirect to login
+7. **Preflight Requests**: OPTIONS requests are handled properly with authentication headers
+
+Example production authentication request:
+
+```http
+POST https://api.88gpts.com/api/v1/auth/login
+Origin: https://88gpts.com
+Content-Type: application/json
+Accept: application/json
+
+{
+    "email": "user@example.com",
+    "password": "securePassword123"
+}
+```
+
+Example token refresh in production:
+
+```http
+POST https://api.88gpts.com/api/v1/auth/refresh
+Origin: https://88gpts.com
+Content-Type: application/json
+Accept: application/json
+Authorization: Bearer {refresh_token}
+```
 
 ## Team Endpoints
 

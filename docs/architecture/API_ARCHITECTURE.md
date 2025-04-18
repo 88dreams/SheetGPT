@@ -26,6 +26,42 @@ src/
 - **Export**: Google Sheets and CSV export with templating, folder support, and column filtering
 - **Database Query**: Natural language to SQL translation
 
+### Production Architecture
+
+The API is deployed in a production environment with the following architecture:
+
+```
+Client (88gpts.com) → Netlify CDN → HTTPS Request → 
+Digital Ocean App Platform (api.88gpts.com) → 
+Application Container → PostgreSQL (SSL) → Response
+```
+
+#### Production Configuration
+
+- **Digital Ocean App Platform**
+  - Containerized deployment with horizontal scaling
+  - Automatic HTTPS certificate management
+  - PostgreSQL database with SSL connection
+  - Custom environment variables for production settings
+  - Health check endpoints with automated monitoring
+  - CI/CD pipeline with GitHub integration
+  - Resource scaling based on traffic patterns
+  - Managed SSL certificate renewal
+  - Database automatic backup schedule
+  - Application logs with structured format
+
+- **Cross-Domain Communication**
+  - CORS with specific origin allowlist (88gpts.com)
+  - Secure cookie configuration for cross-domain requests
+  - Preflight response caching for OPTIONS requests
+  - Authentication headers preserved across domains
+  - WebSocket configuration for streaming connections
+  - Production-specific error handling with sanitized responses
+  - Rate limiting per client IP address
+  - Request size limitations
+  - Secure header configuration (CSP, HSTS, etc.)
+  - Response compression for bandwidth optimization
+
 ### Request Flow
 
 ```
@@ -445,6 +481,19 @@ const EntityList: React.FC<EntityListProps> = ({ className = '' }) => {
     // ...other editing functionality
   } = useInlineEdit({ selectedEntityType, handleUpdateEntity });
 
+  // Production optimization settings - environment-specific behavior
+  const isProduction = process.env.NODE_ENV === 'production';
+  const searchMinChars = isProduction ? 3 : 1; // More restrictive in production
+  const batchSize = isProduction ? 50 : 100; // Smaller batches in production
+  
+  // Environment-specific API configuration
+  const apiConfig = {
+    baseUrl: isProduction ? 'https://api.88gpts.com' : '/api',
+    timeoutMs: isProduction ? 15000 : 30000, // Shorter timeouts in production
+    retryCount: isProduction ? 2 : 1, // More retries in production
+    cacheEnabled: isProduction, // Only cache in production
+  };
+
   // Component rendering with clean separation
   return (
     <div className={`bg-white rounded-lg shadow ${className}`}>
@@ -452,6 +501,8 @@ const EntityList: React.FC<EntityListProps> = ({ className = '' }) => {
         selectedEntityType={selectedEntityType}
         showColumnSelector={showColumnSelector}
         setShowColumnSelector={setShowColumnSelector}
+        searchMinChars={searchMinChars}
+        apiConfig={apiConfig}
         // ...other header props
       />
       
@@ -466,6 +517,8 @@ const EntityList: React.FC<EntityListProps> = ({ className = '' }) => {
       <EntityTable
         entities={entities}
         columnOrder={columnOrder}
+        batchSize={batchSize}
+        isProduction={isProduction}
         // ...other table props
         {...inlineEditHook} // Pass all editing functionality
       />
@@ -473,6 +526,7 @@ const EntityList: React.FC<EntityListProps> = ({ className = '' }) => {
       <Pagination
         currentPage={currentPage}
         totalPages={totalPages}
+        apiConfig={apiConfig}
         // ...other pagination props
       />
     </div>
@@ -549,6 +603,52 @@ function fallbackDownload(blob: Blob, fileName: string): boolean {
     return false; // Failure
   }
 }
+
+// Production environment helper for export operations
+function getExportConfigForEnvironment(): ExportConfig {
+  const isProduction = process.env.NODE_ENV === 'production';
+  
+  return {
+    // In production, use the dedicated export subdomain
+    exportApiUrl: isProduction 
+      ? 'https://api.88gpts.com/api/v1/export' 
+      : '/api/v1/export',
+      
+    // Configure Google Drive integration differently for each environment
+    googleDriveConfig: {
+      apiKey: isProduction 
+        ? process.env.REACT_APP_GOOGLE_API_KEY_PROD 
+        : process.env.REACT_APP_GOOGLE_API_KEY_DEV,
+        
+      clientId: isProduction
+        ? process.env.REACT_APP_GOOGLE_CLIENT_ID_PROD
+        : process.env.REACT_APP_GOOGLE_CLIENT_ID_DEV,
+        
+      // More restrictive scopes in production
+      scopes: isProduction
+        ? ['https://www.googleapis.com/auth/drive.file']
+        : ['https://www.googleapis.com/auth/drive'],
+        
+      // Approved redirect origins for OAuth flow
+      redirectUri: isProduction
+        ? 'https://88gpts.com/oauth/callback'
+        : 'http://localhost:5173/oauth/callback'
+    },
+    
+    // Timeouts and retries adjusted for production environment
+    requestTimeoutMs: isProduction ? 20000 : 30000,
+    maxRetries: isProduction ? 2 : 1,
+    
+    // Rate limiting settings for production
+    maxRequestsPerMinute: isProduction ? 10 : 60,
+    
+    // Export format defaults
+    defaultFormat: isProduction ? 'csv' : 'sheets',
+    
+    // Logging and error reporting configuration
+    enableDetailedLogs: !isProduction
+  };
+}
 ```
 
 ### Pagination Component Architecture
@@ -611,4 +711,4 @@ function Pagination({
 }
 ```
 
-Updated: May 7, 2025
+Updated: April 18, 2025

@@ -10,7 +10,17 @@ SheetGPT combines AI-powered chat with structured data management and sports dat
 - Multi-format export with Google Sheets integration
 - Database management with backup and archiving
 
+> **PRODUCTION ENVIRONMENT**: The application is deployed at [88gpts.com/sheetgpt](https://88gpts.com/sheetgpt) with the API at [api.88gpts.com](https://api.88gpts.com)
+
 ## Architecture Overview
+
+### Production Architecture
+
+- **Frontend**: Netlify-hosted React application at 88gpts.com/sheetgpt
+- **Backend**: Digital Ocean App Platform at api.88gpts.com 
+- **Database**: PostgreSQL with SSL on Digital Ocean
+- **Authentication**: Cross-domain JWT with CORS configuration
+- **Communication**: HTTPS for all endpoints with proper SSL
 
 ### Backend
 
@@ -155,18 +165,53 @@ python src/scripts/db_management.py stats
 - Verify column persistence and state management
 - Ensure export functionality with fallback options
 
-## Current Focus (March 31, 2025)
+## Production Environment
 
-1. **Data Export Reliability**
-   - Google Sheets integration improvements
-   - CSV fallback implementation
+The application is now deployed in a production environment:
 
-2. **Testing Coverage**
-   - API endpoint tests for sports database
-   - Frontend component testing
+```
+User → 88gpts.com/sheetgpt (Netlify) → Frontend React Application
+                  ↓
+                  API Requests with JWT auth
+                  ↓
+User → api.88gpts.com (Digital Ocean) → Backend FastAPI → PostgreSQL Database
+```
+
+### Production-Specific Guidelines
+
+- Access the application at [88gpts.com/sheetgpt](https://88gpts.com/sheetgpt)
+- API endpoints are available at [api.88gpts.com/api/v1](https://api.88gpts.com/api/v1)
+- Authentication works across domains with JWT
+- CORS is configured to allow specific origins
+- All data is stored in a PostgreSQL database on Digital Ocean
+- SSL is enabled for all communications
+- Login at 88gpts.com/sheetgpt/login with your production credentials
+
+### Local vs Production Environment
+
+| Feature | Local (Docker) | Production |
+|---------|------------|-----------|
+| Frontend URL | localhost:5173 | 88gpts.com/sheetgpt |
+| API URL | localhost:8000 | api.88gpts.com |
+| Database | PostgreSQL container | Digital Ocean managed PostgreSQL |
+| Environment | Development | Production |
+| File storage | Local volume | Digital Ocean storage |
+| Authentication | Same-domain JWT | Cross-domain JWT |
+
+## Current Focus (April 18, 2025)
+
+1. **Production Deployment Stability** ✅
+   - Cross-domain authentication reliability
+   - Documentation browser fixes for production
+   - WebSocket configuration for Docker development
+
+2. **SQL Validation System**
+   - Automatic correction of SQL syntax errors
+   - PostgreSQL-specific validation rules
+   - Visual feedback for query corrections
 
 3. **Documentation**
-   - Updated developer guides
+   - Updated production deployment documentation
    - Component reference documentation
 
-This document is updated with each significant change. Last update: March 31, 2025.
+This document is updated with each significant change. Last update: April 18, 2025.

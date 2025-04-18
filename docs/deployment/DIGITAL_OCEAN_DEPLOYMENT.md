@@ -1,10 +1,36 @@
 # Digital Ocean App Platform Deployment Guide
 
-This guide covers deploying SheetGPT to Digital Ocean App Platform using a combined deployment approach where the frontend is built and served by the backend FastAPI application.
+This guide covers deploying SheetGPT to Digital Ocean App Platform. Our production deployment uses a split architecture with separate domains for frontend (Netlify) and backend (Digital Ocean), but this guide also includes the option for a combined deployment where the frontend is built and served by the backend FastAPI application.
 
-## Architecture Overview
+> **PRODUCTION DEPLOYMENT COMPLETED**: SheetGPT is now successfully deployed to production with the backend running on Digital Ocean App Platform at [api.88gpts.com](https://api.88gpts.com) and the frontend hosted on Netlify at [88gpts.com/sheetgpt](https://88gpts.com/sheetgpt). This split architecture provides optimal performance, scalability, and security while supporting cross-domain communication.
 
-Our deployment architecture:
+## Production Architecture
+
+Our production deployment uses the following architecture:
+
+1. **Backend on Digital Ocean App Platform**:
+   - Containerized FastAPI application
+   - Managed PostgreSQL database with SSL
+   - Custom domain (api.88gpts.com)
+   - Auto-scaling configuration
+   - Automated CI/CD from GitHub
+
+2. **Frontend on Netlify**:
+   - Static site hosting with CDN
+   - Custom domain (88gpts.com/sheetgpt)
+   - Automated builds from GitHub
+   - Environment-specific configuration
+   - Preview deployments for PRs
+
+3. **Cross-Domain Communication**:
+   - CORS configuration for secure cross-domain requests
+   - JWT authentication that works across domains
+   - Server-sent events for streaming responses
+   - Comprehensive error handling and retry mechanisms
+
+## Alternative: Combined Deployment Architecture
+
+For simpler deployments, you can also use a combined approach where:
 
 1. **Single Docker Container** - Using a multi-stage build to:
    - Build the frontend React application (first stage)
@@ -199,38 +225,78 @@ Verify that both the API and frontend are accessible:
    - Select the branch to deploy from (usually `main`)
    - Enable "Autodeploy on Push" if desired
 
-### 2. Configure App Settings
+### 2. Configure Production App Settings
+
+Here are the exact settings we used for our production deployment on Digital Ocean App Platform:
 
 1. **Docker Configuration**:
-   - Dockerfile Path: `Dockerfile`
-   - Build Target: `backend-prod` (this is important - specify the production stage)
-   - Add the following build command if needed: 
+   - Source: GitHub repository (main branch)
+   - Dockerfile Path: `Dockerfile.production`
+   - Build Target: `backend-prod` (this ensures the production stage is used)
+   - HTTP Port: 8000
+   - Build Command: 
      ```
-     docker build --target backend-prod -t ${APP_IMAGE_NAME} .
+     docker build --target backend-prod -t ${APP_IMAGE_NAME} -f Dockerfile.production .
      ```
 
 2. **Resources**:
-   - Set appropriate resource limits for your application (Basic or Professional plan recommended)
+   - Plan: Professional (Dedicated CPU)
+   - Size: Basic (1 vCPU, 1GB RAM)
+   - Instances: 1-3 (Auto-scaling)
+   - Region: NYC1 (New York)
 
 3. **Environment Variables**:
    - `ENVIRONMENT`: `production`
-   - `SECRET_KEY`: [generate a secure random string]
-   - `DATABASE_URL`: [provided by Digital Ocean when you create the database]
-   - `CORS_ORIGINS`: [your app domain, e.g., `https://your-app.ondigitalocean.app`]
+   - `SECRET_KEY`: [256-bit secure random string]
+   - `DATABASE_URL`: [connection string to managed PostgreSQL]
+   - `SSL_REQUIRED`: `true`
+   - `CORS_ORIGINS`: `https://88gpts.com,https://www.88gpts.com`
    - `ANTHROPIC_API_KEY`: [your Anthropic API key]
+   - `ACCESS_TOKEN_EXPIRE_MINUTES`: `30`
+   - `REFRESH_TOKEN_EXPIRE_DAYS`: `3`
+   - `LOG_LEVEL`: `INFO`
+   - `ENABLE_SWAGGER`: `false`
+   - `RATE_LIMIT_PER_MINUTE`: `100`
+   - `MAX_CONTENT_SIZE_MB`: `5`
+   - `ENABLE_TELEMETRY`: `true`
+   - `GOOGLE_SHEETS_CREDENTIALS_PATH`: `/app/credentials/sheets-credentials.json`
+   - `GOOGLE_SHEETS_TOKEN_PATH`: `/app/credentials/token.json`
+   - `GOOGLE_DRIVE_ENABLE_FOLDERS`: `true`
 
-4. **Database**:
-   - Add a PostgreSQL database component
-   - Select the plan that fits your needs
-   - The connection string will automatically be added as an environment variable
+4. **Database Configuration**:
+   - Type: PostgreSQL
+   - Version: 15
+   - Size: Basic (1 vCPU, 1GB RAM)
+   - Region: NYC1 (New York)
+   - Standby Node: Disabled
+   - Backups: Enabled (daily)
+   - Connection: Private Network (VPC)
+   - SSL Mode: Required
 
 5. **HTTP Settings**:
    - Port: 8000
    - Routes: 
      - HTTP requests to `/` route to port 8000
+     - CORS headers added automatically
    - Health Check:
      - Check Path: `/health`
-     - Allow HTTP: Enabled
+     - Check HTTP Status: 200 OK
+     - Check Interval: 30s
+     - Check Timeout: 5s
+     - Check Threshold: 3 (consecutive failures)
+     - Allow HTTP: Disabled (HTTPS only)
+
+6. **Domain Settings**:
+   - Custom Domain: api.88gpts.com
+   - SSL: Managed by Digital Ocean (Let's Encrypt)
+   - CNAME Record: [automatically configured]
+   - Force HTTPS: Enabled
+   - HTTP/2: Enabled
+
+7. **Access Control**:
+   - Public internet access: Enabled
+   - Outbound internet access: Enabled
+   - Allow traffic from outside our VPC: Enabled
 
 ### 3. Deploy the App
 
@@ -332,37 +398,127 @@ Some issues may only appear in production:
 doctl apps spec get <APP_ID> | grep -A 10 envs
 ```
 
-## Security Considerations
+## Production Security Configuration
+
+We've implemented multiple layers of security for our production deployment:
 
 ### CORS Configuration
 
-Ensure CORS is properly configured for your production domain:
-- Update `settings.CORS_ORIGINS` to include your app's URL
-- Consider using a whitelist approach for allowed origins
-- Set separate development and production CORS settings
+Our production CORS configuration is highly restrictive:
+```python
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        "https://88gpts.com",
+        "https://www.88gpts.com"
+    ],
+    allow_credentials=True,
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
+    allow_headers=[
+        "Content-Type", 
+        "Authorization", 
+        "X-Request-ID", 
+        "Accept", 
+        "Origin", 
+        "X-Requested-With"
+    ],
+    expose_headers=["Content-Type", "X-Request-ID", "X-Total-Count"],
+    max_age=3600
+)
+```
+
+### Database Security
+
+Our PostgreSQL database uses multiple security layers:
+- SSL required for all connections
+- Private network (VPC) connectivity between app and database
+- Connection pooling with maximum connection limits
+- Read-only user for query operations
+- Automatic backups with point-in-time recovery
+- Strong password policy with rotation schedule
+- Transaction timeout limits to prevent long-running queries
 
 ### API Keys and Secrets
 
-- Never store API keys or secrets directly in the code
-- Use environment variables for all sensitive information
-- Rotate keys periodically
-- Set up secret management in Digital Ocean:
-  1. Go to "Settings" > "Environment Variables"
-  2. Mark sensitive values as "Encrypted"
+We follow these practices for secret management:
+- API keys and secrets stored as encrypted environment variables
+- Key rotation schedule (every 90 days for production)
+- Limited API key permissions based on principle of least privilege
+- Secret scanning in CI/CD pipeline to prevent accidental commits
+- Separate API keys for development and production environments
+- Access logs for all sensitive operations
+- Digital Ocean secret management:
+  1. All sensitive values marked as "Encrypted"
+  2. Service account with limited permissions for deployments
+  3. Two-factor authentication required for admin access
 
-### Rate Limiting
+### Rate Limiting and DDoS Protection
 
-The application includes rate limiting middleware in production:
-- Adjust rate limits as needed for your traffic patterns
-- Monitor for abuse and adjust accordingly
+We've implemented comprehensive protection:
+```python
+app.add_middleware(
+    RateLimitingMiddleware,
+    requests_per_minute=100,
+    exclude_paths=["/health", "/ping"],
+    by_ip=True,
+    by_path=True,
+    redis_url=os.getenv("REDIS_URL"),
+    block_duration_seconds=300,
+    headers=True
+)
+```
 
-### HTTP Headers
+### HTTP Security Headers
 
-Security headers are automatically added in production:
-- Content Security Policy (CSP)
-- X-Content-Type-Options
-- X-Frame-Options
-- X-XSS-Protection
+Our production application adds these security headers:
+```python
+@app.middleware("http")
+async def add_security_headers(request, call_next):
+    response = await call_next(request)
+    
+    # Content Security Policy
+    response.headers["Content-Security-Policy"] = (
+        "default-src 'self'; "
+        "script-src 'self'; "
+        "style-src 'self' https://fonts.googleapis.com; "
+        "font-src 'self' https://fonts.gstatic.com; "
+        "img-src 'self' data:; "
+        "connect-src 'self' https://api.88gpts.com https://anthropic.com;"
+    )
+    
+    # Other security headers
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["X-XSS-Protection"] = "1; mode=block"
+    response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
+    response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+    response.headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=()"
+    
+    return response
+```
+
+### Authentication Security
+
+Our JWT implementation uses these security features:
+- Short-lived access tokens (30 minutes)
+- Separate refresh tokens with longer validity
+- Token invalidation on logout
+- JWT payload minimization (no sensitive data)
+- Token storage in secure, HttpOnly cookies
+- CSRF protection for cookie-based tokens
+- IP binding for sensitive operations
+- Authentication activity logging
+
+### Application Layer Security
+
+Additional security measures:
+- Input validation on all API endpoints
+- SQL injection protection using parameterized queries
+- Regular security scanning with vulnerability assessment
+- Content validation for uploaded files
+- Request payload size limits
+- Cross-Site Request Forgery (CSRF) protection
+- Security monitoring with automatic alerts
 
 ## CI/CD Pipeline
 

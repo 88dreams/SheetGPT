@@ -1,5 +1,35 @@
 # API Examples
 
+> **PRODUCTION DEPLOYMENT**: The API is deployed in production at [api.88gpts.com](https://api.88gpts.com) with the frontend application at [88gpts.com/sheetgpt](https://88gpts.com/sheetgpt). All API requests in production should use the `https://api.88gpts.com` base URL with proper authentication.
+
+## Production Configuration
+
+These examples use relative URLs but in production, the full URL should be used:
+
+```
+Development: /api/v1/auth/login
+Production: https://api.88gpts.com/api/v1/auth/login
+```
+
+Production environment features:
+
+- **Cross-Domain Authentication**: JWT tokens work across domains
+- **Rate Limiting**: API endpoints have request rate limits
+- **HTTPS Only**: All requests must use HTTPS
+- **Enhanced Logging**: Detailed request logging with unique request IDs
+- **Response Compression**: Automatic gzip compression for large responses
+- **CORS Configuration**: Specific origin allowlist with proper preflight handling
+
+### Environment-Specific Headers
+
+Production requests should include these additional headers:
+
+```http
+Origin: https://88gpts.com
+X-Request-Source: frontend
+Accept-Encoding: gzip, deflate
+```
+
 ## Authentication Endpoints
 
 ### 1. User Registration

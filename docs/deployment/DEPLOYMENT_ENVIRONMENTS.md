@@ -2,14 +2,44 @@
 
 This guide covers all deployment options for the SheetGPT application, including development, staging, and production environments.
 
+> **PRODUCTION DEPLOYMENT COMPLETED**: SheetGPT is now fully deployed to production using a split architecture with the frontend on Netlify ([88gpts.com/sheetgpt](https://88gpts.com/sheetgpt)) and the backend on Digital Ocean App Platform ([api.88gpts.com](https://api.88gpts.com)). This separate domain approach provides enhanced scalability, security, and performance while maintaining seamless cross-domain authentication.
+
+## Current Production Environment
+
+The production environment uses the following architecture:
+
+1. **Frontend**: Deployed on Netlify
+   - URL: [88gpts.com/sheetgpt](https://88gpts.com/sheetgpt)
+   - Build System: Node.js with Vite
+   - CDN: Netlify Edge Network
+   - CI/CD: Automatic deployment from main branch
+   - SSL: Managed by Netlify
+   - Custom Domain: 88gpts.com
+
+2. **Backend**: Deployed on Digital Ocean App Platform
+   - URL: [api.88gpts.com](https://api.88gpts.com)
+   - Container: Docker-based deployment
+   - Database: Managed PostgreSQL with SSL
+   - CI/CD: Automatic deployment from main branch
+   - SSL: Managed by Digital Ocean
+   - Custom Domain: api.88gpts.com
+
+3. **Cross-Domain Communication**:
+   - Authentication: JWT tokens with secure storage
+   - CORS: Configured for cross-domain requests
+   - API Requests: Frontend to backend with proper headers
+   - Streaming: Server-sent events for Claude API integration
+   - Security: HTTPS-only with secure headers
+
 ## Deployment Options
 
 SheetGPT can be deployed to the following environments:
 
 1. **Local Development** - Docker-based setup for development
-2. **AWS Cloud** - Production deployment to AWS infrastructure
-3. **Self-Hosted Server** - Deployment to your own hardware
-4. **Hybrid Setup** - Frontend in cloud, backend on-premises
+2. **Digital Ocean Cloud** - Current production deployment infrastructure
+3. **AWS Cloud** - Alternative production deployment to AWS infrastructure
+4. **Self-Hosted Server** - Deployment to your own hardware
+5. **Hybrid Setup** - Frontend in cloud, backend on-premises
 
 ## Local Development Environment
 
@@ -204,30 +234,83 @@ The key to hybrid deployment is properly configuring CORS and authentication:
 2. **Secure Communication**: Set up VPN or direct connect between cloud and on-premises
 3. **Authentication**: Use JWT tokens with secure transmission
 
+## Production Environment Configuration
+
+The production environment uses the following configuration settings for optimal performance, security, and reliability.
+
+### Production Backend Configuration (Digital Ocean)
+
+| Setting | Value | Description |
+|---------|-------|-------------|
+| Instance Type | Basic | 1 vCPU, 1GB RAM, SSD storage |
+| Scaling | Horizontal | Auto-scales from 1-3 instances based on load |
+| Region | NYC1 | Digital Ocean New York data center |
+| Database | PostgreSQL 15 | Managed DB with 1GB RAM, automatic backups |
+| Deployment | Docker | Multi-stage Dockerfile with production optimizations |
+| SSL | Auto-managed | Automatic certificate renewal with Let's Encrypt |
+| DNS | Custom domain | api.88gpts.com with CNAME record |
+| Monitoring | Basic | CPU, memory, request rate metrics |
+| Logging | Structured JSON | Centralized logs with retention policy |
+| Cron Jobs | Yes | Database backups, maintenance tasks |
+| Health Checks | Every 30s | /health endpoint with comprehensive checks |
+
+### Production Frontend Configuration (Netlify)
+
+| Setting | Value | Description |
+|---------|-------|-------------|
+| Build Command | npm run build | Production optimization with tree-shaking |
+| Publish Directory | dist | Output of Vite build process |
+| Node Version | 18.x | LTS version for build stability |
+| Asset Optimization | Enabled | Automatic minification and compression |
+| Build Cache | Enabled | Faster builds with dependency caching |
+| Preview Deployments | Enabled | PR previews with unique URLs |
+| Custom Domain | 88gpts.com | With automatic HTTPS via Let's Encrypt |
+| Redirects | Configured | Client-side routing support with _redirects |
+| Headers | Security-focused | CSP, HSTS, and other security headers |
+| Functions | Not used | Pure static hosting |
+| Analytics | Enabled | Page views, performance metrics |
+
 ## Environment Variables
 
-Regardless of deployment environment, the following environment variables are required:
+The following environment variables are configured in the production and development environments:
 
 ### Backend Environment Variables
 
-| Variable | Description | Required |
-|----------|-------------|----------|
-| `DATABASE_URL` | PostgreSQL connection string | Yes |
-| `SECRET_KEY` | Secret key for JWT tokens | Yes |
-| `ALGORITHM` | JWT algorithm (default: HS256) | No |
-| `ACCESS_TOKEN_EXPIRE_MINUTES` | JWT token expiration (default: 30) | No |
-| `GOOGLE_SHEETS_CREDENTIALS_PATH` | Path to Google Sheets credentials | No |
-| `GOOGLE_SHEETS_TOKEN_PATH` | Path to Google Sheets token | No |
-| `GOOGLE_DRIVE_ENABLE_FOLDERS` | Enable Google Drive folders | No |
-| `GOOGLE_DRIVE_DEFAULT_FOLDER` | Default Google Drive folder | No |
+| Variable | Development | Production | Required | Description |
+|----------|-------------|------------|----------|-------------|
+| `DATABASE_URL` | Local PostgreSQL | DO Managed DB | Yes | PostgreSQL connection string |
+| `SECRET_KEY` | Development key | Secure random value | Yes | Secret key for JWT tokens |
+| `ALGORITHM` | HS256 | HS256 | No | JWT algorithm |
+| `ACCESS_TOKEN_EXPIRE_MINUTES` | 60 | 30 | No | JWT token expiration |
+| `REFRESH_TOKEN_EXPIRE_DAYS` | 7 | 3 | No | Refresh token expiration |
+| `ANTHROPIC_API_KEY` | Test key | Production key | Yes | Claude API key |
+| `ENVIRONMENT` | "development" | "production" | Yes | Environment name |
+| `CORS_ORIGINS` | "*" | "https://88gpts.com" | Yes | Allowed CORS origins |
+| `GOOGLE_SHEETS_CREDENTIALS_PATH` | Local path | DO path | No | Google credentials path |
+| `GOOGLE_SHEETS_TOKEN_PATH` | Local path | DO path | No | Google token path |
+| `GOOGLE_DRIVE_ENABLE_FOLDERS` | true | true | No | Google Drive folder support |
+| `LOG_LEVEL` | "DEBUG" | "INFO" | No | Application log level |
+| `ENABLE_SWAGGER` | true | false | No | Enable API docs |
+| `SSL_REQUIRED` | false | true | No | Require SSL for PostgreSQL |
+| `RATE_LIMIT_PER_MINUTE` | 0 | 100 | No | API rate limit |
+| `MAX_CONTENT_SIZE_MB` | 10 | 5 | No | Max upload size |
+| `ENABLE_TELEMETRY` | false | true | No | Usage analytics |
 
 ### Frontend Environment Variables
 
-| Variable | Description | Required |
-|----------|-------------|----------|
-| `VITE_API_URL` | Backend API URL | Yes |
-| `VITE_GOOGLE_CLIENT_ID` | Google OAuth client ID | No |
-| `VITE_ENABLE_SERVICE_WORKER` | Enable service worker | No |
+| Variable | Development | Production | Required | Description |
+|----------|-------------|------------|----------|-------------|
+| `VITE_API_URL` | "/api" | "https://api.88gpts.com" | Yes | Backend API URL |
+| `VITE_GOOGLE_CLIENT_ID` | Test ID | Production ID | No | Google OAuth client ID |
+| `VITE_ENABLE_SERVICE_WORKER` | false | true | No | PWA service worker |
+| `NODE_ENV` | "development" | "production" | Yes | Node environment |
+| `VITE_AUTH_STORAGE_TYPE` | "session" | "local" | No | Auth token storage |
+| `VITE_DEFAULT_PAGE_SIZE` | 100 | 50 | No | Default pagination size |
+| `VITE_DEFAULT_TIMEOUT_MS` | 30000 | 15000 | No | API request timeout |
+| `VITE_ENABLE_ANALYTICS` | false | true | No | Frontend analytics |
+| `VITE_LOG_LEVEL` | "debug" | "error" | No | Console log level |
+| `VITE_ENABLE_DEVTOOLS` | true | false | No | Development tools |
+| `VITE_API_VERSION` | "v1" | "v1" | No | API version |
 
 ## Deployment Checklist
 

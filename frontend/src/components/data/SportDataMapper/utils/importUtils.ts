@@ -37,20 +37,16 @@ export const transformMappedData = (
     const isBroadcastData = Object.keys(mappings).some(field => 
       field === 'broadcast_company_id' || field === 'territory');
       
-    // Check for league-specific fields (Golf and other leagues)
-    const isLeagueData = Object.keys(mappings).some(field => 
+    // Check for league-specific fields
+    const hasLeagueFields = Object.keys(mappings).some(field => 
       field === 'sport' || field === 'founded_year' || field === 'nickname');
       
-    // Additional explicit check for PGA Tour records
-    const isGolfLeague = Array.isArray(sourceRecord) && 
-      sourceRecord.length >= 3 && 
-      typeof sourceRecord[0] === 'string' && 
-      sourceRecord[0].includes("Golfers") && 
-      typeof sourceRecord[2] === 'string' && 
-      sourceRecord[2] === 'Golf';
-      
-    // Mark as league if either condition is met
-    const isLeagueEntity = isLeagueData || isGolfLeague;
+    // Check for sport field mapped to position 2 - this is a common pattern for league data
+    const hasSportMapping = Object.entries(mappings).some(([field, sourcePos]) => 
+      field === 'sport' && sourcePos === '2');
+    
+    // General pattern-based detection for league data
+    const isLeagueData = hasLeagueFields || hasSportMapping;
       
     // Check for division/conference-specific fields
     const isDivisionConferenceData = Object.keys(mappings).some(field => 
@@ -59,14 +55,14 @@ export const transformMappedData = (
       
     // Brand data has name but is not broadcast, league, or division/conference data
     const isBrandData = Object.keys(mappings).some(field =>
-      field === 'name') && !isBroadcastData && !isLeagueEntity && !isDivisionConferenceData;
+      field === 'name') && !isBroadcastData && !isLeagueData && !isDivisionConferenceData;
       
     // Log detection results for easier debugging
     console.log('Entity type detection results:', {
       isBroadcastData,
+      hasLeagueFields,
+      hasSportMapping,
       isLeagueData,
-      isGolfLeague,
-      isLeagueEntity,
       isDivisionConferenceData,
       isBrandData
     });
@@ -196,8 +192,8 @@ export const transformMappedData = (
     console.log('Mapped fields before entity processing:', mappedFields);
     
     // Special handling for league data
-    if (isLeagueEntity) {
-      console.log('This appears to be league data (isLeagueData=' + isLeagueData + ', isGolfLeague=' + isGolfLeague + ') - ensuring required fields are set');
+    if (isLeagueData) {
+      console.log('This appears to be league data (hasLeagueFields=' + hasLeagueFields + ', hasSportMapping=' + hasSportMapping + ') - ensuring required fields are set');
       
       // Check if name is mapped/present (required field)
       if (!mappedFields.name && sourceRecord[0]) {

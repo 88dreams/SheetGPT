@@ -119,6 +119,35 @@ const DocumentationBrowser: React.FC = () => {
         }
         
         if (success && response) {
+          // Check content type to ensure we're getting JSON
+          const contentType = response.headers.get('content-type');
+          if (!contentType || !contentType.includes('application/json')) {
+            console.error(`Received non-JSON response: ${contentType}`);
+            try {
+              // Save a clone of the response for text extraction
+              const responseClone = response.clone();
+              const textContent = await responseClone.text();
+              console.error("Raw response content:", textContent.substring(0, 500));
+              
+              // Try to parse as JSON anyway in case the content type is wrong
+              try {
+                const data = JSON.parse(textContent);
+                console.log("Successfully parsed response despite wrong content type");
+                setDocTree(data);
+                setIsLoading(false);
+                return;
+              } catch (parseError) {
+                console.error("Could not parse as JSON:", parseError);
+              }
+            } catch (textError) {
+              console.error("Error reading response text:", textError);
+            }
+            
+            setIsLoading(false);
+            setError("Backend returned invalid data format. Please try again later.");
+            return;
+          }
+          
           // Parse the response JSON
           let data: DocItem[];
           try {
@@ -126,8 +155,8 @@ const DocumentationBrowser: React.FC = () => {
             console.log("Documentation structure loaded successfully:", data);
           } catch (jsonError) {
             console.error("Error parsing JSON response:", jsonError);
-            console.log("Raw response:", await response.text());
             setIsLoading(false);
+            setError("Failed to parse documentation structure. Please try again later.");
             return;
           }
           
@@ -259,7 +288,22 @@ const DocumentationBrowser: React.FC = () => {
             const response = await fetch(url, options);
             
             if (response.ok) {
-              return { success: true, response };
+              // Check for empty response
+              const contentLength = response.headers.get('content-length');
+              if (contentLength === '0') {
+                console.warn('Received empty response');
+                retries++;
+                continue;
+              }
+              
+              // Verify content type for text responses
+              const contentType = response.headers.get('content-type');
+              if (contentType && !contentType.includes('text/plain') && !contentType.includes('text/markdown')) {
+                console.warn(`Unexpected content type: ${contentType}. Expected text/plain or text/markdown.`);
+                // We'll continue anyway since we can handle various content types
+              }
+              
+              return { success: true, response, contentType };
             } else {
               console.warn(`Attempt ${retries + 1} failed with status: ${response.status}`);
               // Log response text for debugging
@@ -283,25 +327,59 @@ const DocumentationBrowser: React.FC = () => {
           }
         }
         
-        return { success: false, response: null };
+        return { success: false, response: null, contentType: null };
       };
       
       if (!docPath) {
         // Load README.md as default
         try {
           console.log("Loading default README.md");
-          const { success, response } = await fetchWithRetries('/api/v1/docs/content?path=README.md', requestOptions);
+          const { success, response, contentType } = await fetchWithRetries('/api/v1/docs/content?path=README.md', requestOptions);
           
           if (success && response) {
-            const content = await response.text();
-            console.log("README.md loaded successfully");
-            setDocContent({ content, path: 'README.md' });
+            try {
+              // Always treat as text, regardless of content type
+              let content: string;
+              
+              // Log content type for debugging
+              console.log(`README.md content type: ${contentType}`);
+              
+              // Clone the response before reading it
+              const responseClone = response.clone();
+              
+              try {
+                content = await response.text();
+                console.log("README.md loaded successfully, content length:", content.length);
+              } catch (textError) {
+                console.error("Error reading README.md as text:", textError);
+                
+                // Try to read as arrayBuffer and convert to text as fallback
+                try {
+                  const buffer = await responseClone.arrayBuffer();
+                  content = new TextDecoder().decode(buffer);
+                  console.log("README.md loaded as array buffer, content length:", content.length);
+                } catch (bufferError) {
+                  console.error("Failed to read README.md as array buffer:", bufferError);
+                  setError("Failed to read document content. Please try again later.");
+                  setIsLoading(false);
+                  return;
+                }
+              }
+              
+              setDocContent({ content, path: 'README.md' });
+            } catch (error) {
+              console.error('Error processing README.md content:', error);
+              setError("Failed to process README.md content. Please try again later.");
+            }
           } else {
             console.error('Failed to fetch README.md after retries');
+            setError("Failed to load README.md. Please try again later.");
           }
         } catch (error) {
           console.error('Error fetching default document:', error);
+          setError("An error occurred while loading the documentation. Please try again later.");
         }
+        setIsLoading(false);
         return;
       }
 
@@ -309,17 +387,69 @@ const DocumentationBrowser: React.FC = () => {
       try {
         console.log(`Loading document: ${docPath}`);
         const encodedPath = encodeURIComponent(docPath);
-        const { success, response } = await fetchWithRetries(
+        const { success, response, contentType } = await fetchWithRetries(
           `/api/v1/docs/content?path=${encodedPath}`, 
           requestOptions
         );
         
         if (success && response) {
-          const content = await response.text();
-          console.log(`Document ${docPath} loaded successfully, content length: ${content.length}`);
-          setDocContent({ content, path: docPath });
+          try {
+            // Log content type for debugging
+            console.log(`Document ${docPath} content type: ${contentType}`);
+            
+            // Clone the response before reading it
+            const responseClone = response.clone();
+            
+            let content: string;
+            try {
+              content = await response.text();
+              console.log(`Document ${docPath} loaded successfully, content length: ${content.length}`);
+            } catch (textError) {
+              console.error(`Error reading ${docPath} as text:`, textError);
+              
+              // Try to read as arrayBuffer and convert to text as fallback
+              try {
+                const buffer = await responseClone.arrayBuffer();
+                content = new TextDecoder().decode(buffer);
+                console.log(`Document ${docPath} loaded as array buffer, content length: ${content.length}`);
+              } catch (bufferError) {
+                console.error(`Failed to read ${docPath} as array buffer:`, bufferError);
+                throw new Error("Failed to read document content");
+              }
+            }
+            
+            setDocContent({ content, path: docPath });
+          } catch (error) {
+            console.error(`Error processing ${docPath} content:`, error);
+            setError(`Failed to process document content for ${docPath}.`);
+            
+            // If document processing fails, try finding by filename without path
+            if (docPath.includes('/')) {
+              const fileName = docPath.split('/').pop() || '';
+              console.log(`Trying to fetch by filename only: ${fileName}`);
+              
+              const { success: fileSuccess, response: fileResponse } = await fetchWithRetries(
+                `/api/v1/docs/content?path=${encodeURIComponent(fileName)}`, 
+                requestOptions
+              );
+              
+              if (fileSuccess && fileResponse) {
+                try {
+                  const content = await fileResponse.text();
+                  console.log(`Document found by filename ${fileName}, content length: ${content.length}`);
+                  setDocContent({ content, path: fileName });
+                  setError(null); // Clear error if fallback succeeds
+                } catch (fallbackError) {
+                  console.error(`Error processing fallback content for ${fileName}:`, fallbackError);
+                }
+              } else {
+                console.error(`Could not find document by filename either: ${fileName}`);
+              }
+            }
+          }
         } else {
           console.error(`Failed to fetch document content for ${docPath} after retries`);
+          setError(`Failed to load document: ${docPath}`);
           
           // If document fetch fails, try finding by filename without path
           if (docPath.includes('/')) {
@@ -332,9 +462,14 @@ const DocumentationBrowser: React.FC = () => {
             );
             
             if (fileSuccess && fileResponse) {
-              const content = await fileResponse.text();
-              console.log(`Document found by filename ${fileName}, content length: ${content.length}`);
-              setDocContent({ content, path: fileName });
+              try {
+                const content = await fileResponse.text();
+                console.log(`Document found by filename ${fileName}, content length: ${content.length}`);
+                setDocContent({ content, path: fileName });
+                setError(null); // Clear error if fallback succeeds
+              } catch (fallbackError) {
+                console.error(`Error processing fallback content for ${fileName}:`, fallbackError);
+              }
             } else {
               console.error(`Could not find document by filename either: ${fileName}`);
             }
@@ -342,6 +477,7 @@ const DocumentationBrowser: React.FC = () => {
         }
       } catch (error) {
         console.error('Error fetching document content:', error);
+        setError("An error occurred while fetching the document. Please try again later.");
       }
       setIsLoading(false);
     };

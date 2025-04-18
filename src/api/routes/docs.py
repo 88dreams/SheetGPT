@@ -20,7 +20,7 @@ if not DOCS_DIR.exists() and DOCKER_DOCS_DIR.exists():
     print(f"Using Docker docs path: {DOCKER_DOCS_DIR}")
     DOCS_DIR = DOCKER_DOCS_DIR
 
-@router.get("/structure", response_model=List[Dict[str, Any]])
+@router.get("/structure", response_model=List[Dict[str, Any]], response_model_exclude_none=True)
 async def get_documentation_structure():
     """
     Get the structure of all documentation files.
@@ -71,13 +71,17 @@ async def get_documentation_structure():
         print(traceback.format_exc())
         raise HTTPException(status_code=500, detail=f"Failed to get documentation structure: {str(e)}")
 
-@router.get("/content", response_class=PlainTextResponse)
+@router.get("/content", response_class=PlainTextResponse, status_code=200)
 async def get_documentation_content(
     path: str = Query(..., description="Path to the document relative to the docs directory")
 ):
     """
     Get the content of a documentation file.
+    Returns the content as plain text with Content-Type: text/plain.
     """
+    # Ensure plain text content type
+    from fastapi.responses import Response
+    from fastapi import status
     # Prevent path traversal attacks
     clean_path = Path(path).name if '..' in path else path
     file_path = DOCS_DIR / clean_path
@@ -138,7 +142,13 @@ async def get_documentation_content(
         
         print("Content processed and sanitized successfully")
             
-        return content
+        # Return explicitly as a Response with text/plain content type
+        return Response(
+            content=content,
+            media_type="text/plain",
+            status_code=status.HTTP_200_OK,
+            headers={"Content-Type": "text/plain; charset=utf-8"}
+        )
     except HTTPException:
         raise
     except Exception as e:

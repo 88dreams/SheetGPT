@@ -29,4 +29,11 @@ COPY . .
 EXPOSE 5173
 
 # Start development server using the docker-specific script
+# Environment variables passed as ARGs in case we need to toggle fallback mode
+ENV VITE_USE_POLLING=true
+
+# Run with the docker-specific configuration
 CMD ["npm", "run", "dev:docker"]
+
+# If WebSocket issues persist, you can uncomment this line and comment out the line above
+# CMD ["npm", "run", "dev:fallback"]

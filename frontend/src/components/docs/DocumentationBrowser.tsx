@@ -13,7 +13,15 @@ const hiddenFiles = [
   'REFACTORING_PLAN.md', 
   'ENTITYLIST_REFACTORING.md', 
   'ENTITYLIST_TESTING.md', 
-  'AWS_DEPLOYMENT.md'
+  'AWS_DEPLOYMENT.md',
+  'DIGITAL_OCEAN_SSL_FIX.md',
+  'PERFORMANCE_MEASUREMENTS.md',
+  'PERFORMANCE_OPTIMIZATION.md',
+  'RELATIONSHIP_LOADING.md',
+  'SPORT_FIELD_FEATURE.md',
+  'SPORTDATAMAPPER_ISSUE.md',
+  'NETLIFY_DEPLOYMENT_STEPS.md',
+  'PRODUCTION_PREPARATION.md'
 ];
 
 // Check if a file is in the hidden list
@@ -169,8 +177,8 @@ const DocumentationBrowser: React.FC = () => {
       // Check if the requested document is in the hidden list
       if (docPath && isHiddenFile(docPath)) {
         console.log(`Attempted to access hidden document: ${docPath}`);
-        // Redirect to main documentation page
-        navigate('help');
+        // Redirect to main documentation page (empty path)
+        navigate('');
         return;
       }
       
@@ -318,8 +326,8 @@ const DocumentationBrowser: React.FC = () => {
       }
       
       // Create absolute path for React Router that works in both local and production environments
-      // The absence of leading slash is critical for basename to work correctly in production
-      const routePath = `help/${newPath}`;
+      // Don't add "help/" prefix to avoid path duplication issues
+      const routePath = newPath;
       console.log(`Converted link: ${url} -> ${routePath}`);
       
       return `[${text}](/${routePath})`;
@@ -376,7 +384,7 @@ const DocumentationBrowser: React.FC = () => {
                 </>
               ) : (
                 <Link 
-                  to={`help/${item.path}`} 
+                  to={`${item.path}`} 
                   className="flex items-center text-gray-700 hover:text-blue-600"
                 >
                   <FaFile className="mr-2 text-gray-500" />
@@ -482,7 +490,7 @@ const DocumentationBrowser: React.FC = () => {
               {searchResults.map((item) => (
                 <li key={item.path} className="py-1">
                   <Link 
-                    to={`help/${item.path}`} 
+                    to={`${item.path}`} 
                     className="flex items-center text-gray-700 hover:text-blue-600"
                     onClick={() => setSearchTerm('')}
                   >
@@ -500,7 +508,7 @@ const DocumentationBrowser: React.FC = () => {
           <h3 className="font-medium text-gray-700 mb-2">Documentation</h3>
           <div className="mb-2">
             <Link 
-              to="help" 
+              to="" 
               className="flex items-center text-gray-700 hover:text-blue-600"
             >
               <FaHome className="mr-2 text-gray-500" />
@@ -539,7 +547,7 @@ const DocumentationBrowser: React.FC = () => {
                     return priorityFiles.map((item) => (
                       <li key={`priority-${item.path}`} className="py-1">
                         <Link 
-                          to={`help/${item.path}`} 
+                          to={`${item.path}`} 
                           className="flex items-center text-gray-700 hover:text-blue-600"
                         >
                           <FaFile className="mr-2 text-blue-500" />

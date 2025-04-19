@@ -4,7 +4,8 @@ import { useNavigate } from 'react-router-dom';
 import { useNotification } from '../../../contexts/NotificationContext';
 import { useDataFlow } from '../../../contexts/DataFlowContext';
 import { useAuth } from '../../../hooks/useAuth';
-import SportsDatabaseService, { EntityType } from '../../../services/SportsDatabaseService';
+import { sportsDatabaseService } from '../../../services';
+import { EntityType } from '../../../services/SportsDatabaseService';
 import { FilterConfig } from '../EntityFilter';
 import { FaSort, FaSortUp, FaSortDown } from 'react-icons/fa';
 import { 
@@ -318,7 +319,7 @@ export const SportsDatabaseProvider: React.FC<SportsDatabaseProviderProps> = ({ 
         
         console.log(`Effective sort parameters: field=${effectiveSortField}, direction=${effectiveSortDirection}`);
         
-        const result = await SportsDatabaseService.getEntities({
+        const result = await sportsDatabaseService.getEntities({
           entityType: selectedEntityType,
           filters: activeFilters,
           page: currentPage,

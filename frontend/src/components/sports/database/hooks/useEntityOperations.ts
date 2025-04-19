@@ -1,5 +1,6 @@
 import { useState, useCallback } from 'react';
-import SportsDatabaseService, { EntityType } from '../../../../services/SportsDatabaseService';
+import { sportsDatabaseService } from '../../../../services';
+import { EntityType } from '../../../../services/SportsDatabaseService';
 
 type NotificationFn = (type: 'success' | 'error' | 'info', message: string) => void;
 
@@ -65,8 +66,8 @@ export function useEntityOperations(
         );
       }
       
-      // Use the SportsDatabaseService for exporting
-      const data = await SportsDatabaseService.exportEntities(
+      // Use the sportsDatabaseService for exporting
+      const data = await sportsDatabaseService.exportEntities(
         entityType,
         idsToExport,
         includeRelationships,
@@ -107,7 +108,7 @@ export function useEntityOperations(
     try {
       setIsDeleting(true);
       
-      await SportsDatabaseService.deleteEntity(entityType, entityId);
+      await sportsDatabaseService.deleteEntity(entityType, entityId);
       
       // Show success notification
       showNotification('success', `Successfully deleted ${entityType} entity`);
@@ -157,7 +158,7 @@ export function useEntityOperations(
 
     setIsDeleting(true);
     try {
-      const results = await SportsDatabaseService.bulkDeleteEntities(entityType, selectedIds);
+      const results = await sportsDatabaseService.bulkDeleteEntities(entityType, selectedIds);
       
       // Show results notification
       if (results.failed.length === 0) {
@@ -186,7 +187,7 @@ export function useEntityOperations(
   // Handle entity update
   const handleUpdateEntity = useCallback(async (entityId: string, updates: Record<string, unknown>) => {
     try {
-      await SportsDatabaseService.updateEntity(entityType, entityId, updates);
+      await sportsDatabaseService.updateEntity(entityType, entityId, updates);
       showNotification('success', 'Entity updated successfully');
       refetch();
     } catch (error) {

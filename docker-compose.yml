@@ -11,6 +11,11 @@ services:
       - /app/node_modules
     environment:
       - VITE_API_URL=http://backend:8000
+      - VITE_ENABLE_DEV_FALLBACKS=false
+      - VITE_MOCK_DATA=false
+      - VITE_DISABLE_ALL_MOCK_DATA=true
+      - FORCE_REAL_DATA=true
+      - NODE_ENV=production
     depends_on:
       - backend
 
@@ -43,6 +48,10 @@ services:
       - DATABASE_URL=postgresql+asyncpg://postgres:postgres@db:5432/sheetgpt
       - PYTHONPATH=/app
       - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - LINKEDIN_CLIENT_ID=${LINKEDIN_CLIENT_ID}
+      - LINKEDIN_CLIENT_SECRET=${LINKEDIN_CLIENT_SECRET}
+      - ENCRYPTION_KEY=${ENCRYPTION_KEY}
     depends_on:
       - db
 

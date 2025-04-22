@@ -62,6 +62,13 @@ class Settings:
     # Google Sheets
     GOOGLE_SHEETS_CREDENTIALS: Optional[str] = os.getenv("GOOGLE_SHEETS_CREDENTIALS")
     
+    # LinkedIn API credentials
+    LINKEDIN_CLIENT_ID: Optional[str] = os.getenv("LINKEDIN_CLIENT_ID")
+    LINKEDIN_CLIENT_SECRET: Optional[str] = os.getenv("LINKEDIN_CLIENT_SECRET")
+    
+    # Encryption key for sensitive data
+    ENCRYPTION_KEY: Optional[str] = os.getenv("ENCRYPTION_KEY")
+    
     def __init__(self):
         """Log key settings on initialization."""
         logger.info(f"Initialized settings for environment: {self.ENVIRONMENT}")

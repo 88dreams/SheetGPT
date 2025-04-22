@@ -11,6 +11,7 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.staticfiles import StaticFiles
 from starlette.exceptions import HTTPException
 from starlette.middleware.trustedhost import TrustedHostMiddleware
+from starlette.middleware.sessions import SessionMiddleware
 from typing import Dict, Any, List
 
 from src.api.middleware.security import (
@@ -63,17 +64,25 @@ if ENVIRONMENT == "production":
     )
     app_logger.info(f"Added CORS middleware with specific origins: {settings.CORS_ORIGINS}")
 else:
-    # In development, be more permissive with CORS
+    # In development, we need specific origins when using credentials
+    development_origins = [
+        "http://localhost:5173",
+        "http://127.0.0.1:5173",
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
+        "http://localhost:8000",
+        "http://127.0.0.1:8000"
+    ]
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=["*"],  # Allow all origins in development
+        allow_origins=development_origins,  # Cannot use wildcard with credentials
         allow_credentials=True,
         allow_methods=["*"],  # Allow all methods
         allow_headers=["*"],  # Allow all headers
         expose_headers=["X-Request-ID", "X-RateLimit-Limit", "X-RateLimit-Remaining", "X-RateLimit-Reset"],
         max_age=86400  # Cache preflight requests for 24 hours
     )
-    app_logger.info("Added CORS middleware with permissive settings for development")
+    app_logger.info(f"Added CORS middleware with specific origins for development: {development_origins}")
 
 # In production, add trusted host middleware
 if ENVIRONMENT == "production":
@@ -100,6 +109,16 @@ if ENVIRONMENT == "production":
         minimum_size=1000  # Only compress responses larger than 1KB
     )
     app_logger.info("Added GZip compression middleware")
+
+# Add session middleware to support session-based authentication
+app.add_middleware(
+    SessionMiddleware,
+    secret_key=settings.SECRET_KEY,
+    max_age=60 * 60 * 24,  # 1 day in seconds
+    same_site="lax",
+    https_only=settings.COOKIE_SECURE,
+)
+app_logger.info("Added session middleware")
 
 # Add request logging middleware in all environments
 app.add_middleware(RequestLoggingMiddleware)

@@ -1,6 +1,12 @@
 from datetime import datetime, timedelta
-from typing import Optional, Union
+from typing import Optional, Union, Dict, Any
 from uuid import UUID
+import os
+import base64
+import json
+import time
+import secrets
+import string
 
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
@@ -8,6 +14,7 @@ from jose import JWTError, jwt
 from passlib.context import CryptContext
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
+from cryptography.fernet import Fernet
 
 from src.utils.config import get_settings
 from src.utils.database import get_db
@@ -16,6 +23,14 @@ settings = get_settings()
 
 # Security configurations
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+
+# Encryption for sensitive data
+ENCRYPTION_KEY = os.getenv("ENCRYPTION_KEY")
+if not ENCRYPTION_KEY:
+    # Generate a key if not provided
+    ENCRYPTION_KEY = Fernet.generate_key()
+    
+cipher = Fernet(ENCRYPTION_KEY)
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl=f"{settings.API_V1_PREFIX}/auth/login")
 
 # Token model
@@ -115,3 +130,87 @@ async def get_current_admin_user(
         )
     
     return current_user_id 
+
+
+def generate_secure_state(user_id: str) -> str:
+    """
+    Generate a secure state parameter for OAuth flows.
+    
+    Args:
+        user_id: The user's ID to encode in the state
+        
+    Returns:
+        Encoded state string
+    """
+    # Create a random state token
+    alphabet = string.ascii_letters + string.digits
+    random_state = ''.join(secrets.choice(alphabet) for _ in range(32))
+    
+    # Combine with user ID and timestamp
+    state_data = {
+        "user_id": user_id,
+        "random": random_state,
+        "timestamp": int(time.time())
+    }
+    
+    # Encode as base64
+    state_json = json.dumps(state_data)
+    state_bytes = state_json.encode('utf-8')
+    state = base64.urlsafe_b64encode(state_bytes).decode('utf-8')
+    
+    return state
+
+
+def extract_user_id_from_state(state: str) -> str:
+    """
+    Extract user ID from encoded state parameter.
+    
+    Args:
+        state: The encoded state string
+        
+    Returns:
+        The user ID
+        
+    Raises:
+        ValueError: If state is invalid or expired
+    """
+    try:
+        # Decode from base64
+        state_bytes = base64.urlsafe_b64decode(state)
+        state_json = state_bytes.decode('utf-8')
+        state_data = json.loads(state_json)
+        
+        # Check timestamp (expire after 10 minutes)
+        timestamp = state_data.get("timestamp", 0)
+        if int(time.time()) - timestamp > 600:
+            raise ValueError("State parameter expired")
+            
+        return state_data.get("user_id")
+    except Exception as e:
+        raise ValueError(f"Invalid state parameter: {str(e)}")
+
+
+def encrypt_token(token: str) -> str:
+    """
+    Encrypt a token before storing in database.
+    
+    Args:
+        token: The token to encrypt
+        
+    Returns:
+        Encrypted token
+    """
+    return cipher.encrypt(token.encode()).decode()
+
+
+def decrypt_token(encrypted_token: str) -> str:
+    """
+    Decrypt a token retrieved from database.
+    
+    Args:
+        encrypted_token: The encrypted token
+        
+    Returns:
+        Decrypted token
+    """
+    return cipher.decrypt(encrypted_token.encode()).decode()

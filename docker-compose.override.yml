@@ -1,5 +1,48 @@
 services:
-  # Minimal configuration for frontend
+  # Frontend with proper volumes and environment
   frontend:
-    # No environment variables or command overrides
-    command: npm run dev:stable
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    ports:
+      - "5173:5173"
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    environment:
+      - VITE_API_URL=http://localhost:8000
+      - VITE_DISABLE_WS=true
+      - VITE_ENABLE_DEV_FALLBACKS=false
+      - VITE_MOCK_DATA=false
+      - VITE_DISABLE_ALL_MOCK_DATA=true
+      - FORCE_REAL_DATA=true
+    restart: "unless-stopped"
+    
+  # Backend configuration with proper CORS settings
+  backend:
+    ports:
+      - "8000:8000"
+    environment:
+      - CORS_ORIGINS=http://localhost:8000,http://localhost:5173,http://127.0.0.1:8000,http://127.0.0.1:5173
+      - LOG_LEVEL=DEBUG
+      - PYTHONUNBUFFERED=1
+      - DEBUG=True
+      - APP_ENV=development
+    restart: "unless-stopped"
+    
+  # Database with persisted volume
+  db:
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    environment:
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_USER=postgres
+      - POSTGRES_DB=sheetgpt
+    restart: "unless-stopped"
+    
+  # Don't start app service for local development
+  app:
+    profiles:
+      - prod

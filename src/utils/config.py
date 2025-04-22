@@ -13,6 +13,7 @@ class Settings(BaseSettings):
     # Security
     SECRET_KEY: str
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
+    ENCRYPTION_KEY: Optional[str] = None
     
     # Database
     DATABASE_URL: str
@@ -25,6 +26,10 @@ class Settings(BaseSettings):
     
     # Google Sheets
     GOOGLE_SHEETS_CREDENTIALS: Optional[str] = None
+    
+    # LinkedIn API
+    LINKEDIN_CLIENT_ID: Optional[str] = None
+    LINKEDIN_CLIENT_SECRET: Optional[str] = None
     
     class Config:
         env_file = ".env"

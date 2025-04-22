@@ -145,9 +145,12 @@ const ContactDetail: React.FC<ContactDetailProps> = ({ contactId, onBack, onDele
   useEffect(() => {
     if (isMounted.current && contactId) {
       console.log('ContactDetail effect triggered - fetching contact');
-      fetchContact();
+      // Only fetch if we don't already have this contact or it's a different one
+      if (!contact || contact.id !== contactId) {
+        fetchContact();
+      }
     }
-  }, [contactId, fetchContact]);
+  }, [contactId, fetchContact, contact]);
 
   // Only fetch brands when edit mode changes
   useEffect(() => {

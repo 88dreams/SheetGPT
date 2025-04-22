@@ -246,8 +246,25 @@ const ContactsList: React.FC<ContactsListProps> = ({ brandId, onContactSelect })
                       )}
                     </div>
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Position
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer" onClick={() => handleSortChange('position')}>
+                    <div className="flex items-center">
+                      <span>Position</span>
+                      {sortBy === 'position' && (
+                        <span className="ml-1">
+                          {sortOrder === 'asc' ? <FaSortAlphaDown className="text-blue-500" /> : <FaSortAlphaUp className="text-blue-500" />}
+                        </span>
+                      )}
+                    </div>
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer" onClick={() => handleSortChange('connected_on')}>
+                    <div className="flex items-center">
+                      <span>Connected On</span>
+                      {sortBy === 'connected_on' && (
+                        <span className="ml-1">
+                          {sortOrder === 'asc' ? <FaSortAlphaDown className="text-blue-500" /> : <FaSortAlphaUp className="text-blue-500" />}
+                        </span>
+                      )}
+                    </div>
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Matched Brands
@@ -305,6 +322,13 @@ const ContactsList: React.FC<ContactsListProps> = ({ brandId, onContactSelect })
                     <td className="px-6 py-4 whitespace-nowrap">
                       {contact.position ? (
                         <span className="text-sm text-gray-900">{contact.position}</span>
+                      ) : (
+                        <span className="text-gray-400 text-sm">-</span>
+                      )}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      {contact.connected_on ? (
+                        <span className="text-sm text-gray-900">{new Date(contact.connected_on).toLocaleDateString()}</span>
                       ) : (
                         <span className="text-gray-400 text-sm">-</span>
                       )}

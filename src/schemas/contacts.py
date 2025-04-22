@@ -1,0 +1,117 @@
+from pydantic import BaseModel, Field, EmailStr, validator
+from typing import List, Optional, Dict, Any, Union
+from uuid import UUID
+from datetime import date, datetime
+
+# Base schemas for Contact
+class ContactBase(BaseModel):
+    first_name: str
+    last_name: str
+    email: Optional[EmailStr] = None
+    linkedin_url: Optional[str] = None
+    company: Optional[str] = None
+    position: Optional[str] = None
+    connected_on: Optional[date] = None
+    notes: Optional[str] = None
+
+class ContactCreate(ContactBase):
+    pass
+
+class ContactUpdate(BaseModel):
+    first_name: Optional[str] = None
+    last_name: Optional[str] = None
+    email: Optional[EmailStr] = None
+    linkedin_url: Optional[str] = None
+    company: Optional[str] = None
+    position: Optional[str] = None
+    connected_on: Optional[date] = None
+    notes: Optional[str] = None
+
+class ContactResponse(ContactBase):
+    id: UUID
+    user_id: UUID
+    created_at: str
+    updated_at: str
+    
+    class Config:
+        from_attributes = True
+        
+    @validator('created_at', 'updated_at', pre=True)
+    def parse_datetime(cls, value):
+        if isinstance(value, datetime):
+            return value.isoformat()
+        return value
+
+# Base schemas for ContactBrandAssociation
+class ContactBrandAssociationBase(BaseModel):
+    contact_id: UUID
+    brand_id: UUID
+    confidence_score: float = 1.0
+    association_type: str = "employed_at"
+    start_date: Optional[date] = None
+    end_date: Optional[date] = None
+    is_current: bool = True
+    is_primary: bool = True
+
+class ContactBrandAssociationCreate(ContactBrandAssociationBase):
+    pass
+
+class ContactBrandAssociationUpdate(BaseModel):
+    confidence_score: Optional[float] = None
+    association_type: Optional[str] = None
+    start_date: Optional[date] = None
+    end_date: Optional[date] = None
+    is_current: Optional[bool] = None
+    is_primary: Optional[bool] = None
+
+class ContactBrandAssociationResponse(ContactBrandAssociationBase):
+    id: UUID
+    created_at: str
+    updated_at: str
+    brand_name: Optional[str] = None
+    contact_name: Optional[str] = None
+    
+    class Config:
+        from_attributes = True
+        
+    @validator('created_at', 'updated_at', pre=True)
+    def parse_datetime(cls, value):
+        if isinstance(value, datetime):
+            return value.isoformat()
+        return value
+
+# Enhanced response with brand associations
+class ContactWithBrandsResponse(ContactResponse):
+    brand_associations: List[ContactBrandAssociationResponse] = []
+
+# Schema for CSV import
+class ContactCSVImport(BaseModel):
+    file_data: List[Dict[str, str]]
+
+class ContactCSVRow(BaseModel):
+    first_name: str
+    last_name: str
+    email: Optional[str] = None
+    linkedin_url: Optional[str] = None
+    company: Optional[str] = None
+    position: Optional[str] = None
+    connected_on: Optional[str] = None
+
+class ContactImportRequest(BaseModel):
+    file_content: List[ContactCSVRow]
+    auto_match_brands: bool = True
+    match_threshold: float = 0.6
+
+class ContactImportStats(BaseModel):
+    total_contacts: int
+    imported_contacts: int
+    matched_brands: int
+    import_errors: List[Dict[str, Any]] = []
+    
+class ContactListParams(BaseModel):
+    skip: int = 0
+    limit: int = 100
+    search: Optional[str] = None
+    brand_id: Optional[UUID] = None
+    sort_by: Optional[str] = "last_name"
+    sort_order: Optional[str] = "asc"

@@ -13,7 +13,14 @@ SheetGPT is a full-stack application that combines AI-powered chat capabilities 
 
 As of April 2025, the project has implemented:
 
-- Fixed SportDataMapper component with reliable record navigation
+- LinkedIn CSV Import for contacts and brand relationship management
+  - Import contacts from LinkedIn CSV exports
+  - Automatic matching of contact companies to existing brands
+  - Contact management with brand relationship editing
+  - Fuzzy matching for company name resolution
+  - Progress tracking and import statistics
+
+- SportDataMapper component with reliable record navigation
   - Resolved inconsistency between development and production builds
   - Enhanced component state handling for better stability
   - Added improved debugging for production environment issues
@@ -42,6 +49,18 @@ As of April 2025, the project has implemented:
   - Sub-path deployment with proper asset handling
 
 ## Recent Improvements
+
+### LinkedIn CSV Contact Import (April 2025)
+- Created new database models for contacts and brand associations with confidence scoring
+- Implemented CSV import with flexible column mapping for LinkedIn export formats
+- Built comprehensive frontend components for contact management (list, detail, and import views)
+- Added sophisticated fuzzy matching algorithm for company name-to-brand resolution
+- Implemented contact-to-brand matching with multiple matching strategies
+- Created detailed import statistics with duplicate detection and error reporting
+- Added configurable import options with adjustable matching threshold
+- Properly indexed database fields for optimized querying
+- Integrated contact management with main navigation and application flow
+- See full details in [LinkedIn Integration Documentation](docs/features/LINKEDIN_INTEGRATION.md)
 
 ### Brand Relationship Entity Consolidation
 - Integrated Brand Relationship functionality directly into the Brand entity
@@ -202,7 +221,8 @@ For more detailed information, see our organized documentation:
   - [AWS Deployment](docs/deployment/AWS_DEPLOYMENT.md)
   - [CI/CD Pipeline](docs/deployment/CI_CD_PIPELINE.md)
 
-- **Project Status**
+- **Features**
+  - [LinkedIn Integration](docs/features/LINKEDIN_INTEGRATION.md)
   - [Progress](docs/PROGRESS.md)
 
 See the [Documentation Index](docs/README.md) for a complete list of documents.
@@ -337,6 +357,14 @@ The credentials file contains sensitive information. Make sure to:
   - **Role-Based Access**: Restricted access to administrative functions based on user roles.
   - **Database Management**: Tools for cleaning and maintaining the database.
   - **User Management**: Functionality for managing user accounts and permissions.
+- **Contact Management**: Import and manage professional contacts with brand relationships.
+  - **LinkedIn CSV Import**: Import contacts from LinkedIn CSV exports with flexible column mapping.
+  - **Fuzzy Company Matching**: Sophisticated algorithm for matching contact companies to existing brands.
+  - **Contact Details**: View and edit contact information including brand associations with confidence scoring.
+  - **Brand Relationship Management**: Associate contacts with brands using both automatic and manual methods.
+  - **Import Options**: Configurable matching settings with adjustable confidence threshold.
+  - **Import Statistics**: Comprehensive reporting with successful imports, duplicates, and match counts.
+  - **Indexed Searching**: Optimized database queries for contact filtering and searching.
 
 ## Sports Database Management
 

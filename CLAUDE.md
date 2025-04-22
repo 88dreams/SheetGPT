@@ -4,6 +4,17 @@
 
 ## Recent Improvements
 
+### LinkedIn CSV Import Feature (April 22, 2025)
+- ✅ Implemented CSV-based contact import with support for LinkedIn exports
+- ✅ Created database models for contacts with brand associations
+- ✅ Built brand matching with fuzzy company name resolution
+- ✅ Added frontend components for CSV upload and contact management
+- ✅ Created contact details view with relationship editing
+- ✅ Used normalization techniques for improved company matching
+- ✅ Fixed CSV parsing for LinkedIn export format with header metadata
+- ✅ Enhanced FormData handling for reliable file uploads
+- ✅ Added better serialization for complex nested objects
+
 ### SportDataMapper Stadium Field Mapping (April 12, 2025)
 - ✅ Fixed array-based stadium data mapping with improved field position handling (0=name, 2=city, 3=state, 4=country)
 - ✅ Resolved blank screen issue and production build reference errors

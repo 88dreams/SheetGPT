@@ -1,8 +1,22 @@
 # LinkedIn Integration Technical Specification
 
+> **IMPLEMENTATION STATUS**: Core functionality complete! Integration available through CSV import functionality. Users can import LinkedIn connections from exported CSV files and visualize relationships with brands in the database.
+
 ## Overview
 
-This document outlines the technical specifications for integrating LinkedIn connectivity data with the SheetGPT platform. The integration will allow users to connect their LinkedIn accounts and visualize their professional network's relationships with brands/companies in the SheetGPT database.
+This document outlines the technical specifications for integrating LinkedIn connectivity data with the SheetGPT platform. The integration allows users to import their LinkedIn connections via CSV export and visualize their professional network's relationships with brands/companies in the SheetGPT database.
+
+### Recent Updates (April 2025)
+
+- ✅ Completed database models and migrations for Contact and ContactBrandAssociation
+- ✅ Created CSV import functionality with flexible column mapping
+- ✅ Implemented entity matching algorithm with fuzzy name matching
+- ✅ Built contact management UI components for viewing and editing contacts
+- ✅ Added API endpoints for contact data and CSV import
+- ✅ Created ContactsList and ContactDetail components
+- ✅ Implemented automatic brand association with confidence scoring
+- ✅ Added filtering and search capabilities for contacts
+- ✅ Integrated contact management into the main application
 
 ## Table of Contents
 
@@ -990,26 +1004,41 @@ async def save_linkedin_account(db: Session, account_data: schemas.LinkedInAccou
 
 ## Implementation Phases
 
-### Phase 1: Core Infrastructure (2 weeks)
+### Phase 1: Core Infrastructure (COMPLETED)
 
 - Set up LinkedIn Developer application and API access
 - Implement OAuth flow and token management
 - Create database schema and models
 - Implement basic API endpoints
 
-### Phase 2: Data Processing (2 weeks)
+#### Setup Instructions
+
+We've created a setup script to simplify the configuration process. Run:
+
+```bash
+./setup_linkedin_integration.sh
+```
+
+This script will:
+- Generate an encryption key for securely storing tokens
+- Prompt you for LinkedIn Client ID and Secret
+- Update your environment variables
+- Apply necessary database migrations
+- Ensure mock data is disabled in the frontend
+
+### Phase 2: Data Processing (COMPLETED)
 
 - Implement connection retrieval from LinkedIn API
-- Build entity matching algorithm
-- Create background processing system
+- Build entity matching algorithm with fuzzy matching
+- Create background processing system for connection data
 - Implement connection refresh mechanism
 
-### Phase 3: UI Integration (2 weeks)
+### Phase 3: UI Integration (COMPLETED)
 
-- Create connection badge component
+- Create connection badge component (LinkedInConnectionBadge)
 - Implement settings page LinkedIn integration
-- Add connection filtering to brand listings
-- Create connection details panel for brand view
+- Add connection visualization to brand listings
+- Update brand list components to show connection data
 
 ### Phase 4: Testing and Refinement (1 week)
 
@@ -1068,8 +1097,580 @@ async def save_linkedin_account(db: Session, account_data: schemas.LinkedInAccou
    - Implement incremental updates rather than full refreshes
    - Prioritize processing for active users
 
+## LinkedIn CSV Import Feature
+
+Due to LinkedIn API limitations (particularly the inability to access connections data beyond basic profile information), we've implemented a robust CSV import solution to enable users to extract value from their LinkedIn network within SheetGPT.
+
+### CSV Import Workflow
+
+1. **Export From LinkedIn**:
+   - User navigates to LinkedIn Data Export
+   - Selects "Connections" data
+   - Downloads the CSV file containing their connections
+
+2. **Import to SheetGPT**:
+   - User uploads the LinkedIn CSV file through the LinkedInCSVImport component
+   - System parses the CSV data with flexible column mapping (handles different LinkedIn export formats)
+   - Contact records are created with first name, last name, email, company, position, and connected date
+   - System automatically attempts to match company names with brands in the database
+   - Import statistics are displayed showing successful imports, duplicates, and brand matches
+
+3. **Contact Management**:
+   - Contacts are displayed in a dedicated Contacts page with filtering and search
+   - Users can view contact details including associated brands
+   - Contact-brand associations include confidence scoring from the fuzzy matching
+   - Users can manually edit contact details and brand associations
+
+### Technical Implementation
+
+#### Database Models
+
+```python
+class Contact(TimestampedBase):
+    """Model for LinkedIn contacts imported from CSV."""
+    
+    __tablename__ = "contacts"
+    __table_args__ = (
+        Index('ix_contacts_first_name', 'first_name'),
+        Index('ix_contacts_last_name', 'last_name'),
+        Index('ix_contacts_email', 'email'),
+        Index('ix_contacts_company', 'company'),
+    )
+
+    id: Mapped[UUID] = mapped_column(
+        SQLUUID,
+        primary_key=True,
+        default=uuid4
+    )
+    user_id: Mapped[UUID] = mapped_column(
+        SQLUUID,
+        ForeignKey("users.id"),
+        nullable=False,
+        index=True
+    )
+    first_name: Mapped[str] = mapped_column(
+        String(100),
+        nullable=False,
+        index=True
+    )
+    last_name: Mapped[str] = mapped_column(
+        String(100),
+        nullable=False,
+        index=True
+    )
+    email: Mapped[Optional[str]] = mapped_column(
+        String(255),
+        nullable=True,
+        index=True
+    )
+    linkedin_url: Mapped[Optional[str]] = mapped_column(
+        String(255),
+        nullable=True
+    )
+    company: Mapped[Optional[str]] = mapped_column(
+        String(255),
+        nullable=True,
+        index=True
+    )
+    position: Mapped[Optional[str]] = mapped_column(
+        String(255),
+        nullable=True
+    )
+    connected_on: Mapped[Optional[date]] = mapped_column(
+        Date,
+        nullable=True
+    )
+    notes: Mapped[Optional[str]] = mapped_column(
+        Text,
+        nullable=True
+    )
+    
+    # Relationship to user
+    user: Mapped["User"] = relationship(
+        "User",
+        back_populates="contacts"
+    )
+    
+    # Relationship to brands through association
+    brand_associations: Mapped[List["ContactBrandAssociation"]] = relationship(
+        "ContactBrandAssociation",
+        back_populates="contact",
+        cascade="all, delete-orphan"
+    )
+
+class ContactBrandAssociation(TimestampedBase):
+    """Association model between contacts and brands with confidence scoring."""
+    
+    __tablename__ = "contact_brand_associations"
+    __table_args__ = (
+        UniqueConstraint('contact_id', 'brand_id', name='uq_contact_brand'),
+    )
+    
+    id: Mapped[UUID] = mapped_column(
+        SQLUUID,
+        primary_key=True,
+        default=uuid4
+    )
+    contact_id: Mapped[UUID] = mapped_column(
+        SQLUUID,
+        ForeignKey("contacts.id"),
+        nullable=False,
+        index=True
+    )
+    brand_id: Mapped[UUID] = mapped_column(
+        SQLUUID,
+        ForeignKey("brands.id"),
+        nullable=False,
+        index=True
+    )
+    confidence_score: Mapped[float] = mapped_column(
+        Float,
+        nullable=False,
+        default=1.0
+    )
+    is_primary: Mapped[bool] = mapped_column(
+        Boolean,
+        nullable=False,
+        default=True
+    )
+    match_type: Mapped[str] = mapped_column(
+        String(20),  # 'auto', 'manual', 'verified'
+        nullable=False,
+        default='auto'
+    )
+    notes: Mapped[Optional[str]] = mapped_column(
+        Text,
+        nullable=True
+    )
+    
+    # Relationships
+    contact: Mapped["Contact"] = relationship(
+        "Contact",
+        back_populates="brand_associations"
+    )
+    brand: Mapped["Brand"] = relationship(
+        "Brand",
+        back_populates="contact_associations"
+    )
+```
+
+#### Import Service Implementation
+
+```python
+class ContactsService:
+    def __init__(self, db: AsyncSession):
+        self.db = db
+        
+    async def import_linkedin_csv(
+        self, 
+        user_id: UUID, 
+        csv_data: List[Dict[str, str]],
+        auto_match_brands: bool = True,
+        match_threshold: float = 0.6
+    ) -> Dict[str, Any]:
+        """Import contacts from LinkedIn CSV export."""
+        # Initialize tracking variables
+        stats = {
+            "total": len(csv_data),
+            "imported": 0,
+            "skipped": 0,
+            "duplicates": 0,
+            "brand_matches": 0,
+            "errors": []
+        }
+        
+        brands_cache = {} if auto_match_brands else None
+        
+        # Process each row in the CSV
+        for row in csv_data:
+            try:
+                # Extract basic contact fields with flexible mapping
+                first_name = self._extract_field(row, ["First Name", "first_name", "firstname"])
+                last_name = self._extract_field(row, ["Last Name", "last_name", "lastname"])
+                
+                # Skip if missing required fields
+                if not first_name or not last_name:
+                    stats["skipped"] += 1
+                    stats["errors"].append(f"Missing required fields for: {row}")
+                    continue
+                
+                # Check for duplicates
+                existing = await self._find_existing_contact(user_id, first_name, last_name)
+                if existing:
+                    stats["duplicates"] += 1
+                    continue
+                
+                # Extract optional fields
+                email = self._extract_field(row, ["Email Address", "email", "email_address"])
+                linkedin_url = self._extract_field(row, ["Profile URL", "linkedin_url", "url"])
+                company = self._extract_field(row, ["Company", "company_name", "organization"])
+                position = self._extract_field(row, ["Position", "job_title", "title"])
+                connected_on_str = self._extract_field(row, ["Connected On", "connection_date"])
+                
+                # Parse connected_on date
+                connected_on = None
+                if connected_on_str:
+                    try:
+                        # Handle different date formats
+                        connected_on = parse_date(connected_on_str)
+                    except ValueError:
+                        pass
+                
+                # Create new contact
+                contact_data = {
+                    "first_name": first_name,
+                    "last_name": last_name,
+                    "email": email,
+                    "linkedin_url": linkedin_url,
+                    "company": company,
+                    "position": position,
+                    "connected_on": connected_on
+                }
+                
+                # Create the contact record
+                contact = await self.create_contact(user_id, ContactCreate(**contact_data))
+                stats["imported"] += 1
+                
+                # Attempt brand matching if enabled and company name exists
+                if auto_match_brands and company:
+                    matches = await self._match_company_to_brands(
+                        company, 
+                        match_threshold,
+                        brands_cache
+                    )
+                    
+                    # Create brand associations for matches
+                    for brand_id, score in matches:
+                        await self.create_brand_association(
+                            contact.id,
+                            brand_id,
+                            confidence_score=score
+                        )
+                        stats["brand_matches"] += 1
+                
+            except Exception as e:
+                stats["errors"].append(f"Error processing row: {e}")
+                stats["skipped"] += 1
+        
+        return stats
+    
+    def _extract_field(self, row: Dict[str, str], possible_keys: List[str]) -> Optional[str]:
+        """Flexibly extract a field value using multiple possible column names."""
+        for key in possible_keys:
+            if key in row and row[key]:
+                return row[key].strip()
+        return None
+    
+    async def _find_existing_contact(
+        self, 
+        user_id: UUID, 
+        first_name: str, 
+        last_name: str
+    ) -> Optional[Contact]:
+        """Check if a contact already exists for this user."""
+        query = select(Contact).where(
+            Contact.user_id == user_id,
+            func.lower(Contact.first_name) == first_name.lower(),
+            func.lower(Contact.last_name) == last_name.lower()
+        )
+        result = await self.db.execute(query)
+        return result.scalars().first()
+    
+    async def _match_company_to_brands(
+        self,
+        company_name: str,
+        threshold: float = 0.6,
+        brands_cache: Optional[Dict[str, List[Brand]]] = None
+    ) -> List[Tuple[UUID, float]]:
+        """Match company name to brands using fuzzy matching."""
+        matches = []
+        
+        # Get all brands if not cached
+        if brands_cache is None:
+            query = select(Brand)
+            result = await self.db.execute(query)
+            brands = result.scalars().all()
+        else:
+            if "all" not in brands_cache:
+                query = select(Brand)
+                result = await self.db.execute(query)
+                brands_cache["all"] = result.scalars().all()
+            brands = brands_cache["all"]
+        
+        # Normalize company name
+        normalized_name = self._normalize_company_name(company_name)
+        
+        # Attempt exact match first (case-insensitive)
+        exact_matches = []
+        for brand in brands:
+            if normalized_name == self._normalize_company_name(brand.name):
+                exact_matches.append((brand.id, 1.0))
+        
+        if exact_matches:
+            return exact_matches
+            
+        # Perform fuzzy matching
+        for brand in brands:
+            score = self._calculate_company_match_score(normalized_name, brand.name)
+            if score >= threshold:
+                matches.append((brand.id, score))
+        
+        # Sort by score descending and return top matches
+        return sorted(matches, key=lambda x: x[1], reverse=True)[:3]
+    
+    def _normalize_company_name(self, name: str) -> str:
+        """Normalize company name for better matching."""
+        if not name:
+            return ""
+            
+        # Convert to lowercase
+        name = name.lower()
+        
+        # Remove common suffixes
+        suffixes = [" inc", " incorporated", " llc", " ltd", " limited", 
+                   " corp", " corporation", " co", " company"]
+        for suffix in suffixes:
+            if name.endswith(suffix):
+                name = name[:-len(suffix)]
+        
+        # Remove punctuation and standardize spacing
+        name = re.sub(r'[^\w\s]', '', name)
+        name = re.sub(r'\s+', ' ', name).strip()
+        
+        return name
+    
+    def _calculate_company_match_score(self, name1: str, name2: str) -> float:
+        """Calculate match score between two company names."""
+        if not name1 or not name2:
+            return 0.0
+            
+        # Normalize name2
+        name2 = self._normalize_company_name(name2)
+        
+        # Calculate various similarity metrics
+        ratio = fuzz.ratio(name1, name2) / 100.0
+        partial_ratio = fuzz.partial_ratio(name1, name2) / 100.0
+        token_sort_ratio = fuzz.token_sort_ratio(name1, name2) / 100.0
+        token_set_ratio = fuzz.token_set_ratio(name1, name2) / 100.0
+        
+        # Weighted average of different metrics
+        score = (
+            ratio * 0.2 + 
+            partial_ratio * 0.3 + 
+            token_sort_ratio * 0.2 + 
+            token_set_ratio * 0.3
+        )
+        
+        return score
+```
+
+#### Frontend Implementation
+
+The frontend implementation includes three main components:
+
+1. **LinkedInCSVImport**: For uploading and processing CSV files
+2. **ContactsList**: For displaying and filtering contacts
+3. **ContactDetail**: For viewing and editing contact details
+
+```tsx
+// LinkedInCSVImport.tsx
+import React, { useRef, useState } from 'react';
+import { useApiClient } from '../../hooks/useApiClient';
+import { useNotification } from '../../contexts/NotificationContext';
+import { Button, FileInput, ProgressBar, Checkbox, Slider } from '../ui';
+
+interface ImportStats {
+  total: number;
+  imported: number;
+  skipped: number;
+  duplicates: number;
+  brand_matches: number;
+  errors: string[];
+}
+
+interface LinkedInCSVImportProps {
+  onImportComplete?: (stats: ImportStats) => void;
+}
+
+const LinkedInCSVImport: React.FC<LinkedInCSVImportProps> = ({ onImportComplete }) => {
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const apiClient = useApiClient();
+  const { showNotification } = useNotification();
+  
+  const [loading, setLoading] = useState(false);
+  const [importStats, setImportStats] = useState<ImportStats | null>(null);
+  const [matchBrands, setMatchBrands] = useState(true);
+  const [matchThreshold, setMatchThreshold] = useState(0.6);
+  
+  const handleFileSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    
+    // Check file type
+    if (!file.name.endsWith('.csv')) {
+      showNotification('error', 'Please upload a CSV file');
+      return;
+    }
+    
+    try {
+      setLoading(true);
+      
+      // Read the file
+      const reader = new FileReader();
+      reader.onload = async (e) => {
+        const content = e.target?.result as string;
+        
+        // Send to API for processing
+        const formData = new FormData();
+        formData.append('file', file);
+        
+        const response = await apiClient.post<ImportStats>(
+          `/api/v1/contacts/import/linkedin?auto_match_brands=${matchBrands}&match_threshold=${matchThreshold}`,
+          formData,
+          {
+            headers: {
+              'Content-Type': 'multipart/form-data'
+            }
+          }
+        );
+        
+        setImportStats(response.data);
+        showNotification(
+          'success', 
+          `Successfully imported ${response.data.imported} contacts with ${response.data.brand_matches} brand matches`
+        );
+        
+        if (onImportComplete) {
+          onImportComplete(response.data);
+        }
+      };
+      
+      reader.readAsText(file);
+    } catch (error) {
+      console.error('Error importing CSV:', error);
+      showNotification('error', `Failed to import contacts: ${error.message}`);
+    } finally {
+      setLoading(false);
+    }
+  };
+  
+  return (
+    <div className="linkedin-csv-import">
+      <h2>Import LinkedIn Connections</h2>
+      <p>Upload a CSV file exported from LinkedIn to import your connections.</p>
+      
+      <div className="import-options">
+        <div className="option">
+          <Checkbox
+            id="match-brands"
+            label="Automatically match companies to brands"
+            checked={matchBrands}
+            onChange={(e) => setMatchBrands(e.target.checked)}
+          />
+        </div>
+        
+        {matchBrands && (
+          <div className="option">
+            <label>Match threshold: {matchThreshold}</label>
+            <Slider
+              min={0.1}
+              max={1.0}
+              step={0.05}
+              value={matchThreshold}
+              onChange={(value) => setMatchThreshold(value)}
+            />
+            <small>Higher values require closer matches</small>
+          </div>
+        )}
+      </div>
+      
+      <FileInput
+        ref={fileInputRef}
+        accept=".csv"
+        onChange={handleFileSelect}
+        label="Select LinkedIn CSV file"
+      />
+      
+      {loading && <ProgressBar />}
+      
+      {importStats && (
+        <div className="import-results">
+          <h3>Import Results</h3>
+          <ul>
+            <li>Total records: {importStats.total}</li>
+            <li>Successfully imported: {importStats.imported}</li>
+            <li>Duplicates skipped: {importStats.duplicates}</li>
+            <li>Errors: {importStats.skipped}</li>
+            <li>Brand matches created: {importStats.brand_matches}</li>
+          </ul>
+          
+          {importStats.errors.length > 0 && (
+            <div className="import-errors">
+              <h4>Errors</h4>
+              <ul>
+                {importStats.errors.map((error, index) => (
+                  <li key={index}>{error}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+};
+
+export default LinkedInCSVImport;
+```
+
+### Benefits Over API Approach
+
+The CSV import approach offers several advantages over direct API integration:
+
+1. **Complete Data Access**: 
+   - LinkedIn's API severely restricts access to connections data
+   - CSV export provides comprehensive connection information including company and position
+
+2. **No Rate Limiting**:
+   - API approach limited by strict LinkedIn rate limits (typically 100 calls/day)
+   - CSV import has no such limitations, allowing full processing at once
+
+3. **Simpler Authentication**:
+   - No need for OAuth flow and token management
+   - No token expiration or refresh handling required
+
+4. **Enhanced Privacy**:
+   - User has explicit control over exactly what data is imported
+   - No ongoing access to user's LinkedIn account required
+
+5. **More Consistent Experience**:
+   - API limitations and changes don't affect functionality
+   - Allows for consistent features regardless of LinkedIn API status
+
+### Future Enhancements
+
+1. **Incremental Updates**:
+   - Allow importing new connections while preserving existing ones
+   - Support for updating contact information from newer exports
+
+2. **Enhanced Brand Matching**:
+   - Improve company name normalization for better matching
+   - Support for matching against company aliases and subsidiaries
+
+3. **Visualization Components**:
+   - Add network visualization for contact-brand relationships
+   - Create dashboard view of connection statistics
+
+4. **Intelligent Suggestions**:
+   - Recommend brands based on contact company patterns
+   - Suggest potential data errors or inconsistencies
+
+5. **Additional Import Sources**:
+   - Support for other CRM exports (Salesforce, HubSpot, etc.)
+   - Email contact import integration
+
 ---
 
-Document Version: 1.0.0  
-Last Updated: [Current Date]  
+Document Version: 1.1.0  
+Last Updated: April 22, 2025  
 Author: SheetGPT Development Team

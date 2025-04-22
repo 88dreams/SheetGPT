@@ -2,6 +2,18 @@
 
 ## Latest Updates (April 2025)
 
+### LinkedIn CSV Import Feature (April 22, 2025)
+- Implemented LinkedIn connections CSV import as an alternative to direct API integration
+- Created Contact and ContactBrandAssociation models with brand confidence scoring
+- Built extensive fuzzy matching system for company name-to-brand resolution
+- Developed flexible column mapping for different LinkedIn CSV export formats
+- Added complete contact management UI with list, detail, and import views
+- Created comprehensive import statistics with duplicate detection
+- Implemented interactive import options with configurable matching threshold
+- Added proper indexing for optimized contact querying
+- Integrated contacts with the main navigation and application flow
+- Created detailed documentation in LINKEDIN_INTEGRATION.md
+
 ### SportDataMapper Stadium Field Mapping Fix (April 12, 2025)
 - Fixed array-based stadium data mapping for venues like Indianapolis Motor Speedway
 - Implemented proper field position mapping (0=name, 2=city, 3=state, 4=country)

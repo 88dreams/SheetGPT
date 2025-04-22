@@ -70,6 +70,26 @@ class EntityNotFoundError(SportsDatabaseError):
         super().__init__(message, error_details, status_code=404)
 
 
+class DuplicateEntityError(SportsDatabaseError):
+    """Error raised when an entity already exists in the system."""
+    
+    def __init__(self, message: str, entity_type: Optional[str] = None, 
+                entity_id: Optional[str] = None, details: Optional[Dict[str, Any]] = None):
+        self.entity_type = entity_type
+        self.entity_id = entity_id
+        
+        error_details = {
+            **(details or {})
+        }
+        
+        if entity_type:
+            error_details["entity_type"] = entity_type
+        if entity_id:
+            error_details["entity_id"] = str(entity_id)
+            
+        super().__init__(message, error_details, status_code=409)  # 409 Conflict
+
+
 class EntityValidationError(SportsDatabaseError):
     """Error raised when entity validation fails."""
     

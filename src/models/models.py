@@ -46,6 +46,11 @@ class User(TimestampedBase):
         back_populates="user",
         cascade="all, delete-orphan"
     )
+    contacts: Mapped[List["Contact"]] = relationship(
+        "Contact",
+        back_populates="user",
+        cascade="all, delete-orphan"
+    )
 
 class Conversation(TimestampedBase):
     """Model for tracking conversations with ChatGPT."""
@@ -254,4 +259,4 @@ class DataChangeHistory(TimestampedBase):
 
     # Relationships
     structured_data: Mapped[StructuredData] = relationship(back_populates="change_history")
-    user: Mapped[User] = relationship("User") 
+    user: Mapped[User] = relationship("User")

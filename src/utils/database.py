@@ -14,6 +14,9 @@ import ssl
 # Extract database URL
 db_url = settings.DATABASE_URL
 
+# Also export a standard DB URL for synchronous operations (used in dev mode)
+SQLALCHEMY_DATABASE_URL = db_url.replace('postgresql+asyncpg://', 'postgresql://')
+
 # Configure SSL for asyncpg correctly
 connect_args = {}
 if 'sslmode' in db_url or 'ssl=true' in db_url:
@@ -84,4 +87,4 @@ async def get_db_session():
         await session.close()
 
 # Export all models
-__all__ = ["Base", "engine", "get_db", "get_db_session"] 
+__all__ = ["Base", "engine", "get_db", "get_db_session", "SQLALCHEMY_DATABASE_URL"] 

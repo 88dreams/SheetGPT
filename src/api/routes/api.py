@@ -1,7 +1,7 @@
 from fastapi import APIRouter
 from typing import Dict
 
-from src.api.routes import auth, chat, export, data_management, sports, sports_v2, admin, db_management, docs
+from src.api.routes import auth, chat, export, data_management, sports, sports_v2, admin, db_management, docs, linkedin, contacts
 
 router = APIRouter()
 
@@ -66,6 +66,20 @@ router.include_router(
     tags=["Documentation"]
 )
 
+# Include LinkedIn integration routes
+router.include_router(
+    linkedin.router,
+    prefix="/linkedin",
+    tags=["LinkedIn Integration"]
+)
+
+# Include Contacts routes
+router.include_router(
+    contacts.router,
+    prefix="/contacts",
+    tags=["Contacts"]
+)
+
 @router.get("/status")
 async def get_status() -> Dict[str, str]:
     """Get the current status of all services."""
@@ -74,4 +88,4 @@ async def get_status() -> Dict[str, str]:
         "database": "connected",  # TODO: Implement actual database check
         "chatgpt": "available",   # TODO: Implement OpenAI API check
         "sheets": "ready"         # TODO: Implement Google Sheets API check
-    } 
+    }

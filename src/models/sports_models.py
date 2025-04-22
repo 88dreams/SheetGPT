@@ -563,6 +563,10 @@ class Brand(TimestampedBase):
         foreign_keys="[BroadcastRights.broadcast_company_id]",
         primaryjoin="Brand.id == BroadcastRights.broadcast_company_id"
     )
+    contact_associations: Mapped[List["ContactBrandAssociation"]] = relationship(
+        back_populates="brand",
+        cascade="all, delete-orphan"
+    )
 
 
 # BrandRelationship model has been removed
@@ -735,4 +739,136 @@ class GameBroadcast(TimestampedBase):
     production_company: Mapped[Optional["Brand"]] = relationship(
         "Brand",
         foreign_keys=[production_company_id]
-    ) 
+    )
+
+
+class Contact(TimestampedBase):
+    """Model for LinkedIn contacts imported from CSV."""
+    
+    __tablename__ = "contacts"
+    __table_args__ = (
+        Index('ix_contacts_first_name', 'first_name'),
+        Index('ix_contacts_last_name', 'last_name'),
+        Index('ix_contacts_email', 'email'),
+        Index('ix_contacts_company', 'company'),
+    )
+
+    id: Mapped[UUID] = mapped_column(
+        SQLUUID,
+        primary_key=True,
+        default=uuid4
+    )
+    user_id: Mapped[UUID] = mapped_column(
+        SQLUUID,
+        ForeignKey("users.id"),
+        nullable=False,
+        index=True
+    )
+    first_name: Mapped[str] = mapped_column(
+        String(100),
+        nullable=False,
+        index=True
+    )
+    last_name: Mapped[str] = mapped_column(
+        String(100),
+        nullable=False,
+        index=True
+    )
+    email: Mapped[Optional[str]] = mapped_column(
+        String(255),
+        nullable=True,
+        index=True
+    )
+    linkedin_url: Mapped[Optional[str]] = mapped_column(
+        String(255),
+        nullable=True
+    )
+    company: Mapped[Optional[str]] = mapped_column(
+        String(100),
+        nullable=True,
+        index=True
+    )
+    position: Mapped[Optional[str]] = mapped_column(
+        String(100),
+        nullable=True
+    )
+    connected_on: Mapped[Optional[datetime.date]] = mapped_column(
+        Date,
+        nullable=True
+    )
+    notes: Mapped[Optional[str]] = mapped_column(
+        Text,
+        nullable=True
+    )
+
+    # Relationships
+    user: Mapped["User"] = relationship(
+        "User"
+    )
+    brand_associations: Mapped[List["ContactBrandAssociation"]] = relationship(
+        back_populates="contact",
+        cascade="all, delete-orphan"
+    )
+
+
+class ContactBrandAssociation(TimestampedBase):
+    """Model for associating contacts with brands."""
+    
+    __tablename__ = "contact_brand_associations"
+    __table_args__ = (
+        UniqueConstraint('contact_id', 'brand_id', name='uq_contact_brand'),
+    )
+
+    id: Mapped[UUID] = mapped_column(
+        SQLUUID,
+        primary_key=True,
+        default=uuid4
+    )
+    contact_id: Mapped[UUID] = mapped_column(
+        SQLUUID,
+        ForeignKey("contacts.id"),
+        nullable=False,
+        index=True
+    )
+    brand_id: Mapped[UUID] = mapped_column(
+        SQLUUID,
+        ForeignKey("brands.id"),
+        nullable=False,
+        index=True
+    )
+    confidence_score: Mapped[float] = mapped_column(
+        Float,
+        nullable=False,
+        default=1.0
+    )
+    association_type: Mapped[str] = mapped_column(
+        String(50),
+        nullable=False,
+        default="employed_at"
+    )
+    start_date: Mapped[Optional[datetime.date]] = mapped_column(
+        Date,
+        nullable=True
+    )
+    end_date: Mapped[Optional[datetime.date]] = mapped_column(
+        Date,
+        nullable=True
+    )
+    is_current: Mapped[bool] = mapped_column(
+        Boolean,
+        nullable=False,
+        default=True
+    )
+    is_primary: Mapped[bool] = mapped_column(
+        Boolean,
+        nullable=False,
+        default=True
+    )
+
+    # Relationships
+    contact: Mapped["Contact"] = relationship(
+        back_populates="brand_associations"
+    )
+    brand: Mapped["Brand"] = relationship(
+        back_populates="contact_associations"
+    )

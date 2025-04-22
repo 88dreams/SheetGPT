@@ -36,6 +36,7 @@ export default function Navbar() {
     { path: 'sports', label: 'Entities', title: 'Entities', requiresAuth: true },
     { path: 'database', label: 'Query', title: 'Query', requiresAuth: true },
     { path: 'data', label: 'Export', title: 'Export', requiresAuth: true },
+    { path: 'contacts', label: 'Contacts', title: 'Contacts', requiresAuth: true },
     { path: 'settings', label: 'Settings', title: 'Settings', requiresAuth: true },
     { path: 'help', label: 'Help', title: 'Documentation', requiresAuth: true },
     { path: 'login', label: 'Login', title: '', requiresAuth: false },
@@ -103,4 +104,4 @@ export default function Navbar() {
       </div>
     </nav>
   )
-} 
+}

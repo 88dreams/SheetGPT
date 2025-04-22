@@ -6,39 +6,26 @@ import { isTokenExpiredOrExpiringSoon, refreshAuthToken } from './tokenRefresh';
 // Determine if we're running in Docker by checking the hostname
 const isDocker = window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1';
 
-// For browser access, we need to handle different environments properly
-// In production, we need to use the full API URL to the separate API domain
-// In development, we can use relative URLs with the proxy
+// IMPORTANT: All mock data and development fallbacks have been removed
+// In Docker, we use the VITE_API_URL environment variable or a relative URL
 const getApiUrl = () => {
-  // Check if we're in a browser and have access to import.meta.env
-  if (typeof window !== 'undefined' && typeof import.meta !== 'undefined' && import.meta.env) {
-    // Check for production mode first
-    if (import.meta.env.MODE === 'production' && import.meta.env.VITE_API_URL) {
-      console.log('Production environment detected, using VITE_API_URL:', import.meta.env.VITE_API_URL);
-      return import.meta.env.VITE_API_URL;
-    }
-    
-    // In development, use relative URL for proxy
-    if (import.meta.env.MODE === 'development') {
-      console.log('Development environment detected, using relative URL');
-      return '';
-    }
-    
-    // Try to use VITE_API_URL as fallback if available
-    if (import.meta.env.VITE_API_URL) {
-      console.log('Using VITE_API_URL:', import.meta.env.VITE_API_URL);
-      return import.meta.env.VITE_API_URL;
-    }
+  console.log('ALL MOCK DATA DISABLED: Only using real API data');
+  
+  // For Docker container, use the API_URL from environment if available
+  if (import.meta.env.VITE_API_URL) {
+    console.log('Using API URL from environment:', import.meta.env.VITE_API_URL);
+    return import.meta.env.VITE_API_URL;
   }
   
-  // Default fallback for development or when env vars are missing
-  console.log('Using default localhost API URL');
-  return 'http://localhost:8000';
+  // Default to empty string for relative URL (works with Docker and development)
+  // This will make requests go to the same server that served the frontend
+  console.log('Using relative URL for API requests');
+  return '';
 };
 
 const API_URL = getApiUrl();
-// Check if API_URL already contains /api/v1
-const API_PREFIX = API_URL.includes('/api/v1') ? '' : '/api/v1';
+// Add the /api prefix since components will use paths without it
+const API_PREFIX = '/api';
 
 console.log('API configuration:', {
   isDocker,
@@ -105,8 +92,17 @@ const processPendingRequests = (error: Error | null = null) => {
 // Add request interceptor to handle token refresh
 apiClient.interceptors.request.use(
     async (config) => {
-        // Check if token is expired or expiring soon and refresh if needed
+        // Get the token and check for mock tokens (which should be removed)
         const token = getToken();
+        if (token && token.startsWith('dev_mock_token_')) {
+            console.warn('Found mock token - removing it since mock data is no longer supported');
+            removeToken();
+            // Redirect to login page since the token is invalid
+            window.location.href = '/sheetgpt/login';
+            return Promise.reject(new Error('Mock tokens are not supported'));
+        }
+        
+        // Check if token is expired or expiring soon and refresh if needed
         if (token && config.url !== '/auth/refresh' && config.url !== '/auth/login') {
             if (isTokenExpiredOrExpiringSoon()) {
                 console.log('Token expired or expiring soon, refreshing...');
@@ -151,7 +147,11 @@ apiClient.interceptors.request.use(
             url: config.url,
             method: config.method,
             baseURL: config.baseURL,
-            headers: config.headers
+            headers: {
+                contentType: config.headers['Content-Type'],
+                accept: config.headers['Accept'],
+                hasAuth: !!config.headers.Authorization
+            }
         });
         return config;
     },

@@ -15,6 +15,7 @@ import EntityDetail from './pages/EntityDetail'
 import DatabaseQuery from './pages/DatabaseQuery'
 import Settings from './pages/Settings'
 import Documentation from './pages/Documentation'
+import Contacts from './pages/Contacts'
 import LoadingSpinner from './components/common/LoadingSpinner'
 import { FaFlask } from 'react-icons/fa'
 import SportDataMapper from './components/data/SportDataMapper'
@@ -118,6 +119,7 @@ const App: React.FC = () => {
               <Route path="sports" element={<SportsDatabase />} />
               <Route path="sports/:entityType/:id" element={<EntityDetail />} />
               <Route path="database" element={<DatabaseQuery />} />
+              <Route path="contacts" element={<Contacts />} />
               <Route path="settings" element={<Settings />} />
               <Route path="help/*" element={<Documentation />} />
             </Route>
@@ -128,4 +130,4 @@ const App: React.FC = () => {
   )
 }
 
-export default App 
+export default App

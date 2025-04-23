@@ -52,7 +52,8 @@ const ContactsList: React.FC<ContactsListProps> = ({ brandId, onContactSelect })
   const [error, setError] = useState<string | null>(null);
   const [total, setTotal] = useState(0);
   const [skip, setSkip] = useState(0);
-  const [limit] = useState(20);
+  const [limit, setLimit] = useState(20);
+  const [currentPage, setCurrentPage] = useState(1);
   const [sortBy, setSortBy] = useState('last_name');
   const [sortOrder, setSortOrder] = useState('asc');
   const [searchTerm, setSearchTerm] = useState('');
@@ -76,10 +77,10 @@ const ContactsList: React.FC<ContactsListProps> = ({ brandId, onContactSelect })
     company: { width: 200, display: 'Company' },
     position: { width: 200, display: 'Position' },
     connected_on: { width: 150, display: 'Connected On' },
-    brand_count: { width: 200, display: 'Matched Brands', sortField: 'brand_count' }
+    brand_count: { width: 200, display: 'Matched Brands', sortField: 'brand_name' }
   };
 
-  // Save/load column visibility settings
+  // Save/load column visibility settings and page size
   useEffect(() => {
     const savedColumns = localStorage.getItem('contactList_columns');
     if (savedColumns) {
@@ -87,6 +88,15 @@ const ContactsList: React.FC<ContactsListProps> = ({ brandId, onContactSelect })
         setVisibleColumns(JSON.parse(savedColumns));
       } catch (e) {
         console.error('Error parsing saved columns:', e);
+      }
+    }
+    
+    // Load saved page size preference
+    const savedPageSize = localStorage.getItem('contactList_pageSize');
+    if (savedPageSize) {
+      const size = parseInt(savedPageSize, 10);
+      if (!isNaN(size) && [20, 50, 100].includes(size)) {
+        setLimit(size);
       }
     }
   }, []);
@@ -168,9 +178,12 @@ const ContactsList: React.FC<ContactsListProps> = ({ brandId, onContactSelect })
     const thisRequestId = ++requestIdRef.current;
     
     try {
-      // For all sorting types, including brand_count, use the server's pagination and sorting
-      // For brand_count, we'll just apply additional client-side sorting to the current page
-      let url = `/v1/contacts/?skip=${skip}&limit=${limit}&sort_by=${sortBy !== 'brand_count' ? sortBy : 'last_name'}&sort_order=${sortOrder}`;
+      // Calculate skip from currentPage
+      const calculatedSkip = (currentPage - 1) * limit;
+      
+      // For all sorting types, including brand_name, use the server's pagination and sorting
+      // For brand_name, we'll just apply additional client-side sorting to the current page
+      let url = `/v1/contacts/?skip=${calculatedSkip}&limit=${limit}&sort_by=${sortBy !== 'brand_name' ? sortBy : 'last_name'}&sort_order=${sortOrder}`;
       
       if (searchQuery) {
         url += `&search=${encodeURIComponent(searchQuery)}`;
@@ -180,7 +193,7 @@ const ContactsList: React.FC<ContactsListProps> = ({ brandId, onContactSelect })
         url += `&brand_id=${brandId}`;
       }
       
-      console.log('Fetching contacts, URL:', url, 'requestId:', thisRequestId);
+      console.log(`Fetching contacts for page ${currentPage}, URL:`, url, 'requestId:', thisRequestId);
       const response = await apiClient.get<ContactsResponse>(url, { requiresAuth: true });
       console.log(`Received ${response.data.items.length} contacts, requestId:`, thisRequestId);
       
@@ -192,6 +205,12 @@ const ContactsList: React.FC<ContactsListProps> = ({ brandId, onContactSelect })
         // Save contacts for client-side operations
         setContacts(response.data.items);
         setTotal(response.data.total);
+        
+        // Update skip to match current page (maintain consistency)
+        if (calculatedSkip !== skip) {
+          skipChangeSource.current = 'skip';
+          setSkip(calculatedSkip);
+        }
       } else {
         console.log('Ignoring stale contacts response, requestId:', thisRequestId);
       }
@@ -218,24 +237,49 @@ const ContactsList: React.FC<ContactsListProps> = ({ brandId, onContactSelect })
         setLoading(false);
       }
     }
-  }, [apiClient, skip, limit, sortBy, sortOrder, searchQuery, brandId, showNotification]);
+  }, [apiClient, currentPage, limit, sortBy, sortOrder, searchQuery, brandId, showNotification, skip]);
   
-  // Apply client-side sorting for brand_count only on the current page of data
+  // Apply client-side sorting for brand names only on the current page of data
   useEffect(() => {
     if (contacts.length > 0) {
       let sortedContacts = [...contacts];
       
-      if (sortBy === 'brand_count') {
-        console.log('Applying client-side sort for brand_count on current page');
+      if (sortBy === 'brand_name') {
+        console.log('Applying client-side sort for brand names on current page');
         
-        // Sort just the current page by brand association count
+        // Sort just the current page by alphabetical order of brand names
         sortedContacts.sort((a, b) => {
-          const countA = a.brand_associations?.length || 0;
-          const countB = b.brand_associations?.length || 0;
+          // Get first brand name from each contact (or empty string if none)
+          // First try to get primary brand if it exists
+          const getBestBrandName = (contact: Contact): string => {
+            if (!contact.brand_associations || contact.brand_associations.length === 0) {
+              return '';
+            }
+            
+            // First try to find primary association
+            const primaryAssociation = contact.brand_associations.find(assoc => assoc.is_primary);
+            if (primaryAssociation?.brand_name) {
+              return primaryAssociation.brand_name.toLowerCase();
+            }
+            
+            // Otherwise sort by all brand names and get the first alphabetically
+            const sortedNames = contact.brand_associations
+              .map(assoc => assoc.brand_name || '')
+              .filter(name => name) // Remove empty names
+              .sort();
+              
+            return sortedNames[0]?.toLowerCase() || '';
+          };
           
-          return sortOrder === 'asc' 
-            ? countA - countB 
-            : countB - countA;
+          const brandNameA = getBestBrandName(a);
+          const brandNameB = getBestBrandName(b);
+          
+          // Sort alphabetically
+          if (sortOrder === 'asc') {
+            return brandNameA.localeCompare(brandNameB);
+          } else {
+            return brandNameB.localeCompare(brandNameA);
+          }
         });
       }
       
@@ -245,9 +289,12 @@ const ContactsList: React.FC<ContactsListProps> = ({ brandId, onContactSelect })
     }
   }, [contacts, sortBy, sortOrder]);
   
+  // Calculate total pages based on total items and current page size
+  const totalPages = Math.ceil(total / limit);
+  
   // Store the last request parameters to avoid unnecessary fetches
   const lastRequest = useRef({
-    skip: -1,
+    currentPage: -1,
     limit: -1,
     sortBy: '',
     sortOrder: '',
@@ -255,13 +302,33 @@ const ContactsList: React.FC<ContactsListProps> = ({ brandId, onContactSelect })
     brandId: ''
   });
 
+  // Use a ref to track the source of change to prevent circular updates
+  const skipChangeSource = useRef<'page' | 'skip' | null>(null);
+  
+  // Sync skip with currentPage when page changes
+  useEffect(() => {
+    // Only update skip if the change originated from page
+    if (skipChangeSource.current !== 'skip') {
+      skipChangeSource.current = 'page';
+      const calculatedSkip = (currentPage - 1) * limit;
+      setSkip(calculatedSkip);
+    }
+    // Reset the source after the update
+    setTimeout(() => {
+      skipChangeSource.current = null;
+    }, 0);
+  }, [currentPage, limit]);
+  
+  // This effect is actually not needed anymore since we're directly changing currentPage
+  // in our navigation handlers, not skip
+
   // Use a more carefully controlled effect with specific dependencies
   // that should trigger a data refetch
   useEffect(() => {
     if (!isMounted.current) return;
     
     const currentRequest = {
-      skip,
+      currentPage,
       limit,
       sortBy,
       sortOrder,
@@ -272,7 +339,7 @@ const ContactsList: React.FC<ContactsListProps> = ({ brandId, onContactSelect })
     // Check if this is a duplicate request
     const lastReq = lastRequest.current;
     const isDuplicate = 
-      lastReq.skip === currentRequest.skip &&
+      lastReq.currentPage === currentRequest.currentPage &&
       lastReq.limit === currentRequest.limit &&
       lastReq.sortBy === currentRequest.sortBy &&
       lastReq.sortOrder === currentRequest.sortOrder &&
@@ -292,7 +359,7 @@ const ContactsList: React.FC<ContactsListProps> = ({ brandId, onContactSelect })
     } else {
       console.log('Skipping duplicate data fetch request');
     }
-  }, [skip, limit, sortBy, sortOrder, searchQuery, brandId]);
+  }, [currentPage, limit, sortBy, sortOrder, searchQuery, brandId]);
 
   const handleSortChange = useCallback((field: string) => {
     // Toggle order if clicking the same field, otherwise default to ascending
@@ -300,32 +367,92 @@ const ContactsList: React.FC<ContactsListProps> = ({ brandId, onContactSelect })
     setSortBy(field);
     
     // Reset to first page when sorting changes
-    setSkip(0);
+    setCurrentPage(1);
     
     console.log(`Sorting by ${field} in ${sortBy === field && sortOrder === 'asc' ? 'desc' : 'asc'} order`);
   }, [sortBy, sortOrder]);
 
-  const handleNextPage = useCallback(() => {
-    if (skip + limit < total) {
-      setSkip(skip + limit);
+  // Function to preserve scroll position when changing pages
+  const changePagePreservingScroll = useCallback((newPage: number) => {
+    // Store current scroll position
+    const currentScrollY = window.scrollY;
+    
+    // Change the page
+    console.log(`Changing to page ${newPage}`);
+    setCurrentPage(newPage);
+    
+    // After a slight delay to allow re-rendering, restore scroll position
+    setTimeout(() => {
+      window.scrollTo(0, currentScrollY);
+    }, 10);
+  }, []);
+  
+  // Pagination navigation handlers
+  const handleFirstPage = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    if (currentPage !== 1) {
+      changePagePreservingScroll(1);
     }
-  }, [skip, limit, total]);
-
-  const handlePreviousPage = useCallback(() => {
-    if (skip > 0) {
-      setSkip(Math.max(0, skip - limit));
+  }, [currentPage, changePagePreservingScroll]);
+  
+  const handlePreviousPage = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    if (currentPage > 1) {
+      changePagePreservingScroll(currentPage - 1);
     }
-  }, [skip, limit]);
+  }, [currentPage, changePagePreservingScroll]);
+  
+  const handleNextPage = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    if (currentPage < totalPages) {
+      changePagePreservingScroll(currentPage + 1);
+    }
+  }, [currentPage, totalPages, changePagePreservingScroll]);
+  
+  const handleLastPage = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    if (currentPage !== totalPages) {
+      changePagePreservingScroll(totalPages);
+    }
+  }, [currentPage, totalPages, changePagePreservingScroll]);
+  
+  const handlePageSizeChange = useCallback((e: React.ChangeEvent<HTMLSelectElement>) => {
+    // Store current scroll position
+    const currentScrollY = window.scrollY;
+    
+    // Parse the new page size from the dropdown value
+    const newLimit = parseInt(e.target.value, 10);
+    
+    // Calculate which item is at the top of the current page
+    const firstItemIndex = (currentPage - 1) * limit + 1;
+    
+    // Calculate which page this item would be on with the new page size
+    const newPage = Math.ceil(firstItemIndex / newLimit);
+    
+    // Update the page size first
+    setLimit(newLimit);
+    
+    // Then update the current page to keep approximately the same position
+    setCurrentPage(newPage);
+    
+    // Store the preference in localStorage
+    localStorage.setItem('contactList_pageSize', newLimit.toString());
+    
+    // After a slight delay to allow re-rendering, restore scroll position
+    setTimeout(() => {
+      window.scrollTo(0, currentScrollY);
+    }, 10);
+  }, [currentPage, limit]);
 
   const handleSearch = useCallback(() => {
     setSearchQuery(searchTerm);
-    setSkip(0); // Reset pagination on new search
+    setCurrentPage(1); // Reset pagination on new search
   }, [searchTerm]);
 
   const clearSearch = useCallback(() => {
     setSearchTerm('');
     setSearchQuery('');
-    setSkip(0);
+    setCurrentPage(1);
   }, []);
 
   const handleKeyPress = useCallback((e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -714,37 +841,74 @@ const ContactsList: React.FC<ContactsListProps> = ({ brandId, onContactSelect })
             </table>
           </div>
           
-          <div className="px-4 py-3 border-t flex items-center justify-between">
-            <div className="text-sm text-gray-500">
-              {searchQuery ? (
-                <span>
-                  Showing {skip + 1}-{Math.min(skip + limit, total)} of {total} matching contacts
-                  <button 
-                    onClick={clearSearch}
-                    className="ml-2 text-blue-500 hover:text-blue-700"
-                  >
-                    Clear search
-                  </button>
+          <div className="px-4 py-3 border-t border-gray-200 sm:px-6">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center">
+                <span className="text-sm text-gray-700">
+                  {searchQuery ? (
+                    <>
+                      Showing {(currentPage - 1) * limit + 1} to {Math.min(currentPage * limit, total)} of {total} matching 
+                      "<span className="font-semibold">{searchQuery}</span>" contacts
+                      <button 
+                        onClick={clearSearch}
+                        className="ml-2 text-blue-500 hover:text-blue-700"
+                      >
+                        Clear search
+                      </button>
+                    </>
+                  ) : (
+                    <>Showing {(currentPage - 1) * limit + 1} to {Math.min(currentPage * limit, total)} of {total} results</>
+                  )}
                 </span>
-              ) : (
-                <span>Showing {skip + 1}-{Math.min(skip + limit, total)} of {total} contacts</span>
-              )}
-            </div>
-            <div className="flex items-center">
-              <button
-                onClick={handlePreviousPage}
-                disabled={skip === 0}
-                className="px-3 py-1 border rounded mr-2 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                Previous
-              </button>
-              <button
-                onClick={handleNextPage}
-                disabled={skip + limit >= total}
-                className="px-3 py-1 border rounded disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                Next
-              </button>
+                
+                {/* Page size select dropdown */}
+                <select
+                  value={limit.toString()}
+                  onChange={handlePageSizeChange}
+                  className="ml-4 border-gray-300 rounded-md text-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                >
+                  <option value="20">20 per page</option>
+                  <option value="50">50 per page</option>
+                  <option value="100">100 per page</option>
+                </select>
+              </div>
+              
+              <div className="flex items-center space-x-2">
+                <button
+                  onClick={handleFirstPage}
+                  disabled={currentPage <= 1 || loading}
+                  className="px-3 py-1 border rounded-md text-sm disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
+                >
+                  First
+                </button>
+                <button
+                  onClick={handlePreviousPage}
+                  disabled={currentPage <= 1 || loading}
+                  className="px-3 py-1 border rounded-md text-sm disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
+                >
+                  Previous
+                </button>
+                <span className="px-3 py-1 text-sm text-gray-700 flex items-center">
+                  {loading && (
+                    <span className="mr-2 inline-block h-4 w-4 animate-spin rounded-full border-2 border-solid border-blue-500 border-r-transparent"></span>
+                  )}
+                  Page {currentPage} of {totalPages || 1}
+                </span>
+                <button
+                  onClick={handleNextPage}
+                  disabled={currentPage >= totalPages || loading}
+                  className="px-3 py-1 border rounded-md text-sm disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
+                >
+                  Next
+                </button>
+                <button
+                  onClick={handleLastPage}
+                  disabled={currentPage >= totalPages || loading}
+                  className="px-3 py-1 border rounded-md text-sm disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
+                >
+                  Last
+                </button>
+              </div>
             </div>
           </div>
         </>

@@ -442,3 +442,65 @@ async def import_linkedin_data(
             status_code=HTTP_400_BAD_REQUEST,
             detail=f"Error importing contacts: {str(e)}"
         )
+
+@router.post("/rematch-brands", response_model=Dict[str, Any])
+async def rematch_contacts_with_brands(
+    match_threshold: float = Query(0.6, ge=0.0, le=1.0),
+    current_user_id: UUID = Depends(get_current_user_id),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Re-scan all existing contacts against brands to find new matches.
+    
+    This is useful when new brands have been added to the system and
+    you want to check if existing contacts now match with these brands.
+    """
+    try:
+        service = ContactsService(db)
+        stats = await service.rematch_contacts_with_brands(
+            current_user_id,
+            match_threshold=match_threshold
+        )
+        
+        return {
+            "success": True,
+            "stats": stats
+        }
+    except Exception as e:
+        import logging
+        logger = logging.getLogger("sheetgpt.api")
+        logger.error(f"Error re-matching contacts with brands: {str(e)}", exc_info=True)
+        
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error re-matching contacts with brands: {str(e)}"
+        )
+
+@router.get("/brands/{brand_id}/count", response_model=Dict[str, int])
+async def get_contacts_count_by_brand(
+    brand_id: UUID,
+    current_user_id: UUID = Depends(get_current_user_id),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Get the count of contacts associated with a specific brand.
+    
+    This is useful for displaying the number of contacts linked to a brand
+    in the UI, such as for badge displays.
+    """
+    try:
+        service = ContactsService(db)
+        count = await service.get_brand_contact_count(current_user_id, brand_id)
+        
+        return {
+            "count": count
+        }
+    except Exception as e:
+        import logging
+        logger = logging.getLogger("sheetgpt.api")
+        logger.error(f"Error getting contact count for brand: {str(e)}", exc_info=True)
+        
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error getting contact count for brand: {str(e)}"
+        )

@@ -4,6 +4,7 @@ import { useVirtualizer } from '@tanstack/react-virtual';
 import { fingerprint, createMemoEqualityFn } from '../../../../../utils/fingerprint';
 import EntityRow from './EntityRow';
 import SmartColumn from './SmartColumn';
+import ContactColumn from './ContactColumn';
 import { EntityType } from '../../../../../types/sports';
 import { getDisplayValue } from '../utils/formatters';
 
@@ -412,6 +413,12 @@ const EntityTable: React.FC<EntityTableProps> = ({
                       cancelNicknameEdit={cancelNicknameEdit}
                       handleNicknameKeyDown={handleNicknameKeyDown}
                       renderNameFieldOnly={true}
+                    />
+                  ) : field === 'linkedin_connections' ? (
+                    <ContactColumn
+                      entities={entities}
+                      selectedEntityType={selectedEntityType}
+                      entityId={entity.id}
                     />
                   ) : (
                     <div className="text-sm text-gray-700 overflow-hidden text-ellipsis">

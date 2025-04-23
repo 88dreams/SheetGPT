@@ -3,6 +3,7 @@ import { FaTrash, FaEye, FaEdit, FaCheck, FaTimes, FaPencilAlt } from 'react-ico
 import { getDisplayValue } from '../utils/formatters';
 import { EntityType } from '../../../../../types/sports';
 import { fingerprint, createMemoEqualityFn } from '../../../../../utils/fingerprint';
+import ContactBadge from '../../../../../components/common/ContactBadge';
 
 interface EntityRowProps {
   entity: any;
@@ -124,10 +125,23 @@ const EntityRow: React.FC<EntityRowProps> = ({
         ) : (
           <div className="flex items-center space-x-2 overflow-hidden text-ellipsis">
             <div className="text-sm font-medium text-gray-900 overflow-hidden text-ellipsis">
-              {selectedEntityType === 'broadcast' && typeof entity.name === 'string' && entity.name.includes(' - ')
-                ? entity.name.split(' - ')[0] // Show just the broadcast company name for broadcast rights
-                : entity.name
-              }
+              <div className="flex items-center">
+                <span className="mr-2">
+                  {selectedEntityType === 'broadcast' && typeof entity.name === 'string' && entity.name.includes(' - ')
+                    ? entity.name.split(' - ')[0] // Show just the broadcast company name for broadcast rights
+                    : entity.name
+                  }
+                </span>
+                
+                {/* Contact Badge - only show for brand entities */}
+                {selectedEntityType === 'brand' && (
+                  <ContactBadge
+                    brandId={entity.id}
+                    className="ml-1"
+                  />
+                )}
+              </div>
+              
               {selectedEntityType === 'league' && (
                 <>
                   {editingNicknameId === entity.id ? (
@@ -280,10 +294,23 @@ const EntityRow: React.FC<EntityRowProps> = ({
                 ) : (
                   <div className="flex items-center space-x-2 overflow-hidden text-ellipsis">
                     <div className="text-sm font-medium text-gray-900 overflow-hidden text-ellipsis">
-                      {selectedEntityType === 'broadcast' && typeof entity.name === 'string' && entity.name.includes(' - ')
-                        ? entity.name.split(' - ')[0] // Show just the broadcast company name for broadcast rights
-                        : entity.name
-                      }
+                      <div className="flex items-center">
+                        <span className="mr-2">
+                          {selectedEntityType === 'broadcast' && typeof entity.name === 'string' && entity.name.includes(' - ')
+                            ? entity.name.split(' - ')[0] // Show just the broadcast company name for broadcast rights
+                            : entity.name
+                          }
+                        </span>
+                        
+                        {/* Contact Badge - only show for brand entities */}
+                        {selectedEntityType === 'brand' && (
+                          <ContactBadge
+                            brandId={entity.id}
+                            className="ml-1"
+                          />
+                        )}
+                      </div>
+                      
                       {selectedEntityType === 'league' && (
                         <>
                           {editingNicknameId === entity.id ? (

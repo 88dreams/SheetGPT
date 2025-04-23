@@ -563,6 +563,116 @@ class ContactsService:
             
         return normalized
     
+    async def rematch_contacts_with_brands(
+        self, 
+        user_id: UUID, 
+        match_threshold: float = 0.6
+    ) -> Dict[str, Any]:
+        """
+        Re-scan all contacts to find matches with brands.
+        
+        This is useful when new brands have been added to the system and
+        you want to check if existing contacts now match with these brands.
+        
+        Args:
+            user_id: The user's UUID
+            match_threshold: Minimum confidence score to create a brand association
+            
+        Returns:
+            A dictionary with statistics about the matching process
+        """
+        stats = {
+            "total_contacts": 0,
+            "contacts_with_company": 0,
+            "new_matches_found": 0,
+            "total_brand_associations": 0
+        }
+        
+        # Get all contacts for the user
+        query = select(Contact).where(Contact.user_id == user_id)
+        result = await self.db.execute(query)
+        contacts = result.scalars().all()
+        stats["total_contacts"] = len(contacts)
+        
+        # Get all brands from the database
+        brands_query = select(Brand)
+        brands_result = await self.db.execute(brands_query)
+        brands = brands_result.scalars().all()
+        
+        # Process each contact
+        for contact in contacts:
+            if not contact.company:
+                continue
+                
+            stats["contacts_with_company"] += 1
+            
+            # Get existing brand associations for this contact
+            existing_assoc_query = select(ContactBrandAssociation).where(
+                ContactBrandAssociation.contact_id == contact.id
+            )
+            existing_assoc_result = await self.db.execute(existing_assoc_query)
+            existing_associations = existing_assoc_result.scalars().all()
+            existing_brand_ids = {assoc.brand_id for assoc in existing_associations}
+            
+            matched_brand = await self._match_company_to_brand(contact.company, match_threshold)
+            if matched_brand and matched_brand.id not in existing_brand_ids:
+                # Create new association
+                confidence = self._calculate_similarity(contact.company, matched_brand.name)
+                
+                association = ContactBrandAssociation(
+                    contact_id=contact.id,
+                    brand_id=matched_brand.id,
+                    confidence_score=confidence,
+                    association_type="employed_at",
+                    is_current=True,
+                    is_primary=not bool(existing_brand_ids)  # Make primary only if no other associations
+                )
+                self.db.add(association)
+                stats["new_matches_found"] += 1
+        
+        # Commit all changes
+        await self.db.commit()
+        
+        # Get updated total brand associations - use a more efficient approach
+        # to avoid parameter limits with large IN clauses
+        total_associations = 0
+        
+        # Use a separate query to count total associations
+        count_query = select(func.count(ContactBrandAssociation.id))
+        count_result = await self.db.execute(count_query)
+        stats["total_brand_associations"] = count_result.scalar() or 0
+        
+        return stats
+
+    async def get_brand_contact_count(self, user_id: UUID, brand_id: UUID) -> int:
+        """
+        Get the count of contacts associated with a specific brand.
+        
+        Args:
+            user_id: User ID who owns the contacts
+            brand_id: Brand ID to count contacts for
+            
+        Returns:
+            Count of contacts associated with the brand
+        """
+        # Get all contacts for the user that are associated with this brand
+        query = select(func.count(Contact.id)).where(
+            and_(
+                Contact.user_id == user_id,
+                ContactBrandAssociation.contact_id == Contact.id,
+                ContactBrandAssociation.brand_id == brand_id
+            )
+        ).select_from(
+            Contact
+        ).join(
+            ContactBrandAssociation, Contact.id == ContactBrandAssociation.contact_id
+        )
+        
+        result = await self.db.execute(query)
+        count = result.scalar_one_or_none() or 0
+        
+        return count
+        
     @staticmethod
     def parse_csv_data(csv_content: str) -> List[Dict[str, str]]:
         """Parse CSV content into a list of dictionaries."""

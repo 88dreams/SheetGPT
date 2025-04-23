@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useApiClient } from '../../hooks/useApiClient';
 import { useNotification } from '../../contexts/NotificationContext';
-import { FaEnvelope, FaLinkedin, FaBuilding, FaUser, FaSort, FaSortUp, FaSortDown, FaSearch, FaTimes, FaSpinner, FaColumns } from 'react-icons/fa';
+import { FaEnvelope, FaLinkedin, FaBuilding, FaUser, FaSort, FaSortUp, FaSortDown, FaSearch, FaTimes, FaSpinner, FaColumns, FaSync } from 'react-icons/fa';
 import { useDragAndDrop } from '../../components/data/DataTable/hooks/useDragAndDrop';
 
 interface ContactBrandAssociation {
@@ -59,6 +59,7 @@ const ContactsList: React.FC<ContactsListProps> = ({ brandId, onContactSelect })
   const [searchTerm, setSearchTerm] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [showColumnSelector, setShowColumnSelector] = useState(false);
+  const [rescanning, setRescanning] = useState(false);
   
   // Column visibility state
   const [visibleColumns, setVisibleColumns] = useState<Record<string, boolean>>({
@@ -460,6 +461,52 @@ const ContactsList: React.FC<ContactsListProps> = ({ brandId, onContactSelect })
       handleSearch();
     }
   }, [handleSearch]);
+  
+  // Handle re-scanning contacts for brand matches
+  const handleRescanContacts = useCallback(async () => {
+    if (rescanning) return;
+    
+    setRescanning(true);
+    try {
+      const response = await apiClient.post('/v1/contacts/rematch-brands', { 
+        match_threshold: 0.6 
+      }, { requiresAuth: true });
+      
+      if (response.data.success) {
+        const stats = response.data.stats;
+        
+        // Create a more informative message that always provides feedback
+        let message = `Re-scan complete! Checked ${stats.total_contacts} contacts.`;
+        
+        if (stats.new_matches_found > 0) {
+          message += ` Found ${stats.new_matches_found} new brand matches across ${stats.contacts_with_company} contacts with company information.`;
+        } else {
+          message += ` No new brand matches found for ${stats.contacts_with_company} contacts with company information.`;
+        }
+        
+        showNotification({
+          type: 'success',
+          message
+        });
+        
+        // Refresh the contacts list to show new matches
+        fetchContacts();
+      } else {
+        showNotification({
+          type: 'error',
+          message: 'Failed to re-scan contacts.'
+        });
+      }
+    } catch (err) {
+      console.error('Error re-scanning contacts:', err);
+      showNotification({
+        type: 'error',
+        message: 'Failed to re-scan contacts. Please try again.'
+      });
+    } finally {
+      setRescanning(false);
+    }
+  }, [apiClient, rescanning, showNotification, fetchContacts]);
 
   // Render sort icon
   const renderSortIcon = (field: string) => {
@@ -584,7 +631,23 @@ const ContactsList: React.FC<ContactsListProps> = ({ brandId, onContactSelect })
   return (
     <div className="bg-white rounded-lg shadow overflow-hidden">
       <div className="p-4 border-b flex flex-col md:flex-row md:items-center justify-between">
-        <h2 className="text-lg font-semibold mb-2 md:mb-0">Contacts</h2>
+        <div className="flex items-center">
+          <h2 className="text-lg font-semibold mb-2 md:mb-0">Contacts</h2>
+          
+          <button
+            onClick={handleRescanContacts}
+            disabled={rescanning}
+            className="ml-4 px-3 py-1 rounded-md flex items-center bg-blue-50 text-blue-700 border border-blue-300 hover:bg-blue-100 disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+            title="Re-scan contacts for brand matches"
+          >
+            {rescanning ? (
+              <FaSpinner className="mr-2 animate-spin" />
+            ) : (
+              <FaSync className="mr-2" />
+            )}
+            Re-scan for brand matches
+          </button>
+        </div>
         
         <div className="flex flex-col md:flex-row md:items-center space-y-2 md:space-y-0 md:space-x-2">
           <div className="relative flex-grow">

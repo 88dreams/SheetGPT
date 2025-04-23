@@ -6,3 +6,4 @@ export { default as EntityRow } from './EntityRow';
 export { default as Pagination } from './Pagination';
 export { default as BulkActionBar } from './BulkActionBar';
 export { default as SmartColumn } from './SmartColumn';
+export { default as ContactColumn } from './ContactColumn';

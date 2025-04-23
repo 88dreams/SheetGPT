@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { FaLinkedin, FaFileUpload, FaAddressBook } from 'react-icons/fa';
 import LinkedInCSVImport from '../components/common/LinkedInCSVImport';
 import ContactsList from '../components/common/ContactsList';
@@ -33,6 +33,19 @@ const ContactsPage: React.FC = () => {
   const [view, setView] = useState<'list' | 'import' | 'detail'>('list');
   const [selectedContactId, setSelectedContactId] = useState<string | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
+  
+  // Add event listener for empty state "Import Contacts" button
+  useEffect(() => {
+    const handleImportClick = () => {
+      setView('import');
+    };
+    
+    window.addEventListener('contact-import-click', handleImportClick);
+    
+    return () => {
+      window.removeEventListener('contact-import-click', handleImportClick);
+    };
+  }, []);
 
   const handleImportComplete = (stats: ImportStats) => {
     // Refresh the contacts list

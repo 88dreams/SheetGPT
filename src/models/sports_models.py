@@ -1,5 +1,5 @@
 from datetime import datetime, date
-from sqlalchemy import String, Boolean, ForeignKey, JSON, Text, Integer, Date, Time, Numeric, Float, Enum, UniqueConstraint, Index
+from sqlalchemy import String, Boolean, ForeignKey, JSON, Text, Integer, Date, DateTime, Time, Numeric, Float, Enum, UniqueConstraint, Index
 from sqlalchemy.dialects.postgresql import UUID as SQLUUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from typing import Optional, List
@@ -800,6 +800,10 @@ class Contact(TimestampedBase):
         Text,
         nullable=True
     )
+    deleted_at: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True
+    )
 
     # Relationships
     user: Mapped["User"] = relationship(
@@ -863,6 +867,10 @@ class ContactBrandAssociation(TimestampedBase):
         Boolean,
         nullable=False,
         default=True
+    )
+    deleted_at: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True
     )
 
     # Relationships

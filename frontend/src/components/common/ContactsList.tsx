@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useApiClient } from '../../hooks/useApiClient';
 import { useNotification } from '../../contexts/NotificationContext';
-import { FaEnvelope, FaLinkedin, FaBuilding, FaUser, FaSort, FaSortUp, FaSortDown, FaSearch, FaTimes, FaSpinner, FaColumns, FaSync } from 'react-icons/fa';
+import { FaEnvelope, FaLinkedin, FaBuilding, FaUser, FaSort, FaSortUp, FaSortDown, FaSearch, FaTimes, FaSpinner, FaColumns, FaSync, FaAddressBook, FaFileUpload } from 'react-icons/fa';
 import { useDragAndDrop } from '../../components/data/DataTable/hooks/useDragAndDrop';
 
 interface ContactBrandAssociation {
@@ -196,16 +196,20 @@ const ContactsList: React.FC<ContactsListProps> = ({ brandId, onContactSelect })
       
       console.log(`Fetching contacts for page ${currentPage}, URL:`, url, 'requestId:', thisRequestId);
       const response = await apiClient.get<ContactsResponse>(url, { requiresAuth: true });
-      console.log(`Received ${response.data.items.length} contacts, requestId:`, thisRequestId);
+      console.log(`Received ${response.data?.items?.length || 0} contacts, requestId:`, thisRequestId);
       
       // Only update state if this is still the current request
       // and the component is still mounted
       if (thisRequestId === requestIdRef.current && isMounted.current) {
         console.log('Setting contacts data from response, requestId:', thisRequestId);
         
+        // Handle the case where response.data is missing expected structure
+        const items = response.data?.items || [];
+        const totalCount = response.data?.total || 0;
+        
         // Save contacts for client-side operations
-        setContacts(response.data.items);
-        setTotal(response.data.total);
+        setContacts(items);
+        setTotal(totalCount);
         
         // Update skip to match current page (maintain consistency)
         if (calculatedSkip !== skip) {
@@ -221,11 +225,22 @@ const ContactsList: React.FC<ContactsListProps> = ({ brandId, onContactSelect })
       // Only update error state if this is still the current request
       // and the component is still mounted
       if (thisRequestId === requestIdRef.current && isMounted.current) {
-        setError('Failed to load contacts. Please try again.');
-        showNotification({
-          type: 'error',
-          message: 'Failed to load contacts.'
-        });
+        // Check if it's a 500 error - likely due to no contacts
+        const axiosError = err as any;
+        if (axiosError?.response?.status === 500) {
+          console.log('Server error - possibly due to no contacts in database');
+          // Set empty data rather than error state
+          setContacts([]);
+          setTotal(0);
+          setSkip(0);
+        } else {
+          // For other errors, show error message
+          setError('Failed to load contacts. Please try again.');
+          showNotification({
+            type: 'error',
+            message: 'Failed to load contacts.'
+          });
+        }
       }
     } finally {
       // Mark request as complete if this is still the current request
@@ -242,6 +257,13 @@ const ContactsList: React.FC<ContactsListProps> = ({ brandId, onContactSelect })
   
   // Apply client-side sorting for brand names only on the current page of data
   useEffect(() => {
+    // Safety check - ensure contacts is an array
+    if (!Array.isArray(contacts)) {
+      console.warn('Expected contacts to be an array but got:', typeof contacts);
+      setDisplayContacts([]);
+      return;
+    }
+    
     if (contacts.length > 0) {
       let sortedContacts = [...contacts];
       
@@ -250,6 +272,10 @@ const ContactsList: React.FC<ContactsListProps> = ({ brandId, onContactSelect })
         
         // Sort just the current page by alphabetical order of brand names
         sortedContacts.sort((a, b) => {
+          // Safety check - ensure brand_associations is an array
+          if (!Array.isArray(a.brand_associations)) a.brand_associations = [];
+          if (!Array.isArray(b.brand_associations)) b.brand_associations = [];
+          
           // Get first brand name from each contact (or empty string if none)
           // First try to get primary brand if it exists
           const getBestBrandName = (contact: Contact): string => {
@@ -723,8 +749,24 @@ const ContactsList: React.FC<ContactsListProps> = ({ brandId, onContactSelect })
       ) : error ? (
         <div className="text-center py-6 text-red-500">{error}</div>
       ) : displayContacts.length === 0 ? (
-        <div className="text-center py-8 text-gray-500">
-          {searchQuery ? 'No contacts found matching your search criteria.' : 'No contacts yet. Import your LinkedIn contacts to get started.'}
+        <div className="text-center py-8">
+          <div className="mb-4">
+            <FaAddressBook className="inline-block text-gray-400 text-6xl" />
+          </div>
+          {searchQuery ? (
+            <p className="text-gray-500 mb-2">No contacts found matching your search criteria.</p>
+          ) : (
+            <>
+              <p className="text-gray-500 mb-2">No contacts yet. Import your LinkedIn contacts to get started.</p>
+              <button
+                onClick={() => window.dispatchEvent(new CustomEvent('contact-import-click'))}
+                className="px-4 py-2 mt-4 bg-blue-600 text-white rounded-md hover:bg-blue-700 flex items-center mx-auto"
+              >
+                <FaFileUpload className="mr-2" />
+                Import Contacts
+              </button>
+            </>
+          )}
         </div>
       ) : (
         <>

@@ -64,3 +64,9 @@ standardize_*.py
 import_*.py
 *.bak
 EntityList_Refactoring.md
+
+# Database backups
+*.dump
+*.sql
+*_backup.*
+/node_modules/

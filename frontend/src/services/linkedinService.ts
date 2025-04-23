@@ -83,7 +83,7 @@ const linkedinService = {
   // New method to get contact count for a brand
   getBrandContactCount: async (brandId: string): Promise<number> => {
     try {
-      const response = await apiClient.get(`/v1/contacts/brands/${brandId}/count`);
+      const response = await apiClient.get(`/contacts/brands/${brandId}/count`);
       return response.data.count;
     } catch (error) {
       console.error(`Error getting contact count for brand ${brandId}:`, error);

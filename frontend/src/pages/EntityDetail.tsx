@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, Suspense } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import LoadingSpinner from '../components/common/LoadingSpinner';
@@ -186,6 +186,21 @@ const EntityDetail: React.FC = () => {
                 </div>
               </div>
             </div>
+            
+            {/* Contacts section for brands */}
+            {entityType === 'brand' && (
+              <div className="mt-6 bg-white p-6 rounded-lg shadow-sm border border-gray-200">
+                <h3 className="text-lg font-medium text-gray-900 mb-4">Associated Contacts</h3>
+                <div className="mt-4">
+                  {/* Import ContactsList component dynamically with Suspense fallback */}
+                  <Suspense fallback={<div className="py-8 text-center"><LoadingSpinner size="small" /><div className="mt-2 text-sm text-gray-600">Loading contacts...</div></div>}>
+                    {React.createElement(React.lazy(() => import('../components/common/ContactsList')), {
+                      brandId: id
+                    })}
+                  </Suspense>
+                </div>
+              </div>
+            )}
             
             {/* Relationships */}
             {entity.relationships && typeof entity.relationships === 'object' && Object.keys(entity.relationships || {}).length > 0 && (

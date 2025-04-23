@@ -13,8 +13,11 @@ const getApiUrl = () => {
   
   // For Docker container, use the API_URL from environment if available
   if (import.meta.env.VITE_API_URL) {
-    console.log('Using API URL from environment:', import.meta.env.VITE_API_URL);
-    return import.meta.env.VITE_API_URL;
+    // Replace 'backend' with 'localhost' for browser access
+    // inside Docker it's 'backend', but from browser it needs to be 'localhost'
+    const apiUrl = import.meta.env.VITE_API_URL.replace('http://backend:', 'http://localhost:');
+    console.log('Using API URL from environment (adjusted for browser):', apiUrl);
+    return apiUrl;
   }
   
   // Default to empty string for relative URL (works with Docker and development)
@@ -24,8 +27,9 @@ const getApiUrl = () => {
 };
 
 const API_URL = getApiUrl();
-// Add the /api prefix since components will use paths without it
-const API_PREFIX = '/api';
+// Add the /api/v1 prefix since components will use paths without it
+// This must match the backend route prefix in settings.API_V1_PREFIX
+const API_PREFIX = '/api/v1';
 
 console.log('API configuration:', {
   isDocker,

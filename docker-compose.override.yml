@@ -10,7 +10,8 @@ services:
       - ./frontend:/app
       - /app/node_modules
     environment:
-      - VITE_API_URL=http://localhost:8000
+      # NOTE: Keep backend:8000 here - it will be transformed in apiClient.ts for browser access
+      - VITE_API_URL=http://backend:8000
       - VITE_DISABLE_WS=true
       - VITE_ENABLE_DEV_FALLBACKS=false
       - VITE_MOCK_DATA=false

@@ -42,8 +42,15 @@ console.log('Chat service API configuration:', {
 
 export const chatService = {
   getConversations: async (skip = 0, limit = 10): Promise<PaginatedResponse<Conversation>> => {
-    const response = await request<PaginatedResponse<Conversation>>(`/chat/conversations?skip=${skip}&limit=${limit}`, { requiresAuth: true })
-    return response
+    // Ensure parameters are valid numbers
+    const validSkip = typeof skip === 'number' && !isNaN(skip) ? Math.max(0, skip) : 0;
+    const validLimit = typeof limit === 'number' && !isNaN(limit) ? Math.max(1, limit) : 10;
+    
+    const response = await request<PaginatedResponse<Conversation>>(
+      `/chat/conversations?skip=${validSkip}&limit=${validLimit}`, 
+      { requiresAuth: true }
+    );
+    return response;
   },
 
   createConversation: (data: { title: string; description?: string }): Promise<Conversation> =>

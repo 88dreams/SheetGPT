@@ -30,10 +30,13 @@ export function useConversations({
   } = useInfiniteQuery<ConversationPage, Error, InfiniteData<ConversationPage>, string[], number>({
     queryKey: ['conversations'],
     queryFn: async ({ pageParam }) => {
-      console.log('Fetching conversations page:', pageParam);
+      // Ensure pageParam is a valid number
+      const page = typeof pageParam === 'number' && !isNaN(pageParam) ? pageParam : 0;
+      console.log('Fetching conversations page:', page);
       try {
+        const skip = page * itemsPerPage;
         const response = await api.chat.getConversations(
-          pageParam * itemsPerPage,
+          skip,
           itemsPerPage
         );
         return response;

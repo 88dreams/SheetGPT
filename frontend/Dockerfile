@@ -1,26 +1,16 @@
-# Use Node.js LTS version
-FROM node:20-slim
+# Use Node.js 18 as specified in package.json engines field
+FROM node:18-alpine
 
 # Set working directory
 WORKDIR /app
 
-# Install Claude Code globally
-RUN npm install -g @anthropic-ai/claude-code@0.2.35
-
 # Copy package files
 COPY package*.json ./
 
-# Install dependencies
-RUN npm install
-RUN npm install tailwind-scrollbar@3.0.5 --save-dev
-RUN npm install react-markdown@10.0.0 --save
-RUN npm install date-fns@4.1.0 --save
-RUN npm install @heroicons/react@2.1.1 --save
-RUN npm install @headlessui/react@1.7.17 --save
-RUN npm install uuid@11.1.0 --save
-RUN npm install @types/uuid@10.0.0 --save-dev
-RUN npm install antd@5.0.0 --save
-RUN npm install @ant-design/icons@5.0.0 --save
+# Install dependencies with fixed versions for critical packages
+RUN npm install --legacy-peer-deps && \
+    npm install @ant-design/cssinjs@1.16.2 antd@5.0.0 @ant-design/icons@5.0.0 --save-exact --legacy-peer-deps && \
+    npm install --save-dev tailwind-scrollbar@3.0.5 --legacy-peer-deps
 
 # Copy project files
 COPY . .
@@ -28,6 +18,5 @@ COPY . .
 # Expose Vite dev server port
 EXPOSE 5173
 
-# Start with a simple stable development environment
-# No conditional logic to reduce complexity
-CMD echo "Starting in stable development mode..." && npm run dev:stable
+# Start dev server
+CMD ["npm", "run", "dev"]

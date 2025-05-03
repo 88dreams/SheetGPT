@@ -190,8 +190,7 @@ export default function useImportProcess() {
       const databaseMappedData = await enhancedMapToDatabaseFieldNames(
         entityType, 
         transformedData,
-        api,
-        currentRecord
+        api
       );
       
       // Process special fields
@@ -206,8 +205,8 @@ export default function useImportProcess() {
         return false;
       }
       
-      // If this is a production_service entity, check for duplicates before saving
-      if (entityType === 'production_service') {
+      // If this is a production entity, check for duplicates before saving
+      if (entityType === 'production') {
         try {
           // Import the checkDuplicateProductionService function
           const { checkDuplicateProductionService } = await import('../utils/importUtils');

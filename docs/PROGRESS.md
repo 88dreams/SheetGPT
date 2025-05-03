@@ -1,6 +1,24 @@
 # SheetGPT Development Progress
 
-## Latest Updates (April 2025)
+## Latest Updates (May 2025)
+
+### Frontend Dependency Resolution Fix (May 3, 2025)
+- Resolved persistent Vite/@tanstack/react-query dependency conflict.
+- Root cause identified as incorrect Vite version (v5 instead of v4) being used at runtime due to Docker volume persistence and `COPY . .` overwriting `node_modules`.
+- Switched frontend dependency management from `npm` to `yarn`.
+- Pinned exact versions for `vite` (4.2.1) and `@tanstack/react-query` (4.29.5) in `package.json`.
+- Created `frontend/.dockerignore` to prevent local `node_modules` from overwriting container installation.
+- Corrected Dockerfile `CMD` to use explicit path for Vite executable.
+- Cleared stale Docker anonymous volumes using `docker-compose down -v`.
+- Verified correct Vite version (4.2.1) is now running in the container and dependency scan errors are resolved.
+
+### Dependency Resolution Investigation (May 3, 2025)
+- Conducted comprehensive analysis of @tanstack/react-query dependency issue
+- Investigated version mismatch between expected v4.29.5 and installed v5.66.8
+- Attempted multiple resolution strategies including package overrides, version pinning, and Docker rebuilds
+- Created detailed analysis document (DEPENDENCY_ANALYSIS.md) to track troubleshooting steps
+- Identified potential solutions including package manager changes and module resolution interceptors
+- Created branch duplicates for parallel solution testing (contact-import-CLAUDE and contact-import-CURSOR)
 
 ### LinkedIn CSV Import Feature (April 22, 2025)
 - Implemented LinkedIn connections CSV import as an alternative to direct API integration

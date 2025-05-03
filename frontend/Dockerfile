@@ -4,13 +4,22 @@ FROM node:18-alpine
 # Set working directory
 WORKDIR /app
 
-# Copy package files
-COPY package*.json ./
+# Yarn is likely pre-installed or installed in a base layer, remove explicit install
+# RUN npm install -g yarn
 
-# Install dependencies with fixed versions for critical packages
-RUN npm install --legacy-peer-deps && \
-    npm install @ant-design/cssinjs@1.16.2 antd@5.0.0 @ant-design/icons@5.0.0 --save-exact --legacy-peer-deps && \
-    npm install --save-dev tailwind-scrollbar@3.0.5 --legacy-peer-deps
+# Copy package files
+COPY package.json yarn.lock* ./
+# If yarn.lock exists, copy it too. The wildcard handles its potential absence.
+
+# Install dependencies using yarn
+RUN yarn install --frozen-lockfile
+
+# Explicitly remove Vite cache after installation
+RUN rm -rf node_modules/.vite
+
+# Remove the npm verification step as yarn handles this.
+# RUN echo "Verifying installed packages..." && \
+#     npm list @tanstack/react-query @tanstack/query-core vite esbuild
 
 # Copy project files
 COPY . .
@@ -18,5 +27,7 @@ COPY . .
 # Expose Vite dev server port
 EXPOSE 5173
 
-# Start dev server
-CMD ["npm", "run", "dev"]
+# Start dev server with specific NODE_ENV
+ENV NODE_ENV=development
+# Use the explicit path to vite binary
+CMD ["./node_modules/.bin/vite", "--host", "0.0.0.0"]

@@ -88,6 +88,13 @@ frontend/
    - Resolution confidence visualization
    - Enhanced entity search with fuzzy matching
 
+#### Build & Dependency Management (Updated May 3, 2025)
+- Uses `yarn` (v1) for dependency management (switched from `npm` due to resolution issues).
+- Dependencies are installed within the Docker build using `yarn install --frozen-lockfile` to ensure consistency via `yarn.lock`.
+- `frontend/.dockerignore` prevents local `node_modules` from overwriting the container's during the `COPY . .` build step.
+- Docker anonymous volume for `/app/node_modules` is used in `docker-compose.yml` to persist dependencies between runs while allowing local code syncing.
+- **Important:** If encountering unexpected dependency versions at runtime, ensure stale anonymous volumes are cleared using `docker-compose down -v`.
+
 ## Key Data Flow Patterns
 
 1. **Natural Language to SQL**

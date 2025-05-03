@@ -551,6 +551,12 @@ class Brand(TimestampedBase):
         String(100),
         nullable=True
     )
+    # New field to indicate if Brand represents another entity type
+    representative_entity_type: Mapped[Optional[str]] = mapped_column(
+        String(50), 
+        nullable=True, 
+        index=True
+    )
 
     # Relationships
     production_services: Mapped[List["ProductionService"]] = relationship(

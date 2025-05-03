@@ -10,7 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, and_, or_, func
 from sqlalchemy.orm import selectinload, joinedload
 
-from src.models.sports_models import Contact, ContactBrandAssociation, Brand
+from src.models.sports_models import Contact, ContactBrandAssociation, Brand, League, Team, Stadium, ProductionService
 from src.schemas.contacts import ContactCreate, ContactUpdate, ContactImportStats
 from src.utils.errors import EntityNotFoundError, DuplicateEntityError, ValidationError
 
@@ -286,27 +286,24 @@ class ContactsService:
     ) -> Dict[str, Any]:
         """
         Import contacts from LinkedIn CSV export.
-        
-        Expected CSV columns:
-        - First Name
-        - Last Name
-        - Email
-        - Company
-        - Position
-        - Connected On
-        - Profile URL
-        
-        Returns import statistics.
+        Now attempts to match company names against Brands, Leagues, Teams, Stadiums, and Production Services.
         """
         stats = {
             "total_contacts": len(csv_data),
             "imported_contacts": 0,
             "matched_brands": 0,
+            "matched_entities": 0, # Count associations across all types
+            "new_representative_brands": 0,
             "import_errors": []
         }
         
-        # Process each row
+        # Pre-fetch all brands and other potential entities to minimize DB calls
+        # (Implementation detail: Caching or pre-fetching can be added here)
+        
+        processed_associations = set() # Track (contact_id, brand_id) to avoid duplicates in this run
+        
         for row in csv_data:
+            contact = None # Ensure contact is defined in this scope
             try:
                 # Normalize column names
                 normalized_row = self._normalize_csv_columns(row)
@@ -397,35 +394,58 @@ class ContactsService:
                     self.db.add(contact)
                     await self.db.flush()  # Generate ID without committing
                 
-                # Auto-match with brands if requested and company is provided
+                # Auto-match if requested and company is provided
                 if auto_match_brands and company:
-                    matched_brand = await self._match_company_to_brand(company, match_threshold)
-                    if matched_brand:
-                        # Create association
-                        confidence = self._calculate_similarity(company, matched_brand.name)
+                    # Find all potential brand associations (real and representative)
+                    matched_brands = await self._find_brand_associations(company, match_threshold)
+                    
+                    is_first_association_for_contact = True
+                    for brand_match in matched_brands:
+                        brand_id = brand_match["id"]
+                        confidence = brand_match["confidence"]
+                        is_representative = brand_match["is_representative"]
                         
-                        # Check for existing association
+                        assoc_key = (contact.id, brand_id)
+                        if assoc_key in processed_associations:
+                            continue # Already associated in this import run
+                        
+                        # Check for existing association in DB
                         assoc_query = select(ContactBrandAssociation).where(
                             and_(
                                 ContactBrandAssociation.contact_id == contact.id,
-                                ContactBrandAssociation.brand_id == matched_brand.id
+                                ContactBrandAssociation.brand_id == brand_id
                             )
                         )
                         assoc_result = await self.db.execute(assoc_query)
                         existing_assoc = assoc_result.scalars().first()
                         
                         if not existing_assoc:
+                            # Determine if this should be primary
+                            # Simple approach: first association for this contact in this run is primary
+                            # Could be refined later (e.g., prioritize non-representative)
+                            make_primary = is_first_association_for_contact
+                            
                             association = ContactBrandAssociation(
                                 contact_id=contact.id,
-                                brand_id=matched_brand.id,
+                                brand_id=brand_id,
                                 confidence_score=confidence,
-                                association_type="employed_at",
+                                association_type="employed_at", # Or determine based on representative type?
                                 is_current=True,
-                                is_primary=True
+                                is_primary=make_primary 
                             )
                             self.db.add(association)
-                            stats["matched_brands"] += 1
-                
+                            stats["matched_entities"] += 1
+                            if is_representative:
+                                stats["new_representative_brands"] += 1 # Needs refinement if brand already existed
+                            else:
+                                stats["matched_brands"] += 1
+                                
+                            processed_associations.add(assoc_key)
+                            is_first_association_for_contact = False # Only the first one is primary
+                        else:
+                            # Optionally update confidence score or other fields if needed
+                            pass 
+                            
                 stats["imported_contacts"] += 1
                 
             except Exception as e:
@@ -434,58 +454,200 @@ class ContactsService:
                     "error": f"Error processing row: {str(e)}"
                 })
         
-        # Commit all changes
-        await self.db.commit()
-        
+        # Commit all changes for the batch
+        try:
+            await self.db.commit()
+        except Exception as commit_error:
+            await self.db.rollback()
+            # Log or handle commit error
+            stats["import_errors"].append({"row": "COMMIT FAILED", "error": str(commit_error)})
+
         return stats
     
-    async def _match_company_to_brand(self, company_name: str, threshold: float = 0.6) -> Optional[Brand]:
-        """
-        Match a company name to an existing brand using fuzzy matching.
-        Returns the best match if similarity score exceeds threshold.
+    async def _find_brand_associations(self, company_name: str, threshold: float) -> List[Dict[str, Any]]:
+        """ 
+        Finds all relevant Brand associations for a company name.
+        Includes matching against real Brands and other entity types (League, Team, etc.)
+        by finding or creating representative Brand records.
+        
+        Returns a list of dicts, each containing: {'id': brand_id, 'confidence': score, 'is_representative': bool}
         """
         if not company_name:
-            return None
-            
-        # Normalize company name
+            return []
+
         normalized_name = self._normalize_company_name(company_name)
+        all_associations = [] 
+
+        # 1. Match against real Brands
+        real_brand_matches = await self._find_matching_real_brands(normalized_name, threshold)
+        for brand, score in real_brand_matches:
+            all_associations.append({"id": brand.id, "confidence": score, "is_representative": False})
+
+        # 2. Match against other entity types
+        other_entity_matches = await self._match_company_to_other_entities(normalized_name, threshold)
         
+        # 3. Get or create representative Brands for other entity matches
+        for entity_match in other_entity_matches:
+            entity_type = entity_match["type"]
+            entity_id = entity_match["id"]
+            entity_name = entity_match["name"]
+            score = entity_match["confidence"]
+            
+            representative_brand = await self._get_or_create_representative_brand(entity_type, entity_id, entity_name)
+            if representative_brand:
+                 # Avoid adding duplicate associations if a real brand with the same name was already found
+                if not any(assoc["id"] == representative_brand.id for assoc in all_associations):
+                    all_associations.append({
+                        "id": representative_brand.id, 
+                        "confidence": score, 
+                        "is_representative": True
+                    })
+
+        # Deduplicate based on brand_id before returning?
+        # Or assume caller handles duplicates? For now, return all found.
+        return all_associations
+
+    async def _find_matching_real_brands(self, normalized_name: str, threshold: float) -> List[Tuple[Brand, float]]:
+        """
+        Match a normalized company name to existing "real" brands using fuzzy matching.
+        (Previously _match_company_to_brand)
+        Returns a list of tuples: (Brand, confidence_score)
+        """
+        matches = []
         # Try exact match first
         query = select(Brand).where(
-            func.lower(Brand.name) == normalized_name.lower()
+            func.lower(Brand.name) == normalized_name.lower(),
+            Brand.representative_entity_type == None # Only match real brands
         )
         result = await self.db.execute(query)
         exact_match = result.scalars().first()
         
         if exact_match:
-            return exact_match
-            
-        # Get all brands for fuzzy matching
-        query = select(Brand)
+            matches.append((exact_match, 1.0))
+            # Maybe return early if exact match found?
+            # return matches 
+
+        # Get all real brands for fuzzy matching
+        query = select(Brand).where(Brand.representative_entity_type == None)
         result = await self.db.execute(query)
         brands = result.scalars().all()
         
-        # Find best fuzzy match
-        best_match = None
-        best_score = 0
-        
+        # Find fuzzy matches
         for brand in brands:
-            # Normalize brand name
-            brand_name = self._normalize_company_name(brand.name)
+            # Avoid rematching the exact one if found
+            if exact_match and brand.id == exact_match.id:
+                continue
+                
+            brand_name_normalized = self._normalize_company_name(brand.name)
+            score = self._calculate_similarity(normalized_name, brand_name_normalized)
             
-            # Calculate similarity
-            score = self._calculate_similarity(normalized_name, brand_name)
-            
-            if score > best_score:
-                best_score = score
-                best_match = brand
+            if score >= threshold:
+                matches.append((brand, score))
         
-        # Return best match if it exceeds threshold
-        if best_match and best_score >= threshold:
-            return best_match
+        # Sort by score descending?
+        # matches.sort(key=lambda x: x[1], reverse=True)
+        return matches
+
+    async def _match_company_to_other_entities(self, normalized_name: str, threshold: float) -> List[Dict[str, Any]]:
+        """
+        Matches a normalized company name against League, Team, Stadium, ProductionService names.
+        Returns a list of dicts: {'type': entity_type, 'id': entity_id, 'name': entity_name, 'confidence': score}
+        Currently uses exact (case-insensitive) matching.
+        """
+        matches = []
+        entity_models_to_check = {
+            "League": League,
+            "Team": Team,
+            "Stadium": Stadium,
+            "ProductionService": ProductionService
+        }
+
+        for entity_type_str, model in entity_models_to_check.items():
+            try:
+                # Perform case-insensitive exact match
+                query = select(model).where(func.lower(model.name) == normalized_name.lower())
+                result = await self.db.execute(query)
+                matched_entity = result.scalars().first()
+
+                if matched_entity:
+                    # Exact match found
+                    matches.append({
+                        "type": entity_type_str,
+                        "id": matched_entity.id,
+                        "name": matched_entity.name,
+                        "confidence": 1.0 # Exact match confidence
+                    })
+                    # Found an exact match for this type, potentially stop searching this type?
+                    # For now, let's just take the first exact match per type.
+                    
+                # TODO: Add fuzzy matching logic here if exact match fails?
+                # Similar to _find_matching_real_brands, query all entities of this type
+                # and calculate similarity, adding matches above threshold.
+                
+            except Exception as e:
+                # Log error querying this specific model
+                print(f"Error matching '{normalized_name}' against {entity_type_str}: {e}")
+        
+        return matches
+
+    async def _get_or_create_representative_brand(self, entity_type: str, entity_id: UUID, entity_name: str) -> Optional[Brand]:
+        """
+        Finds an existing representative Brand for a given entity, or creates one if it doesn't exist.
+        Returns the Brand object.
+        """
+        # 1. Query Brand table for existing representative brand
+        query = select(Brand).where(
+            # Case-insensitive name match might be better?
+            # func.lower(Brand.name) == entity_name.lower(), 
+            Brand.name == entity_name, 
+            Brand.representative_entity_type == entity_type
+        )
+        result = await self.db.execute(query)
+        existing_brand = result.scalars().first()
+        
+        if existing_brand:
+            # 2. If found, return it.
+            return existing_brand
+        else:
+            # 3. If not found, create a new Brand record:
+            # Assign default industry based on entity type
+            if entity_type == 'Team':
+                default_industry = 'Sports Team' 
+            elif entity_type == 'League':
+                default_industry = 'Sports League' 
+            elif entity_type == 'Stadium':
+                default_industry = 'Venue'
+            elif entity_type == 'ProductionService':
+                default_industry = 'Media/Production'
+            else:
+                default_industry = 'Other' # Fallback
             
-        return None
-    
+            try:
+                new_representative_brand = Brand(
+                    name=entity_name,
+                    representative_entity_type=entity_type,
+                    industry=default_industry,
+                    # company_type could potentially be set here too if desired
+                )
+                self.db.add(new_representative_brand)
+                await self.db.flush() # Flush to get the new ID and ensure it exists before potential use
+                await self.db.refresh(new_representative_brand) # Refresh to load all attributes
+                print(f"Created representative brand for {entity_type} '{entity_name}'")
+                return new_representative_brand
+            except Exception as e:
+                # Handle potential unique constraint violation or other DB errors during creation
+                print(f"Error creating representative brand for {entity_type} '{entity_name}': {e}")
+                # Attempt to fetch again in case of race condition (rare with asyncpg, but possible)
+                try:
+                    result = await self.db.execute(query) # Re-execute the initial query
+                    existing_brand = result.scalars().first()
+                    if existing_brand:
+                        return existing_brand
+                except Exception as fetch_err:
+                     print(f"Error re-fetching representative brand after creation failed: {fetch_err}")
+                await self.db.rollback() # Rollback the failed creation attempt
+                return None
+
     def _normalize_company_name(self, name: str) -> str:
         """Normalize company name for better matching."""
         if not name:
@@ -568,77 +730,75 @@ class ContactsService:
         user_id: UUID, 
         match_threshold: float = 0.6
     ) -> Dict[str, Any]:
-        """
-        Re-scan all contacts to find matches with brands.
-        
-        This is useful when new brands have been added to the system and
-        you want to check if existing contacts now match with these brands.
-        
-        Args:
-            user_id: The user's UUID
-            match_threshold: Minimum confidence score to create a brand association
-            
-        Returns:
-            A dictionary with statistics about the matching process
+        """ 
+        Re-scan all contacts to find matches with brands and other entities.
+        (Updated to use the new association logic)
         """
         stats = {
             "total_contacts": 0,
             "contacts_with_company": 0,
-            "new_matches_found": 0,
+            "new_associations_created": 0, # Renamed from new_matches_found
             "total_brand_associations": 0
         }
         
-        # Get all contacts for the user
-        query = select(Contact).where(Contact.user_id == user_id)
+        query = select(Contact).where(Contact.user_id == user_id).options(selectinload(Contact.brand_associations))
         result = await self.db.execute(query)
-        contacts = result.scalars().all()
+        contacts = result.scalars().unique().all() # Use unique() to avoid issues with joins/selectinload
         stats["total_contacts"] = len(contacts)
         
-        # Get all brands from the database
-        brands_query = select(Brand)
-        brands_result = await self.db.execute(brands_query)
-        brands = brands_result.scalars().all()
+        processed_associations = set() # Track (contact_id, brand_id) for this run
         
-        # Process each contact
         for contact in contacts:
             if not contact.company:
                 continue
                 
             stats["contacts_with_company"] += 1
             
-            # Get existing brand associations for this contact
-            existing_assoc_query = select(ContactBrandAssociation).where(
-                ContactBrandAssociation.contact_id == contact.id
-            )
-            existing_assoc_result = await self.db.execute(existing_assoc_query)
-            existing_associations = existing_assoc_result.scalars().all()
-            existing_brand_ids = {assoc.brand_id for assoc in existing_associations}
+            existing_brand_ids = {assoc.brand_id for assoc in contact.brand_associations}
             
-            matched_brand = await self._match_company_to_brand(contact.company, match_threshold)
-            if matched_brand and matched_brand.id not in existing_brand_ids:
-                # Create new association
-                confidence = self._calculate_similarity(contact.company, matched_brand.name)
+            # Find all potential associations
+            matched_brands = await self._find_brand_associations(contact.company, match_threshold)
+            
+            is_first_new_association = True
+            for brand_match in matched_brands:
+                brand_id = brand_match["id"]
+                confidence = brand_match["confidence"]
                 
-                association = ContactBrandAssociation(
-                    contact_id=contact.id,
-                    brand_id=matched_brand.id,
-                    confidence_score=confidence,
-                    association_type="employed_at",
-                    is_current=True,
-                    is_primary=not bool(existing_brand_ids)  # Make primary only if no other associations
-                )
-                self.db.add(association)
-                stats["new_matches_found"] += 1
+                assoc_key = (contact.id, brand_id)
+                if assoc_key in processed_associations:
+                    continue 
+                
+                # Only create if it doesn't exist in DB already
+                if brand_id not in existing_brand_ids:
+                    # Make primary only if no other associations exist *at all* for this contact
+                    make_primary = not bool(existing_brand_ids) and is_first_new_association
+                    
+                    association = ContactBrandAssociation(
+                        contact_id=contact.id,
+                        brand_id=brand_id,
+                        confidence_score=confidence,
+                        association_type="employed_at",
+                        is_current=True,
+                        is_primary=make_primary
+                    )
+                    self.db.add(association)
+                    stats["new_associations_created"] += 1
+                    processed_associations.add(assoc_key)
+                    is_first_new_association = False # Only first *new* one can be primary if none existed before
         
         # Commit all changes
-        await self.db.commit()
+        try:
+            await self.db.commit()
+        except Exception as commit_error:
+            await self.db.rollback()
+            # Log or handle commit error
+            stats["commit_error"] = str(commit_error)
         
-        # Get updated total brand associations - use a more efficient approach
-        # to avoid parameter limits with large IN clauses
-        total_associations = 0
-        
-        # Use a separate query to count total associations
+        # Recalculate total associations after commit
         count_query = select(func.count(ContactBrandAssociation.id))
+        # Filter by user_id by joining through Contact table?
+        # Needs careful implementation to count correctly per user.
+        # Simpler: just count all associations for now
         count_result = await self.db.execute(count_query)
         stats["total_brand_associations"] = count_result.scalar() or 0
         

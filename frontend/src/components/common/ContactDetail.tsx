@@ -14,6 +14,7 @@ interface ContactBrandAssociation {
   is_primary: boolean;
   start_date?: string;
   end_date?: string;
+  representative_entity_type?: string;
 }
 
 interface Contact {
@@ -33,6 +34,7 @@ interface Brand {
   id: string;
   name: string;
   industry: string;
+  representative_entity_type?: string;
 }
 
 interface ContactDetailProps {

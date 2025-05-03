@@ -17,8 +17,8 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from src.utils.database import Base
 from src.models.models import User, Conversation, Message, StructuredData, DataColumn, DataChangeHistory
 from src.models.sports_models import (
-    League, Stadium, Team, Player, Game, BroadcastCompany, BroadcastRights,
-    ProductionCompany, ProductionService, Brand, BrandRelationship,
+    League, Stadium, Team, Player, Game, BroadcastRights,
+    ProductionService, Brand,
     TeamRecord, TeamOwnership, LeagueExecutive, GameBroadcast
 )
 from src.utils.config import get_settings

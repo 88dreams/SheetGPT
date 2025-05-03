@@ -95,6 +95,7 @@ export interface Brand extends BaseEntity {
   country?: string;
   partner?: string;
   partner_relationship?: string;
+  representative_entity_type?: string;
 }
 
 export interface GameBroadcast extends BaseEntity {

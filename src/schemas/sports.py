@@ -397,9 +397,12 @@ class BrandBase(BaseModel):
     industry: str
     company_type: Optional[str] = None
     country: Optional[str] = None
-    # New fields for partner relationship
     partner: Optional[str] = None
     partner_relationship: Optional[str] = None
+    representative_entity_type: Optional[str] = None
+
+    class Config:
+        orm_mode = True
 
 class BrandCreate(BrandBase):
     pass
@@ -409,23 +412,14 @@ class BrandUpdate(BaseModel):
     industry: Optional[str] = None
     company_type: Optional[str] = None
     country: Optional[str] = None
-    # New fields for partner relationship
     partner: Optional[str] = None
     partner_relationship: Optional[str] = None
+    representative_entity_type: Optional[str] = None
 
-class BrandResponse(BrandBase):
+class BrandRead(BrandBase):
     id: UUID
-    created_at: str
-    updated_at: str
-
-    class Config:
-        from_attributes = True
-        
-    @validator('created_at', 'updated_at', pre=True)
-    def parse_datetime(cls, value):
-        if isinstance(value, datetime):
-            return value.isoformat()
-        return value
+    created_at: datetime
+    updated_at: datetime
 
 # BrandRelationship schemas have been removed
 # The functionality has been integrated into the Brand model with partner fields

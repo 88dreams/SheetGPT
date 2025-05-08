@@ -3,12 +3,21 @@ import { useApiClient } from '../../hooks/useApiClient';
 import { useNotification } from '../../contexts/NotificationContext';
 import { FaEnvelope, FaLinkedin, FaBuilding, FaUser, FaSort, FaSortUp, FaSortDown, FaSearch, FaTimes, FaSpinner, FaColumns, FaSync, FaAddressBook, FaFileUpload } from 'react-icons/fa';
 import { useDragAndDrop } from '../../components/data/DataTable/hooks/useDragAndDrop';
+import { Modal, InputNumber, Tooltip } from 'antd';
+import { useQueryClient } from '@tanstack/react-query';
+
+interface Brand {
+  id: string;
+  name: string;
+  industry?: string;
+  representative_entity_type?: string;
+}
 
 interface ContactBrandAssociation {
   id: string;
   contact_id: string;
   brand_id: string;
-  brand_name?: string;
+  brand?: Brand;
   confidence_score: number;
   association_type: string;
   is_current: boolean;
@@ -45,6 +54,7 @@ interface ContactsListProps {
 const ContactsList: React.FC<ContactsListProps> = ({ brandId, onContactSelect }) => {
   const apiClient = useApiClient();
   const { showNotification } = useNotification();
+  const queryClient = useQueryClient();
   
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [displayContacts, setDisplayContacts] = useState<Contact[]>([]);
@@ -60,6 +70,8 @@ const ContactsList: React.FC<ContactsListProps> = ({ brandId, onContactSelect })
   const [searchQuery, setSearchQuery] = useState('');
   const [showColumnSelector, setShowColumnSelector] = useState(false);
   const [rescanning, setRescanning] = useState(false);
+  const [isThresholdModalVisible, setIsThresholdModalVisible] = useState(false);
+  const [rescanThreshold, setRescanThreshold] = useState(0.8);
   
   // Column visibility state
   const [visibleColumns, setVisibleColumns] = useState<Record<string, boolean>>({
@@ -154,6 +166,17 @@ const ContactsList: React.FC<ContactsListProps> = ({ brandId, onContactSelect })
   const isMounted = useRef(true);
   const isLoadingRef = useRef(false);
   const requestIdRef = useRef(0);
+  const lastRequest = useRef({
+    currentPage: -1,
+    limit: -1,
+    sortBy: '',
+    sortOrder: '',
+    searchQuery: '',
+    brandId: ''
+  });
+  const skipChangeSource = useRef<'page' | 'skip' | null>(null);
+  // Create a ref to hold the latest fetchContacts function
+  const fetchContactsRef = useRef<() => Promise<void>>(async () => {});
   
   // Track component mount state
   useEffect(() => {
@@ -236,10 +259,7 @@ const ContactsList: React.FC<ContactsListProps> = ({ brandId, onContactSelect })
         } else {
           // For other errors, show error message
           setError('Failed to load contacts. Please try again.');
-          showNotification({
-            type: 'error',
-            message: 'Failed to load contacts.'
-          });
+          showNotification('error', 'Failed to load contacts.');
         }
       }
     } finally {
@@ -254,7 +274,12 @@ const ContactsList: React.FC<ContactsListProps> = ({ brandId, onContactSelect })
       }
     }
   }, [apiClient, currentPage, limit, sortBy, sortOrder, searchQuery, brandId, showNotification, skip]);
-  
+
+  // Update the ref whenever fetchContacts changes
+  useEffect(() => {
+    fetchContactsRef.current = fetchContacts;
+  }, [fetchContacts]);
+
   // Apply client-side sorting for brand names only on the current page of data
   useEffect(() => {
     // Safety check - ensure contacts is an array
@@ -276,8 +301,7 @@ const ContactsList: React.FC<ContactsListProps> = ({ brandId, onContactSelect })
           if (!Array.isArray(a.brand_associations)) a.brand_associations = [];
           if (!Array.isArray(b.brand_associations)) b.brand_associations = [];
           
-          // Get first brand name from each contact (or empty string if none)
-          // First try to get primary brand if it exists
+          // Get best brand name from each contact (or empty string if none)
           const getBestBrandName = (contact: Contact): string => {
             if (!contact.brand_associations || contact.brand_associations.length === 0) {
               return '';
@@ -285,13 +309,14 @@ const ContactsList: React.FC<ContactsListProps> = ({ brandId, onContactSelect })
             
             // First try to find primary association
             const primaryAssociation = contact.brand_associations.find(assoc => assoc.is_primary);
-            if (primaryAssociation?.brand_name) {
-              return primaryAssociation.brand_name.toLowerCase();
+            // Access nested brand name
+            if (primaryAssociation?.brand?.name) {
+              return primaryAssociation.brand.name.toLowerCase();
             }
             
             // Otherwise sort by all brand names and get the first alphabetically
             const sortedNames = contact.brand_associations
-              .map(assoc => assoc.brand_name || '')
+              .map(assoc => assoc.brand?.name || '') // Access nested brand name
               .filter(name => name) // Remove empty names
               .sort();
               
@@ -318,19 +343,6 @@ const ContactsList: React.FC<ContactsListProps> = ({ brandId, onContactSelect })
   
   // Calculate total pages based on total items and current page size
   const totalPages = Math.ceil(total / limit);
-  
-  // Store the last request parameters to avoid unnecessary fetches
-  const lastRequest = useRef({
-    currentPage: -1,
-    limit: -1,
-    sortBy: '',
-    sortOrder: '',
-    searchQuery: '',
-    brandId: ''
-  });
-
-  // Use a ref to track the source of change to prevent circular updates
-  const skipChangeSource = useRef<'page' | 'skip' | null>(null);
   
   // Sync skip with currentPage when page changes
   useEffect(() => {
@@ -488,51 +500,69 @@ const ContactsList: React.FC<ContactsListProps> = ({ brandId, onContactSelect })
     }
   }, [handleSearch]);
   
-  // Handle re-scanning contacts for brand matches
-  const handleRescanContacts = useCallback(async () => {
-    if (rescanning) return;
-    
+  // Handle opening the modal instead of directly rescanning
+  const handleRescanContacts = useCallback(() => {
+    if (rescanning) return; // Prevent opening if already rescanning
+    // Reset threshold to default when opening modal
+    setRescanThreshold(0.8);
+    setIsThresholdModalVisible(true);
+  }, [rescanning]);
+
+  // New function to actually perform the rescan after confirming threshold
+  const confirmRescanWithThreshold = useCallback(async () => {
+    setIsThresholdModalVisible(false); // Close modal
     setRescanning(true);
+    
+    console.log(`Starting re-scan with threshold: ${rescanThreshold}`);
+    
     try {
-      const response = await apiClient.post('/v1/contacts/rematch-brands', { 
-        match_threshold: 0.6 
-      }, { requiresAuth: true });
+      const response = await apiClient.post('/v1/contacts/rematch-brands', 
+        { match_threshold: rescanThreshold }, 
+        { 
+          requiresAuth: true,
+          timeout: 60000 
+        }
+      );
+      
+      console.log('Re-scan API response:', response.data);
       
       if (response.data.success) {
         const stats = response.data.stats;
-        
-        // Create a more informative message that always provides feedback
         let message = `Re-scan complete! Checked ${stats.total_contacts} contacts.`;
-        
-        if (stats.new_matches_found > 0) {
-          message += ` Found ${stats.new_matches_found} new brand matches across ${stats.contacts_with_company} contacts with company information.`;
+        if (stats.associations_added > 0 || stats.associations_removed > 0) {
+          message += ` Added ${stats.associations_added}, Removed ${stats.associations_removed} associations.`;
         } else {
-          message += ` No new brand matches found for ${stats.contacts_with_company} contacts with company information.`;
+          message += ` No association changes needed.`;
+        }
+        message += ` Kept ${stats.associations_kept}. Total after: ${stats.total_brand_associations_after}.`;
+        
+        if (stats.errors && stats.errors.length > 0) {
+           message += ` Encountered ${stats.errors.length} errors during DB operations.`
+           showNotification('info', message); // Show as info if there were errors during commit
+        } else {
+           showNotification('success', message);
         }
         
-        showNotification({
-          type: 'success',
-          message
-        });
-        
-        // Refresh the contacts list to show new matches
-        fetchContacts();
+        // Invalidate the contacts query cache instead of manual refetch
+        // This assumes the query key used for fetching contacts starts with 'contacts'
+        // Adjust key if necessary based on actual useQuery implementation
+        console.log("Invalidating contacts query cache...");
+        await queryClient.invalidateQueries(['contacts']); 
       } else {
-        showNotification({
-          type: 'error',
-          message: 'Failed to re-scan contacts.'
-        });
+        showNotification('error', 'Backend reported failure during re-scan.');
       }
     } catch (err) {
       console.error('Error re-scanning contacts:', err);
-      showNotification({
-        type: 'error',
-        message: 'Failed to re-scan contacts. Please try again.'
-      });
+      // Handle specific timeout error message
+      let errorMsg = 'Failed to re-scan contacts. Please try again.';
+      if (err.code === 'ECONNABORTED' || err.message?.includes('timeout')) {
+        errorMsg = 'Re-scan operation timed out. It might be processing in the background. Please check back later.';
+      }
+      showNotification('error', errorMsg);
     } finally {
       setRescanning(false);
     }
-  }, [apiClient, rescanning, showNotification, fetchContacts]);
+  }, [apiClient, rescanThreshold, showNotification, queryClient]);
 
   // Render sort icon
   const renderSortIcon = (field: string) => {
@@ -930,7 +960,10 @@ const ContactsList: React.FC<ContactsListProps> = ({ brandId, onContactSelect })
                                 }`}
                                 title={`Confidence: ${Math.round(association.confidence_score * 100)}%`}
                               >
-                                {association.brand_name}
+                                {association.brand?.name || 'Unknown'}
+                                {association.brand?.representative_entity_type && (
+                                  <span className="ml-1">({association.brand.representative_entity_type})</span>
+                                )}
                                 {association.is_primary && ' (Primary)'}
                               </span>
                             ))
@@ -1018,6 +1051,37 @@ const ContactsList: React.FC<ContactsListProps> = ({ brandId, onContactSelect })
           </div>
         </>
       )}
+
+      {/* Threshold Setting Modal */}
+      <Modal
+        title="Set Re-scan Confidence Threshold"
+        visible={isThresholdModalVisible}
+        onOk={confirmRescanWithThreshold} // Use the new function on OK
+        onCancel={() => setIsThresholdModalVisible(false)}
+        confirmLoading={rescanning} // Show loading state on confirm button
+        okText="Confirm Re-scan"
+      >
+        <p className="mb-4">
+          Adjust the similarity threshold for matching contacts to brands and entities.
+          A higher value requires a closer match (e.g., 0.8), while a lower value is more lenient (e.g., 0.6).
+          Associations below this threshold will be removed.
+        </p>
+        <div className="flex items-center">
+          <label htmlFor="thresholdInput" className="mr-2">Threshold:</label>
+          <InputNumber
+            id="thresholdInput"
+            min={0.1} 
+            max={1.0}
+            step={0.05}
+            value={rescanThreshold}
+            onChange={(value) => setRescanThreshold(value ?? 0.8)} // Handle null value from InputNumber
+            style={{ width: '100px' }}
+          />
+          <Tooltip title="0.0 (very loose) to 1.0 (exact match). Default: 0.8">
+            <span className="ml-2 text-gray-400 cursor-help">(?)</span>
+          </Tooltip>
+        </div>
+      </Modal>
     </div>
   );
 };

@@ -324,6 +324,41 @@ GET /api/v1/export/auth/token - Get OAuth token for Google Drive integration
     - expires_in: Token expiration time in seconds
 ```
 
+### Contacts (New Section or Update Existing)
+
+```
+GET /api/v1/contacts/ - List contacts with filters and pagination.
+  Response: PaginatedContactsResponse (contains list of ContactWithBrandsResponse)
+  - ContactWithBrandsResponse includes nested Brand details via ContactBrandAssociationResponse.brand (BrandRead schema)
+
+POST /api/v1/contacts/ - Create a new contact.
+
+GET /api/v1/contacts/{contact_id} - Get a specific contact.
+  Response: ContactWithBrandsResponse (or equivalent structure including nested brand)
+  *Note: Needs update to use response_model serialization instead of manual dict.* 
+
+PUT /api/v1/contacts/{contact_id} - Update a contact.
+
+DELETE /api/v1/contacts/{contact_id} - Delete a contact.
+
+POST /api/v1/contacts/{contact_id}/brands/{brand_id} - Associate contact with a brand.
+
+DELETE /api/v1/contacts/{contact_id}/brands/{brand_id} - Remove brand association.
+
+POST /api/v1/contacts/import/linkedin - Import contacts from CSV.
+  - Performs matching against Brands and other entities (League, Team, Stadium, ProductionService), creating representative Brands as needed.
+
+POST /api/v1/contacts/import/data - Import contacts from structured JSON data.
+  - Same matching logic as CSV import.
+
+POST /api/v1/contacts/rematch-brands - Re-scan contacts and sync associations.
+  Request Body: { "match_threshold": float } (0.0 to 1.0)
+  - Synchronizes associations based on the threshold (adds new, removes old).
+  Response: { "success": bool, "stats": { ... } }
+
+GET /api/v1/contacts/brands/{brand_id}/count - Get contact count for a specific brand.
+```
+
 ## Schema System
 
 The API uses Pydantic for request/response validation with inheritance patterns:

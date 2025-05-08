@@ -58,6 +58,27 @@
 - Configured proper API URL handling in frontend production build
 - Added debug endpoints for production environment troubleshooting
 
+### Representative Brand Matching (May 7, 2025)
+- Implemented matching of imported contacts' company names against League, Team, Stadium, and ProductionService entities.
+- Added `representative_entity_type` column to `brands` table via Alembic migration.
+- Created/updated `Brand` records to act as representatives for matched entities, assigning default industries.
+- Refactored `ContactsService` to handle matching multiple entity types and creating/finding representative brands.
+- Updated API response schemas (`ContactBrandAssociationResponse`) to include nested brand details.
+
+### Contact Re-scan Threshold (May 7, 2025)
+- Added UI modal in Contacts list to allow user to set confidence threshold for re-scanning.
+- Modified backend `rematch_contacts_with_brands` endpoint to accept threshold via request body.
+- Updated service logic to synchronize associations (add/remove) based on the provided threshold during re-scan.
+
+### API and Frontend Fixes (May 7, 2025)
+- Corrected API serialization in `/v1/contacts/` route by removing manual dict conversion and using Pydantic `response_model`.
+- Fixed `405 Method Not Allowed` error on `/v1/contacts/rematch-brands` by correcting route path definition.
+- Resolved Pydantic `EmailStr` validation error for empty strings in contacts API response.
+- Fixed `NameError` for `get_current_user_id` in contacts API routes.
+- Corrected `showNotification` calls in frontend components.
+- Fixed Brand list pagination bug by disabling `keepPreviousData` in `SportsDatabaseContext` query.
+- Resolved several Python `ImportError` issues in Alembic `env.py` and API route files.
+
 ## Recent Improvements (March-June 2025)
 
 ### Entity Search and Filter Enhancements (June 4, 2025)

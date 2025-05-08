@@ -2,7 +2,17 @@
 
 > **IMPORTANT**: Production deployment active: Frontend on Netlify (88gpts.com/sheetgpt) and backend on Digital Ocean (api.88gpts.com).
 
+> **CRITICAL DEPENDENCY ISSUE**: Currently troubleshooting @tanstack/react-query dependency issues. See DEPENDENCY_ANALYSIS.md for details of approaches tried.
+
 ## Recent Improvements
+
+### Dependency Resolution Investigation (May 3, 2025)
+- ✅ Conducted thorough analysis of @tanstack/react-query dependency issue
+- ✅ Documented version mismatch between expected v4.29.5 and actual v5.66.8
+- ✅ Attempted multiple resolution strategies including package overrides
+- ✅ Created compatibility adapter to bridge API differences
+- ✅ Documented all approaches in DEPENDENCY_ANALYSIS.md
+- ✅ Set up parallel solution branches (contact-import-CLAUDE, contact-import-CURSOR)
 
 ### LinkedIn CSV Import Feature (April 22, 2025)
 - ✅ Implemented CSV-based contact import with support for LinkedIn exports
@@ -50,6 +60,14 @@
   └── types.ts           # Type definitions
   ```
 
+### Contact Management (Updated May 7, 2025)
+- LinkedIn CSV Import: Supports importing connections via CSV.
+- Brand Association: Fuzzy matches contact company names against:
+  - Existing "real" corporate Brand entities.
+  - Other entity types (League, Team, Stadium, ProductionService) via automatically created "representative" Brand records.
+- Representative Brands: Use the `representative_entity_type` field on the Brand model to distinguish.
+- Association Re-scan: Feature to re-synchronize all contact associations based on a user-defined confidence threshold.
+
 ## Build Commands
 
 ### Docker Environment
@@ -63,10 +81,12 @@
 - Run tests: `docker-compose run --rm backend pytest [optional path]`
 - Apply migrations: `docker-compose run --rm backend python src/scripts/alembic_wrapper.py upgrade`
 
-### Frontend (React/TypeScript)
-- Run dev server: `docker-compose up frontend`
+### Frontend (React/TypeScript) (Updated May 7, 2025)
+- **Uses Yarn:** Project now uses `yarn` for dependency management.
+- **Install:** Use `yarn install` within the container (handled by Dockerfile).
+- Run dev server: `docker-compose up frontend` (uses `yarn dev` internally).
 - Run tests: `./run-tests.sh` or `docker-compose run --rm frontend-test`
-- Lint/TypeCheck: `docker-compose run --rm frontend npm run lint/typecheck`
+- Lint/TypeCheck: `docker-compose run --rm frontend yarn lint` / `docker-compose run --rm frontend yarn typecheck` (Assuming scripts exist in package.json)
 
 ## Database Management
 - Backup: `python src/scripts/db_management.py backup`

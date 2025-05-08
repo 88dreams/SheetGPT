@@ -35,6 +35,7 @@ src/
    - Virtual entity support with deterministic UUIDs
    - Smart date handling with contextual defaults
    - Polymorphic entity references for cross-entity relationships
+   - **Representative Brands (New):** Utilizes the `Brand` model to represent other entity types (League, Team, Stadium, ProductionService) for contact association. The `representative_entity_type` column identifies these specific brands.
 
 3. **Authentication**
    - JWT with refresh token mechanism
@@ -88,12 +89,15 @@ frontend/
    - Resolution confidence visualization
    - Enhanced entity search with fuzzy matching
 
-#### Build & Dependency Management (Updated May 3, 2025)
+#### Build & Dependency Management (Updated May 7, 2025)
 - Uses `yarn` (v1) for dependency management (switched from `npm` due to resolution issues).
 - Dependencies are installed within the Docker build using `yarn install --frozen-lockfile` to ensure consistency via `yarn.lock`.
 - `frontend/.dockerignore` prevents local `node_modules` from overwriting the container's during the `COPY . .` build step.
 - Docker anonymous volume for `/app/node_modules` is used in `docker-compose.yml` to persist dependencies between runs while allowing local code syncing.
 - **Important:** If encountering unexpected dependency versions at runtime, ensure stale anonymous volumes are cleared using `docker-compose down -v`.
+
+#### Notable Fixes
+- **Pagination:** Resolved issue where paginated entity lists (e.g., Brands) did not update correctly on page change by disabling `keepPreviousData` in the relevant `useQuery` configuration within `SportsDatabaseContext`.
 
 ## Key Data Flow Patterns
 

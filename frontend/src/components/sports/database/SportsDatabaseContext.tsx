@@ -167,25 +167,22 @@ export const SportsDatabaseProvider: React.FC<SportsDatabaseProviderProps> = ({ 
   const handleSetCurrentPage = useCallback((page: number) => {
     console.log(`SportsDatabaseContext: Setting current page to ${page}`);
     
-    // Don't do anything if we're already on this page
     if (page === currentPage) {
       console.log(`Already on page ${page}, skipping redundant update`);
       return;
     }
     
-    // We need to explicitly invalidate the query cache for the current entity type
-    // This ensures a fresh fetch when navigating between pages
-    queryClient.invalidateQueries({
-      queryKey: ['sportsEntities', selectedEntityType]
-    });
+    // Set page state immediately
+    setCurrentPage(page);
     
-    // Then update the page state AFTER the invalidation is complete
-    setTimeout(() => {
-      setCurrentPage(page);
-      // Log that we're expecting a data fetch
-      console.log(`SportsDatabaseContext: Data fetch should trigger for ${selectedEntityType}, page ${page}`);
-    }, 0);
-  }, [queryClient, selectedEntityType, currentPage]);
+    // Invalidate cache AFTER state update (optional, React Query might handle this automatically)
+    // queryClient.invalidateQueries({
+    //   queryKey: ['sportsEntities', selectedEntityType]
+    // });
+
+    console.log(`SportsDatabaseContext: State set, data fetch should trigger for ${selectedEntityType}, page ${page}`);
+    
+  }, [queryClient, selectedEntityType, currentPage]); // Keep dependencies simple if invalidation removed
   
   // Update data flow when component mounts
   useEffect(() => {
@@ -367,7 +364,7 @@ export const SportsDatabaseProvider: React.FC<SportsDatabaseProviderProps> = ({ 
     // No automatic refetch interval for any entity type
     refetchInterval: undefined,
     // Keep previous data during fetching for all entity types to reduce UI flicker
-    keepPreviousData: true,
+    keepPreviousData: false,
     // Enable force retry for all entity types for consistent behavior
     refetchForceRetry: true,
     useErrorBoundary: false // Handle errors gracefully

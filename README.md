@@ -11,7 +11,7 @@ SheetGPT is a full-stack application that combines AI-powered chat capabilities 
 
 ## Current Status
 
-As of April 2025, the project has implemented:
+As of May 2025, the project has implemented:
 
 - LinkedIn CSV Import for contacts and brand relationship management
   - Import contacts from LinkedIn CSV exports
@@ -49,6 +49,15 @@ As of April 2025, the project has implemented:
   - Sub-path deployment with proper asset handling
 
 ## Recent Improvements
+
+### Dependency Troubleshooting (May 2025)
+- Conducted extensive investigation into persistent @tanstack/react-query dependency issues
+- Created comprehensive analysis of version mismatch between v4.29.5 and v5.66.8
+- Tested multiple resolution approaches including package overrides, Docker rebuilds, and custom adapters
+- Developed module resolution strategies for managing complex NPM dependencies
+- Created parallel development branches for testing different solution approaches
+- Documented troubleshooting process in DEPENDENCY_ANALYSIS.md for future reference
+- For detailed information, see the [Dependency Analysis Document](DEPENDENCY_ANALYSIS.md)
 
 ### LinkedIn CSV Contact Import (April 2025)
 - Created new database models for contacts and brand associations with confidence scoring

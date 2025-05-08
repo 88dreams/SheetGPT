@@ -649,22 +649,29 @@ class ContactsService:
                 return None
 
     def _normalize_company_name(self, name: str) -> str:
-        """Normalize company name for better matching."""
+        """Normalize company name for better matching (Revised)."""
         if not name:
             return ""
             
-        # Convert to lowercase
         normalized = name.lower()
         
-        # Remove legal entity types
-        for entity_type in [" inc", " inc.", " llc", " ltd", " limited", " corp", " corporation"]:
-            normalized = normalized.replace(entity_type, "")
+        # Remove common legal suffixes (consider variations with/without period)
+        # Use regex to ensure it's at the end of the string, maybe preceded by space or comma
+        suffixes = [" inc.", " inc", " llc.", " llc", " ltd.", " ltd", 
+                    " limited", " corp.", " corp", " corporation", 
+                    " co.", " co", " company"]
+        for suffix in suffixes:
+            normalized = re.sub(r'[, ]*' + re.escape(suffix) + r'$', '', normalized)
+
+        # Replace common separators (&, +) with space
+        normalized = re.sub(r'[&+]', ' ', normalized)
             
-        # Remove special characters
-        normalized = re.sub(r'[^\w\s]', '', normalized)
+        # Remove specific punctuation likely not part of the core name.
+        # Keep letters, numbers, spaces, hyphens, apostrophes.
+        normalized = re.sub(r'[^\w\s\'\-]', '', normalized) 
         
-        # Trim whitespace
-        normalized = normalized.strip()
+        # Standardize whitespace (replace multiple spaces with one)
+        normalized = re.sub(r'\s+', ' ', normalized).strip()
         
         return normalized
     
@@ -728,80 +735,182 @@ class ContactsService:
     async def rematch_contacts_with_brands(
         self, 
         user_id: UUID, 
-        match_threshold: float = 0.6
+        match_threshold: float # Now required, no default
     ) -> Dict[str, Any]:
         """ 
-        Re-scan all contacts to find matches with brands and other entities.
-        (Updated to use the new association logic)
+        Re-scan all contacts, adding new brand/entity associations and
+        removing old ones that no longer meet the specified threshold.
         """
         stats = {
             "total_contacts": 0,
             "contacts_with_company": 0,
-            "new_associations_created": 0, # Renamed from new_matches_found
-            "total_brand_associations": 0
+            "associations_added": 0, 
+            "associations_removed": 0,
+            "associations_kept": 0, # Count existing ones that still meet threshold
+            "total_brand_associations_after": 0,
+            "errors": []
         }
         
-        query = select(Contact).where(Contact.user_id == user_id).options(selectinload(Contact.brand_associations))
+        # Get all contacts for the user, preloading existing associations
+        query = select(Contact).where(Contact.user_id == user_id).options(selectinload(Contact.brand_associations).selectinload(ContactBrandAssociation.brand))
         result = await self.db.execute(query)
-        contacts = result.scalars().unique().all() # Use unique() to avoid issues with joins/selectinload
+        contacts = result.scalars().unique().all()
         stats["total_contacts"] = len(contacts)
         
-        processed_associations = set() # Track (contact_id, brand_id) for this run
+        brands_to_add = []
+        assocs_to_delete = []
+        processed_contact_ids = set()
+        
+        # --- Add Logging --- 
+        print(f"--- Starting Rematch for user {user_id} with threshold {match_threshold} ---")
         
         for contact in contacts:
+            processed_contact_ids.add(contact.id)
             if not contact.company:
                 continue
                 
             stats["contacts_with_company"] += 1
             
-            existing_brand_ids = {assoc.brand_id for assoc in contact.brand_associations}
+            # --- Add Logging --- 
+            print(f"\nProcessing Contact ID: {contact.id}, Company: '{contact.company}'")
             
-            # Find all potential associations
-            matched_brands = await self._find_brand_associations(contact.company, match_threshold)
+            # --- Get Existing and Desired Associations --- 
+            existing_assocs_map: Dict[UUID, ContactBrandAssociation] = {assoc.brand_id: assoc for assoc in contact.brand_associations}
+            existing_brand_ids = set(existing_assocs_map.keys())
+            # --- Add Logging --- 
+            print(f"  Existing Brand IDs: {existing_brand_ids}")
             
-            is_first_new_association = True
-            for brand_match in matched_brands:
-                brand_id = brand_match["id"]
-                confidence = brand_match["confidence"]
-                
-                assoc_key = (contact.id, brand_id)
-                if assoc_key in processed_associations:
-                    continue 
-                
-                # Only create if it doesn't exist in DB already
-                if brand_id not in existing_brand_ids:
-                    # Make primary only if no other associations exist *at all* for this contact
-                    make_primary = not bool(existing_brand_ids) and is_first_new_association
-                    
-                    association = ContactBrandAssociation(
-                        contact_id=contact.id,
-                        brand_id=brand_id,
-                        confidence_score=confidence,
-                        association_type="employed_at",
-                        is_current=True,
-                        is_primary=make_primary
-                    )
-                    self.db.add(association)
-                    stats["new_associations_created"] += 1
-                    processed_associations.add(assoc_key)
-                    is_first_new_association = False # Only first *new* one can be primary if none existed before
-        
-        # Commit all changes
+            # Find all potential associations based on the *new* threshold
+            desired_matches = await self._find_brand_associations(contact.company, match_threshold)
+            desired_brand_ids_map: Dict[UUID, float] = {match["id"]: match["confidence"] for match in desired_matches}
+            desired_brand_ids = set(desired_brand_ids_map.keys())
+            # --- Add Logging --- 
+            print(f"  Desired Matches (Threshold: {match_threshold}): {desired_matches}")
+            print(f"  Desired Brand IDs: {desired_brand_ids}")
+
+            # --- Determine Changes --- 
+            brand_ids_to_add = desired_brand_ids - existing_brand_ids
+            brand_ids_to_remove = existing_brand_ids - desired_brand_ids
+            brand_ids_to_keep = existing_brand_ids.intersection(desired_brand_ids)
+            # --- Add Logging --- 
+            print(f"  Brand IDs to Add: {brand_ids_to_add}")
+            print(f"  Brand IDs to Remove: {brand_ids_to_remove}")
+            print(f"  Brand IDs to Keep: {brand_ids_to_keep}")
+
+            stats["associations_kept"] += len(brand_ids_to_keep)
+
+            # --- Prepare Deletions --- 
+            for brand_id in brand_ids_to_remove:
+                assoc_to_remove = existing_assocs_map.get(brand_id)
+                if assoc_to_remove:
+                    assocs_to_delete.append(assoc_to_remove)
+                    stats["associations_removed"] += 1
+            
+            # --- Prepare Additions --- 
+            for brand_id in brand_ids_to_add:
+                new_association = ContactBrandAssociation(
+                    contact_id=contact.id,
+                    brand_id=brand_id,
+                    confidence_score=desired_brand_ids_map.get(brand_id, 0.0), # Get score from desired matches
+                    association_type="employed_at", # Default
+                    is_current=True,
+                    # is_primary handled later
+                    is_primary=False 
+                )
+                brands_to_add.append(new_association)
+                stats["associations_added"] += 1
+
+            # Potential place to update confidence score for kept associations if needed
+            # for brand_id in brand_ids_to_keep:
+            #    assoc_to_update = existing_assocs_map.get(brand_id)
+            #    new_confidence = desired_brand_ids_map.get(brand_id)
+            #    if assoc_to_update and new_confidence is not None:
+            #        assoc_to_update.confidence_score = new_confidence # Mark for update?
+
+        # --- Perform Bulk Operations (outside the contact loop) --- 
         try:
-            await self.db.commit()
-        except Exception as commit_error:
+            # Delete old associations
+            if assocs_to_delete:
+                # --- Add Logging --- 
+                print(f"\nAttempting to DELETE {len(assocs_to_delete)} associations...")
+                for assoc in assocs_to_delete:
+                    await self.db.delete(assoc)
+            else:
+                 # --- Add Logging --- 
+                 print("\nNo associations marked for DELETION.")
+
+            # Add new associations
+            if brands_to_add:
+                # --- Add Logging --- 
+                print(f"Attempting to ADD {len(brands_to_add)} associations...")
+                self.db.add_all(brands_to_add)
+            else:
+                # --- Add Logging --- 
+                print("No associations marked for ADDITION.")
+                
+            # Commit additions and deletions
+            if assocs_to_delete or brands_to_add:
+                await self.db.commit()
+                print("Committed additions and deletions.")
+            else:
+                print("No association changes to commit.")
+
+            # --- Update Primary Flags (After commit) --- 
+            # Re-query contacts we processed to update primary flags accurately
+            if processed_contact_ids:
+                final_query = select(Contact).where(Contact.id.in_(processed_contact_ids)).options(selectinload(Contact.brand_associations).selectinload(ContactBrandAssociation.brand))
+                final_result = await self.db.execute(final_query)
+                updated_contacts = final_result.scalars().unique().all()
+                
+                needs_primary_commit = False
+                for contact in updated_contacts:
+                    # Find the "best" association to mark as primary
+                    # Logic: highest confidence non-representative, then highest confidence representative
+                    best_assoc: Optional[ContactBrandAssociation] = None
+                    highest_real_score = -1.0
+                    highest_rep_score = -1.0
+                    
+                    current_primary_id = None
+
+                    for assoc in contact.brand_associations:
+                        is_rep = assoc.brand.representative_entity_type is not None
+                        if assoc.is_primary:
+                            current_primary_id = assoc.id
+                            
+                        if not is_rep and assoc.confidence_score > highest_real_score:
+                            highest_real_score = assoc.confidence_score
+                            best_assoc = assoc
+                        elif is_rep and highest_real_score < 0 and assoc.confidence_score > highest_rep_score:
+                            # Only consider representative if no real brand is found
+                            highest_rep_score = assoc.confidence_score
+                            best_assoc = assoc
+                            
+                    # Update primary flags
+                    new_primary_id = best_assoc.id if best_assoc else None
+                    if new_primary_id != current_primary_id:
+                        needs_primary_commit = True
+                        for assoc in contact.brand_associations:
+                            assoc.is_primary = (assoc.id == new_primary_id)
+
+                if needs_primary_commit:
+                    print("Updating primary flags...")
+                    await self.db.commit()
+                    print("Committed primary flag updates.")
+
+        except Exception as e:
             await self.db.rollback()
-            # Log or handle commit error
-            stats["commit_error"] = str(commit_error)
-        
+            stats["errors"].append(f"Error during DB operations: {str(e)}")
+            print(f"Error during rematch DB operations: {e}")
+            # Re-raise or handle as needed
+
         # Recalculate total associations after commit
         count_query = select(func.count(ContactBrandAssociation.id))
-        # Filter by user_id by joining through Contact table?
-        # Needs careful implementation to count correctly per user.
-        # Simpler: just count all associations for now
+        # TODO: Filter count by user_id if needed for accuracy
         count_result = await self.db.execute(count_query)
-        stats["total_brand_associations"] = count_result.scalar() or 0
+        stats["total_brand_associations_after"] = count_result.scalar() or 0
         
+        # --- Add Logging --- 
+        print(f"--- Finished Rematch. Final Stats: {stats} ---")
         return stats
 
     async def get_brand_contact_count(self, user_id: UUID, brand_id: UUID) -> int:

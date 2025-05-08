@@ -22,7 +22,7 @@ from src.schemas.sports import (
     ProductionCompanyCreate, ProductionCompanyUpdate, ProductionCompanyResponse,
     DivisionConferenceCreate, DivisionConferenceUpdate, DivisionConferenceResponse,
     ProductionServiceCreate, ProductionServiceUpdate, ProductionServiceResponse,
-    BrandCreate, BrandUpdate, BrandResponse,
+    BrandCreate, BrandUpdate, BrandRead,
     EntityExportRequest, EntityExportResponse
 )
 from src.utils.database import get_db
@@ -1366,7 +1366,7 @@ async def delete_production_service(
     return None
 
 # Brand endpoints
-@router.get("/brands", response_model=List[BrandResponse])
+@router.get("/brands", response_model=List[BrandRead])
 async def get_brands(
     industry: Optional[str] = None,
     db: AsyncSession = Depends(get_db),
@@ -1375,7 +1375,7 @@ async def get_brands(
     """Get all brands, optionally filtered by industry."""
     return await sports_service.get_brands(db, industry)
 
-@router.post("/brands", response_model=BrandResponse, status_code=status.HTTP_201_CREATED)
+@router.post("/brands", response_model=BrandRead, status_code=status.HTTP_201_CREATED)
 async def create_brand(
     brand: BrandCreate,
     db: AsyncSession = Depends(get_db),
@@ -1384,7 +1384,7 @@ async def create_brand(
     """Create a new brand."""
     return await sports_service.create_brand(db, brand)
 
-@router.get("/brands/{brand_id}", response_model=BrandResponse)
+@router.get("/brands/{brand_id}", response_model=BrandRead)
 async def get_brand(
     brand_id: UUID,
     db: AsyncSession = Depends(get_db),
@@ -1396,7 +1396,7 @@ async def get_brand(
         raise HTTPException(status_code=404, detail="Brand not found")
     return brand
 
-@router.put("/brands/{brand_id}", response_model=BrandResponse)
+@router.put("/brands/{brand_id}", response_model=BrandRead)
 async def update_brand(
     brand_id: UUID,
     brand_update: BrandUpdate,

@@ -3,6 +3,9 @@ from typing import List, Optional, Dict, Any, Union
 from uuid import UUID
 from datetime import date, datetime
 
+# Import BrandRead from sports schemas
+from src.schemas.sports import BrandRead 
+
 # Base schemas for Contact
 class ContactBase(BaseModel):
     first_name: str
@@ -32,6 +35,7 @@ class ContactResponse(ContactBase):
     user_id: UUID
     created_at: str
     updated_at: str
+    email: Optional[str] = None
     
     class Config:
         from_attributes = True
@@ -68,7 +72,7 @@ class ContactBrandAssociationResponse(ContactBrandAssociationBase):
     id: UUID
     created_at: str
     updated_at: str
-    brand_name: Optional[str] = None
+    brand: Optional[BrandRead] = None
     contact_name: Optional[str] = None
     
     class Config:

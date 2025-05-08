@@ -6,6 +6,7 @@ from uuid import UUID
 import csv
 import io
 import codecs
+from pydantic import BaseModel, Field
 
 from src.services.contacts_service import ContactsService
 from src.schemas.contacts import (
@@ -18,28 +19,42 @@ from src.schemas.contacts import (
     ContactImportStats,
     ContactImportRequest,
     ContactListParams,
+    ContactCSVImport,
+    ContactCSVRow,
 )
 from src.utils.database import get_db
-from src.utils.auth import get_current_user_id
+from src.utils.auth import get_current_user
 from src.utils.errors import EntityNotFoundError, DuplicateEntityError, ValidationError
 
 router = APIRouter(tags=["contacts"])
 
+# Define schema for the rematch request body
+class RematchRequest(BaseModel):
+    match_threshold: float = Field(..., ge=0.0, le=1.0) # Ensure threshold is between 0 and 1
+
+# Define schema for paginated contacts list response
+class PaginatedContactsResponse(BaseModel):
+    items: List[ContactWithBrandsResponse]
+    total: int
+    skip: int
+    limit: int
+
 @router.post("/", response_model=ContactResponse, status_code=HTTP_201_CREATED)
 async def create_contact(
     request: ContactCreate,
-    current_user_id: UUID = Depends(get_current_user_id),
+    current_user: Dict = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
     """Create a new contact."""
+    user_id = UUID(current_user["id"])
     try:
         service = ContactsService(db)
-        contact = await service.create_contact(current_user_id, request)
+        contact = await service.create_contact(user_id, request)
         return contact
     except DuplicateEntityError as e:
         raise HTTPException(status_code=HTTP_400_BAD_REQUEST, detail=str(e))
 
-@router.get("/")
+@router.get("/", response_model=PaginatedContactsResponse)
 async def list_contacts(
     skip: int = Query(0, ge=0),
     limit: int = Query(100, ge=1, le=1000),
@@ -47,17 +62,18 @@ async def list_contacts(
     brand_id: Optional[UUID] = None,
     sort_by: str = "last_name",
     sort_order: str = "asc",
-    current_user_id: UUID = Depends(get_current_user_id),
+    current_user: Dict = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
     """List all contacts with pagination and filtering."""
+    user_id = UUID(current_user["id"])
     import logging
     logger = logging.getLogger("sheetgpt.api")
     
     try:
         service = ContactsService(db)
         contacts, total = await service.list_contacts(
-            current_user_id, 
+            user_id, 
             skip=skip, 
             limit=limit,
             search=search,
@@ -66,52 +82,9 @@ async def list_contacts(
             sort_order=sort_order
         )
         
-        # Convert SQLAlchemy models to dictionaries manually
-        contacts_list = []
-        for contact in contacts:
-            contact_dict = {
-                "id": str(contact.id),
-                "user_id": str(contact.user_id),
-                "first_name": contact.first_name,
-                "last_name": contact.last_name,
-                "email": contact.email,
-                "linkedin_url": contact.linkedin_url,
-                "company": contact.company,
-                "position": contact.position,
-                "connected_on": contact.connected_on.isoformat() if contact.connected_on else None,
-                "notes": contact.notes,
-                "created_at": contact.created_at.isoformat() if contact.created_at else None,
-                "updated_at": contact.updated_at.isoformat() if contact.updated_at else None,
-                "brand_associations": []
-            }
-            
-            # Add brand associations
-            if hasattr(contact, 'brand_associations') and contact.brand_associations:
-                for assoc in contact.brand_associations:
-                    brand_data = {
-                        "id": str(assoc.id),
-                        "contact_id": str(assoc.contact_id),
-                        "brand_id": str(assoc.brand_id),
-                        "confidence_score": assoc.confidence_score,
-                        "association_type": assoc.association_type,
-                        "is_current": assoc.is_current,
-                        "is_primary": assoc.is_primary,
-                        "start_date": assoc.start_date.isoformat() if assoc.start_date else None,
-                        "end_date": assoc.end_date.isoformat() if assoc.end_date else None,
-                        "created_at": assoc.created_at.isoformat() if assoc.created_at else None,
-                        "updated_at": assoc.updated_at.isoformat() if assoc.updated_at else None
-                    }
-                    
-                    # Add brand name if available
-                    if hasattr(assoc, 'brand') and assoc.brand:
-                        brand_data["brand_name"] = assoc.brand.name
-                    
-                    contact_dict["brand_associations"].append(brand_data)
-            
-            contacts_list.append(contact_dict)
-        
+        # Remove manual conversion - Return data that matches the response_model
         return {
-            "items": contacts_list,
+            "items": contacts, # Pass the list of SQLAlchemy Contact objects directly
             "total": total,
             "skip": skip,
             "limit": limit
@@ -123,16 +96,17 @@ async def list_contacts(
 @router.get("/{contact_id}")
 async def get_contact(
     contact_id: UUID,
-    current_user_id: UUID = Depends(get_current_user_id),
+    current_user: Dict = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
     """Get a contact by ID with its brand associations."""
+    user_id = UUID(current_user["id"])
     import logging
     logger = logging.getLogger("sheetgpt.api")
     
     try:
         service = ContactsService(db)
-        contact = await service.get_contact(current_user_id, contact_id)
+        contact = await service.get_contact(user_id, contact_id)
         
         # Convert SQLAlchemy model to dictionary manually
         contact_dict = {
@@ -185,13 +159,14 @@ async def get_contact(
 async def update_contact(
     contact_id: UUID,
     request: ContactUpdate,
-    current_user_id: UUID = Depends(get_current_user_id),
+    current_user: Dict = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
     """Update a contact."""
+    user_id = UUID(current_user["id"])
     try:
         service = ContactsService(db)
-        contact = await service.update_contact(current_user_id, contact_id, request)
+        contact = await service.update_contact(user_id, contact_id, request)
         return contact
     except EntityNotFoundError as e:
         raise HTTPException(status_code=404, detail=str(e))
@@ -199,13 +174,14 @@ async def update_contact(
 @router.delete("/{contact_id}", response_model=Dict[str, bool])
 async def delete_contact(
     contact_id: UUID,
-    current_user_id: UUID = Depends(get_current_user_id),
+    current_user: Dict = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
     """Delete a contact."""
+    user_id = UUID(current_user["id"])
     try:
         service = ContactsService(db)
-        await service.delete_contact(current_user_id, contact_id)
+        await service.delete_contact(user_id, contact_id)
         return {"success": True}
     except EntityNotFoundError as e:
         raise HTTPException(status_code=404, detail=str(e))
@@ -218,10 +194,11 @@ async def associate_contact_with_brand(
     contact_id: UUID,
     brand_id: UUID,
     request: ContactBrandAssociationCreate,
-    current_user_id: UUID = Depends(get_current_user_id),
+    current_user: Dict = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
     """Associate a contact with a brand."""
+    user_id = UUID(current_user["id"])
     try:
         # Ensure IDs match between path and body
         if request.contact_id != contact_id or request.brand_id != brand_id:
@@ -232,7 +209,7 @@ async def associate_contact_with_brand(
             
         service = ContactsService(db)
         association = await service.associate_with_brand(
-            current_user_id,
+            user_id,
             contact_id,
             brand_id,
             confidence_score=request.confidence_score,
@@ -253,13 +230,14 @@ async def associate_contact_with_brand(
 async def remove_brand_association(
     contact_id: UUID,
     brand_id: UUID,
-    current_user_id: UUID = Depends(get_current_user_id),
+    current_user: Dict = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
     """Remove a brand association from a contact."""
+    user_id = UUID(current_user["id"])
     try:
         service = ContactsService(db)
-        await service.remove_brand_association(current_user_id, contact_id, brand_id)
+        await service.remove_brand_association(user_id, contact_id, brand_id)
         return {"success": True}
     except EntityNotFoundError as e:
         raise HTTPException(status_code=404, detail=str(e))
@@ -297,10 +275,11 @@ async def import_linkedin_csv(
     file: UploadFile = File(...),
     auto_match_brands: bool = Query(True),
     match_threshold: float = Query(0.6, ge=0.0, le=1.0),
-    current_user_id: UUID = Depends(get_current_user_id),
+    current_user: Dict = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
     """Import contacts from a LinkedIn CSV export file."""
+    user_id = UUID(current_user["id"])
     import logging
     logger = logging.getLogger("sheetgpt.api")
     
@@ -397,7 +376,7 @@ async def import_linkedin_csv(
         # Import contacts
         service = ContactsService(db)
         stats = await service.import_linkedin_csv(
-            current_user_id, 
+            user_id, 
             csv_data,
             auto_match_brands=auto_match_brands,
             match_threshold=match_threshold
@@ -413,10 +392,11 @@ async def import_linkedin_csv(
 @router.post("/import/data", response_model=ContactImportStats)
 async def import_linkedin_data(
     request: ContactImportRequest,
-    current_user_id: UUID = Depends(get_current_user_id),
+    current_user: Dict = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
     """Import contacts from structured data (alternative to CSV upload)."""
+    user_id = UUID(current_user["id"])
     try:
         # Convert the structured request data to a list of dictionaries
         csv_data = []
@@ -430,7 +410,7 @@ async def import_linkedin_data(
         # Import contacts
         service = ContactsService(db)
         stats = await service.import_linkedin_csv(
-            current_user_id, 
+            user_id, 
             csv_data,
             auto_match_brands=request.auto_match_brands,
             match_threshold=request.match_threshold
@@ -444,42 +424,42 @@ async def import_linkedin_data(
         )
 
 @router.post("/rematch-brands", response_model=Dict[str, Any])
-async def rematch_contacts_with_brands(
-    match_threshold: float = Query(0.6, ge=0.0, le=1.0),
-    current_user_id: UUID = Depends(get_current_user_id),
-    db: AsyncSession = Depends(get_db)
+async def rematch_contacts(
+    request_body: RematchRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: Dict = Depends(get_current_user)
 ):
-    """
-    Re-scan all existing contacts against brands to find new matches.
+    """Re-scan contacts and synchronize brand associations based on threshold."""
+    user_id_str = current_user.get("id")
+    if not user_id_str:
+        raise HTTPException(status_code=401, detail="Could not validate credentials")
+    user_id = UUID(user_id_str)
     
-    This is useful when new brands have been added to the system and
-    you want to check if existing contacts now match with these brands.
-    """
+    service = ContactsService(db) 
+    
+    # --- Add Logging --- 
+    print(f"Received rematch request for user {user_id} with threshold: {request_body.match_threshold}")
+    
     try:
-        service = ContactsService(db)
         stats = await service.rematch_contacts_with_brands(
-            current_user_id,
-            match_threshold=match_threshold
+            user_id=user_id, 
+            match_threshold=request_body.match_threshold # Pass threshold from request
         )
         
-        return {
-            "success": True,
-            "stats": stats
-        }
+        # --- Add Logging --- 
+        print(f"Rematch complete. Stats: {stats}")
+        
+        return {"success": True, "stats": stats}
     except Exception as e:
-        import logging
-        logger = logging.getLogger("sheetgpt.api")
-        logger.error(f"Error re-matching contacts with brands: {str(e)}", exc_info=True)
-        
-        raise HTTPException(
-            status_code=500,
-            detail=f"Error re-matching contacts with brands: {str(e)}"
-        )
+        # Log the exception
+        print(f"Error during contact rematch: {e}")
+        # Consider more specific error handling based on potential exceptions
+        raise HTTPException(status_code=500, detail=f"Failed to rematch contacts: {str(e)}")
 
 @router.get("/brands/{brand_id}/count", response_model=Dict[str, int])
 async def get_contacts_count_by_brand(
     brand_id: UUID,
-    current_user_id: UUID = Depends(get_current_user_id),
+    current_user: Dict = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
     """
@@ -488,9 +468,10 @@ async def get_contacts_count_by_brand(
     This is useful for displaying the number of contacts linked to a brand
     in the UI, such as for badge displays.
     """
+    user_id = UUID(current_user["id"])
     try:
         service = ContactsService(db)
-        count = await service.get_brand_contact_count(current_user_id, brand_id)
+        count = await service.get_brand_contact_count(user_id, brand_id)
         
         return {
             "count": count

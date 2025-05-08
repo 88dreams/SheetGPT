@@ -3,11 +3,18 @@ import { useApiClient } from '../../hooks/useApiClient';
 import { useNotification } from '../../contexts/NotificationContext';
 import { FaEnvelope, FaLinkedin, FaBuilding, FaBriefcase, FaCalendarAlt, FaStickyNote, FaEdit, FaTrash, FaSpinner, FaPen, FaCheck, FaTimes, FaPlus } from 'react-icons/fa';
 
+interface Brand {
+  id: string;
+  name: string;
+  industry: string;
+  representative_entity_type?: string;
+}
+
 interface ContactBrandAssociation {
   id: string;
   contact_id: string;
   brand_id: string;
-  brand_name?: string;
+  brand?: Brand;
   confidence_score: number;
   association_type: string;
   is_current: boolean;
@@ -28,13 +35,6 @@ interface Contact {
   connected_on?: string;
   notes?: string;
   brand_associations: ContactBrandAssociation[];
-}
-
-interface Brand {
-  id: string;
-  name: string;
-  industry: string;
-  representative_entity_type?: string;
 }
 
 interface ContactDetailProps {
@@ -511,7 +511,10 @@ const ContactDetail: React.FC<ContactDetailProps> = ({ contactId, onBack, onDele
                         }`}>
                           {association.is_primary && 'Primary'}
                         </span>
-                        <span className="ml-2">{association.brand_name}</span>
+                        <span className="ml-2">{association.brand?.name || 'Unknown Brand'}</span>
+                        {association.brand?.representative_entity_type && (
+                          <span className="ml-1 text-xs text-gray-500">({association.brand.representative_entity_type})</span>
+                        )}
                         <span className="ml-2 text-xs text-gray-500">
                           {Math.round(association.confidence_score * 100)}% confidence
                         </span>

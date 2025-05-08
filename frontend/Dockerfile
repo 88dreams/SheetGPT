@@ -1,5 +1,5 @@
 # Use Node.js 18 as specified in package.json engines field
-FROM node:18-alpine
+FROM node:18-bullseye
 
 # Set working directory
 WORKDIR /app

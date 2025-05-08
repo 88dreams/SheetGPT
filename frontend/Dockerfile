@@ -1,8 +1,8 @@
 # Use Node.js 18 as specified in package.json engines field
 FROM node:18-bullseye
 
-# Set working directory
-WORKDIR /app
+# Set working directory to match the mount point subdir
+WORKDIR /workspace/frontend
 
 # Yarn is likely pre-installed or installed in a base layer, remove explicit install
 # RUN npm install -g yarn

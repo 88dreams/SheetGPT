@@ -1,0 +1,8 @@
+# Ignore node_modules within the frontend directory for root Dockerfile context
+frontend/node_modules
+
+# Other common ignores
+.git
+.vscode
+__pycache__
+*.pyc 

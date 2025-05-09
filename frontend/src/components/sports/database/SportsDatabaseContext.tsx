@@ -5,7 +5,7 @@ import { useNotification } from '../../../contexts/NotificationContext';
 import { useDataFlow } from '../../../contexts/DataFlowContext';
 import { useAuth } from '../../../hooks/useAuth';
 import { sportsDatabaseService } from '../../../services';
-import { EntityType } from '../../../services/SportsDatabaseService';
+import { EntityType, BaseEntity } from '../../../services/SportsDatabaseService';
 import { FilterConfig } from '../EntityFilter';
 import { FaSort, FaSortUp, FaSortDown } from 'react-icons/fa';
 import { 
@@ -45,7 +45,7 @@ interface SportsDatabaseContextType {
   setSelectedEntityType: (type: EntityType) => void;
   
   // Entity data and loading state
-  entities: Record<string, unknown>[];
+  entities: BaseEntity[];
   isLoading: boolean;
   error: Error | null;
   refetch: () => void;
@@ -66,7 +66,7 @@ interface SportsDatabaseContextType {
   includeRelationships: boolean;
   setIncludeRelationships: (include: boolean) => void;
   isExporting: boolean;
-  handleExportToSheets: (allEntities: Record<string, unknown>[]) => Promise<void>;
+  handleExportToSheets: (allEntities: BaseEntity[]) => Promise<void>;
   
   // Delete functionality
   isDeleting: boolean;
@@ -79,7 +79,7 @@ interface SportsDatabaseContextType {
   sortField: string;
   sortDirection: 'asc' | 'desc' | 'none';
   handleSort: (field: string) => void;
-  getSortedEntities: (entities?: Record<string, unknown>[]) => Record<string, unknown>[];
+  getSortedEntities: (entities?: BaseEntity[]) => BaseEntity[];
   renderSortIcon: (field: string) => JSX.Element;
   
   // Filtering
@@ -297,10 +297,8 @@ export const SportsDatabaseProvider: React.FC<SportsDatabaseProviderProps> = ({ 
     isLoading,
     error,
     refetch
-  } = useQuery(queryKey, async () => {
-    // Add a unique request ID for tracing
+  } = useQuery<BaseEntity[], Error>(queryKey, async () => {
     const requestId = Math.random().toString(36).substring(2, 9);
-    
     try {
       console.log(`[${requestId}] Fetching ${selectedEntityType} entities, page ${currentPage}, size ${pageSize}, cacheBuster: ${new Date().toISOString()}`);
       
@@ -310,6 +308,7 @@ export const SportsDatabaseProvider: React.FC<SportsDatabaseProviderProps> = ({ 
       // Ensure we always send valid sort parameters to the API
       // Default to id sorting if no field is selected, and use asc if direction is none
       const effectiveSortField = sortField || 'id'; 
+      // @ts-expect-error TS2367 The type of sortDirection can be 'none', so this comparison is intentional.
       const effectiveSortDirection = sortDirection === 'none' ? 'asc' : sortDirection;
       
       console.log(`Effective sort parameters: field=${effectiveSortField}, direction=${effectiveSortDirection}`);
@@ -438,7 +437,7 @@ export const SportsDatabaseProvider: React.FC<SportsDatabaseProviderProps> = ({ 
     sortField,
     sortDirection,
     handleSort,
-    getSortedEntities: (entitiesToSort) => getSortedEntities(entitiesToSort || entities),
+    getSortedEntities: (entitiesToSort) => getSortedEntities(entitiesToSort || entities) as BaseEntity[],
     renderSortIcon,
     activeFilters,
     handleApplyFilters,

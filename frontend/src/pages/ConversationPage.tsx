@@ -44,14 +44,16 @@ const ConversationPage: React.FC = () => {
           </div>
         ) : (
           <div className="space-y-4">
-            {conversation?.messages.map((message, index) => (
-              <MessageItem 
-                key={message.id} 
-                message={message} 
-                isLast={index === conversation.messages.length - 1}
-                conversationTitle={conversation.title}
-              />
-            ))}
+            {conversation?.messages.map((message, index) => {
+              const isLast = index === conversation.messages.length - 1;
+              return (
+                <MessageItem 
+                  key={message.id} 
+                  message={message} 
+                  isLastMessage={isLast}
+                />
+              );
+            })}
           </div>
         )}
       </div>

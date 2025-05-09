@@ -10,6 +10,7 @@ interface QueryData {
   natural_language: boolean;
   export_format?: string;
   sheet_title?: string;
+  queryName?: string;
 }
 
 // Define the expected success response structure (adjust based on actual API)
@@ -42,10 +43,10 @@ const fallbackDownload = (blob: Blob, filename: string) => {
   downloadLink.click();
   document.body.removeChild(downloadLink);
   URL.revokeObjectURL(url);
-  // Note: Notification moved to calling component
+  // Note: Notification for fallback success will be handled in onSuccess now
 };
 
-export const useQueryExecution = (queryName: string): UseQueryExecutionReturn => {
+export const useQueryExecution = (initialQueryName?: string): UseQueryExecutionReturn => {
   const { showNotification } = useNotification();
   const queryClient = useQueryClient(); // Needed for potential cache invalidation if required
 
@@ -66,19 +67,19 @@ export const useQueryExecution = (queryName: string): UseQueryExecutionReturn =>
       },
       // onSuccess and onError are now primarily handled by the component watching mutation state
       // We can still log or do minimal side effects here if needed.
-      onSuccess: (data) => {
-        console.log('Query mutation succeeded:', data);
-        // Trigger CSV download directly if applicable (moved from component)
-        if (data.export?.format === 'csv' && data.export.data) {
+      onSuccess: (data, variables) => {
+        console.log('Query mutation succeeded:', data, 'Variables:', variables);
+        // Trigger CSV download directly if this mutation was for CSV export
+        if (variables.export_format === 'csv' && data.export?.format === 'csv' && data.export.data) {
           try {
             const blob = new Blob([data.export.data], { type: 'text/csv;charset=utf-8;' });
-            const filename = queryName ? 
-              `${queryName.replace(/[^a-zA-Z0-9]/g, '_')}.csv` : 
-              'query_results.csv';
+            // Use queryName from variables if provided, else default
+            const filename = variables.queryName || initialQueryName || 'query_results';
+            const fullFilename = `${filename.replace(/[^a-zA-Z0-9]/g, '_')}.csv`;
 
             if ('showSaveFilePicker' in window) {
               window.showSaveFilePicker({
-                suggestedName: filename,
+                suggestedName: fullFilename,
                 types: [{
                   description: 'CSV Files',
                   accept: { 'text/csv': ['.csv'] }
@@ -91,13 +92,13 @@ export const useQueryExecution = (queryName: string): UseQueryExecutionReturn =>
               }).catch(err => {
                 if ((err as Error).name !== 'AbortError') {
                   console.error('Error using File System Access API, falling back:', err);
-                  fallbackDownload(blob, filename);
-                  showNotification('success', 'CSV downloaded successfully (fallback method).'); // Show success on fallback too
+                  fallbackDownload(blob, fullFilename);
+                  showNotification('success', 'CSV downloaded successfully (fallback method).');
                 }
               });
             } else {
-              fallbackDownload(blob, filename);
-              showNotification('success', 'CSV downloaded successfully (fallback method).'); // Show success on fallback too
+              fallbackDownload(blob, fullFilename);
+              showNotification('success', 'CSV downloaded successfully (fallback method).');
             }
           } catch (error) {
             console.error('Error processing CSV data for download:', error);
@@ -107,7 +108,7 @@ export const useQueryExecution = (queryName: string): UseQueryExecutionReturn =>
       },
       onError: (error: Error) => {
         console.error('Query mutation failed:', error);
-        // Error notifications moved to component watching mutation.error
+        // Component will handle UI notifications based on mutation.error
       },
       // onSettled: () => {
         // No longer needed as isLoading comes from mutation state

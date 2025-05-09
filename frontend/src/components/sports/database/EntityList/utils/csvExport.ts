@@ -99,20 +99,25 @@ export async function saveCsvFile(
       if ((err as Error).name !== 'AbortError') {
         console.error('Error using File System Access API:', err);
         // Fall back to legacy download method
-        return fallbackDownload(blob, fileName);
+        return fallbackDownload(blob, fileName, onSuccess, onError);
       }
       return false; // User canceled
     }
   } else {
     // Fall back to legacy download method for browsers without File System Access API
-    return fallbackDownload(blob, fileName);
+    return fallbackDownload(blob, fileName, onSuccess, onError);
   }
 }
 
 /**
  * Legacy download method as fallback
  */
-function fallbackDownload(blob: Blob, fileName: string): boolean {
+function fallbackDownload(
+  blob: Blob, 
+  fileName: string,
+  onSuccess?: () => void,
+  onError?: (error: Error) => void
+): boolean {
   try {
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');

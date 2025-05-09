@@ -79,10 +79,9 @@ const ContactsPage: React.FC = () => {
   };
 
   return (
-    <PageContainer>
+    <PageContainer title="Contacts Management">
       <PageHeader 
         title="Contacts" 
-        icon={<FaAddressBook className="mr-2" />}
         actions={
           <div className="flex">
             <button

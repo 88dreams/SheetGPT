@@ -98,7 +98,7 @@ export const exportService = {
       timeout: 30000 // 30 seconds
     };
     
-    return request('/export/csv', options).catch(error => {
+    return request<{ csvData: string }>('/export/csv', options).catch(error => {
       console.log('Export to CSV error:', error);
       if (error.message?.includes('timeout')) {
         throw new APIError(

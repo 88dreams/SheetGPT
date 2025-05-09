@@ -1,7 +1,5 @@
 import React, { useEffect, useMemo, useCallback } from 'react';
 import { useDrag, useDrop, DragSourceMonitor, DropTargetMonitor } from 'react-dnd';
-import { withRowMemo } from '../../../../utils/memoization';
-import { createMemoEqualityFn } from '../../../../utils/fingerprint';
 
 export interface FieldItemProps {
   field: string;
@@ -189,5 +187,5 @@ const FieldItem: React.FC<FieldItemProps> = ({
   );
 };
 
-// Export component with memoization disabled for source fields
-export default withRowMemo<FieldItemProps>(FieldItem, fieldItemPropsAreEqual);
+// Export component with React.memo and the custom equality function
+export default React.memo<FieldItemProps>(FieldItem, fieldItemPropsAreEqual);

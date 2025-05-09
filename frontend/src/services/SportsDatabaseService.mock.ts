@@ -1,4 +1,5 @@
-import { EntityType, FilterConfig } from '../components/sports/EntityFilter';
+import { FilterConfig } from '../components/sports/EntityFilter';
+import { EntityType } from './SportsDatabaseService';
 
 // Create mock data
 const mockLeagues = [

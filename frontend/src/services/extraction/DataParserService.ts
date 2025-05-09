@@ -4,11 +4,17 @@
 import { DataExtractionError } from '../../utils/errors';
 import { DataDetectionService } from './DataDetectionService';
 
+export interface ParseResult {
+  data: any;
+  type: 'json' | 'csv' | 'unknown';
+}
+
 export interface ParsedData {
   headers?: string[];
-  rows?: any[][];
-  columns?: any[];
+  rows?: any[][] | Record<string, any>[];
+  rawData?: any;
   meta_data?: Record<string, any>;
+  columns?: any[];
   [key: string]: any;
 }
 

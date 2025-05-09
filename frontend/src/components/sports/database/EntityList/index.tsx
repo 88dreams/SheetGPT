@@ -3,6 +3,7 @@ import { fingerprint } from '../../../../utils/fingerprint';
 import { useNavigate } from 'react-router-dom';
 import { Modal } from 'antd';
 import { useSportsDatabase } from '../SportsDatabaseContext';
+import { FilterConfig } from '../../EntityFilter';
 import LoadingSpinner from '../../../common/LoadingSpinner';
 import BulkEditModal from '../../../common/BulkEditModal';
 import { EntityCard } from '../../../data/EntityUpdate/EntityCard';
@@ -232,7 +233,7 @@ const EntityList: React.FC<EntityListProps> = ({ className = '' }) => {
     if (query.length >= 3) {
       // Create a search filter to send to the backend
       // This will search all records, not just the current page
-      const searchFilters = [
+      const searchFilters: FilterConfig[] = [
         {
           field: 'name',
           operator: 'contains',

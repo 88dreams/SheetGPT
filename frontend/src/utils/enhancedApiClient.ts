@@ -9,8 +9,8 @@
  */
 
 import axios, { AxiosInstance, AxiosRequestConfig, AxiosResponse } from 'axios';
-import { createCachedApiClient } from './apiCache';
-import { APIError, NetworkError } from './errors';
+import { createCachedApiClient, CachedApiClient } from './apiCache';
+import { ApiError, NetworkError } from './errors';
 
 // Default base URL (overridable)
 const DEFAULT_BASE_URL = '/api/v1';
@@ -130,14 +130,14 @@ export function createEnhancedApiClient(options: EnhancedApiClientOptions = {}) 
         // Format and reject with appropriate error types
         if (!error.response) {
           // Network error
-          return Promise.reject(new NetworkError(
-            error.message || 'Network error',
-            error.code || 'NETWORK_ERROR',
-            error
-          ));
+          // Construct a more informative message if error.code is present
+          const networkErrorMessage = error.code 
+            ? `${error.message || 'Network error'} (Code: ${error.code})` 
+            : error.message || 'Network error';
+          return Promise.reject(new NetworkError(networkErrorMessage));
         } else {
           // API error with response
-          return Promise.reject(new APIError(
+          return Promise.reject(new ApiError(
             error.response.data?.message || error.message || 'API error',
             error.response.status,
             error.response.data?.details || {},
@@ -149,7 +149,7 @@ export function createEnhancedApiClient(options: EnhancedApiClientOptions = {}) 
   }
   
   // Apply caching and deduplication if enabled
-  let enhancedClient: any = { client: axiosInstance };
+  let enhancedClient: CachedApiClient | { client: AxiosInstance; clearCache: () => void; getCacheStats: () => {}; prefetch: () => Promise<void> };
   
   if (enableCaching || enableDeduplication) {
     enhancedClient = createCachedApiClient(
@@ -172,6 +172,14 @@ export function createEnhancedApiClient(options: EnhancedApiClientOptions = {}) 
         }
       } : undefined
     );
+  } else {
+    // Provide a default structure if caching/dedupe is off
+    enhancedClient = {
+      client: axiosInstance,
+      clearCache: () => console.warn('Caching not enabled, clearCache does nothing.'),
+      getCacheStats: () => ({ hits: 0, misses: 0, size: 0, keys: [] }),
+      prefetch: async () => console.warn('Caching not enabled, prefetch does nothing.')
+    };
   }
   
   // Create the final API client interface

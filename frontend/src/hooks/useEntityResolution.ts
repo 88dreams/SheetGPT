@@ -29,6 +29,11 @@ interface BatchResolutionResult {
   isLoading: boolean;
 }
 
+// Define the explicit return type for the hook
+interface UseBatchEntityResolutionReturn extends BatchResolutionResult {
+  resolveReferences: () => Promise<void>;
+}
+
 /**
  * Hook for resolving an entity using the entity resolver
  */
@@ -119,7 +124,7 @@ export function useEntityResolution<T = any>(
 export function useBatchEntityResolution(
   references: Record<string, { name: string; type?: string; context?: Record<string, any> }>,
   throwOnAnyError: boolean = false
-): BatchResolutionResult {
+): UseBatchEntityResolutionReturn {
   const [result, setResult] = useState<BatchResolutionResult>({
     resolved: {},
     errors: {},
@@ -177,7 +182,7 @@ export function useBatchEntityResolution(
   
   return {
     ...result,
-    resolveReferences // Expose function to manually trigger resolution
+    resolveReferences // This is now a valid property of UseBatchEntityResolutionReturn
   };
 }
 

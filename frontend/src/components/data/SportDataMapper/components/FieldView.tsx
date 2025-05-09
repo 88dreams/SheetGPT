@@ -97,7 +97,7 @@ const FieldView: React.FC<FieldViewProps> = ({
                     return (
                       <span 
                         key={entityId}
-                        className={`px-2 py-0.5 rounded-full text-xs ${getEntityTypeColorClass(entityId)} bg-opacity-10`}
+                        className={`px-2 py-0.5 rounded-full text-xs ${getEntityTypeColorClass(entityType?.id as EntityType)} bg-opacity-10`}
                       >
                         {entityType?.name || entityId}
                       </span>
@@ -152,7 +152,7 @@ const FieldView: React.FC<FieldViewProps> = ({
                         </svg>
                       </div>
                       <div className="flex-1">
-                        <div className={`font-medium text-sm ${getEntityTypeColorClass(entityTypeId)}`}>
+                        <div className={`font-medium text-sm ${getEntityTypeColorClass(entityType?.id as EntityType)}`}>
                           {entityType?.name || entityTypeId}
                         </div>
                         <div className="text-xs text-gray-500">Entity Type</div>

@@ -1,6 +1,7 @@
 import { apiCache } from './apiCache';
 import sportsService from '../services/sportsService';
 import { EntityType } from '../services/SportsDatabaseService';
+import { FilterConfig } from '../components/sports/EntityFilter';
 
 /**
  * Interface for relationship definition
@@ -347,7 +348,7 @@ export class RelationshipLoader {
     }
     
     // Create the filter
-    const filters = [{
+    const filters: FilterConfig[] = [{
       field,
       operator: 'eq',
       value
@@ -357,7 +358,8 @@ export class RelationshipLoader {
     console.log(`RelationshipLoader: Fetching ${entityType} with ${field}=${value}`);
     const fetchPromise = sportsService.getEntities(entityType, filters)
       .then(response => {
-        const items = response.items || [];
+        // Explicitly type response or ensure sportsService.getEntities has correct return type propagation
+        const items = (response as { items?: any[] }).items || [];
         
         // Store in cache
         if (useCaching) {
@@ -487,10 +489,14 @@ export class RelationshipLoader {
     const entityTypes = COMMON_ENTITY_SETS[setName];
     if (!entityTypes) {
       console.error(`RelationshipLoader: Unknown entity set "${setName}"`);
-      return {};
+      const allPossibleEntityTypes: EntityType[] = ['league', 'division_conference', 'team', 'player', 'game', 'stadium', 'broadcast', 'production', 'brand', 'game_broadcast', 'league_executive'];
+      return Object.fromEntries(allPossibleEntityTypes.map(et => [et, []])) as Record<EntityType, any[]>;
     }
     
-    const results: Record<EntityType, any[]> = {} as Record<EntityType, any[]>;
+    // Initialize results with all keys from the entityTypes set to empty arrays
+    const results = Object.fromEntries(
+      entityTypes.map(et => [et, []])
+    ) as Record<EntityType, any[]>;
     
     // Fetch all entity types in parallel
     await Promise.all(
@@ -509,7 +515,8 @@ export class RelationshipLoader {
           
           // Fetch the entities
           const response = await sportsService.getEntities(entityType, [], 1, limit);
-          const items = response.items || [];
+          // Explicitly type response or ensure sportsService.getEntities has correct return type propagation
+          const items = (response as { items?: any[] }).items || [];
           
           // Cache the result
           if (useCaching) {

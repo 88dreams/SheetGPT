@@ -19,6 +19,8 @@ import {
 import BulkEditModal from '../components/common/BulkEditModal';
 import QueryResultsTable from '../components/query/QueryResultsTable';
 import { useRowSelection } from '../hooks/useRowSelection';
+import { useQueryExecution } from '../hooks/useQueryExecution';
+import { useSavedQueries, SavedQuery } from '../hooks/useSavedQueries';
 
 const DatabaseQuery: React.FC = () => {
   usePageTitle('Database Query');
@@ -36,7 +38,9 @@ const DatabaseQuery: React.FC = () => {
     isNaturalLanguage,
     setIsNaturalLanguage,
     validationError,
+    setValidationError,
     suggestedSql,
+    setSuggestedSql,
     isTranslating,
     handleTranslateQuery,
     clearNaturalLanguageQuery,
@@ -44,9 +48,22 @@ const DatabaseQuery: React.FC = () => {
     applySuggestedFix
   } = useQueryInput();
   
-  const [isExecuting, setIsExecuting] = useState<boolean>(false);
+  const { mutation: queryMutationFromHook } = useQueryExecution(queryName);
+  
   const [queryResults, setQueryResults] = useState<any[]>([]);
   const [exportFormat, setExportFormat] = useState<string | null>(null);
+  
+  const fallbackDownload = (blob: Blob, filename: string) => {
+    const url = URL.createObjectURL(blob);
+    const downloadLink = document.createElement('a');
+    downloadLink.href = url;
+    downloadLink.setAttribute('download', filename);
+    document.body.appendChild(downloadLink);
+    downloadLink.click();
+    document.body.removeChild(downloadLink);
+    URL.revokeObjectURL(url);
+    showNotification('success', 'CSV downloaded successfully (fallback method).');
+  };
   
   const columnNamesHash = useMemo(() => {
       if (queryResults.length === 0) return 'no_results';
@@ -75,7 +92,7 @@ const DatabaseQuery: React.FC = () => {
 
   const [isBulkEditModalVisible, setIsBulkEditModalVisible] = useState<boolean>(false);
   
-  const [savedQueries, setSavedQueries] = useState<any[]>([]);
+  const { savedQueries, addSavedQuery, deleteSavedQuery } = useSavedQueries();
   
   const [showSheetsDialog, setShowSheetsDialog] = useState<boolean>(false);
   const [sheetsTitle, setSheetsTitle] = useState<string>('');
@@ -87,174 +104,7 @@ const DatabaseQuery: React.FC = () => {
   
   React.useEffect(() => {
     setDestination('sportsdb');
-    
-    try {
-      const queries = JSON.parse(localStorage.getItem('savedQueries') || '[]');
-      setSavedQueries(queries);
-    } catch (error) {
-      console.error('Error loading saved queries:', error);
-      setSavedQueries([]);
-    }
-    
-    try {
-      const resultsJson = sessionStorage.getItem('queryResults');
-      if (resultsJson) {
-        const results = JSON.parse(resultsJson);
-        if (Array.isArray(results) && results.length > 0) {
-          setQueryResults(results);
-        }
-      }
-    } catch (error) {
-      console.error('Error loading session state:', error);
-    }
   }, [setDestination]);
-
-  const [localValidationError, setLocalValidationError] = useState<string | null>(null);
-  const [localSuggestedSql, setLocalSuggestedSql] = useState<string | null>(null);
-  
-  // --- START: Added Fallback Download Function ---
-  const fallbackDownload = (blob: Blob, filename: string) => {
-    const url = URL.createObjectURL(blob);
-    const downloadLink = document.createElement('a');
-    downloadLink.href = url;
-    downloadLink.setAttribute('download', filename);
-    document.body.appendChild(downloadLink);
-    downloadLink.click();
-    document.body.removeChild(downloadLink);
-    URL.revokeObjectURL(url);
-    showNotification('success', 'CSV downloaded successfully (fallback method).');
-  };
-  // --- END: Added Fallback Download Function ---
-
-  const queryMutation = useMutation({
-    mutationFn: async (queryData: {
-      query: string;
-      natural_language: boolean;
-      export_format?: string;
-      sheet_title?: string;
-    }) => {
-      const token = getToken();
-      
-      const response = await apiClient.post('/db-management/query', queryData, {
-        headers: {
-          Authorization: `Bearer ${token}`
-        }
-      });
-      return response.data;
-    },
-    onSuccess: (data) => {
-      if (data.success === false && data.validation_error) {
-        console.log('SQL validation failed', data);
-        
-        setLocalValidationError(data.validation_error);
-        setLocalSuggestedSql(data.suggested_sql || null);
-        
-        if (data.suggested_sql) {
-          showNotification('warning', 'SQL validation issues found. Apply the suggested fix or edit the SQL.');
-        } else {
-          showNotification('warning', 'SQL validation detected issues but couldn\'t generate a fix');
-        }
-      } else {
-        setLocalValidationError(null);
-        setLocalSuggestedSql(null);
-        
-        console.log('Query executed successfully', data);
-        setQueryResults(data.results || []);
-        
-        if (data.generated_sql) {
-          setGeneratedSql(data.generated_sql);
-        }
-        
-        if (data.export) {
-          if (data.export.format === 'csv') {
-            console.log("Received CSV data for export:", data.export.data?.substring(0, 100) + "...");
-            // --- START: Added CSV Download Logic ---
-            if (data.export.data) {
-              try {
-                const blob = new Blob([data.export.data], { type: 'text/csv;charset=utf-8;' });
-                const filename = queryName ? 
-                  `${queryName.replace(/[^a-zA-Z0-9]/g, '_')}.csv` : 
-                  'query_results.csv';
-
-                // Use File System Access API if available
-                if ('showSaveFilePicker' in window) {
-                  window.showSaveFilePicker({
-                    suggestedName: filename,
-                    types: [{
-                      description: 'CSV Files',
-                      accept: { 'text/csv': ['.csv'] }
-                    }]
-                  }).then(async (fileHandle) => {
-                    const writable = await fileHandle.createWritable();
-                    await writable.write(blob);
-                    await writable.close();
-                    showNotification('success', 'CSV file saved successfully');
-                  }).catch(err => {
-                    if ((err as Error).name !== 'AbortError') {
-                      console.error('Error using File System Access API, falling back:', err);
-                      fallbackDownload(blob, filename);
-                    }
-                  });
-                } else {
-                  // Fallback download method
-                  fallbackDownload(blob, filename);
-                }
-              } catch (error) {
-                console.error('Error processing CSV data for download:', error);
-                showNotification('error', 'Failed to process CSV data for download.');
-              }
-            } else {
-               showNotification('warning', 'CSV export requested, but no CSV data received from backend.');
-            }
-            // --- END: Added CSV Download Logic ---
-          } else if (data.export.format === 'sheets') {
-            if (data.export.error) {
-              showNotification('error', data.export.error);
-            } else if (data.export.url) {
-              window.open(data.export.url, '_blank');
-            }
-          }
-        }
-      }
-    },
-    onError: (error: unknown) => {
-      console.error('Error executing query:', error);
-      
-      let errorMessage = 'Unknown error';
-      if (error instanceof Error) {
-        errorMessage = error.message;
-      }
-
-      if (typeof error === 'object' && error !== null && 'response' in error && 
-          typeof (error as any).response === 'object' && (error as any).response !== null && 'status' in (error as any).response) {
-        const axiosError = error as { response: { status: number; data?: { detail?: string; message?: string } } };
-        if (axiosError.response.status === 401) {
-          showNotification('error', 'Authentication error: Please log in again.');
-        } else {
-          const apiErrorMessage = axiosError.response?.data?.detail || axiosError.response?.data?.message || errorMessage;
-          showNotification('error', `Error executing query: ${apiErrorMessage}`);
-        }
-      } else {
-        showNotification('error', `Error executing query: ${errorMessage}`);
-      }
-      
-      setGeneratedSql(null);
-    },
-    onSettled: () => {
-      setIsExecuting(false);
-      setExportFormat(null);
-    }
-  });
-
-  useEffect(() => {
-    if (queryResults && queryResults.length > 0) {
-      try {
-        sessionStorage.setItem('queryResults', JSON.stringify(queryResults));
-      } catch (error) {
-        console.error('Error saving query results:', error);
-      }
-    }
-  }, [queryResults]);
   
   useEffect(() => {
     const loadTemplatesAndAuthStatus = async () => {
@@ -386,8 +236,69 @@ const DatabaseQuery: React.FC = () => {
     showNotification('success', 'Bulk edit completed successfully');
   };
   
+  useEffect(() => {
+    if (queryMutationFromHook.data) {
+      const data = queryMutationFromHook.data;
+      if (data.success === false && data.validation_error) {
+        console.log('SQL validation failed', data);
+        setValidationError(data.validation_error);
+        setSuggestedSql(data.suggested_sql || null);
+        if (data.suggested_sql) {
+          showNotification('warning', 'SQL validation issues found. Apply the suggested fix or edit the SQL.');
+        } else {
+          showNotification('warning', 'SQL validation detected issues but couldn\'t generate a fix');
+        }
+      } else {
+        setValidationError(null);
+        setSuggestedSql(null);
+        console.log('Query executed successfully', data);
+        setQueryResults(data.results || []);
+        if (data.generated_sql) {
+          setGeneratedSql(data.generated_sql);
+        }
+        if (data.export?.format === 'sheets') {
+          if (data.export.error) {
+            showNotification('error', data.export.error);
+          } else if (data.export.url) {
+            window.open(data.export.url, '_blank');
+          }
+        }
+      }
+    }
+  }, [queryMutationFromHook.data, setValidationError, setSuggestedSql, showNotification, setGeneratedSql]);
+  
+  useEffect(() => {
+    if (queryMutationFromHook.error) {
+      const error = queryMutationFromHook.error;
+      console.error('Error executing query via hook:', error);
+      let errorMessage = 'Unknown error';
+      if (error instanceof Error) {
+        errorMessage = error.message;
+      }
+      if (typeof error === 'object' && error !== null && 'response' in error && 
+          typeof (error as any).response === 'object' && (error as any).response !== null && 'status' in (error as any).response) {
+        const axiosError = error as { response: { status: number; data?: { detail?: string; message?: string } } };
+        if (axiosError.response.status === 401) {
+          showNotification('error', 'Authentication error: Please log in again.');
+        } else {
+          const apiErrorMessage = axiosError.response?.data?.detail || axiosError.response?.data?.message || errorMessage;
+          showNotification('error', `Error executing query: ${apiErrorMessage}`);
+        }
+      } else {
+        showNotification('error', `Error executing query: ${errorMessage}`);
+      }
+      setGeneratedSql(null);
+    }
+  }, [queryMutationFromHook.error, showNotification, setGeneratedSql]);
+  
+  useEffect(() => {
+    if (queryMutationFromHook.isSuccess || queryMutationFromHook.isError) {
+      setExportFormat(null);
+    }
+  }, [queryMutationFromHook.isSuccess, queryMutationFromHook.isError]);
+  
   const executeQuery = async () => {
-    const queryText = !isNaturalLanguage ? naturalLanguageQuery : naturalLanguageQuery;
+    const queryText = !isNaturalLanguage && generatedSql ? generatedSql : naturalLanguageQuery;
     
     if (!queryText.trim() || isTranslating) return;
     
@@ -397,50 +308,32 @@ const DatabaseQuery: React.FC = () => {
       return;
     }
     
-    setIsExecuting(true);
-    
-    const queryData = {
+    const queryDataToSubmit = {
       query: queryText,
-      natural_language: isNaturalLanguage,
+      natural_language: isNaturalLanguage || !generatedSql,
+      export_format: exportFormat || undefined,
+      sheet_title: (exportFormat === 'sheets' && sheetsTitle) ? sheetsTitle : undefined,
+      queryName: queryName || undefined
     };
     
-    if (exportFormat) {
-      Object.assign(queryData, { 
-        export_format: exportFormat,
-        sheet_title: queryName || 'Query Results'
-      });
-    }
-    
-    const token = getToken();
-    
     try {
-      queryMutation.mutate(queryData, {
-        onError: (error) => {
-          console.error('Query execution error:', error);
-          showNotification('error', 'Error executing query. Please check your authentication.');
-        }
-      });
+      queryMutationFromHook.mutate(queryDataToSubmit);
     } catch (error) {
-      console.error('Error in executeQuery:', error);
-      setIsExecuting(false);
+      console.error('Error in executeQuery calling mutate:', error);
+      showNotification('error', 'An unexpected error occurred while trying to execute the query.');
     }
   };
 
   const saveQuery = () => {
     if (!naturalLanguageQuery.trim() || !queryName.trim()) return;
     
-    const updatedQueries = JSON.parse(localStorage.getItem('savedQueries') || '[]');
-    const newQuery = {
-      id: Date.now(),
+    const newQueryData = {
       name: queryName,
       query: naturalLanguageQuery,
       sql: generatedSql || '',
       isNaturalLanguage: true,
-      timestamp: new Date().toISOString()
     };
-    updatedQueries.push(newQuery);
-    localStorage.setItem('savedQueries', JSON.stringify(updatedQueries));
-    setSavedQueries(updatedQueries);
+    addSavedQuery(newQueryData);
     alert(`Query "${queryName}" has been saved`);
   };
   
@@ -507,7 +400,7 @@ const DatabaseQuery: React.FC = () => {
     
     try {
       if (format === 'csv') {
-        setIsExecuting(true);
+        setIsExporting(true);
       } else if (format === 'sheets') {
         setShowSheetsDialog(true);
         return;
@@ -563,7 +456,7 @@ const DatabaseQuery: React.FC = () => {
       console.error(`Error exporting to ${format}:`, error);
       alert(`Failed to export to ${format}. Please try again.`);
     } finally {
-      setIsExecuting(false);
+      setIsExporting(false);
     }
   };
 
@@ -580,7 +473,7 @@ const DatabaseQuery: React.FC = () => {
       <div className="relative group">
         <button
           className="px-3 py-1 text-sm border border-gray-300 rounded hover:bg-gray-100 flex items-center"
-          disabled={!naturalLanguageQuery.trim() || isExecuting}
+          disabled={!naturalLanguageQuery.trim() || queryMutationFromHook.isLoading}
         >
           <FaFileExport className="mr-2" /> Export
         </button>
@@ -588,14 +481,14 @@ const DatabaseQuery: React.FC = () => {
           <button
             className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 w-full text-left"
             onClick={() => queryResults.length > 0 ? exportExistingResults('csv') : exportResults('csv')}
-            disabled={isExecuting || isTranslating}
+            disabled={queryMutationFromHook.isLoading || isTranslating}
           >
             <FaFileAlt className="inline mr-2" /> Export as CSV
           </button>
           <button
             className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 w-full text-left"
             onClick={() => queryResults.length > 0 ? exportExistingResults('sheets') : exportResults('sheets')}
-            disabled={isExecuting || isTranslating}
+            disabled={queryMutationFromHook.isLoading || isTranslating}
           >
             <FaTable className="inline mr-2" /> Export to Google Sheets
           </button>
@@ -779,7 +672,7 @@ const DatabaseQuery: React.FC = () => {
                         SQL Query
                       </label>
                       <div>
-                        {localSuggestedSql && (
+                        {suggestedSql && (
                           <button 
                             onClick={applySuggestedFix}
                             className="bg-green-600 text-white px-2 py-1 rounded text-xs mr-2"
@@ -801,15 +694,15 @@ const DatabaseQuery: React.FC = () => {
                       value={generatedSql || ''}
                       onChange={(e) => setGeneratedSql(e.target.value)}
                       className={`w-full px-3 py-2 border rounded-md font-mono h-48 ${
-                        localValidationError ? 'border-red-300 bg-red-50' : 'border-gray-300'
+                        validationError ? 'border-red-300 bg-red-50' : 'border-gray-300'
                       }`}
                       placeholder="Enter SQL directly or use the Translate button to generate SQL from your question"
                     />
                     
-                    {localValidationError && (
+                    {validationError && (
                       <div className="mt-2 p-3 border border-red-300 bg-red-50 rounded text-sm">
                         <div className="font-semibold mb-2">SQL Validation Issues:</div>
-                        <pre className="whitespace-pre-wrap text-xs">{localValidationError}</pre>
+                        <pre className="whitespace-pre-wrap text-xs">{validationError}</pre>
                       </div>
                     )}
                   </div>
@@ -819,9 +712,9 @@ const DatabaseQuery: React.FC = () => {
               <div className="mt-4 flex justify-end space-x-3">
                 <button
                   onClick={handleTranslateQuery}
-                  disabled={!naturalLanguageQuery.trim() || isTranslating || isExecuting}
+                  disabled={!naturalLanguageQuery.trim() || isTranslating || queryMutationFromHook.isLoading}
                   className={`px-3 py-1 text-sm rounded flex items-center ${
-                    !naturalLanguageQuery.trim() || isTranslating || isExecuting
+                    !naturalLanguageQuery.trim() || isTranslating || queryMutationFromHook.isLoading
                       ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
                       : 'bg-gray-600 text-white hover:bg-gray-700'
                   }`}
@@ -830,24 +723,16 @@ const DatabaseQuery: React.FC = () => {
                   {isTranslating ? 'Translating...' : 'Translate'}
                 </button>
                 <button
-                  onClick={async () => {
-                    if (generatedSql && generatedSql.trim()) {
-                      setIsNaturalLanguage(false);
-                      queryMutation.mutate({ query: generatedSql, natural_language: false, /* +export */ });
-                    } else {
-                      setIsNaturalLanguage(true);
-                      queryMutation.mutate({ query: naturalLanguageQuery, natural_language: true, /* +export */ });
-                    }
-                  }}
-                  disabled={(!naturalLanguageQuery.trim() && !generatedSql?.trim()) || isExecuting || isTranslating}
+                  onClick={executeQuery}
+                  disabled={(!naturalLanguageQuery.trim() && !generatedSql?.trim()) || queryMutationFromHook.isLoading || isTranslating}
                   className={`px-3 py-1 text-sm rounded flex items-center ${
-                    (!naturalLanguageQuery.trim() && !generatedSql?.trim()) || isExecuting || isTranslating
+                    (!naturalLanguageQuery.trim() && !generatedSql?.trim()) || queryMutationFromHook.isLoading || isTranslating
                       ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
                       : 'bg-blue-600 text-white hover:bg-blue-700'
                   }`}
                 >
-                  {isExecuting ? <LoadingSpinner size="small" /> : <FaPlay className="mr-2" />}
-                  {isExecuting ? 'Executing...' : 'Execute Query'}
+                  {queryMutationFromHook.isLoading ? <LoadingSpinner size="small" /> : <FaPlay className="mr-2" />}
+                  {queryMutationFromHook.isLoading ? 'Executing...' : 'Execute Query'}
                 </button>
               </div>
             </div>
@@ -859,14 +744,14 @@ const DatabaseQuery: React.FC = () => {
             </div>
             
             <div className="p-4">
-              {queryMutation.isLoading ? (
+              {queryMutationFromHook.isLoading ? (
                 <div className="flex justify-center items-center h-64">
                   <LoadingSpinner size="medium" />
                   <span className="ml-2 text-gray-600">Executing query...</span>
                 </div>
-              ) : queryMutation.isError ? (
+              ) : queryMutationFromHook.isError ? (
                 <div className="text-red-500 p-4 border border-red-200 rounded bg-red-50">
-                  Error: {(queryMutation.error as Error)?.message || 'Failed to execute query'}
+                  Error: {(queryMutationFromHook.error as Error)?.message || 'Failed to execute query'}
                 </div>
               ) : queryResults.length > 0 ? (
                 <div>
@@ -881,14 +766,14 @@ const DatabaseQuery: React.FC = () => {
                       <button 
                         className="px-2 py-1 text-xs bg-green-600 text-white rounded hover:bg-green-700"
                         onClick={() => exportExistingResults('csv')}
-                        disabled={isExecuting || isTranslating}
+                        disabled={queryMutationFromHook.isLoading || isTranslating}
                       >
                         <FaFileAlt className="inline mr-1" /> Export CSV
                       </button>
                       <button 
                         className="px-2 py-1 text-xs bg-green-600 text-white rounded hover:bg-green-700"
                         onClick={() => exportExistingResults('sheets')}
-                        disabled={isExecuting || isTranslating}
+                        disabled={queryMutationFromHook.isLoading || isTranslating}
                       >
                         <FaTable className="inline mr-1" /> Export to Sheets
                       </button>
@@ -984,7 +869,7 @@ const DatabaseQuery: React.FC = () => {
                     formatCellValue={formatCellValue}
                   />
                 </div>
-              ) : queryMutation.isSuccess && queryResults.length === 0 ? (
+              ) : queryMutationFromHook.isSuccess && queryResults.length === 0 ? (
                 <div className="flex flex-col items-center justify-center h-64 text-amber-600">
                   <FaDatabase className="text-4xl mb-4" />
                   <p>Query executed successfully, but returned no results</p>
@@ -1041,9 +926,7 @@ const DatabaseQuery: React.FC = () => {
                           className="px-2 py-1 text-xs text-red-600 border border-red-200 rounded hover:bg-red-50"
                           onClick={() => {
                             if (window.confirm(`Are you sure you want to delete "${query.name}"?`)) {
-                              const updatedQueries = savedQueries.filter(q => q.id !== query.id);
-                              localStorage.setItem('savedQueries', JSON.stringify(updatedQueries));
-                              setSavedQueries(updatedQueries);
+                              deleteSavedQuery(query.id);
                             }
                           }}
                         >

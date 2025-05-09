@@ -146,9 +146,9 @@ export function handleError(error: unknown): AppError {
 /**
  * Handle Axios errors specifically
  * @param error The Axios error to process
- * @returns A standardized ApiError
+ * @returns A standardized AppError (or one of its subtypes)
  */
-function handleAxiosError(error: AxiosError): ApiError {
+function handleAxiosError(error: AxiosError): AppError {
   const status = error.response?.status || 500;
   let message = error.message;
   let details: Record<string, unknown> = {};
@@ -225,23 +225,19 @@ export function isDataExtractionError(error: unknown): error is DataExtractionEr
 export function getErrorMessage(error: unknown): string {
   const appError = handleError(error);
   
-  // Special handling for different error types
   if (isValidationError(appError)) {
     const fieldErrors = Object.entries(appError.fieldErrors)
       .map(([field, msg]) => `${field}: ${msg}`)
       .join(', ');
     return fieldErrors ? `${appError.message} (${fieldErrors})` : appError.message;
-  }
-  
-  if (isNetworkError(appError)) {
+  } else if (isNetworkError(appError)) {
     return 'Network connection issue. Please check your connection and try again.';
-  }
-  
-  if (isAuthError(appError)) {
+  } else if (isAuthError(appError)) {
     return 'Authentication error. Please log in again.';
+  } else {
+    // Assert appError as Error to access the .message property, as all AppError subtypes will have it.
+    return (appError as Error).message; 
   }
-  
-  return appError.message;
 }
 
 /**

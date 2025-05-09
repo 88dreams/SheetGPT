@@ -10,6 +10,7 @@ export interface BaseEntity {
   name: string;
   created_at?: string;
   updated_at?: string;
+  [key: string]: any;
 }
 
 // League entity
@@ -426,7 +427,7 @@ class SportsDatabaseService {
         case 'stadium':
           return await api.sports.createStadium(entityData);
         case 'broadcast':
-          return await api.sports.createBroadcastRights(entityData);
+          return await api.sports.createBroadcastRightsWithErrorHandling(entityData);
         case 'production':
           return await api.sports.createProductionService(entityData);
         case 'brand':
@@ -672,7 +673,7 @@ class SportsDatabaseService {
           response = await api.sports.createStadium(entityData);
           break;
         case 'broadcast':
-          response = await api.sports.createBroadcastRights(entityData);
+          response = await api.sports.createBroadcastRightsWithErrorHandling(entityData);
           break;
         case 'production':
           response = await api.sports.createProductionService(entityData);

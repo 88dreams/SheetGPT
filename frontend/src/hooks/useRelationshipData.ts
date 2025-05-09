@@ -56,8 +56,7 @@ export function useRelationshipData(
   
   // Memoize entity IDs to prevent unnecessary reloads
   const memoizedEntityIds = useMemo(() => entityIds || [], [
-    // Use fingerprinting equality function to avoid unnecessary rerenders
-    createMemoEqualityFn(entityIds || [])
+    entityIds
   ]);
   
   /**

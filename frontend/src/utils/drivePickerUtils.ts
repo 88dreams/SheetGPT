@@ -115,16 +115,23 @@ export async function moveFileToFolder(
   }
 }
 
-// Define a global type for the Google Picker API
+// Define global types for Google Picker API
 declare global {
-  interface Window {
-    gapi: any;
-    google: {
-      picker: any;
-    };
-  }
-  const gapi: any;
+  const gapi: {
+    load: (api: string, config: { callback: () => void; onerror?: (error: any) => void; }) => void;
+    // Add other gapi properties/methods used in the file if necessary
+    [key: string]: any; // Keep it flexible if other gapi props are used indirectly
+  };
   const google: {
-    picker: any;
+    picker: {
+      DocsView: new (viewId: string) => any; // Replace 'any' with a more specific type if known
+      ViewId: { FOLDERS: string; [key: string]: string };
+      DocsViewMode: { LIST: string; [key: string]: string };
+      PickerBuilder: new () => any; // Replace 'any' with a more specific type if known
+      Feature: { NAV_HIDDEN: string; MINE_ONLY: string; [key: string]: string };
+      Action: { PICKED: string; [key: string]: string };
+      [key: string]: any; // Keep it flexible
+    };
+    [key: string]: any; // Keep it flexible
   };
 }

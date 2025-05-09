@@ -23,6 +23,11 @@ const FIELD_OPTIONS: Record<EntityType, { label: string; value: string; type: 's
     { label: 'Country', value: 'country', type: 'string' },
     { label: 'Founded Year', value: 'founded_year', type: 'number' }
   ],
+  division_conference: [
+    { label: 'Name', value: 'name', type: 'string' },
+    { label: 'League ID', value: 'league_id', type: 'string' },
+    { label: 'Type', value: 'type', type: 'string' }
+  ],
   team: [
     { label: 'Name', value: 'name', type: 'string' },
     { label: 'City', value: 'city', type: 'string' },

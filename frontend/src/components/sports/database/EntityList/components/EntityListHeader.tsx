@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Input, Button } from 'antd';
+import type { InputRef } from 'antd/es/input/Input';
 import { SearchOutlined, CloseCircleFilled } from '@ant-design/icons';
 import { FaFileExport, FaColumns, FaKey, FaSearch, FaTimes } from 'react-icons/fa';
 import { getEntityTypeName } from '../utils/formatters';
@@ -27,7 +28,7 @@ const EntityListHeader: React.FC<EntityListHeaderProps> = ({
   searchValue = '' // Default to empty string if not provided
 }) => {
   // Create a ref to the input element so we can set its value programmatically
-  const searchInputRef = useRef<Input>(null);
+  const searchInputRef = useRef<InputRef>(null);
   
   // Internal state to track input value before search is submitted
   const [inputValue, setInputValue] = useState(searchValue);

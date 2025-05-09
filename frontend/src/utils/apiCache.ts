@@ -14,7 +14,7 @@ interface CacheEntry {
 }
 
 interface DedupeEntry {
-  promise: Promise<AxiosResponse>;
+  promise: Promise<AxiosResponse<any>>;
   controllers: AbortController[];
 }
 
@@ -84,6 +84,14 @@ const DEFAULT_DEDUPE_OPTIONS: Required<DedupeOptions> = {
   }
 };
 
+// Add an interface for the return type of createCachedApiClient
+export interface CachedApiClient {
+  client: AxiosInstance;
+  clearCache: (pattern?: RegExp) => void;
+  getCacheStats: () => CacheStats;
+  prefetch: (config: AxiosRequestConfig) => Promise<void>;
+}
+
 /**
  * Creates an enhanced API client with caching and request deduplication
  */
@@ -91,7 +99,7 @@ export function createCachedApiClient(
   axiosInstance: AxiosInstance,
   cacheOptions: CacheOptions = {},
   dedupeOptions: DedupeOptions = {}
-) {
+): CachedApiClient {
   // Merge options with defaults
   const options: Required<CacheOptions> = { ...DEFAULT_CACHE_OPTIONS, ...cacheOptions };
   const dedupeOpts: Required<DedupeOptions> = { ...DEFAULT_DEDUPE_OPTIONS, ...dedupeOptions };
@@ -412,8 +420,8 @@ export function createCachedApiClient(
   
   // Track the request in the in-flight requests map for deduplication
   const originalRequest = axiosInstance.request;
-  axiosInstance.request = function<T = any, R = AxiosResponse<T>>(
-    config: AxiosRequestConfig
+  axiosInstance.request = function<T = any, R = AxiosResponse<T, any>, D = any>(
+    config: AxiosRequestConfig<D>
   ): Promise<R> {
     const requestPromise = originalRequest.call(this, config) as Promise<R>;
     
@@ -421,13 +429,12 @@ export function createCachedApiClient(
     const controller = (config as any).controller;
     
     if (dedupeKey && controller) {
-      // Add to in-flight requests
       inFlightRequests.set(dedupeKey, {
-        promise: requestPromise,
+        promise: requestPromise as unknown as Promise<AxiosResponse<any>>,
         controllers: [controller]
       });
     }
-    
+    // @ts-expect-error TS2322 This seems to be a complex TypeScript inference issue with overriding Axios types.
     return requestPromise;
   };
   

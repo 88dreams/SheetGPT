@@ -25,7 +25,7 @@ import {
   useUiState, 
   useDataManagement 
 } from './hooks';
-import type { ImportResults } from './v2/hooks/useImportProcess'; // Correct the import path to point to the v2 hook
+import type { ImportResults } from './utils/batchProcessor';
 
 // Import API services
 import sportsDatabaseService, { EntityType as DbEntityType } from '../../../services/SportsDatabaseService';
@@ -79,6 +79,7 @@ const SportDataMapperContainer: React.FC<SportDataMapperProps> = ({ isOpen, onCl
     isSaving,
     isBatchImporting,
     notification,
+    importResults,
     saveToDatabase,
     batchImport,
     clearNotification
@@ -258,6 +259,18 @@ const SportDataMapperContainer: React.FC<SportDataMapperProps> = ({ isOpen, onCl
     }
   }, [selectedEntityType, getCurrentMappings, currentRecordIndex, dataToImport, isUpdateMode, saveToDatabase, hookGoToNextRecord]);
   
+  // Effect to react to batch import completion via importResults state
+  useEffect(() => {
+    if (importResults && !isBatchImporting) { // Process results only when batch is done and results are available
+      console.log('Batch import completed in container, results:', importResults);
+      if (importResults.success > 0 && 
+          (selectedEntityType === 'league' || selectedEntityType === 'stadium')) {
+        setLeagueAndStadiumExist(true);
+      }
+      // Notifications are largely handled within useImportProcess, but further actions could be here.
+    }
+  }, [importResults, isBatchImporting, selectedEntityType, setLeagueAndStadiumExist]); // Added setLeagueAndStadiumExist
+  
   // Optimized batch import function using memoization
   const handleBatchImport = useCallback(async () => {
     if (!selectedEntityType) return;
@@ -265,17 +278,10 @@ const SportDataMapperContainer: React.FC<SportDataMapperProps> = ({ isOpen, onCl
     const includedRecords = getIncludedRecords();
     const mappings = getCurrentMappings();
     
-    const resultsFromHook = await batchImport(selectedEntityType, mappings, includedRecords, isUpdateMode);
-    
-    // Type guard to ensure resultsFromHook is ImportResults
-    // @ts-expect-error TS1345 - Compiler seems unable to narrow type correctly here
-    if (resultsFromHook && typeof resultsFromHook === 'object' && 'success' in resultsFromHook) {
-      const importSummary: ImportResults = resultsFromHook; // Assign to a new variable with narrowed type
-      if (importSummary.success > 0 && 
-          (selectedEntityType === 'league' || selectedEntityType === 'stadium')) {
-        setLeagueAndStadiumExist(true);
-      }
-    }
+    // Call batchImport, results will be set in the importResults state by the hook
+    await batchImport(selectedEntityType, mappings, includedRecords, isUpdateMode);
+    // No need to handle resultsFromHook here, the useEffect above will react to importResults state change.
+
   }, [selectedEntityType, getIncludedRecords, getCurrentMappings, isUpdateMode, batchImport]);
   
   // Memoize the component state for props to avoid unnecessary renders

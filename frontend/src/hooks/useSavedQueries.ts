@@ -25,7 +25,19 @@ export const useSavedQueries = (): UseSavedQueriesReturn => {
     try {
       const storedQueries = localStorage.getItem(SAVED_QUERIES_STORAGE_KEY);
       if (storedQueries) {
-        setSavedQueries(JSON.parse(storedQueries));
+        const parsedQueries = JSON.parse(storedQueries) as Array<any>; // Parse as any first
+        const normalizedQueries: SavedQuery[] = parsedQueries.map(q => ({
+          // Ensure all fields conform to SavedQuery type, especially timestamp
+          id: q.id || Date.now(), // Keep as number or string based on original type for now
+          name: String(q.name || 'Untitled Query'),
+          query: String(q.query || ''),
+          sql: q.sql ? String(q.sql) : undefined,
+          isNaturalLanguage: Boolean(q.isNaturalLanguage || false),
+          timestamp: typeof q.timestamp === 'number' 
+            ? new Date(q.timestamp).toISOString() 
+            : String(q.timestamp || new Date().toISOString()), // Ensure timestamp is string
+        }));
+        setSavedQueries(normalizedQueries);
       }
     } catch (error) {
       console.error('Error loading saved queries from localStorage:', error);

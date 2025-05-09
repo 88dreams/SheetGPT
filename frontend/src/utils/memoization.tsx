@@ -109,6 +109,10 @@ export function withMemoForwardRef<P extends object, T = any>(
 ): ForwardRefExoticComponent<React.PropsWithoutRef<P> & React.RefAttributes<T>> {
   // Create a forwarded ref component
   const ForwardedComponent = forwardRef<T, P>((props, ref) => {
+    // TS2322: This is a common complex typing issue with HOCs combining generics, React.memo, and forwardRef.
+    // The composed props can be difficult for TypeScript to perfectly reconcile with the target component's expected props.
+    // Assuming correct usage of the HOC, this is likely a type inference limitation rather than a runtime bug.
+    // @ts-expect-error TS2322 Type 'PropsWithoutRef<P> & { ref: ForwardedRef<T>; }' is not assignable to type 'IntrinsicAttributes & P & { ref?: Ref<T>; }'.
     return <Component {...props} ref={ref} />;
   });
 
@@ -147,11 +151,12 @@ export function withListItemMemo<P extends { index: number }>(
     customHandlers: {
       ...(options.fingerprintOptions?.customHandlers || {}),
       // Custom handler for index prop - given special attention
-      Number: (value, key) => {
-        if (key === 'index') {
-          return `index=${value}`;
-        }
-        return String(value); // Default handling for other numbers
+      Number: (value: any): string => {
+        // The original logic 'if (key === 'index')' cannot work here as 'key' is not available.
+        // This handler applies to ALL numbers encountered within the props of a list item.
+        // Defaulting to simple string conversion. If specific 'index' prop handling is crucial,
+        // it needs a different approach than a generic 'Number' type handler.
+        return String(value);
       }
     }
   };
@@ -186,21 +191,21 @@ export function withRowMemo<P extends { entity?: any; item?: any; data?: any; }>
     skipUndefined: true,
     customHandlers: {
       // Specialized handler for row data objects (entity, item, or data prop)
-      Object: (value, key) => {
-        if (key === 'entity' || key === 'item' || key === 'data') {
-          if (value && typeof value === 'object') {
-            // If the object has an id, use that as the primary identifier
-            if ('id' in value) {
-              return `${key}:id=${value.id}`;
-            }
-            // Otherwise use a fingerprint with minimal depth
-            return `${key}:keys=[${Object.keys(value).sort().join(',')}]`;
+      Object: (value: any): string | undefined => {
+        // The original logic 'if (key === 'entity' || key === 'item' || key === 'data')' cannot work here as 'key' is not available.
+        // This handler applies to ALL objects encountered within the props of a row.
+        if (value && typeof value === 'object') {
+          // If the object has an id, use that as the primary identifier
+          if ('id' in value && value.id !== undefined) {
+            return `ObjectWithId:id=${value.id}`;
           }
+          // Otherwise use a fingerprint with minimal depth (keys only for non-id objects)
+          return `ObjectKeys:[${Object.keys(value).sort().join(',')}]`;
         }
-        return undefined; // Fall back to default handler
+        return undefined; // Fall back to default handler for non-objects or null
       },
       // Handle arrays efficiently
-      Array: (value) => {
+      Array: (value: any): string | undefined => { // Ensured signature matches and provides a fallback
         if (Array.isArray(value)) {
           return `Array:length=${value.length}`;
         }

@@ -118,7 +118,7 @@ export const transformMappedData = (
     }
     
     // We'll map the fields based on the strategies first, without modifying transformedData yet
-    const mappedFields = {};
+    const mappedFields: Record<string, any> = {};
     
     // Map each field directly using two simple strategies
     Object.entries(mappings).forEach(([dbField, sourceField]) => {
@@ -196,13 +196,13 @@ export const transformMappedData = (
       console.log('This appears to be league data (hasLeagueFields=' + hasLeagueFields + ', hasSportMapping=' + hasSportMapping + ') - ensuring required fields are set');
       
       // Check if name is mapped/present (required field)
-      if (!mappedFields.name && sourceRecord[0]) {
+      if (mappedFields.name === undefined && sourceRecord[0]) {
         mappedFields.name = sourceRecord[0];
         console.log(`Setting missing league name = "${mappedFields.name}" from position 0`);
       }
       
       // Check if sport is mapped/present (required field)
-      if (!mappedFields.sport) {
+      if (mappedFields.sport === undefined) {
         // 1. Check for sport in explicit value at position 2 (common format)
         if (sourceRecord[2] && typeof sourceRecord[2] === 'string') {
           const sportValue = sourceRecord[2];
@@ -216,7 +216,7 @@ export const transformMappedData = (
         }
         
         // 2. If not found, try to detect from the data
-        if (!mappedFields.sport) {
+        if (mappedFields.sport === undefined) {
           let detectedSport = 'Basketball'; // Default
           
           // Use sourceRecord[0] (league name) to detect sport
@@ -247,7 +247,7 @@ export const transformMappedData = (
       }
       
       // Check if country is mapped/present
-      if (!mappedFields.country) {
+      if (mappedFields.country === undefined) {
         // Try to find country in position 3 first (common format)
         if (sourceRecord[3] && typeof sourceRecord[3] === 'string' && 
             (sourceRecord[3] === 'USA' || sourceRecord[3] === 'United States' || 
@@ -271,13 +271,13 @@ export const transformMappedData = (
       console.log('This appears to be division/conference data - ensuring required fields are set');
       
       // Check if name is mapped/present (required field)
-      if (!mappedFields.name && sourceRecord[0]) {
+      if (mappedFields.name === undefined && sourceRecord[0]) {
         mappedFields.name = sourceRecord[0];
         console.log(`Setting missing division/conference name = "${mappedFields.name}" from position 0`);
       }
       
       // Set type if not set (required field)
-      if (!mappedFields.type) {
+      if (mappedFields.type === undefined) {
         // Try to detect if this is a division or conference from the data
         let detectedType = 'Division'; // Default
         
@@ -320,13 +320,13 @@ export const transformMappedData = (
       console.log('This appears to be brand data - ensuring required fields are set');
       
       // Check if name is mapped/present (required field)
-      if (!mappedFields.name && sourceRecord[0]) {
+      if (mappedFields.name === undefined && sourceRecord[0]) {
         mappedFields.name = sourceRecord[0];
         console.log(`Setting missing brand name = "${mappedFields.name}" from position 0`);
       }
       
       // Check if industry is mapped/present (required field)
-      if (!mappedFields.industry) {
+      if (mappedFields.industry === undefined) {
         let detectedIndustry = 'Media'; // Default
         
         // Check specifically for "Broadcaster" in position 8
@@ -352,7 +352,7 @@ export const transformMappedData = (
       }
       
       // Also set company_type if not set
-      if (!mappedFields.company_type) {
+      if (mappedFields.company_type === undefined) {
         let companyType = 'Broadcaster'; // Default
         
         // Check position 8 for typical company type values
@@ -367,7 +367,7 @@ export const transformMappedData = (
       }
       
       // Set country if not set
-      if (!mappedFields.country) {
+      if (mappedFields.country === undefined) {
         // Try to find country in positions 5-6
         for (let i = 5; i <= 6 && i < sourceRecord.length; i++) {
           const value = sourceRecord[i];
@@ -396,20 +396,20 @@ export const transformMappedData = (
       console.log('This appears to be broadcast data - ensuring required fields are set');
       
       // If we have a broadcast_company_id but no entity_id, set entity_id to position 1
-      if (mappedFields.broadcast_company_id && !mappedFields.entity_id && sourceRecord[1]) {
+      if (mappedFields.broadcast_company_id !== undefined && mappedFields.entity_id === undefined && sourceRecord[1]) {
         mappedFields.entity_id = sourceRecord[1];
         console.log(`Set entity_id = ${mappedFields.entity_id} for broadcast from position 1`);
       }
       
       // If we have an entity_id but no entity_type, default to league for racing series
-      if (mappedFields.entity_id && !mappedFields.entity_type) {
+      if (mappedFields.entity_id !== undefined && mappedFields.entity_type === undefined) {
         const entityType = 'league'; // Default to league for racing series
         mappedFields.entity_type = entityType;
         console.log(`Set default entity_type = ${entityType} for broadcast`);
       }
       
       // Set territory if missing
-      if (!mappedFields.territory) {
+      if (mappedFields.territory === undefined) {
         for (let i = 5; i <= 6 && i < sourceRecord.length; i++) {
           if (typeof sourceRecord[i] === 'string' && sourceRecord[i].trim() !== '') {
             mappedFields.territory = sourceRecord[i];
@@ -426,7 +426,7 @@ export const transformMappedData = (
       }
       
       // Set start_date and end_date if missing but years are in the data
-      if (!mappedFields.start_date) {
+      if (mappedFields.start_date === undefined) {
         for (let i = 6; i <= 7 && i < sourceRecord.length; i++) {
           if (/^\d{4}$/.test(String(sourceRecord[i]))) {
             mappedFields.start_date = sourceRecord[i];
@@ -436,7 +436,7 @@ export const transformMappedData = (
         }
       }
       
-      if (!mappedFields.end_date) {
+      if (mappedFields.end_date === undefined) {
         for (let i = 7; i <= 8 && i < sourceRecord.length; i++) {
           if (/^\d{4}$/.test(String(sourceRecord[i]))) {
             mappedFields.end_date = sourceRecord[i];

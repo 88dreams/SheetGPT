@@ -54,7 +54,7 @@ export const schemas = {
       type: { type: 'string', required: true }
     }
   }
-};
+} as const;
 
 /**
  * Validate data against a schema

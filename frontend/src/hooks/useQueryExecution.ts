@@ -5,7 +5,7 @@ import { apiClient, getToken } from '../utils/apiClient';
 import { ensureValidToken } from '../utils/tokenRefresh';
 
 // Define the type for the query data passed to the mutation
-interface QueryData {
+export interface QueryData {
   query: string;
   natural_language: boolean;
   export_format?: string;
@@ -14,7 +14,7 @@ interface QueryData {
 }
 
 // Define the expected success response structure (adjust based on actual API)
-interface QueryResponse {
+export interface QueryResponse {
   success: boolean;
   results?: any[];
   generated_sql?: string;
@@ -29,7 +29,7 @@ interface QueryResponse {
 }
 
 // Define the return type of the hook
-interface UseQueryExecutionReturn {
+export interface UseQueryExecutionReturn {
   mutation: UseMutationResult<QueryResponse, Error, QueryData>;
 }
 

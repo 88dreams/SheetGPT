@@ -434,7 +434,6 @@ export function createCachedApiClient(
         controllers: [controller]
       });
     }
-    // @ts-expect-error TS2322 This seems to be a complex TypeScript inference issue with overriding Axios types.
     return requestPromise;
   };
   

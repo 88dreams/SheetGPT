@@ -27,6 +27,7 @@ export const processBatchedData = async (
     success: boolean; 
     newBroadcastCompany?: { name: string; id: string };
     error?: string;
+    isDuplicate?: boolean;
   }>
 ): Promise<ImportResults> => {
   const results: ImportResults = {
@@ -88,14 +89,23 @@ export const processBatchedData = async (
     );
     
     // Count successes, failures, and skipped duplicates
-    results.success += batchResults.filter(result => result.success && !result?.isDuplicate).length;
-    results.failed += batchResults.filter(result => !result.success).length;
-    results.skipped += batchResults.filter(result => result.success && result?.isDuplicate).length;
+    results.success += batchResults.filter(r => {
+      if (!r.success) return false;
+      return !('isDuplicate' in r && r.isDuplicate === true);
+    }).length;
+    results.failed += batchResults.filter(r => !r.success).length;
+    results.skipped += batchResults.filter(r => {
+      if (!r.success) return false;
+      return ('isDuplicate' in r && r.isDuplicate === true);
+    }).length;
     
     // Collect any new broadcast companies
-    batchResults.forEach(result => {
-      if (result.success && result.newBroadcastCompany) {
-        results.newBroadcastCompanies.push(result.newBroadcastCompany);
+    batchResults.forEach(r => {
+      // Ensure the result object actually has newBroadcastCompany and it's not undefined
+      if (r.success && 'newBroadcastCompany' in r && r.newBroadcastCompany) {
+        // The type of r.newBroadcastCompany should be { name: string; id: string; }
+        // results.newBroadcastCompanies is Array<{ name: string; id: string }>
+        results.newBroadcastCompanies!.push(r.newBroadcastCompany as { name: string; id: string });
       }
     });
   }

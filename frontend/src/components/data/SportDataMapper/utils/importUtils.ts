@@ -316,7 +316,7 @@ export const transformMappedData = (
     }
     
     // Special handling for brand data
-    else if (isBrandData) {
+    else if (isBrandData && isArrayData) {
       console.log('This appears to be brand data - ensuring required fields are set');
       
       // Check if name is mapped/present (required field)
@@ -327,7 +327,6 @@ export const transformMappedData = (
       
       // Check if industry is mapped/present (required field)
       if (!mappedFields.industry) {
-        // Look for industry in position 8 or based on data patterns
         let detectedIndustry = 'Media'; // Default
         
         // Check specifically for "Broadcaster" in position 8
@@ -393,7 +392,7 @@ export const transformMappedData = (
     }
     
     // Special handling for broadcast data - make sure we have entity_type and entity_id
-    if (isBroadcastData) {
+    if (isBroadcastData && isArrayData) {
       console.log('This appears to be broadcast data - ensuring required fields are set');
       
       // If we have a broadcast_company_id but no entity_id, set entity_id to position 1
@@ -411,7 +410,6 @@ export const transformMappedData = (
       
       // Set territory if missing
       if (!mappedFields.territory) {
-        // Try to find any territory in positions 5-6
         for (let i = 5; i <= 6 && i < sourceRecord.length; i++) {
           if (typeof sourceRecord[i] === 'string' && sourceRecord[i].trim() !== '') {
             mappedFields.territory = sourceRecord[i];
@@ -429,7 +427,6 @@ export const transformMappedData = (
       
       // Set start_date and end_date if missing but years are in the data
       if (!mappedFields.start_date) {
-        // Look for year (4 digits) in positions 6-7
         for (let i = 6; i <= 7 && i < sourceRecord.length; i++) {
           if (/^\d{4}$/.test(String(sourceRecord[i]))) {
             mappedFields.start_date = sourceRecord[i];
@@ -440,7 +437,6 @@ export const transformMappedData = (
       }
       
       if (!mappedFields.end_date) {
-        // Look for year (4 digits) in positions 7-8
         for (let i = 7; i <= 8 && i < sourceRecord.length; i++) {
           if (/^\d{4}$/.test(String(sourceRecord[i]))) {
             mappedFields.end_date = sourceRecord[i];

@@ -25,6 +25,7 @@ import {
   useUiState, 
   useDataManagement 
 } from './hooks';
+import type { ImportResults } from './v2/hooks/useImportProcess'; // Correct the import path to point to the v2 hook
 
 // Import API services
 import sportsDatabaseService, { EntityType as DbEntityType } from '../../../services/SportsDatabaseService';
@@ -213,9 +214,6 @@ const SportDataMapperContainer: React.FC<SportDataMapperProps> = ({ isOpen, onCl
     }
   }, [fingerprint(dataToImport[0] || {}), fingerprint(sourceFields), suggestedEntityType]);
   
-  // Use the hook's navigation functions directly with memoization
-  const goToNextRecord = useMemo(() => hookGoToNextRecord, [hookGoToNextRecord]);
-  
   // Simple entity type selection handler
   const handleEntityTypeSelect = useCallback((entityType: MapperEntityType) => {
     // Just update the selected entity type
@@ -240,7 +238,7 @@ const SportDataMapperContainer: React.FC<SportDataMapperProps> = ({ isOpen, onCl
   }, [handleFieldMapping, updateMappedDataForField, currentRecordIndex, selectedEntityType, getCurrentMappings]);
   
   // Optimized save to database function using memoization
-  const handleSaveToDatabase = useCallback(async () => {
+  const handleSaveToDatabase = useCallback(async (): Promise<void> => {
     if (!selectedEntityType) return;
     
     const currentMappings = getCurrentMappings();
@@ -256,9 +254,9 @@ const SportDataMapperContainer: React.FC<SportDataMapperProps> = ({ isOpen, onCl
       if (selectedEntityType === 'league' || selectedEntityType === 'stadium') {
         setLeagueAndStadiumExist(true);
       }
-      goToNextRecord();
+      const navigated = hookGoToNextRecord();
     }
-  }, [selectedEntityType, getCurrentMappings, currentRecordIndex, dataToImport, isUpdateMode, saveToDatabase, goToNextRecord]);
+  }, [selectedEntityType, getCurrentMappings, currentRecordIndex, dataToImport, isUpdateMode, saveToDatabase, hookGoToNextRecord]);
   
   // Optimized batch import function using memoization
   const handleBatchImport = useCallback(async () => {
@@ -267,10 +265,16 @@ const SportDataMapperContainer: React.FC<SportDataMapperProps> = ({ isOpen, onCl
     const includedRecords = getIncludedRecords();
     const mappings = getCurrentMappings();
     
-    const success = await batchImport(selectedEntityType, mappings, includedRecords, isUpdateMode);
+    const resultsFromHook = await batchImport(selectedEntityType, mappings, includedRecords, isUpdateMode);
     
-    if (success && (selectedEntityType === 'league' || selectedEntityType === 'stadium')) {
-      setLeagueAndStadiumExist(true);
+    // Type guard to ensure resultsFromHook is ImportResults
+    // @ts-expect-error TS1345 - Compiler seems unable to narrow type correctly here
+    if (resultsFromHook && typeof resultsFromHook === 'object' && 'success' in resultsFromHook) {
+      const importSummary: ImportResults = resultsFromHook; // Assign to a new variable with narrowed type
+      if (importSummary.success > 0 && 
+          (selectedEntityType === 'league' || selectedEntityType === 'stadium')) {
+        setLeagueAndStadiumExist(true);
+      }
     }
   }, [selectedEntityType, getIncludedRecords, getCurrentMappings, isUpdateMode, batchImport]);
   
@@ -328,7 +332,7 @@ const SportDataMapperContainer: React.FC<SportDataMapperProps> = ({ isOpen, onCl
                 onShowFieldHelp={showHelpForField}
                 onHideFieldHelp={hideFieldHelp}
                 onPreviousRecord={goToPreviousRecord}
-                onNextRecord={goToNextRecord}
+                onNextRecord={hookGoToNextRecord}
                 onToggleExcludeRecord={toggleExcludeRecord}
                 onSaveToDatabase={handleSaveToDatabase}
                 onBatchImport={handleBatchImport}

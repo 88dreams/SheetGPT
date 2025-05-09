@@ -88,9 +88,9 @@ export const processBatchedData = async (
     );
     
     // Count successes, failures, and skipped duplicates
-    results.success += batchResults.filter(result => result.success && !result.isDuplicate).length;
+    results.success += batchResults.filter(result => result.success && !result?.isDuplicate).length;
     results.failed += batchResults.filter(result => !result.success).length;
-    results.skipped += batchResults.filter(result => result.success && result.isDuplicate).length;
+    results.skipped += batchResults.filter(result => result.success && result?.isDuplicate).length;
     
     // Collect any new broadcast companies
     batchResults.forEach(result => {
@@ -136,12 +136,11 @@ export const processEntityRecord = async (
       const databaseMappedData = await enhancedMapToDatabaseFieldNames(
         entityType,
         mappedData,
-        api,
-        record
+        api
       );
       
-      // If this is a production_service entity, check for duplicates before saving
-      if (entityType === 'production_service') {
+      // If this is a production service entity, check for duplicates before saving
+      if (entityType === 'production') {
         try {
           // Import checkDuplicateProductionService function
           const { checkDuplicateProductionService } = await import('./importUtils');

@@ -176,10 +176,10 @@ export function useImportProcess(notificationHandler: ImportNotificationHandler)
     if (entityType === 'team' && result.league_id && !result.division_conference_id) {
       try {
         // Fetch league details to get division_conference information
-        const response = await api.get(`/api/sports/leagues/${result.league_id}`);
+        const response = await api.sports.getLeague(result.league_id);
         
-        if (response.data && response.data.division_conference_id) {
-          result.division_conference_id = response.data.division_conference_id;
+        if (response && response.division_conference_id) {
+          result.division_conference_id = response.division_conference_id;
           console.log(`Auto-resolved division_conference_id for team: ${result.division_conference_id}`);
         }
       } catch (error) {
@@ -199,20 +199,18 @@ export function useImportProcess(notificationHandler: ImportNotificationHandler)
   ): Promise<Record<string, any> | null> => {
     try {
       // Minimum fields needed to check for duplicates
-      if (!data.production_company_id || !data.entity_id || !data.entity_type) {
+      if (!data.company_id || !data.entity_id || !data.entity_type) {
         return null;
       }
       
-      const response = await api.get('/api/sports/production-services', {
-        params: {
-          production_company_id: data.production_company_id,
-          entity_id: data.entity_id,
-          entity_type: data.entity_type
-        }
+      const response = await api.sports.getProductionServices({
+        company_id: data.company_id,
+        entity_id: data.entity_id,
+        entity_type: data.entity_type
       });
       
-      if (response.data && response.data.items && response.data.items.length > 0) {
-        return response.data.items[0];
+      if (response && (response as any).items && (response as any).items.length > 0) {
+        return (response as any).items[0];
       }
       
       return null;
@@ -230,21 +228,18 @@ export function useImportProcess(notificationHandler: ImportNotificationHandler)
   ): Promise<Record<string, any> | null> => {
     try {
       // Minimum fields needed to check for duplicates
-      if (!data.broadcast_company_id || !data.entity_id || !data.entity_type || !data.territory) {
+      if (!data.company_id || !data.entity_id || !data.entity_type) {
         return null;
       }
       
-      const response = await api.get('/api/sports/broadcast-rights', {
-        params: {
-          broadcast_company_id: data.broadcast_company_id,
-          entity_id: data.entity_id,
-          entity_type: data.entity_type,
-          territory: data.territory
-        }
+      const response = await api.sports.getBroadcastRights({
+        company_id: data.company_id,
+        entity_id: data.entity_id,
+        entity_type: data.entity_type
       });
       
-      if (response.data && response.data.items && response.data.items.length > 0) {
-        return response.data.items[0];
+      if (response && (response as any).items && (response as any).items.length > 0) {
+        return (response as any).items[0];
       }
       
       return null;
@@ -263,21 +258,91 @@ export function useImportProcess(notificationHandler: ImportNotificationHandler)
     isUpdateMode: boolean
   ): Promise<boolean> => {
     try {
-      let endpoint = `/api/sports/${entityType}s`;
-      let method = 'post';
-      
-      if (isUpdateMode && data.id) {
-        endpoint = `${endpoint}/${data.id}`;
-        method = 'put';
+      let response: any; // Use 'any' for now, ideally map to specific entity types
+      const entityData = data; // data is already processedData from the caller
+
+      // Use a switch statement to call the correct service function based on entityType
+      if (isUpdateMode && entityData.id) {
+        console.log(`Updating ${entityType} with ID ${entityData.id}`);
+        switch (entityType) {
+          case 'league':
+            response = await api.sports.updateLeague(entityData.id, entityData);
+            break;
+          case 'team':
+            response = await api.sports.updateTeam(entityData.id, entityData);
+            break;
+          case 'player':
+            response = await api.sports.updatePlayer(entityData.id, entityData);
+            break;
+          case 'game':
+            response = await api.sports.updateGame(entityData.id, entityData);
+            break;
+          case 'stadium':
+            response = await api.sports.updateStadium(entityData.id, entityData);
+            break;
+          case 'broadcast':
+            response = await api.sports.updateBroadcastRights(entityData.id, entityData);
+            break;
+          case 'production':
+            response = await api.sports.updateProductionService(entityData.id, entityData);
+            break;
+          case 'brand':
+            response = await api.sports.updateBrand(entityData.id, entityData);
+            break;
+          case 'game_broadcast':
+            response = await api.sports.updateGameBroadcast(entityData.id, entityData);
+            break;
+          case 'league_executive':
+            response = await api.sports.updateLeagueExecutive(entityData.id, entityData);
+            break;
+          case 'division_conference':
+            response = await api.sports.updateDivisionConference(entityData.id, entityData);
+            break;
+          default:
+            throw new Error(`Unsupported entity type for update: ${entityType}`);
+        }
+      } else {
+        console.log(`Creating new ${entityType}`);
+        switch (entityType) {
+          case 'league':
+            response = await api.sports.createLeague(entityData);
+            break;
+          case 'team':
+            response = await api.sports.createTeam(entityData);
+            break;
+          case 'player':
+            response = await api.sports.createPlayer(entityData);
+            break;
+          case 'game':
+            response = await api.sports.createGame(entityData);
+            break;
+          case 'stadium':
+            response = await api.sports.createStadium(entityData);
+            break;
+          case 'broadcast':
+            response = await api.sports.createBroadcastRightsWithErrorHandling(entityData);
+            break;
+          case 'production':
+            response = await api.sports.createProductionService(entityData);
+            break;
+          case 'brand':
+            response = await api.sports.createBrand(entityData);
+            break;
+          case 'game_broadcast':
+            response = await api.sports.createGameBroadcast(entityData);
+            break;
+          case 'league_executive':
+            response = await api.sports.createLeagueExecutive(entityData);
+            break;
+          case 'division_conference':
+            response = await api.sports.createDivisionConference(entityData);
+            break;
+          default:
+            throw new Error(`Unsupported entity type for create: ${entityType}`);
+        }
       }
       
-      const response = await api.request({
-        url: endpoint,
-        method,
-        data
-      });
-      
-      return response.status >= 200 && response.status < 300;
+      return !!response; 
     } catch (error) {
       console.error(`Error saving ${entityType} to database:`, error);
       throw error;
@@ -318,8 +383,7 @@ export function useImportProcess(notificationHandler: ImportNotificationHandler)
       const databaseMappedData = await enhancedMapToDatabaseFieldNames(
         entityType, 
         transformedData,
-        api,
-        currentRecord
+        api
       );
       
       // Process special fields
@@ -335,7 +399,7 @@ export function useImportProcess(notificationHandler: ImportNotificationHandler)
       }
       
       // If this is a production_service entity, check for duplicates before saving
-      if (entityType === 'production_service') {
+      if (entityType === 'production') {
         const existingService = await checkDuplicateProductionService(processedData);
         
         if (existingService) {
@@ -504,8 +568,7 @@ export function useImportProcess(notificationHandler: ImportNotificationHandler)
     const databaseMappedData = await enhancedMapToDatabaseFieldNames(
       entityType, 
       transformedData,
-      api,
-      record
+      api
     );
     
     // Process special fields
@@ -518,7 +581,7 @@ export function useImportProcess(notificationHandler: ImportNotificationHandler)
     }
     
     // Check for duplicates if needed based on entity type
-    if (entityType === 'production_service') {
+    if (entityType === 'production') {
       const existingService = await checkDuplicateProductionService(processedData);
       if (existingService) {
         // Return existing service to indicate it was skipped
@@ -624,20 +687,21 @@ export function useImportProcess(notificationHandler: ImportNotificationHandler)
     mappings: Record<string, string>,
     recordsToImport: any[],
     isUpdateMode: boolean = false
-  ) => {
+  ): Promise<ImportResults | undefined> => {
     // Validate input
     if (!entityType || Object.keys(mappings).length === 0) {
       showNotification('error', 'Please select an entity type and map at least one field');
-      return;
+      return; // Return undefined on validation failure
     }
     
     if (recordsToImport.length === 0) {
       showNotification('error', 'No records to import', 'All records have been excluded or there are no records available.');
-      return;
+      return; // Return undefined on validation failure
     }
     
     setIsBatchImporting(true);
-    
+    let operationResults: ImportResults | undefined = undefined; // Variable to store results
+
     try {
       // Collect the errors by type for summary reporting
       const errorTypes = {
@@ -694,6 +758,7 @@ export function useImportProcess(notificationHandler: ImportNotificationHandler)
       results.errorTypes = errorTypes;
       
       setImportResults(results);
+      operationResults = results; // Store results
       
       // Show final results notification with better error reporting
       if (results.failed === 0) {
@@ -804,6 +869,7 @@ export function useImportProcess(notificationHandler: ImportNotificationHandler)
     } finally {
       setIsBatchImporting(false);
     }
+    return operationResults; // Return the stored results
   }, [
     showNotification, 
     processEntityRecord, 

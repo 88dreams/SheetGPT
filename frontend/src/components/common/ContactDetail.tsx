@@ -102,10 +102,7 @@ const ContactDetail: React.FC<ContactDetailProps> = ({ contactId, onBack, onDele
     } catch (err) {
       console.error('Error fetching contact:', err);
       if (isMounted.current) {
-        showNotification({
-          type: 'error',
-          message: 'Failed to load contact details.'
-        });
+        showNotification('error', 'Failed to load contact details.');
       }
     } finally {
       isLoadingContactRef.current = false;
@@ -175,19 +172,13 @@ const ContactDetail: React.FC<ContactDetailProps> = ({ contactId, onBack, onDele
       const response = await apiClient.put<Contact>(`/v1/contacts/${contactId}`, editData, { requiresAuth: true });
       setContact(response.data);
       setEditMode(false);
-      showNotification({
-        type: 'success',
-        message: 'Contact updated successfully'
-      });
+      showNotification('success', 'Contact updated successfully');
       if (onUpdate) {
         onUpdate(response.data);
       }
     } catch (err) {
       console.error('Error updating contact:', err);
-      showNotification({
-        type: 'error',
-        message: 'Failed to update contact.'
-      });
+      showNotification('error', 'Failed to update contact.');
     } finally {
       setSavingEdit(false);
     }
@@ -214,16 +205,10 @@ const ContactDetail: React.FC<ContactDetailProps> = ({ contactId, onBack, onDele
       fetchContact();
       setSelectedBrandId('');
       
-      showNotification({
-        type: 'success',
-        message: 'Brand association added successfully'
-      });
+      showNotification('success', 'Brand association added successfully');
     } catch (err) {
       console.error('Error adding brand association:', err);
-      showNotification({
-        type: 'error',
-        message: 'Failed to add brand association.'
-      });
+      showNotification('error', 'Failed to add brand association.');
     }
   }, [apiClient, contact, contactId, fetchContact, selectedBrandId, showNotification]);
 
@@ -237,16 +222,10 @@ const ContactDetail: React.FC<ContactDetailProps> = ({ contactId, onBack, onDele
       // Refresh contact to get updated associations
       fetchContact();
       
-      showNotification({
-        type: 'success',
-        message: 'Brand association removed successfully'
-      });
+      showNotification('success', 'Brand association removed successfully');
     } catch (err) {
       console.error('Error removing brand association:', err);
-      showNotification({
-        type: 'error',
-        message: 'Failed to remove brand association.'
-      });
+      showNotification('error', 'Failed to remove brand association.');
     } finally {
       setDeletingAssociation(null);
     }
@@ -260,20 +239,14 @@ const ContactDetail: React.FC<ContactDetailProps> = ({ contactId, onBack, onDele
       try {
         await apiClient.delete(`/v1/contacts/${contactId}`, { requiresAuth: true });
         
-        showNotification({
-          type: 'success',
-          message: 'Contact deleted successfully'
-        });
+        showNotification('success', 'Contact deleted successfully');
         
         if (onDelete) {
           onDelete();
         }
       } catch (err) {
         console.error('Error deleting contact:', err);
-        showNotification({
-          type: 'error',
-          message: 'Failed to delete contact.'
-        });
+        showNotification('error', 'Failed to delete contact.');
       } finally {
         setDeleteLoading(false);
       }
@@ -517,6 +490,10 @@ const ContactDetail: React.FC<ContactDetailProps> = ({ contactId, onBack, onDele
                         )}
                         <span className="ml-2 text-xs text-gray-500">
                           {Math.round(association.confidence_score * 100)}% confidence
+                        </span>
+                        <span className="ml-2 text-xs text-gray-500">
+                          {association.start_date && <span>{new Date(association.start_date).toLocaleDateString()}</span>}
+                          {association.end_date && <span> - {new Date(association.end_date).toLocaleDateString()}</span>}
                         </span>
                       </div>
                       <button

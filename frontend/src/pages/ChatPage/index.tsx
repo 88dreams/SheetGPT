@@ -99,7 +99,7 @@ const ChatPage: React.FC = () => {
   // Use the send message hook
   const {
     sendMessage,
-    isPending: isSendingMessage
+    isLoading: isSendingMessage
   } = useSendMessage({
     conversationId: selectedConversation,
     onError: (error) => {
@@ -231,7 +231,7 @@ const ChatPage: React.FC = () => {
           messages={messages}
           isLoading={isLoadingMessages}
           error={messagesError}
-          isPending={isSendingMessage}
+          isLoadingSend={isSendingMessage}
           onSendMessage={handleSendMessage}
           onRepeatMessage={handleRepeatMessage}
         />

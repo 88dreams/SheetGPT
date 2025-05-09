@@ -92,7 +92,14 @@ const SmartEntitySearch = ({
         });
         
         const results = await Promise.all(searchPromises);
-        const validResults = results.filter(Boolean);
+        const validResults = results.filter(Boolean) as Array<{
+          entity: Entity;
+          entityType: string;
+          matchScore?: number;
+          fuzzyMatched?: boolean;
+          contextMatched?: boolean;
+          virtualEntity?: boolean;
+        }>;
         
         // Sort by match score (if available) or alphabetically by name
         validResults.sort((a, b) => {
@@ -194,7 +201,6 @@ const SmartEntitySearch = ({
           </Tooltip>
         }
         style={{ width: '100%' }}
-        loading={isLoading}
       />
     </AutoComplete>
   );

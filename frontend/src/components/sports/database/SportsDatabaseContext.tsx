@@ -297,77 +297,64 @@ export const SportsDatabaseProvider: React.FC<SportsDatabaseProviderProps> = ({ 
     isLoading,
     error,
     refetch
-  } = useQuery({
-    queryKey,
-    queryFn: async () => {
-      // Add a unique request ID for tracing
-      const requestId = Math.random().toString(36).substring(2, 9);
+  } = useQuery(queryKey, async () => {
+    // Add a unique request ID for tracing
+    const requestId = Math.random().toString(36).substring(2, 9);
+    
+    try {
+      console.log(`[${requestId}] Fetching ${selectedEntityType} entities, page ${currentPage}, size ${pageSize}, cacheBuster: ${new Date().toISOString()}`);
       
-      try {
-        console.log(`[${requestId}] Fetching ${selectedEntityType} entities, page ${currentPage}, size ${pageSize}, cacheBuster: ${new Date().toISOString()}`);
-        
-        // Start timer for performance logging
-        const startTime = performance.now();
-        
-        // Ensure we always send valid sort parameters to the API
-        // Default to id sorting if no field is selected, and use asc if direction is none
-        const effectiveSortField = sortField || 'id'; 
-        const effectiveSortDirection = sortDirection === 'none' ? 'asc' : sortDirection;
-        
-        console.log(`Effective sort parameters: field=${effectiveSortField}, direction=${effectiveSortDirection}`);
-        
-        const result = await sportsDatabaseService.getEntities({
-          entityType: selectedEntityType,
-          filters: activeFilters,
-          page: currentPage,
-          limit: pageSize,
-          sortBy: effectiveSortField,
-          sortDirection: effectiveSortDirection
-        });
-        
-        // Log success and timing information
-        const endTime = performance.now();
-        console.log(`[${requestId}] Fetch complete for ${selectedEntityType}, page ${currentPage}: ${Math.round(endTime - startTime)}ms, items: ${result.items?.length || 0}, total: ${result.total || 0}`);
-        
-        // Update total items count
-        if (result && typeof result.total === 'number') {
-          setTotalItems(result.total);
-        }
-        
-        // For production services, add extra logging
-        if (selectedEntityType === 'production' || selectedEntityType === 'broadcast') {
-          console.log(`[${requestId}] Entity details:`, {
-            type: selectedEntityType,
-            page: currentPage,
-            totalPages: Math.ceil((result.total || 0) / pageSize),
-            itemsCount: result.items?.length || 0,
-            firstItemId: result.items?.[0]?.id || 'none'
-          });
-        }
-        
-        return result.items || [];
-      } catch (error) {
-        console.error(`[${requestId}] Error fetching ${selectedEntityType} entities:`, error);
-        return [];
+      // Start timer for performance logging
+      const startTime = performance.now();
+      
+      // Ensure we always send valid sort parameters to the API
+      // Default to id sorting if no field is selected, and use asc if direction is none
+      const effectiveSortField = sortField || 'id'; 
+      const effectiveSortDirection = sortDirection === 'none' ? 'asc' : sortDirection;
+      
+      console.log(`Effective sort parameters: field=${effectiveSortField}, direction=${effectiveSortDirection}`);
+      
+      const result = await sportsDatabaseService.getEntities({
+        entityType: selectedEntityType,
+        filters: activeFilters,
+        page: currentPage,
+        limit: pageSize,
+        sortBy: effectiveSortField,
+        sortDirection: effectiveSortDirection
+      });
+      
+      // Log success and timing information
+      const endTime = performance.now();
+      console.log(`[${requestId}] Fetch complete for ${selectedEntityType}, page ${currentPage}: ${Math.round(endTime - startTime)}ms, items: ${result.items?.length || 0}, total: ${result.total || 0}`);
+      
+      // Update total items count
+      if (result && typeof result.total === 'number') {
+        setTotalItems(result.total);
       }
-    },
+      
+      // For production services, add extra logging
+      if (selectedEntityType === 'production' || selectedEntityType === 'broadcast') {
+        console.log(`[${requestId}] Entity details:`, {
+          type: selectedEntityType,
+          page: currentPage,
+          totalPages: Math.ceil((result.total || 0) / pageSize),
+          itemsCount: result.items?.length || 0,
+          firstItemId: result.items?.[0]?.id || 'none'
+        });
+      }
+      
+      return result.items || [];
+    } catch (error) {
+      console.error(`[${requestId}] Error fetching ${selectedEntityType} entities:`, error);
+      return [];
+    }
+  }, {
     enabled: isAuthenticated && isReady,
-    // Use a minimal staleTime for all entity types to ensure data is always fresh 
-    staleTime: 0, // No stale time - always refetch when requested
-    // Keep data in cache briefly to improve navigation performance within the same session
-    gcTime: 1000 * 60, // 1 minute
+    staleTime: 0 as number,
+    cacheTime: (1000 * 60) as number,
     refetchOnWindowFocus: false,
-    // Always refetch when mounting or page changes to ensure consistent data
     refetchOnMount: true,
-    // Debug key to track API requests and their triggers
-    meta: { debug: `${selectedEntityType}_page_${currentPage}` },
-    // No automatic refetch interval for any entity type
-    refetchInterval: undefined,
-    // Keep previous data during fetching for all entity types to reduce UI flicker
-    keepPreviousData: false,
-    // Enable force retry for all entity types for consistent behavior
-    refetchForceRetry: true,
-    useErrorBoundary: false // Handle errors gracefully
+    refetchInterval: undefined
   });
 
   const entities = response || [];
@@ -429,7 +416,7 @@ export const SportsDatabaseProvider: React.FC<SportsDatabaseProviderProps> = ({ 
     setSelectedEntityType: handleSetSelectedEntityType,
     entities,
     isLoading,
-    error,
+    error: error instanceof Error ? error : null,
     refetch,
     selectedEntities,
     toggleEntitySelection,

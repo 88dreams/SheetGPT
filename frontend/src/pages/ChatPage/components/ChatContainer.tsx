@@ -11,7 +11,7 @@ interface ChatContainerProps {
   messages: Message[];
   isLoading: boolean;
   error: Error | null;
-  isPending: boolean;
+  isLoadingSend: boolean;
   onSendMessage: (content: string, structuredFormat?: Record<string, any>, fileAttachment?: FileAttachment) => Promise<void>;
   onRepeatMessage: (content: string) => Promise<void>;
 }
@@ -22,7 +22,7 @@ const ChatContainer: React.FC<ChatContainerProps> = ({
   messages,
   isLoading,
   error,
-  isPending,
+  isLoadingSend,
   onSendMessage,
   onRepeatMessage
 }) => {
@@ -39,7 +39,7 @@ const ChatContainer: React.FC<ChatContainerProps> = ({
           isLoading={isLoading}
           error={error}
           onRepeat={onRepeatMessage}
-          isWaitingResponse={isPending}
+          isWaitingResponse={isLoadingSend}
         />
       </div>
       
@@ -50,7 +50,7 @@ const ChatContainer: React.FC<ChatContainerProps> = ({
       >
         <ChatInput
           onSend={onSendMessage}
-          disabled={isPending}
+          disabled={isLoadingSend}
         />
       </div>
     </>

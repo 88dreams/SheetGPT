@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../../../utils/api';
+import { StructuredData } from '../../../types/data';
 import LoadingSpinner from '../../common/LoadingSpinner';
 import ExportDialog from '../ExportDialog';
 import { useNotification } from '../../../contexts/NotificationContext';
@@ -45,7 +46,7 @@ const DataTable: React.FC<DataTableProps> = ({ dataId }) => {
   const { showNotification } = useNotification();
   
   // Fetch data
-  const { data, isLoading, error } = useQuery({
+  const { data, isLoading, error } = useQuery<StructuredData | null, Error>({
     queryKey: ['structured-data', dataId],
     queryFn: () => api.data.getStructuredDataById(dataId),
   });
@@ -138,15 +139,19 @@ const DataTable: React.FC<DataTableProps> = ({ dataId }) => {
     handlePageChange,
     handleRowsPerPageChange
   } = usePagination({
-    totalItems: data?.data?.rows?.length || 0,
+    totalItems: (data?.data && typeof data.data === 'object' && Array.isArray(data.data.rows) ? data.data.rows.length : 0),
     initialRowsPerPage: 50
   });
   
+  // Calculate rowCount and hasHeaders safely
+  const rowCount = (data?.data && typeof data.data === 'object' && Array.isArray(data.data.rows) ? data.data.rows.length : 0);
+  const hasHeaders = (data?.data && typeof data.data === 'object' && Array.isArray(data.data.column_order) ? data.data.column_order.length > 0 : false);
+
   console.log('DataTable: Current data state:', {
     hasData: !!data,
     dataId,
-    rowCount: data?.data?.rows?.length || 0,
-    hasHeaders: !!data?.data?.column_order?.length,
+    rowCount: rowCount, 
+    hasHeaders: hasHeaders,
     dataStructure: data ? Object.keys(data) : []
   });
 
@@ -374,7 +379,7 @@ const DataTable: React.FC<DataTableProps> = ({ dataId }) => {
       <div className="text-red-600 py-4">
         Failed to load data. Please try again.
         <div className="text-sm text-gray-500 mt-2">
-          Error: {error.message || 'Unknown error'}
+          Error: {error instanceof Error ? error.message : 'Unknown error'}
         </div>
       </div>
     );

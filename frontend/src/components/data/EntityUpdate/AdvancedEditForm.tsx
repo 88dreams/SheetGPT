@@ -1,6 +1,6 @@
 import React from 'react';
 import { Form, Space, Spin } from 'antd';
-import { Entity, EntityType, Team, Stadium, League, DivisionConference } from '../../../types/sports';
+import { Entity, EntityType, Team, Stadium, League, DivisionConference, BroadcastRights, ProductionService, Brand } from '../../../types/sports';
 import EntityRelatedInfo from './EntityRelatedInfo';
 import { 
   StadiumFields, 
@@ -17,6 +17,7 @@ interface AdvancedEditFormProps {
   entityType: EntityType;
   isEditing: boolean;
   onChange: (updatedEntity: Entity) => void;
+  showAllFields?: boolean;
 }
 
 /**
@@ -41,10 +42,10 @@ export const AdvancedEditForm: React.FC<AdvancedEditFormProps> = ({
   const renderEntityFields = () => {
     switch (entityType) {
       case 'stadium':
-        return <StadiumFields entity={entity} onChange={handleFieldChange} isEditing={isEditing} />;
+        return <StadiumFields entity={entity as Stadium} onChange={handleFieldChange} isEditing={isEditing} />;
       
       case 'league':
-        return <LeagueFields entity={entity} onChange={handleFieldChange} isEditing={isEditing} />;
+        return <LeagueFields entity={entity as League} onChange={handleFieldChange} isEditing={isEditing} />;
       
       case 'division_conference':
         return <DivisionConferenceFields 
@@ -62,21 +63,21 @@ export const AdvancedEditForm: React.FC<AdvancedEditFormProps> = ({
       
       case 'broadcast':
         return <BroadcastFields 
-                entity={entity} 
+                entity={entity as BroadcastRights} 
                 onChange={handleFieldChange} 
                 isEditing={isEditing} 
               />;
       
       case 'production':
         return <ProductionFields 
-                entity={entity} 
+                entity={entity as ProductionService} 
                 onChange={handleFieldChange} 
                 isEditing={isEditing} 
               />;
       
       case 'brand':
         return <BrandFields 
-                entity={entity} 
+                entity={entity as Brand} 
                 onChange={handleFieldChange} 
                 isEditing={isEditing} 
               />;

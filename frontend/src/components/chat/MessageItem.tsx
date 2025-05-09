@@ -710,7 +710,7 @@ const MessageItem: React.FC<MessageItemProps> = ({
       
       // Show appropriate error message
       if (isDataExtractionError(error)) {
-        showNotification('error', `Failed to extract data: ${error.getUserMessage()}`)
+        showNotification('error', `Failed to extract data: ${error.getFormattedError()}`)
       } else if (isDataValidationError(error)) {
         showNotification('error', `Data validation failed: ${error.getFormattedErrors()}`)
       } else {
@@ -731,6 +731,14 @@ const MessageItem: React.FC<MessageItemProps> = ({
       // Extract data using the new service
       const extractedData = await extractDataFromMessage(message);
       
+      // Check if data was extracted before proceeding
+      if (!extractedData) {
+        setExtractionError('No structured data could be extracted.');
+        setIsExtracting(false);
+        showNotification('error', 'No structured data could be extracted from this message.');
+        return; // Exit if no data
+      }
+
       if (!extractedData || (!extractedData.headers && !extractedData.rows)) {
         setExtractionError('No structured data found in this message')
         setIsExtracting(false)
@@ -741,10 +749,12 @@ const MessageItem: React.FC<MessageItemProps> = ({
       console.log('MessageItem: Extracted real data from message', extractedData)
       
       // Add message metadata
+      // Ensure extractedData is an object before spreading
       const dataWithMetadata = {
-        ...extractedData,
+        headers: (extractedData?.headers && Array.isArray(extractedData.headers)) ? extractedData.headers : [],
+        rows: (extractedData?.rows && Array.isArray(extractedData.rows)) ? extractedData.rows : [],
         meta_data: {
-          ...(extractedData.meta_data || {}),
+          ...(extractedData?.meta_data || {}),
           source: 'message-extracted-data',
           message_id: message.id,
           conversation_id: message.conversation_id,
@@ -763,9 +773,9 @@ const MessageItem: React.FC<MessageItemProps> = ({
         });
         
         // Add sports data metadata
-        dataWithMetadata.meta_data.data_type = 'sports-data';
-        dataWithMetadata.meta_data.entity_type = sportsDetection.entityType;
-        dataWithMetadata.meta_data.suggested_mappings = sportsDetection.suggestedFields;
+        (dataWithMetadata.meta_data as any).data_type = 'sports-data'; // Cast meta_data
+        (dataWithMetadata.meta_data as any).entity_type = sportsDetection.entityType; // Cast meta_data
+        (dataWithMetadata.meta_data as any).suggested_mappings = sportsDetection.suggestedFields; // Cast meta_data
       }
       
       // Ensure data has headers and rows
@@ -814,8 +824,8 @@ const MessageItem: React.FC<MessageItemProps> = ({
       
       // Show appropriate error message
       if (isDataExtractionError(error)) {
-        setExtractionError(error.getUserMessage())
-        showNotification('error', `Failed to extract sports data: ${error.getUserMessage()}`)
+        setExtractionError(error.getFormattedError())
+        showNotification('error', `Failed to extract sports data: ${error.getFormattedError()}`)
       } else if (isDataValidationError(error)) {
         setExtractionError(error.getFormattedErrors())
         showNotification('error', `Sports data validation failed: ${error.getFormattedErrors()}`)
@@ -986,21 +996,30 @@ const MessageItem: React.FC<MessageItemProps> = ({
       </div>
       
       {/* Display file attachment if present */}
-      {message.meta_data?.fileAttachment && (
-        <div className="mt-2 p-3 bg-gray-100 rounded-lg border border-gray-200">
-          <div className="flex items-center gap-2 mb-2">
-            {message.meta_data.fileAttachment.type === 'csv' ? (
-              <FaFileCsv className="text-green-600" />
-            ) : (
-              <FaFileAlt className="text-blue-600" />
-            )}
-            <span className="font-semibold">{message.meta_data.fileAttachment.name}</span>
-            <span className="text-xs text-gray-500">
-              ({(message.meta_data.fileAttachment.size / 1024).toFixed(1)} KB)
-            </span>
-          </div>
-        </div>
-      )}
+      {(() => { // Use IIFE to handle type checking and conditional rendering
+        const fileAttachment = message.meta_data?.fileAttachment as FileAttachment | undefined;
+        if (fileAttachment && typeof fileAttachment === 'object' && fileAttachment !== null) {
+          return (
+            <div className="mt-2 p-3 bg-gray-100 rounded-lg border border-gray-200">
+              <div className="flex items-center gap-2 mb-2">
+                {fileAttachment.type === 'csv' ? (
+                  <FaFileCsv className="text-green-600" />
+                ) : (
+                  <FaFileAlt className="text-blue-600" />
+                )}
+                <span className="font-semibold">{fileAttachment.name || 'Attached File'}</span>
+                {typeof fileAttachment.size === 'number' && (
+                  <span className="text-xs text-gray-500">
+                    ({(fileAttachment.size / 1024).toFixed(1)} KB)
+                  </span>
+                )}
+              </div>
+              {/* Optional: Add preview or download button here */}
+            </div>
+          );
+        }
+        return null;
+      })()}
       
       {isStreaming && (
         <div className="flex items-center gap-2 text-sm text-gray-600">

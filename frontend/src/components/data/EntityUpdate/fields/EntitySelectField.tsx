@@ -4,7 +4,7 @@ import { EditOutlined, LockOutlined, InfoCircleOutlined } from '@ant-design/icon
 import { Entity, EntityType } from '../../../../types/sports';
 import { useEntityResolution } from '../../../../hooks/useEntityResolution';
 import EntityResolutionBadge from '../EntityResolutionBadge';
-import { entityResolver } from '../../../../utils/entityResolver';
+import { entityResolver, EntityResolver } from '../../../../utils/entityResolver';
 
 const { Text } = Typography;
 const { Option } = Select;
@@ -77,7 +77,7 @@ const EntitySelectField: React.FC<EntitySelectFieldProps> = ({
         try {
           const entity = await entityResolver.resolveEntity(entityType, value);
           if (entity) {
-            setSelectedOption(entity);
+            setSelectedOption(entity as Entity);
           }
         } catch (error) {
           console.error(`Error resolving ${entityType} with ID ${value}:`, error);
@@ -122,7 +122,7 @@ const EntitySelectField: React.FC<EntitySelectFieldProps> = ({
       );
       
       if (entity) {
-        setSearchResults([entity]);
+        setSearchResults([entity as Entity]);
       } else {
         // If no exact match, try to find similar options
         const filtered = options.filter(option => 
@@ -165,8 +165,9 @@ const EntitySelectField: React.FC<EntitySelectFieldProps> = ({
     
     // Create the display element with resolution badge if available
     if (showResolutionInfo) {
-      // Check if we have resolution info in the entity
-      const resolutionInfo = selectedOption.resolution_info || {};
+      // Check if we have resolution info in the entity (using optional chaining)
+      const entityWithInfo = selectedOption as any;
+      const resolutionInfo = entityWithInfo?.resolution_info || {};
       
       return (
         <Space>
@@ -228,42 +229,50 @@ const EntitySelectField: React.FC<EntitySelectFieldProps> = ({
           )}
           
           {/* Original options */}
-          {options.map((option) => (
-            <Option key={option.id} value={option.id} label={option.name}>
-              <Space>
-                <span>{option.name}</span>
-                {showResolutionInfo && option.resolution_info && (
-                  <EntityResolutionBadge
-                    matchScore={option.resolution_info.match_score}
-                    fuzzyMatched={option.resolution_info.fuzzy_matched}
-                    contextMatched={option.resolution_info.context_matched}
-                    virtualEntity={option.resolution_info.virtual_entity}
-                    size="small"
-                  />
-                )}
-              </Space>
-            </Option>
-          ))}
-          
-          {/* Search results that aren't in original options */}
-          {searchResults
-            .filter(result => !options.some(option => option.id === result.id))
-            .map((result) => (
-              <Option key={result.id} value={result.id} label={result.name}>
+          {options.map((option) => {
+            const optionWithInfo = option as any;
+            const resolutionInfo = optionWithInfo?.resolution_info || {};
+            return (
+              <Option key={option.id} value={option.id} label={option.name}>
                 <Space>
-                  <span>{result.name}</span>
-                  {showResolutionInfo && result.resolution_info && (
+                  <span>{option.name}</span>
+                  {showResolutionInfo && resolutionInfo && (
                     <EntityResolutionBadge
-                      matchScore={result.resolution_info.match_score}
-                      fuzzyMatched={result.resolution_info.fuzzy_matched}
-                      contextMatched={result.resolution_info.context_matched}
-                      virtualEntity={result.resolution_info.virtual_entity}
+                      matchScore={resolutionInfo.match_score}
+                      fuzzyMatched={resolutionInfo.fuzzy_matched}
+                      contextMatched={resolutionInfo.context_matched}
+                      virtualEntity={resolutionInfo.virtual_entity}
                       size="small"
                     />
                   )}
                 </Space>
               </Option>
-            ))}
+            );
+          })}
+          
+          {/* Search results that aren't in original options */}
+          {searchResults
+            .filter(result => !options.some(option => option.id === result.id))
+            .map((result) => {
+              const resultWithInfo = result as any;
+              const resolutionInfo = resultWithInfo?.resolution_info || {};
+              return (
+                <Option key={result.id} value={result.id} label={result.name}>
+                  <Space>
+                    <span>{result.name}</span>
+                    {showResolutionInfo && resolutionInfo && (
+                      <EntityResolutionBadge
+                        matchScore={resolutionInfo.match_score}
+                        fuzzyMatched={resolutionInfo.fuzzy_matched}
+                        contextMatched={resolutionInfo.context_matched}
+                        virtualEntity={resolutionInfo.virtual_entity}
+                        size="small"
+                      />
+                    )}
+                  </Space>
+                </Option>
+              );
+            })}
         </Select>
       ) : (
         // Display mode

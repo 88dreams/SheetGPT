@@ -1,6 +1,6 @@
 import React from 'react';
 import { Form } from 'antd';
-import { Entity, EntityType } from '../../../types/sports';
+import { Entity, EntityType, Team, Stadium, League, DivisionConference, BroadcastRights, ProductionService, Brand } from '../../../types/sports';
 import FormField from './fields/FormField';
 import TeamFields from './fields/TeamFields';
 import StadiumFields from './fields/StadiumFields';
@@ -34,7 +34,7 @@ export const QuickEditForm: React.FC<QuickEditFormProps> = ({
     onChange({
       ...entity,
       [field]: value,
-    });
+    } as Entity);
   };
 
   // Generic fields for entity types without specialized components
@@ -50,41 +50,19 @@ export const QuickEditForm: React.FC<QuickEditFormProps> = ({
         isRequired={true}
         helpText="The name of this entity"
       />
-      
-      {entity.description !== undefined && (
-        <FormField
-          field="description"
-          label="Description"
-          type="text"
-          value={entity.description || ''}
-          onChange={handleFieldChange}
-          isEditing={isEditing}
-        />
-      )}
-      
-      {entity.type !== undefined && (
-        <FormField
-          field="type"
-          label="Type"
-          type="text"
-          value={entity.type || ''}
-          onChange={handleFieldChange}
-          isEditing={isEditing}
-        />
-      )}
     </>
   );
 
   return (
     <Form layout="vertical" style={{ maxWidth: 600 }}>
-      {/* Render appropriate fields based on entity type */}
-      {entityType === 'team' && <TeamFields entity={entity} onChange={handleFieldChange} isEditing={isEditing} />}
-      {entityType === 'stadium' && <StadiumFields entity={entity} onChange={handleFieldChange} isEditing={isEditing} />}
-      {entityType === 'league' && <LeagueFields entity={entity} onChange={handleFieldChange} isEditing={isEditing} />}
-      {entityType === 'division_conference' && <DivisionConferenceFields entity={entity} onChange={handleFieldChange} isEditing={isEditing} />}
-      {entityType === 'broadcast' && <BroadcastFields entity={entity} onChange={handleFieldChange} isEditing={isEditing} />}
-      {entityType === 'production' && <ProductionFields entity={entity} onChange={handleFieldChange} isEditing={isEditing} />}
-      {entityType === 'brand' && <BrandFields entity={entity} onChange={handleFieldChange} isEditing={isEditing} />}
+      {/* Render appropriate fields based on entity type with type casting */}
+      {entityType === 'team' && <TeamFields entity={entity as Team} onChange={handleFieldChange} isEditing={isEditing} />}
+      {entityType === 'stadium' && <StadiumFields entity={entity as Stadium} onChange={handleFieldChange} isEditing={isEditing} />}
+      {entityType === 'league' && <LeagueFields entity={entity as League} onChange={handleFieldChange} isEditing={isEditing} />}
+      {entityType === 'division_conference' && <DivisionConferenceFields entity={entity as DivisionConference} onChange={handleFieldChange} isEditing={isEditing} />}
+      {entityType === 'broadcast' && <BroadcastFields entity={entity as BroadcastRights} onChange={handleFieldChange} isEditing={isEditing} />}
+      {entityType === 'production' && <ProductionFields entity={entity as ProductionService} onChange={handleFieldChange} isEditing={isEditing} />}
+      {entityType === 'brand' && <BrandFields entity={entity as Brand} onChange={handleFieldChange} isEditing={isEditing} />}
       
       {/* Generic fallback for other entity types */}
       {!['team', 'stadium', 'league', 'division_conference', 'broadcast', 'production', 'brand'].includes(entityType) && 

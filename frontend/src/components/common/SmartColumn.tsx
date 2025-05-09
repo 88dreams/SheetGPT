@@ -101,7 +101,7 @@ const SmartColumn: React.FC<SmartColumnProps> = ({
   
   // Properties for draggable functionality
   const dragProps = draggable ? {
-    draggable: "true",
+    draggable: true,
     onDragStart: (e: React.DragEvent) => handleColumnDragStart && handleColumnDragStart(e, field),
     onDragOver: (e: React.DragEvent) => handleColumnDragOver && handleColumnDragOver(e, field),
     onDrop: (e: React.DragEvent) => handleColumnDrop && handleColumnDrop(e, field),

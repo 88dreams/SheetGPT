@@ -22,6 +22,37 @@ import type { Conversation } from '../../utils/api'
 import { DndProvider, useDrag, useDrop } from 'react-dnd'
 import { HTML5Backend } from 'react-dnd-html5-backend'
 
+// Define missing DragItem type
+interface DragItem {
+  id: string;
+  index: number;
+}
+
+// Define props for the item component
+interface ConversationItemProps {
+  conversation: Conversation;
+  index: number;
+  selectedId: string | null;
+  onSelect: (id: string) => void;
+  onStartEdit: (conversation: Conversation, e: React.MouseEvent) => void;
+  onArchive: (id: string, e: React.MouseEvent) => void;
+  onRestore: (id: string, e: React.MouseEvent) => void;
+  onDelete: (id: string, title: string, e: React.MouseEvent) => void;
+  onToggleSelect: (id: string, e: React.ChangeEvent<HTMLInputElement>) => void;
+  isSelected: boolean;
+  editingConversation: string | null;
+  editTitle: string;
+  handleSaveEdit: (id: string, e?: React.MouseEvent) => void;
+  handleCancelEdit: (e?: React.MouseEvent) => void;
+  handleKeyDown: (id: string, e: React.KeyboardEvent) => void;
+  setEditTitle: React.Dispatch<React.SetStateAction<string>>;
+  setEditingConversation: React.Dispatch<React.SetStateAction<string | null>>;
+  moveConversation: (dragIndex: number, hoverIndex: number) => void;
+  archiveConversationMutation: any; 
+  restoreConversationMutation: any;
+  deleteConversationMutation: any;
+}
+
 interface ConversationListProps {
   conversations: Conversation[]
   selectedId: string | null
@@ -56,6 +87,7 @@ const DraggableConversationItem: React.FC<ConversationItemProps> = ({
   onStartEdit,
   onArchive,
   onRestore,
+  onDelete,
   onToggleSelect,
   isSelected,
   editingConversation,
@@ -64,12 +96,16 @@ const DraggableConversationItem: React.FC<ConversationItemProps> = ({
   handleCancelEdit,
   handleKeyDown,
   setEditTitle,
-  moveConversation
+  setEditingConversation,
+  moveConversation,
+  archiveConversationMutation,
+  restoreConversationMutation,
+  deleteConversationMutation
 }) => {
   const ref = useRef<HTMLDivElement>(null);
   const itemType = 'conversation';
   
-  const [{ isDragging }, drag] = useDrag({
+  const [{ isDragging }, dragRef] = useDrag({
     type: itemType,
     item: () => {
       console.log(`Starting drag for item at index ${index}: ${conversation.id}`);
@@ -87,7 +123,7 @@ const DraggableConversationItem: React.FC<ConversationItemProps> = ({
     }
   });
   
-  const [{ isOver }, drop] = useDrop({
+  const [{ isOver }, dropRef] = useDrop({
     accept: itemType,
     collect: monitor => ({
       isOver: monitor.isOver()
@@ -159,20 +195,14 @@ const DraggableConversationItem: React.FC<ConversationItemProps> = ({
     },
   });
   
-  // Initialize drag and drop into ref
-  const refConnect = (node: HTMLDivElement | null) => {
-    drag(node);
-    drop(node);
-    if (ref.current !== node) {
-      ref.current = node;
-    }
-  };
+  // Connect the refs
+  dragRef(dropRef(ref));
   
   const opacity = isDragging ? 0.5 : 1;
   
   return (
     <div
-      ref={refConnect}
+      ref={ref}
       className={`relative rounded cursor-pointer transition-colors ${
         selectedId === conversation.id
           ? 'bg-blue-100 hover:bg-blue-200'
@@ -187,7 +217,7 @@ const DraggableConversationItem: React.FC<ConversationItemProps> = ({
           <input
             type="checkbox"
             checked={isSelected}
-            onChange={(e) => onToggleSelect(conversation.id, e as any)}
+            onChange={(e) => onToggleSelect(conversation.id, e)}
             onClick={(e) => e.stopPropagation()}
             className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
           />
@@ -748,7 +778,7 @@ const ConversationList: React.FC<ConversationListProps> = ({
     restoreConversationMutation.mutate(id)
   }
 
-  const handleToggleSelect = (id: string, e: React.MouseEvent) => {
+  const handleToggleSelect = (id: string, e: React.ChangeEvent<HTMLInputElement>) => {
     e.stopPropagation()
     setSelectedConversations(prev => {
       const newSet = new Set(prev)
@@ -870,131 +900,35 @@ const ConversationList: React.FC<ConversationListProps> = ({
             </thead>
             <tbody>
               {localConversations.map((conversation, index) => (
-                <tr 
+                <DraggableConversationItem
                   key={conversation.id}
-                  className={`border-b cursor-pointer ${
-                    selectedId === conversation.id ? 'bg-blue-50' : 'hover:bg-gray-50'
-                  }`}
-                  onClick={() => onSelect(conversation.id)}
-                >
-                  <td className="w-8 py-2 px-4 align-top">
-                    <input
-                      type="checkbox"
-                      checked={selectedConversations.has(conversation.id)}
-                      onChange={(e) => onToggleSelect(conversation.id, e as any)}
-                      onClick={(e) => e.stopPropagation()}
-                      className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                    />
-                  </td>
-                  <td className="py-2 pr-4">
-                    {editingConversation === conversation.id ? (
-                      <div className="flex items-center space-x-2" onClick={e => e.stopPropagation()}>
-                        <input
-                          type="text"
-                          value={editTitle}
-                          onChange={e => setEditTitle(e.target.value)}
-                          onKeyDown={e => handleKeyDown(conversation.id, e)}
-                          className="flex-1 px-2 py-1 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
-                          autoFocus
-                        />
-                        <button 
-                          onClick={e => handleSaveEdit(conversation.id, e)}
-                          className="p-1 text-green-600 hover:text-green-800"
-                        >
-                          <CheckIcon className="h-4 w-4" />
-                        </button>
-                        <button 
-                          onClick={handleCancelEdit}
-                          className="p-1 text-red-600 hover:text-red-800"
-                        >
-                          <XMarkIcon className="h-4 w-4" />
-                        </button>
-                      </div>
-                    ) : (
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center">
-                          <h3 className={`font-medium truncate text-sm ${conversation.meta_data?.archived ? 'text-gray-500' : ''}`}>
-                            {conversation.title}
-                          </h3>
-                          {conversation.meta_data?.archived && (
-                            <span className="ml-2 px-1.5 py-0.5 text-xs bg-amber-100 text-amber-800 rounded">
-                              Archived
-                            </span>
-                          )}
-                        </div>
-                        {conversation.description && (
-                          <p className="text-xs text-gray-600 truncate">
-                            {conversation.description}
-                          </p>
-                        )}
-                        <div className="flex items-center justify-between">
-                          <p className="text-xs text-gray-400">
-                            {conversation.meta_data?.archived_at 
-                              ? `Archived: ${formatDate(conversation.meta_data.archived_at)}`
-                              : `Created: ${formatDate(conversation.created_at)}`
-                            }
-                          </p>
-                          
-                          {/* Action buttons for selected conversation */}
-                          {selectedId === conversation.id && (
-                            <div className="flex space-x-1">
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setEditingConversation(conversation.id);
-                                  setEditTitle(conversation.title);
-                                }}
-                                className="p-1 text-blue-600 hover:text-blue-800 bg-blue-50 hover:bg-blue-100 rounded"
-                                title="Rename conversation"
-                              >
-                                <PencilIcon className="h-3.5 w-3.5" />
-                              </button>
-                              
-                              {conversation.meta_data?.archived ? (
-                                <button 
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    restoreConversationMutation.mutate(conversation.id);
-                                  }}
-                                  className="p-1 text-amber-600 hover:text-amber-800 bg-amber-50 hover:bg-amber-100 rounded"
-                                  title="Restore conversation from archive"
-                                >
-                                  <FaUndo className="h-3.5 w-3.5" />
-                                </button>
-                              ) : (
-                                <button 
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    if (window.confirm('Are you sure you want to archive this conversation?')) {
-                                      archiveConversationMutation.mutate(conversation.id);
-                                    }
-                                  }}
-                                  className="p-1 text-gray-600 hover:text-gray-800 bg-gray-50 hover:bg-gray-100 rounded"
-                                  title="Archive conversation"
-                                >
-                                  <FaArchive className="h-3.5 w-3.5" />
-                                </button>
-                              )}
-                              
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  if (window.confirm(`Are you sure you want to delete "${conversation.title}"?`)) {
-                                    deleteConversationMutation.mutate([conversation.id]);
-                                  }
-                                }}
-                                className="p-1 text-red-600 hover:text-red-800 bg-red-50 hover:bg-red-100 rounded"
-                                title="Delete conversation"
-                              >
-                                <TrashIcon className="h-3.5 w-3.5" />
-                              </button>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    )}
-                  </td>
-                </tr>
+                  index={index}
+                  conversation={conversation}
+                  selectedId={selectedId}
+                  onSelect={onSelect}
+                  onStartEdit={handleStartEdit}
+                  onArchive={handleArchiveConversation}
+                  onRestore={handleRestoreConversation}
+                  onDelete={(id, title, e) => {
+                    e.stopPropagation();
+                    if (window.confirm(`Are you sure you want to delete "${title}"?`)) {
+                      deleteConversationMutation.mutate([id]);
+                    }
+                  }}                  
+                  onToggleSelect={handleToggleSelect}
+                  isSelected={selectedConversations.has(conversation.id)}
+                  editingConversation={editingConversation}
+                  editTitle={editTitle}
+                  setEditTitle={setEditTitle}
+                  setEditingConversation={setEditingConversation}
+                  handleSaveEdit={handleSaveEdit}
+                  handleCancelEdit={handleCancelEdit}
+                  handleKeyDown={handleKeyDown}
+                  moveConversation={moveConversation}
+                  archiveConversationMutation={archiveConversationMutation}
+                  restoreConversationMutation={restoreConversationMutation}
+                  deleteConversationMutation={deleteConversationMutation}
+                />
               ))}
             </tbody>
           </table>
@@ -1021,7 +955,7 @@ const ConversationList: React.FC<ConversationListProps> = ({
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
         onCreate={handleCreateConversation}
-        isLoading={createConversationMutation.isPending}
+        isLoading={createConversationMutation.isLoading}
       />
     </div>
   )

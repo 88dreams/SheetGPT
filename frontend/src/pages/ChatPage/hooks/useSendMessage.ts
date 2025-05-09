@@ -118,7 +118,7 @@ export function useSendMessage({
 
   return {
     sendMessage,
-    isPending: sendMessageMutation.isPending,
+    isLoading: sendMessageMutation.isLoading,
     isError: sendMessageMutation.isError,
     error: sendMessageMutation.error
   };

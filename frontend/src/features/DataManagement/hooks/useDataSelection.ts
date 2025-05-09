@@ -90,16 +90,16 @@ export const useDataSelection = (): UseDataSelectionResult => {
     isLoading: isLoadingAll,
     error: allDataError,
     refetch: refetchAllData
-  } = useQuery({
-    queryKey: ['structured-data'],
-    queryFn: () => api.data.getStructuredData(),
-    staleTime: 1000 * 60 * 15, // 15 minutes
-    gcTime: 1000 * 60 * 60, // 60 minutes
-    refetchOnWindowFocus: true, // Keep data fresh when window gets focus
-    refetchOnMount: true,      // Fetch data when component mounts
-    retry: 2,
-    retryDelay: attemptIndex => Math.min(1000 * 2 ** attemptIndex, 30000)
-  });
+  } = useQuery<StructuredDataItem[], Error>(
+    ['structured-data'], 
+    () => api.data.getStructuredData(), 
+    {
+      staleTime: 1000 * 60 * 15,
+      refetchOnWindowFocus: true,
+      refetchOnMount: true,
+      retry: 2,
+      retryDelay: attemptIndex => Math.min(1000 * 2 ** attemptIndex, 30000)
+    });
 
   // Query for specific message data when messageId is present
   const {
@@ -107,17 +107,17 @@ export const useDataSelection = (): UseDataSelectionResult => {
     isLoading: isLoadingMessage,
     error: messageError,
     refetch: refetchMessageData
-  } = useQuery({
-    queryKey: ['structured-data', 'message', messageId],
-    queryFn: () => messageId ? api.data.getStructuredDataByMessageId(messageId) : Promise.resolve(null),
-    enabled: !!messageId,
-    retry: 3,
-    retryDelay: attemptIndex => Math.min(1000 * 2 ** attemptIndex, 30000),
-    staleTime: 1000 * 60 * 15, // 15 minutes
-    gcTime: 1000 * 60 * 60, // 60 minutes
-    refetchOnWindowFocus: true,
-    refetchOnMount: true
-  });
+  } = useQuery<StructuredDataItem | null, Error>(
+    ['structured-data', 'message', messageId], 
+    () => messageId ? api.data.getStructuredDataByMessageId(messageId) : Promise.resolve(null), 
+    {
+      enabled: !!messageId,
+      retry: 3,
+      retryDelay: attemptIndex => Math.min(1000 * 2 ** attemptIndex, 30000),
+      staleTime: 1000 * 60 * 15,
+      refetchOnWindowFocus: true,
+      refetchOnMount: true
+    });
 
   // Query for selected data details with increased reliability
   const {
@@ -125,21 +125,21 @@ export const useDataSelection = (): UseDataSelectionResult => {
     isLoading: isLoadingSelected,
     error: selectedDataError,
     refetch: refetchSelectedData
-  } = useQuery({
-    queryKey: ['structured-data', selectedDataId],
-    queryFn: () => {
+  } = useQuery<StructuredDataItem | null, Error>(
+    ['structured-data', selectedDataId], 
+    () => {
       if (!selectedDataId) return Promise.resolve(null);
       console.log('DataManagement: Fetching selected data for ID:', selectedDataId);
       return api.data.getStructuredDataById(selectedDataId);
-    },
-    enabled: !!selectedDataId,
-    retry: 3, // Retry up to 3 times if the query fails
-    retryDelay: 1000, // Wait 1 second between retries
-    staleTime: 0, // Consider data immediately stale to ensure fresh data
-    refetchOnWindowFocus: true,
-    refetchOnMount: true,
-    gcTime: 1000 * 60 * 60 // Cache for 60 minutes 
-  });
+    }, 
+    {
+      enabled: !!selectedDataId,
+      retry: 3,
+      retryDelay: 1000,
+      staleTime: 0,
+      refetchOnWindowFocus: true,
+      refetchOnMount: true,
+    });
 
   // Enhanced verification for message data
   useEffect(() => {
@@ -295,7 +295,7 @@ export const useDataSelection = (): UseDataSelectionResult => {
     messageId,
     structuredData,
     isLoading,
-    allDataError,
+    allDataError: allDataError instanceof Error ? allDataError : null,
     selectedDataId,
     selectedData,
     handleSelectData,

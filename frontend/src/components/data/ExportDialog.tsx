@@ -24,10 +24,17 @@ const ExportDialog: React.FC<ExportDialogProps> = ({ isOpen, onClose, dataId }) 
       if (dataId) {
         try {
           const data = await api.data.getStructuredDataById(dataId)
-          const defaultName = data?.meta_data?.conversation_title || 
-                          data?.meta_data?.name || 
-                          `Exported Data - ${new Date().toLocaleDateString()}`
-          setSpreadsheetName(defaultName)
+          let defaultNameString: string;
+          const meta = data?.meta_data;
+
+          if (meta && typeof meta.conversation_title === 'string' && meta.conversation_title) {
+            defaultNameString = meta.conversation_title;
+          } else if (meta && typeof meta.name === 'string' && meta.name) {
+            defaultNameString = meta.name;
+          } else {
+            defaultNameString = `Exported Data - ${new Date().toLocaleDateString()}`;
+          }
+          setSpreadsheetName(defaultNameString)
         } catch (error) {
           console.error('Error fetching data details:', error)
         }
@@ -338,10 +345,10 @@ const ExportDialog: React.FC<ExportDialogProps> = ({ isOpen, onClose, dataId }) 
               // Directly call exportCsvMutation instead of changing state first
               exportCsvMutation.mutate();
             }}
-            disabled={(exportSheetsMutation.isPending || exportCsvMutation.isPending) || !spreadsheetName}
+            disabled={(exportSheetsMutation.isLoading || exportCsvMutation.isLoading) || !spreadsheetName}
             className="px-3 py-1 text-xs font-medium text-white bg-blue-600 rounded hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-1"
           >
-            {exportCsvMutation.isPending ? (
+            {exportCsvMutation.isLoading ? (
               <>
                 <LoadingSpinner size="small" className="text-white" />
                 <span>Exporting...</span>
@@ -356,10 +363,10 @@ const ExportDialog: React.FC<ExportDialogProps> = ({ isOpen, onClose, dataId }) 
               // Directly call exportSheetsMutation instead of changing state first
               exportSheetsMutation.mutate();
             }}
-            disabled={(exportSheetsMutation.isPending || exportCsvMutation.isPending) || !spreadsheetName}
+            disabled={(exportSheetsMutation.isLoading || exportCsvMutation.isLoading) || !spreadsheetName}
             className="px-3 py-1 text-xs font-medium text-white bg-green-600 rounded hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-1"
           >
-            {exportSheetsMutation.isPending ? (
+            {exportSheetsMutation.isLoading ? (
               <>
                 <LoadingSpinner size="small" className="text-white" />
                 <span>Exporting...</span>

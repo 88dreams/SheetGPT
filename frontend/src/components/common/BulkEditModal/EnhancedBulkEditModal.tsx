@@ -168,8 +168,8 @@ const EnhancedBulkEditModal: React.FC<BulkEditModalProps> = ({
                     for all selected {entityType ? entityType + ' items' : 'rows'}.
                   </Text>
                   <Text type="secondary">
-                    <InfoCircleOutlined className="mr-2" />
-                    Empty fields will clear existing values.
+                    <InfoCircleOutlined />
+                    <span className="ml-2">Empty fields will clear existing values.</span>
                   </Text>
                 </Space>
               }
@@ -224,8 +224,9 @@ const EnhancedBulkEditModal: React.FC<BulkEditModalProps> = ({
       
       {currentView === 'processing' && (
         <ProcessingStatus
+          status={isProcessing ? 'processing' : 'results'}
           isProcessing={isProcessing}
-          progress={processingProgress}
+          processingProgress={processingProgress}
           results={results}
           onClose={onCancel}
         />

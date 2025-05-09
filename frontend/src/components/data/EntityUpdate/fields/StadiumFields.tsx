@@ -1,9 +1,9 @@
 import React from 'react';
 import FormField from './FormField';
-import { Entity } from '../../../../types/sports';
+import { Stadium } from '../../../../types/sports';
 
 interface StadiumFieldsProps {
-  entity: Entity;
+  entity: Stadium;
   onChange: (field: string, value: string | number) => void;
   isEditing: boolean;
 }
@@ -27,7 +27,7 @@ const StadiumFields: React.FC<StadiumFieldsProps> = ({ entity, onChange, isEditi
         field="city"
         label="City"
         type="text"
-        value={entity.city as string || ''}
+        value={entity.city || ''}
         onChange={onChange}
         isEditing={isEditing}
         isRequired={true}
@@ -36,7 +36,7 @@ const StadiumFields: React.FC<StadiumFieldsProps> = ({ entity, onChange, isEditi
         field="state"
         label="State"
         type="text"
-        value={entity.state as string || ''}
+        value={entity.state || ''}
         onChange={onChange}
         isEditing={isEditing}
       />
@@ -44,7 +44,7 @@ const StadiumFields: React.FC<StadiumFieldsProps> = ({ entity, onChange, isEditi
         field="country"
         label="Country"
         type="text"
-        value={entity.country as string || ''}
+        value={entity.country || ''}
         onChange={onChange}
         isEditing={isEditing}
         isRequired={true}
@@ -53,7 +53,7 @@ const StadiumFields: React.FC<StadiumFieldsProps> = ({ entity, onChange, isEditi
         field="capacity"
         label="Capacity"
         type="number"
-        value={entity.capacity as number || 0}
+        value={entity.capacity || undefined}
         onChange={onChange}
         isEditing={isEditing}
       />
@@ -61,7 +61,7 @@ const StadiumFields: React.FC<StadiumFieldsProps> = ({ entity, onChange, isEditi
         field="owner"
         label="Owner"
         type="text"
-        value={entity.owner as string || ''}
+        value={entity.owner || ''}
         onChange={onChange}
         isEditing={isEditing}
       />
@@ -69,7 +69,7 @@ const StadiumFields: React.FC<StadiumFieldsProps> = ({ entity, onChange, isEditi
         field="naming_rights_holder"
         label="Naming Rights Holder"
         type="text"
-        value={entity.naming_rights_holder as string || ''}
+        value={entity.naming_rights_holder || ''}
         onChange={onChange}
         isEditing={isEditing}
       />
@@ -77,7 +77,7 @@ const StadiumFields: React.FC<StadiumFieldsProps> = ({ entity, onChange, isEditi
         field="host_broadcaster"
         label="Host Broadcaster"
         type="text"
-        value={entity.host_broadcaster as string || ''}
+        value={entity.host_broadcaster || ''}
         onChange={onChange}
         isEditing={isEditing}
       />

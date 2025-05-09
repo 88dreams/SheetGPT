@@ -1,9 +1,9 @@
 import React from 'react';
 import FormField from './FormField';
-import { Entity } from '../../../../types/sports';
+import { League } from '../../../../types/sports';
 
 interface LeagueFieldsProps {
-  entity: Entity;
+  entity: League;
   onChange: (field: string, value: string | number | Date | null) => void;
   isEditing: boolean;
 }
@@ -23,19 +23,21 @@ const LeagueFields: React.FC<LeagueFieldsProps> = ({ entity, onChange, isEditing
         isEditing={isEditing}
         isRequired={true}
       />
+      {/* Nickname is not on the League type in types/sports.ts. Commenting out for now.
       <FormField
         field="nickname"
         label="Nickname"
         type="text"
-        value={entity.nickname as string || ''}
+        value={entity.nickname || ''}
         onChange={onChange}
         isEditing={isEditing}
       />
+      */}
       <FormField
         field="sport"
         label="Sport"
         type="text"
-        value={entity.sport as string || ''}
+        value={entity.sport || ''}
         onChange={onChange}
         isEditing={isEditing}
         isRequired={true}
@@ -44,7 +46,7 @@ const LeagueFields: React.FC<LeagueFieldsProps> = ({ entity, onChange, isEditing
         field="country"
         label="Country"
         type="text"
-        value={entity.country as string || ''}
+        value={entity.country || ''}
         onChange={onChange}
         isEditing={isEditing}
         isRequired={true}
@@ -53,7 +55,7 @@ const LeagueFields: React.FC<LeagueFieldsProps> = ({ entity, onChange, isEditing
         field="broadcast_start_date"
         label="Broadcast Start Date"
         type="date"
-        value={entity.broadcast_start_date as string || null}
+        value={entity.broadcast_start_date || null}
         onChange={onChange}
         isEditing={isEditing}
         handleYearOnlyInput={true}
@@ -63,7 +65,7 @@ const LeagueFields: React.FC<LeagueFieldsProps> = ({ entity, onChange, isEditing
         field="broadcast_end_date"
         label="Broadcast End Date"
         type="date"
-        value={entity.broadcast_end_date as string || null}
+        value={entity.broadcast_end_date || null}
         onChange={onChange}
         isEditing={isEditing}
         handleYearOnlyInput={true}

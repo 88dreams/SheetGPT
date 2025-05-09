@@ -43,7 +43,7 @@ const DataManagement: React.FC = () => {
       return (
         <div className="text-red-500 p-4">
           <h3 className="text-lg font-semibold">Error loading data</h3>
-          <p className="mt-2">{allDataError.message || 'Unknown error occurred'}</p>
+          <p className="mt-2">{allDataError instanceof Error ? allDataError.message : 'Unknown error occurred'}</p>
         </div>
       );
     }

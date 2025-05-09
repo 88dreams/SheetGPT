@@ -27,12 +27,13 @@ const DivisionConferenceFields: React.FC<DivisionConferenceFieldsProps> = ({ ent
       const selectedLeague = leagues.find(league => league.id === entity.league_id);
       if (selectedLeague && selectedLeague.sport) {
         setSelectedLeagueSport(selectedLeague.sport);
+      } else {
+        setSelectedLeagueSport(null); // League not found or has no sport
       }
-    } else if (entity.league_sport) {
-      // If we already have the sport from the API response
-      setSelectedLeagueSport(entity.league_sport);
+    } else {
+      setSelectedLeagueSport(null); // No league_id
     }
-  }, [entity.league_id, entity.league_sport, leagues]);
+  }, [entity.league_id, leagues]);
   
   return (
     <>
@@ -49,7 +50,7 @@ const DivisionConferenceFields: React.FC<DivisionConferenceFieldsProps> = ({ ent
         field="nickname"
         label="Nickname"
         type="text"
-        value={entity.nickname as string || ''}
+        value={entity.nickname || ''}
         onChange={onChange}
         isEditing={isEditing}
         helpText="Short abbreviation or code (e.g., AFC, NFC)"
@@ -58,7 +59,7 @@ const DivisionConferenceFields: React.FC<DivisionConferenceFieldsProps> = ({ ent
         field="type"
         label="Type"
         type="text"
-        value={entity.type as string || ''}
+        value={entity.type || ''}
         onChange={onChange}
         isEditing={isEditing}
         isRequired={true}
@@ -67,7 +68,7 @@ const DivisionConferenceFields: React.FC<DivisionConferenceFieldsProps> = ({ ent
         field="region"
         label="Region"
         type="text"
-        value={entity.region as string || ''}
+        value={entity.region || ''}
         onChange={onChange}
         isEditing={isEditing}
       />
@@ -75,7 +76,7 @@ const DivisionConferenceFields: React.FC<DivisionConferenceFieldsProps> = ({ ent
         field="description"
         label="Description"
         type="text"
-        value={entity.description as string || ''}
+        value={entity.description || ''}
         onChange={onChange}
         isEditing={isEditing}
       />

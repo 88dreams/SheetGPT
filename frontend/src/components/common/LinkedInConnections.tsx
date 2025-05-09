@@ -60,7 +60,7 @@ const LinkedInConnections: React.FC<LinkedInConnectionsProps> = ({
             if (Date.now() >= exp) {
               console.log('Token expired, attempting refresh before LinkedIn status fetch');
               try {
-                const refreshResult = await api.auth.refreshToken();
+                const refreshResult = await api.auth.refresh();
                 if (!refreshResult || !refreshResult.access_token) {
                   tokenValid = false;
                 }

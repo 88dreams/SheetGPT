@@ -13,34 +13,31 @@ export function useMessages({ conversationId, enabled = true }: UseMessagesOptio
     error,
     isError,
     refetch
-  } = useQuery<Message[], Error>({
-    queryKey: ['messages', conversationId],
-    queryFn: async () => {
-      console.log('Fetching messages for conversation:', {
-        conversationId,
-        timestamp: new Date().toISOString()
-      });
-      
-      if (!conversationId) return [];
-      
-      const conversation = await api.chat.getConversation(conversationId);
-      const messages = conversation.messages;
-      
-      console.log('Messages fetched:', {
-        conversationId,
-        messageCount: messages.length,
-        timestamp: new Date().toISOString()
-      });
-      
-      return messages;
-    },
+  } = useQuery<Message[], Error>(['messages', conversationId], async () => {
+    console.log('Fetching messages for conversation:', {
+      conversationId,
+      timestamp: new Date().toISOString()
+    });
+    
+    if (!conversationId) return [];
+    
+    const conversation = await api.chat.getConversation(conversationId);
+    const messages = conversation.messages;
+    
+    console.log('Messages fetched:', {
+      conversationId,
+      messageCount: messages.length,
+      timestamp: new Date().toISOString()
+    });
+    
+    return messages;
+  }, {
     enabled: !!conversationId && enabled,
     retry: 2,
-    staleTime: 1000 * 60, // Consider data fresh for 1 minute
-    gcTime: 1000 * 60 * 60, // Cache for 60 minutes
+    staleTime: 1000 * 60,
     refetchOnMount: true,
-    refetchOnWindowFocus: false, // Disable automatic refetch on window focus
-    refetchOnReconnect: false, // Disable automatic refetch on reconnect
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
   });
 
   return {

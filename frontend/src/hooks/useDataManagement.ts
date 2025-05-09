@@ -1,7 +1,8 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useNotification } from '../contexts/NotificationContext'
 import { api } from '../utils/api'
-import type { StructuredData, Column, RowData } from '../utils/api'
+import type { RowData } from '../utils/api'
+import type { StructuredData, Column } from '../types/data'
 
 export function useDataManagement(dataId?: string) {
   const queryClient = useQueryClient()
@@ -159,11 +160,11 @@ export function useDataManagement(dataId?: string) {
     columns,
     isLoadingData,
     isLoadingColumns,
-    isUpdatingColumn: updateColumnMutation.isPending,
-    isUpdatingCell: updateCellMutation.isPending,
-    isDeleting: deleteMutation.isPending,
-    isAddingRow: addRowMutation.isPending,
-    isDeletingRow: deleteRowMutation.isPending,
+    isUpdatingColumn: updateColumnMutation.isLoading,
+    isUpdatingCell: updateCellMutation.isLoading,
+    isDeleting: deleteMutation.isLoading,
+    isAddingRow: addRowMutation.isLoading,
+    isDeletingRow: deleteRowMutation.isLoading,
     updateColumn: updateColumnMutation.mutate,
     updateCell: updateCellMutation.mutate,
     deleteData: deleteMutation.mutate,

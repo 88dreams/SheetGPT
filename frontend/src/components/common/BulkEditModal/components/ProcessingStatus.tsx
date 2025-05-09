@@ -1,12 +1,17 @@
 import React from 'react';
 import { UpdateResults } from '../types';
 import LoadingSpinner from '../../LoadingSpinner';
+import { Progress, Button, Alert, Space, Typography } from 'antd';
+import { CheckCircleOutlined, ExclamationCircleOutlined, LoadingOutlined } from '@ant-design/icons';
+
+const { Text } = Typography;
 
 interface ProcessingStatusProps {
   status: 'loading' | 'processing' | 'results' | 'idle';
   processingProgress?: number;
   results?: UpdateResults;
   onClose?: () => void;
+  isProcessing: boolean;
 }
 
 /**
@@ -16,7 +21,8 @@ const ProcessingStatus: React.FC<ProcessingStatusProps> = ({
   status,
   processingProgress = 0,
   results = { success: 0, failed: 0 },
-  onClose
+  onClose,
+  isProcessing
 }) => {
   if (status === 'loading') {
     return (

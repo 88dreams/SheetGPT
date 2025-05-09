@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useChatContext } from '../../contexts/ChatContext';
 import MessageThread from './MessageThread';
-import { Message } from '../../types/chat';
+import { Message } from '../../types/api';
 // ... other imports
 
 const Chat: React.FC = () => {

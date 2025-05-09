@@ -143,7 +143,7 @@ const DataPreviewModal: React.FC<DataPreviewModalProps> = ({
       
       if (isDataExtractionError(e)) {
         setError(e.message);
-        setErrorDetails(e.detail);
+        setErrorDetails(e.details);
       } else if (isDataValidationError(e)) {
         setError(e.message);
         setErrorDetails(e.getFormattedErrors());
@@ -228,7 +228,7 @@ const DataPreviewModal: React.FC<DataPreviewModalProps> = ({
       
       if (isDataExtractionError(error)) {
         setError(error.message);
-        setErrorDetails(error.detail);
+        setErrorDetails(error.details);
       } else {
         setError(`Error processing data: ${(error as Error).message}`);
       }

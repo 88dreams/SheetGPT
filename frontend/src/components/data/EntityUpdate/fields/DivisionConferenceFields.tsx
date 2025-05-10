@@ -86,6 +86,7 @@ const DivisionConferenceFields: React.FC<DivisionConferenceFieldsProps> = ({ ent
         label={
           <Space>
             <Text>Sport</Text>
+            {/* @ts-expect-error TS2739: AntD icon type issue */}
             <LockOutlined />
           </Space>
         }
@@ -103,6 +104,7 @@ const DivisionConferenceFields: React.FC<DivisionConferenceFieldsProps> = ({ ent
           <Space>
             <Text>League</Text>
             <Text type="danger">*</Text>
+            {/* @ts-expect-error TS2739: AntD icon type issue */}
             {isEditing ? <EditOutlined /> : <LockOutlined />}
           </Space>
         }

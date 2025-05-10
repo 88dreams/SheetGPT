@@ -165,6 +165,7 @@ const TeamFields: React.FC<TeamFieldsProps> = ({ entity, onChange, isEditing }) 
               virtualEntity={divisionResolution.resolutionInfo.virtualEntity}
             />
             <Tooltip title="This division/conference was resolved using fuzzy matching. Verify this is the correct one.">
+              {/* @ts-expect-error TS2739: AntD icon type issue */}
               <InfoCircleOutlined style={{ color: '#1890ff' }} />
             </Tooltip>
             <span>Found a fuzzy match for this division/conference. Please verify it's correct.</span>

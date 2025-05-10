@@ -6,7 +6,7 @@ import { isSortableRelationshipField } from '../utils/formatters';
 interface SmartColumnProps {
   field: string;
   sortField: string;
-  sortDirection: 'asc' | 'desc';
+  sortDirection: 'asc' | 'desc' | 'none';
   handleSort: (field: string) => void;
   entities: any[];
   selectedEntityType: EntityType;
@@ -56,14 +56,15 @@ const SmartColumn: React.FC<SmartColumnProps> = ({
   
   // Render sort icon
   const renderSortIcon = () => {
-    if (sortField !== field) {
-      return <FaSort className="ml-1 text-gray-400" />;
+    if (sortField === field) {
+      if (sortDirection === 'asc') {
+        return <FaSortUp className="ml-1 text-blue-500" />;
+      } else if (sortDirection === 'desc') {
+        return <FaSortDown className="ml-1 text-blue-500" />;
+      }
+      return <FaSort className="ml-1 text-blue-500" />;
     }
-    return sortDirection === 'asc' ? (
-      <FaSortUp className="ml-1 text-blue-500" />
-    ) : (
-      <FaSortDown className="ml-1 text-blue-500" />
-    );
+    return <FaSort className="ml-1 text-gray-400" />;
   };
   
   return (

@@ -241,6 +241,7 @@ const EnhancedFieldInput: React.FC<FieldProps> = ({
                 size="small"
               />
               <Tooltip title={`Entity was resolved using approximate matching. Please verify this is the correct ${entityType}.`}>
+                {/* @ts-expect-error TS2739: AntD icon type issue */}
                 <InfoCircleOutlined style={{ color: '#1890ff' }} />
               </Tooltip>
               <Text type="secondary" style={{ fontSize: '0.8rem' }}>
@@ -256,6 +257,7 @@ const EnhancedFieldInput: React.FC<FieldProps> = ({
             type="warning"
             showIcon
             style={{ marginTop: 8, padding: '2px 8px', fontSize: '0.8rem' }}
+            {/* @ts-expect-error TS2739: AntD icon type issue */}
             icon={<WarningOutlined />}
           />
         )}
@@ -274,9 +276,10 @@ const EnhancedFieldInput: React.FC<FieldProps> = ({
           onPressEnter={() => handleSearch(searchValue)}
           disabled={disabled || !selected}
           allowClear
-          suffix={
-            isSearching ? <Spin size="small" /> : 
-              <SearchOutlined onClick={() => handleSearch(searchValue)} style={{ cursor: 'pointer' }} />
+          suffix={isSearching ? 
+            <Spin size="small" /> :
+            // @ts-expect-error TS2739: AntD icon type issue
+            <SearchOutlined onClick={() => handleSearch(searchValue)} style={{ cursor: 'pointer' }} />
           }
         />
         

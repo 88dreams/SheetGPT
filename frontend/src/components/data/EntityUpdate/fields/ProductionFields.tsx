@@ -66,6 +66,7 @@ const ProductionFields: React.FC<ProductionFieldsProps> = ({ entity, onChange, i
           <Space>
             <Text>Production Company</Text>
             <Text type="danger">*</Text>
+            {/* @ts-expect-error TS2739: AntD icon type issue */}
             {isEditing ? <EditOutlined /> : <LockOutlined />}
           </Space>
         }
@@ -90,6 +91,7 @@ const ProductionFields: React.FC<ProductionFieldsProps> = ({ entity, onChange, i
         label={
           <Space>
             <Text>Employing Brand</Text>
+            {/* @ts-expect-error TS2739: AntD icon type issue */}
             {isEditing ? <EditOutlined /> : <LockOutlined />}
           </Space>
         }
@@ -130,6 +132,7 @@ const ProductionFields: React.FC<ProductionFieldsProps> = ({ entity, onChange, i
           <Space>
             <Text>Entity Type</Text>
             <Text type="danger">*</Text>
+            {/* @ts-expect-error TS2739: AntD icon type issue */}
             {isEditing ? <EditOutlined /> : <LockOutlined />}
           </Space>
         }
@@ -154,6 +157,7 @@ const ProductionFields: React.FC<ProductionFieldsProps> = ({ entity, onChange, i
           <Space>
             <Text>Entity</Text>
             <Text type="danger">*</Text>
+            {/* @ts-expect-error TS2739: AntD icon type issue */}
             {isEditing ? <EditOutlined /> : <LockOutlined />}
           </Space>
         }

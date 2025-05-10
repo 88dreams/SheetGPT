@@ -168,6 +168,7 @@ const EnhancedBulkEditModal: React.FC<BulkEditModalProps> = ({
                     for all selected {entityType ? entityType + ' items' : 'rows'}.
                   </Text>
                   <Text type="secondary">
+                    {/* @ts-expect-error TS2739: AntD icon type issue */}
                     <InfoCircleOutlined />
                     <span className="ml-2">Empty fields will clear existing values.</span>
                   </Text>

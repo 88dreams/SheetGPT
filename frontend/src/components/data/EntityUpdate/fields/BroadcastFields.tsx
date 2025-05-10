@@ -71,6 +71,7 @@ const BroadcastFields: React.FC<BroadcastFieldsProps> = ({ entity, onChange, isE
           <Space>
             <Text>Broadcast Company</Text>
             <Text type="danger">*</Text>
+            {/* @ts-expect-error TS2739: AntD icon type issue */}
             {isEditing ? <EditOutlined /> : <LockOutlined />}
           </Space>
         }
@@ -96,6 +97,7 @@ const BroadcastFields: React.FC<BroadcastFieldsProps> = ({ entity, onChange, isE
           <Space>
             <Text>Entity Type</Text>
             <Text type="danger">*</Text>
+            {/* @ts-expect-error TS2739: AntD icon type issue */}
             {isEditing ? <EditOutlined /> : <LockOutlined />}
           </Space>
         }
@@ -121,6 +123,7 @@ const BroadcastFields: React.FC<BroadcastFieldsProps> = ({ entity, onChange, isE
             <Space>
               <Text>Entity</Text>
               <Text type="danger">*</Text>
+              {/* @ts-expect-error TS2739: AntD icon type issue */}
               {isEditing ? <EditOutlined /> : <LockOutlined />}
             </Space>
           }
@@ -148,6 +151,7 @@ const BroadcastFields: React.FC<BroadcastFieldsProps> = ({ entity, onChange, isE
               <Space>
                 <Text>Division/Conference</Text>
                 <Text type="danger">*</Text>
+                {/* @ts-expect-error TS2739: AntD icon type issue */}
                 {isEditing ? <EditOutlined /> : <LockOutlined />}
               </Space>
             }
@@ -155,7 +159,6 @@ const BroadcastFields: React.FC<BroadcastFieldsProps> = ({ entity, onChange, isE
           >
             <SmartEntitySearch 
               entityTypes={['division_conference']} 
-              entities={divisionConferences}
               placeholder="Search for a division or conference..."
               onEntitySelect={(selectedEntity) => {
                 // Set division_conference_id to the selected division's ID
@@ -195,6 +198,7 @@ const BroadcastFields: React.FC<BroadcastFieldsProps> = ({ entity, onChange, isE
             <Space>
               <Text>Entity</Text>
               <Text type="danger">*</Text>
+              {/* @ts-expect-error TS2739: AntD icon type issue */}
               {isEditing ? <EditOutlined /> : <LockOutlined />}
             </Space>
           }

@@ -81,9 +81,11 @@ const FormField: React.FC<FormFieldProps> = ({
         <Space>
           <Text>{label}</Text>
           {isRequired ? <Text type="danger">*</Text> : null}
+          {/* @ts-expect-error TS2739: AntD icon type issue */}
           {isEditing ? <EditOutlined /> : <LockOutlined />}
           {helpText && (
             <Tooltip title={helpText}>
+              {/* @ts-expect-error TS2739: AntD icon type issue */}
               <InfoCircleOutlined style={{ color: 'rgba(0,0,0,.45)' }} />
             </Tooltip>
           )}

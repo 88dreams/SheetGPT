@@ -91,10 +91,10 @@ const LinkedInCSVImport: React.FC<LinkedInCSVImportProps> = ({ onImportComplete 
             const data = await fetchResponse.json();
             console.log('LinkedIn CSV import response:', data);
             setImportStats(data);
-            showNotification({
-              type: 'success',
-              message: `Successfully imported ${data.imported_contacts} contacts with ${data.matched_brands} brand matches`
-            });
+            showNotification(
+              'success',
+              `Successfully imported ${data.imported_contacts} contacts with ${data.matched_brands} brand matches`
+            );
             
             // Call the callback if provided
             if (onImportComplete) {
@@ -112,10 +112,10 @@ const LinkedInCSVImport: React.FC<LinkedInCSVImportProps> = ({ onImportComplete 
       }
     } catch (error) {
       console.error('Error importing contacts:', error);
-      showNotification({
-        type: 'error',
-        message: 'Failed to import contacts. Please try again.'
-      });
+      showNotification(
+        'error',
+        'Failed to import contacts. Please try again.'
+      );
     } finally {
       setLoading(false);
       // Reset the file input

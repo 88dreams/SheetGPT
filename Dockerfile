@@ -1,27 +1,21 @@
 # Stage 1: Build the frontend
-FROM node:18-alpine AS frontend-builder
+FROM node:18-bullseye AS frontend-builder
 
 WORKDIR /app
 
-# Copy package.json and yarn.lock first to the frontend subdirectory
 COPY frontend/package.json ./frontend/
 COPY frontend/yarn.lock ./frontend/
-# NOTE: This assumes yarn.lock exists in your local SheetGPT/frontend/ directory.
-# If it might be missing, the build could fail here. Ensure yarn.lock is committed.
 
-# Change WORKDIR to where yarn install needs to run
 WORKDIR /app/frontend
+RUN rm -rf node_modules
 RUN yarn install --frozen-lockfile
-RUN rm -rf node_modules/.vite # Clean Vite cache
+RUN rm -rf node_modules/.vite
 
-# Go back to the parent WORKDIR before copying the rest of the source code
 WORKDIR /app
-# Copy the entire content of the local frontend directory into /app/frontend in the image
 COPY frontend/ ./frontend/
 
-# Set WORKDIR for the build command
 WORKDIR /app/frontend
-RUN yarn build # Runs 'tsc && vite build' from frontend/package.json
+RUN yarn build
 
 # Stage 2: Development backend (without built frontend)
 FROM python:3.9-slim AS backend-dev

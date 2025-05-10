@@ -26,8 +26,10 @@ SheetGPT combines AI-powered chat (Claude) with structured data management and a
 ## Development Setup
 
 - **Primary Tool:** Docker and `docker-compose`. Use `docker-compose.yml`.
-- **Key Commands:**
-  - Start Services: `docker-compose up -d` (or `docker-compose up` for logs)
+- **Dev Container:** VS Code Dev Containers are configured via `.devcontainer/devcontainer.json` to automatically start `frontend`, `backend`, and `db` services from `docker-compose.yml` when you "Reopen in Container". The `frontend` service runs the Vite dev server in development mode.
+- **Key Commands (manual execution via host terminal):**
+  - Start Services: `docker-compose up -d` (starts all services defined in `docker-compose.yml`)
+  - Start Specific Dev Services: `docker-compose up -d frontend backend db`
   - Stop Services: `docker-compose down`
   - Stop & Remove Volumes: `docker-compose down -v` (Needed after certain changes, see below)
   - Rebuild Service: `docker-compose build --no-cache <service_name>` (e.g., `frontend`, `backend`)
@@ -37,11 +39,13 @@ SheetGPT combines AI-powered chat (Claude) with structured data management and a
 
 - **Dependencies:**
   - **Backend:** Managed by `pip` via `requirements.txt`. Install happens during `docker-compose build backend`.
-  - **Frontend:** Managed by `yarn` via `frontend/package.json` and `frontend/yarn.lock`. Install happens during `docker-compose build frontend`.
-  - **IMPORTANT:** Frontend dependencies can be tricky due to Docker volumes. If Vite/dependency errors occur:
+  - **Frontend:** Managed by `yarn` via `frontend/package.json` and `frontend/yarn.lock`. 
+    - Dependencies are installed during `docker-compose build frontend` (for the dev service) and within the `frontend-builder` stage of the root `Dockerfile` (which now correctly runs `yarn build` for production assets).
+    - The `frontend` service in `docker-compose.yml` is configured with `NODE_ENV=development` to ensure the Vite dev server runs correctly.
+  - **IMPORTANT:** Frontend dependencies can still be tricky due to Docker volumes if local `node_modules` interfere with the container's. If Vite/dependency errors occur:
     1. Ensure `frontend/.dockerignore` includes `node_modules`.
     2. Run `docker-compose down -v` to clear stale volumes.
-    3. Rebuild: `docker-compose build --no-cache frontend`.
+    3. Rebuild: `docker-compose build --no-cache frontend` (or specific service).
     4. See `docs/development/DEPENDENCY_ANALYSIS.md` for full history.
 
 - **Further Reading:**

@@ -15,7 +15,7 @@ services:
       - VITE_MOCK_DATA=false
       - VITE_DISABLE_ALL_MOCK_DATA=true
       - FORCE_REAL_DATA=true
-      - NODE_ENV=production
+      - NODE_ENV=development
     depends_on:
       - backend
 

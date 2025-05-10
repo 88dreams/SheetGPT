@@ -83,10 +83,11 @@
 
 ### Frontend (React/TypeScript) (Updated May 7, 2025)
 - **Uses Yarn:** Project now uses `yarn` for dependency management.
-- **Install:** Use `yarn install` within the container (handled by Dockerfile).
-- Run dev server: `docker-compose up frontend` (uses `yarn dev` internally).
-- Run tests: `./run-tests.sh` or `docker-compose run --rm frontend-test`
-- Lint/TypeCheck: `docker-compose run --rm frontend yarn lint` / `docker-compose run --rm frontend yarn typecheck` (Assuming scripts exist in package.json)
+- **Install:** Handled by Docker. `yarn install --frozen-lockfile` is used in `frontend/Dockerfile` (for dev) and `Dockerfile` (root, in `frontend-builder` stage for prod builds).
+- **Run dev server:** `docker-compose up frontend` (This service is configured with `NODE_ENV=development` in `docker-compose.yml` and runs the Vite dev server via `CMD` in `frontend/Dockerfile`).
+- **Production Build:** The `frontend-builder` stage in the root `Dockerfile` executes `RUN yarn build` to generate static assets in `frontend/dist/`. These are then copied by the `backend-prod` stage.
+- **Run tests:** `./run-tests.sh` or `docker-compose run --rm frontend-test`
+- **Lint/TypeCheck:** `docker-compose run --rm frontend yarn lint` / `docker-compose run --rm frontend yarn typecheck` (Assuming scripts exist in package.json for these specific commands, otherwise `yarn lint` and `yarn typecheck` directly in the container).
 
 ## Database Management
 - Backup: `python src/scripts/db_management.py backup`

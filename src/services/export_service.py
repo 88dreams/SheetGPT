@@ -5,6 +5,12 @@ from typing import List, Dict, Any, Optional, Tuple
 from uuid import UUID
 import logging
 import json
+import csv
+import io
+import os
+import tempfile
+from pathlib import Path
+from datetime import datetime, date
 
 from src.services.sports_service import SportsService
 from src.services.export.sheets_service import GoogleSheetsService as SheetsService
@@ -259,3 +265,84 @@ class ExportService:
         
         logging.info(f"Total rows for export: {len(rows)}")
         return headers, rows
+
+    async def export_data_to_csv_file(self, data: List[Dict[str, Any]], filename_prefix: str = "export") -> str:
+        """
+        Exports data to a temporary CSV file and returns the file path.
+        This matches the apparent expectation of the original /export route for CSV.
+        
+        Args:
+            data: List of dictionaries representing rows.
+            filename_prefix: Prefix for the temporary filename.
+            
+        Returns:
+            Absolute path to the created temporary CSV file.
+        """
+        if not data:
+            raise ValueError("No data provided for CSV export")
+
+        # Create a temporary file
+        # Use tempfile for secure and managed temporary file creation
+        # Suffix ensures it's a .csv file
+        try:
+            # Using NamedTemporaryFile with delete=False to keep the file after closing
+            with tempfile.NamedTemporaryFile(mode='w', newline='', suffix='.csv', prefix=f"{filename_prefix}_", delete=False) as temp_file:
+                writer = csv.DictWriter(temp_file, fieldnames=data[0].keys())
+                writer.writeheader()
+                writer.writerows(data)
+                temp_file_path = temp_file.name
+                logger.info(f"Successfully wrote data to temporary CSV file: {temp_file_path}")
+            return temp_file_path
+        except Exception as e:
+            logger.error(f"Failed to create temporary CSV file: {e}", exc_info=True)
+            raise ValueError(f"CSV file generation failed: {e}")
+
+    async def export_data_to_sheets(self, data: List[Dict[str, Any]], title: str) -> Dict[str, Any]:
+        """
+        Exports data to Google Sheets.
+        Placeholder implementation - requires actual Google Sheets integration.
+        
+        Args:
+            data: List of dictionaries representing rows.
+            title: Title for the Google Sheet.
+            
+        Returns:
+            Dictionary with sheet information (e.g., URL, ID).
+        """
+        logger.warning("export_data_to_sheets called, but Google Sheets integration is not fully implemented in this refactored service yet.")
+        
+        # Placeholder logic: Simulate success but return dummy data
+        # In a real implementation:
+        # 1. Initialize GoogleSheetsService (passed in __init__)
+        # 2. Authenticate if necessary.
+        # 3. Prepare data (potentially formatting headers/rows).
+        # 4. Call the sheets service to create spreadsheet and write data.
+        # 5. Return the actual URL and ID.
+        
+        # Simulate finding headers and converting rows
+        if not data:
+             raise ValueError("No data provided for Google Sheets export")
+        headers = list(data[0].keys())
+        rows = [headers] + [[str(row.get(h, '')) for h in headers] for row in data]
+        
+        # Simulate a call to a sheets service
+        # simulated_sheet_id = f"dummy_sheet_{uuid4()}"
+        # simulated_sheet_url = f"https://docs.google.com/spreadsheets/d/{simulated_sheet_id}"
+        
+        # For now, raise an error indicating it's not implemented to avoid silent failure
+        raise NotImplementedError("Google Sheets export functionality requires implementation with Google API client.")
+        
+        # return {
+        #     "spreadsheet_id": simulated_sheet_id,
+        #     "spreadsheetUrl": simulated_sheet_url, # Match original key name?
+        #     "title": title
+        # }
+
+    # Utility to serialize complex objects if needed for specific export formats
+    def _default_serializer(self, obj):
+        if isinstance(obj, (datetime, date)):
+            return obj.isoformat()
+        # Add other types if needed (e.g., UUID)
+        # if isinstance(obj, UUID):
+        #     return str(obj)
+        raise TypeError(f"Type {type(obj)} not serializable for export")

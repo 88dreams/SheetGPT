@@ -91,10 +91,18 @@ frontend/
 
 #### Build & Dependency Management (Updated May 7, 2025)
 - Uses `yarn` (v1) for dependency management (switched from `npm` due to resolution issues).
-- Dependencies are installed within the Docker build using `yarn install --frozen-lockfile` to ensure consistency via `yarn.lock`.
-- `frontend/.dockerignore` prevents local `node_modules` from overwriting the container's during the `COPY . .` build step.
-- Docker anonymous volume for `/app/node_modules` is used in `docker-compose.yml` to persist dependencies between runs while allowing local code syncing.
-- **Important:** If encountering unexpected dependency versions at runtime, ensure stale anonymous volumes are cleared using `docker-compose down -v`.
+- Development: 
+  - The `frontend` service in `docker-compose.yml` uses `frontend/Dockerfile`.
+  - `frontend/Dockerfile` sets `NODE_ENV=development` and its `CMD` starts the Vite dev server (`./node_modules/.bin/vite --host 0.0.0.0`).
+  - The `frontend` service in `docker-compose.yml` also ensures `NODE_ENV=development` is set, overriding any Dockerfile ENV if different, for a consistent development server experience.
+- Production Build:
+  - The root `Dockerfile` contains a `frontend-builder` stage.
+  - This stage installs dependencies using `yarn install --frozen-lockfile`.
+  - Crucially, it now executes `RUN yarn build` to compile static frontend assets into `frontend/dist/`.
+  - The `backend-prod` stage in the root `Dockerfile` (used by the `app` service in `docker-compose.yml`) copies these assets from `/app/frontend/dist` (within the `frontend-builder` stage) to its own `/app/frontend/dist` to be served.
+- `frontend/.dockerignore` prevents local `node_modules` from overwriting the container's during the `COPY . .` build step in `frontend/Dockerfile`.
+- Docker anonymous volume for `/workspace/frontend/node_modules` (as defined in `docker-compose.yml` for the `frontend` service) helps persist dependencies between runs while allowing local code syncing for development.
+- **Important:** If encountering unexpected dependency versions at runtime or build issues, ensure stale anonymous volumes are cleared using `docker-compose down -v` and consider rebuilding images with `--no-cache`.
 
 #### Notable Fixes
 - **Pagination:** Resolved issue where paginated entity lists (e.g., Brands) did not update correctly on page change by disabling `keepPreviousData` in the relevant `useQuery` configuration within `SportsDatabaseContext`.

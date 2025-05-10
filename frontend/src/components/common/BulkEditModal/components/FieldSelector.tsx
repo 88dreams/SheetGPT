@@ -65,6 +65,7 @@ const FieldSelector: React.FC<FieldSelectorProps> = ({
                     {field.required && <span className="text-red-500 ml-1">*</span>}
                     {field.description && (
                       <Tooltip title={field.description}>
+                        {/* @ts-expect-error TS2739: AntD icon type issue */}
                         <InfoCircleOutlined className="ml-2 text-gray-400" />
                       </Tooltip>
                     )}

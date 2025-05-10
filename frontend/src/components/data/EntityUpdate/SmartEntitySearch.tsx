@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Input, AutoComplete, Tag, Space, Tooltip } from 'antd';
-import { SearchOutlined, QuestionCircleOutlined, CheckCircleFilled } from '@ant-design/icons';
+import { SearchOutlined, QuestionCircleOutlined, CheckCircleFilled, InfoCircleOutlined } from '@ant-design/icons';
 import { Entity, EntityType } from '../../../types/sports';
 import { entityResolver } from '../../../utils/entityResolver';
 import { apiCache } from '../../../utils/apiCache';
@@ -157,7 +157,10 @@ const SmartEntitySearch = ({
         } else if (result.virtualEntity) {
           matchInfo = <Tag color="cyan">Virtual Entity</Tag>;
         } else {
-          matchInfo = <Tag color="green"><CheckCircleFilled /> Exact</Tag>;
+          matchInfo = <Tag color="green">
+                        {/* @ts-expect-error TS2739: AntD icon type issue */}
+                        <CheckCircleFilled /> Exact
+                      </Tag>;
         }
       }
       
@@ -194,10 +197,12 @@ const SmartEntitySearch = ({
     >
       <Input
         size="middle"
+        // @ts-expect-error TS2739: AntD icon type issue
         prefix={<SearchOutlined />}
         suffix={
           <Tooltip title="Search for entities by name. Results show match confidence.">
-            <QuestionCircleOutlined style={{ color: 'rgba(0,0,0,.45)' }} />
+            {/* @ts-expect-error TS2739: AntD icon type issue */}
+            <InfoCircleOutlined style={{ color: 'rgba(0,0,0,.45)' }} />
           </Tooltip>
         }
         style={{ width: '100%' }}

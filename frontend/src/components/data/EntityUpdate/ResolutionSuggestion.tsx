@@ -49,7 +49,12 @@ const ResolutionSuggestion: React.FC<ResolutionSuggestionProps> = ({
     } else if (virtualEntity) {
       return <Tag color="cyan">Virtual Entity</Tag>;
     } else {
-      return <Tag color="green"><CheckCircleFilled /> Exact Match</Tag>;
+      return (
+        <Tag color="green">
+          {/* @ts-expect-error TS2739: AntD icon type issue */}
+          <CheckCircleFilled /> Exact Match
+        </Tag>
+      );
     }
   };
 
@@ -165,6 +170,7 @@ const ResolutionSuggestion: React.FC<ResolutionSuggestionProps> = ({
         <Col xs={24} sm={8} style={{ textAlign: 'right' }}>
           <Button 
             type="primary" 
+            // @ts-expect-error TS2739: AntD icon type issue
             icon={<EditOutlined />}
             onClick={() => onSelect(entity)}
           >
@@ -173,6 +179,7 @@ const ResolutionSuggestion: React.FC<ResolutionSuggestionProps> = ({
           {' '}
           <Tooltip title="View complete entity data">
             <Button
+              // @ts-expect-error TS2739: AntD icon type issue
               icon={<InfoCircleOutlined />}
               onClick={() => {
                 console.log('Full entity data:', entity);

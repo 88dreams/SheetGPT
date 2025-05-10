@@ -71,6 +71,7 @@ const EntityRelatedInfo: React.FC<EntityRelatedInfoProps> = ({
       key="related"
       extra={
         <Tooltip title="Entities related to this record through references or relationships">
+          {/* @ts-expect-error TS2739: AntD icon type issue */}
           <InfoCircleOutlined />
         </Tooltip>
       }
@@ -99,6 +100,7 @@ const EntityRelatedInfo: React.FC<EntityRelatedInfoProps> = ({
                   <Button 
                     type="text" 
                     size="small" 
+                    // @ts-expect-error TS2739: AntD icon type issue
                     icon={<InfoCircleOutlined />}
                     onClick={() => handleViewDetails(related)}
                   />
@@ -106,6 +108,7 @@ const EntityRelatedInfo: React.FC<EntityRelatedInfoProps> = ({
                     <Button 
                       type="text" 
                       size="small" 
+                      // @ts-expect-error TS2739: AntD icon type issue
                       icon={<LinkOutlined />}
                       onClick={() => onEntitySelect(related)}
                     />
@@ -130,6 +133,7 @@ const EntityRelatedInfo: React.FC<EntityRelatedInfoProps> = ({
       key="history"
       extra={
         <Tooltip title="History of changes made to this entity">
+          {/* @ts-expect-error TS2739: AntD icon type issue */}
           <HistoryOutlined />
         </Tooltip>
       }

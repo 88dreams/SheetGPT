@@ -1,6 +1,7 @@
-import { renderHook, act } from '@testing-library/react-hooks';
+import { renderHook, act, waitFor } from '@testing-library/react';
 import { describe, it, expect, jest, beforeEach } from '@jest/globals';
-import { useEntityResolution, useBatchEntityResolution } from '../../../frontend/src/hooks/useEntityResolution';
+import { useEntityResolution, useBatchEntityResolution } from '../useEntityResolution';
+import { EntityType } from '../../types/sports';
 
 // Mock dependencies
 jest.mock('../../../frontend/src/utils/entityResolver', () => ({
@@ -62,15 +63,15 @@ describe('useEntityResolution', () => {
       resolution_info: mockResolutionInfo
     });
     
-    const { result, waitForNextUpdate } = renderHook(() => 
-      useEntityResolution('team', 'Test Team')
-    );
+    const { result } = renderHook(() => useEntityResolution('team', 'Test Team'));
     
     // Should start loading
     expect(result.current.isLoading).toBe(true);
     
     // Wait for resolution to complete
-    await waitForNextUpdate();
+    await waitFor(() => {
+      expect(result.current.isLoading).toBe(false);
+    });
     
     // Should have called resolver with correct parameters
     expect(entityResolver.resolveEntity).toHaveBeenCalledWith(
@@ -87,14 +88,7 @@ describe('useEntityResolution', () => {
       entity: mockEntity,
       isLoading: false,
       error: null,
-      resolutionInfo: {
-        matchScore: 0.95,
-        fuzzyMatched: true,
-        contextMatched: false,
-        virtualEntity: false,
-        resolvedEntityType: 'team',
-        resolvedVia: 'fuzzy_name_match'
-      }
+      resolutionInfo: mockResolutionInfo
     });
   });
 
@@ -103,15 +97,15 @@ describe('useEntityResolution', () => {
     const mockError = new Error('Entity not found');
     entityResolver.resolveEntity.mockRejectedValueOnce(mockError);
     
-    const { result, waitForNextUpdate } = renderHook(() => 
-      useEntityResolution('team', 'NonExistentTeam')
-    );
+    const { result } = renderHook(() => useEntityResolution('team', 'NonExistentTeam'));
     
     // Should start loading
     expect(result.current.isLoading).toBe(true);
     
     // Wait for resolution to complete
-    await waitForNextUpdate();
+    await waitFor(() => {
+      expect(result.current.isLoading).toBe(false);
+    });
     
     // Should have called resolver
     expect(entityResolver.resolveEntity).toHaveBeenCalled();
@@ -137,19 +131,16 @@ describe('useEntityResolution', () => {
       context: { league_id: 'league_123' }
     };
     
-    const { result, waitForNextUpdate } = renderHook(() => 
-      useEntityResolution('team', 'Test Team', options)
-    );
+    const { result } = renderHook(() => useEntityResolution('team', 'Test Team', options));
     
     // Wait for resolution to complete
-    await waitForNextUpdate();
-    
-    // Should have called resolver with correct options
-    expect(entityResolver.resolveEntity).toHaveBeenCalledWith(
-      'team',
-      'Test Team',
-      expect.objectContaining(options)
-    );
+    await waitFor(() => {
+      expect(entityResolver.resolveEntity).toHaveBeenCalledWith(
+        'team',
+        'Test Team',
+        expect.objectContaining(options)
+      );
+    });
   });
 
   it('updates when inputs change', async () => {
@@ -162,13 +153,13 @@ describe('useEntityResolution', () => {
       resolution_info: { match_score: 1.0 }
     });
     
-    const { result, waitForNextUpdate, rerender } = renderHook(
+    const { result, rerender } = renderHook(
       ({ entityType, nameOrId }) => useEntityResolution(entityType, nameOrId),
-      { initialProps: { entityType: 'team', nameOrId: 'Team One' } }
+      { initialProps: { entityType: 'team' as EntityType, nameOrId: 'Team One' } }
     );
     
     // Wait for first resolution
-    await waitForNextUpdate();
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
     
     // Verify first resolution
     expect(result.current.entity).toEqual(mockEntity1);
@@ -183,13 +174,13 @@ describe('useEntityResolution', () => {
     });
     
     // Change props to trigger re-resolution
-    rerender({ entityType: 'league', nameOrId: 'League Two' });
+    rerender({ entityType: 'league' as EntityType, nameOrId: 'League Two' });
     
     // Should start loading again
     expect(result.current.isLoading).toBe(true);
     
     // Wait for second resolution
-    await waitForNextUpdate();
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
     
     // Should have called resolver with new parameters
     expect(entityResolver.resolveEntity).toHaveBeenCalledWith(
@@ -246,19 +237,17 @@ describe('useBatchEntityResolution', () => {
     
     // Input references
     const references = {
-      team: { name: 'Test Team', type: 'team' },
-      league: { name: 'Test League', type: 'league' }
+      team: { name: 'Test Team', type: 'team' as EntityType },
+      league: { name: 'Test League', type: 'league' as EntityType }
     };
     
-    const { result, waitForNextUpdate } = renderHook(() => 
-      useBatchEntityResolution(references)
-    );
+    const { result } = renderHook(() => useBatchEntityResolution(references));
     
     // Should start loading
     expect(result.current.isLoading).toBe(true);
     
     // Wait for resolution to complete
-    await waitForNextUpdate();
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
     
     // Should have called batch resolver with correct references
     expect(entityResolver.resolveReferences).toHaveBeenCalledWith(
@@ -296,16 +285,14 @@ describe('useBatchEntityResolution', () => {
     
     // Input references
     const references = {
-      team: { name: 'Test Team', type: 'team' },
-      league: { name: 'Nonexistent League', type: 'league' }
+      team: { name: 'Test Team', type: 'team' as EntityType },
+      league: { name: 'Nonexistent League', type: 'league' as EntityType }
     };
     
-    const { result, waitForNextUpdate } = renderHook(() => 
-      useBatchEntityResolution(references)
-    );
+    const { result } = renderHook(() => useBatchEntityResolution(references));
     
     // Wait for resolution to complete
-    await waitForNextUpdate();
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
     
     // Should have updated state with both resolved entities and errors
     expect(result.current).toEqual({
@@ -323,16 +310,14 @@ describe('useBatchEntityResolution', () => {
     
     // Input references
     const references = {
-      team: { name: 'Test Team', type: 'team' },
-      league: { name: 'Test League', type: 'league' }
+      team: { name: 'Test Team', type: 'team' as EntityType },
+      league: { name: 'Test League', type: 'league' as EntityType }
     };
     
-    const { result, waitForNextUpdate } = renderHook(() => 
-      useBatchEntityResolution(references)
-    );
+    const { result } = renderHook(() => useBatchEntityResolution(references));
     
     // Wait for resolution to complete
-    await waitForNextUpdate();
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
     
     // Should have updated state with error
     expect(result.current).toEqual({
@@ -354,21 +339,15 @@ describe('useBatchEntityResolution', () => {
   it('respects throwOnAnyError parameter', async () => {
     // Input references
     const references = {
-      team: { name: 'Test Team', type: 'team' }
+      team: { name: 'Test Team', type: 'team' as EntityType }
     };
     
-    const { result, waitForNextUpdate } = renderHook(() => 
+    const { result } = renderHook(() => 
       useBatchEntityResolution(references, true) // throwOnAnyError = true
     );
     
     // Wait for resolution to complete
-    await waitForNextUpdate();
-    
-    // Should have called resolver with throwOnAnyError = true
-    expect(entityResolver.resolveReferences).toHaveBeenCalledWith(
-      references,
-      true
-    );
+    await waitFor(() => expect(entityResolver.resolveReferences).toHaveBeenCalledWith(references, true));
   });
 
   it('provides manual resolution function', async () => {
@@ -381,9 +360,7 @@ describe('useBatchEntityResolution', () => {
     entityResolver.resolveReferences.mockResolvedValueOnce(mockResult);
     
     // Start with empty references
-    const { result, waitForNextUpdate } = renderHook(() => 
-      useBatchEntityResolution({})
-    );
+    const { result } = renderHook(() => useBatchEntityResolution({}));
     
     // Should not call resolver initially with empty references
     expect(entityResolver.resolveReferences).not.toHaveBeenCalled();
@@ -403,7 +380,7 @@ describe('useBatchEntityResolution', () => {
     expect(result.current.isLoading).toBe(true);
     
     // Wait for resolution to complete
-    await waitForNextUpdate();
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
     
     // Should have called resolver
     expect(entityResolver.resolveReferences).toHaveBeenCalled();

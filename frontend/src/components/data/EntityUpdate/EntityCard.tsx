@@ -123,6 +123,7 @@ export const EntityCard: React.FC<EntityCardProps> = ({
         <Space>
           <Button
             type={isEditing ? "primary" : "default"}
+            // @ts-expect-error TS2739: AntD icon type issue for ternary expression
             icon={isEditing ? <SaveOutlined /> : <EditOutlined />}
             onClick={() => isEditing ? handleSave() : setIsEditing(true)}
           >

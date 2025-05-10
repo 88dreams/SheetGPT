@@ -257,8 +257,10 @@ const EnhancedFieldInput: React.FC<FieldProps> = ({
             type="warning"
             showIcon
             style={{ marginTop: 8, padding: '2px 8px', fontSize: '0.8rem' }}
-            {/* @ts-expect-error TS2739: AntD icon type issue */}
-            icon={<WarningOutlined />}
+            icon={
+              // @ts-expect-error TS2739: AntD icon type issue
+              <WarningOutlined />
+            }
           />
         )}
       </div>
@@ -278,7 +280,7 @@ const EnhancedFieldInput: React.FC<FieldProps> = ({
           allowClear
           suffix={isSearching ? 
             <Spin size="small" /> :
-            // @ts-expect-error TS2739: AntD icon type issue
+            // @ts-expect-error TS2739: AntD icon type issue (this placement for SearchOutlined should be okay)
             <SearchOutlined onClick={() => handleSearch(searchValue)} style={{ cursor: 'pointer' }} />
           }
         />
@@ -306,6 +308,10 @@ const EnhancedFieldInput: React.FC<FieldProps> = ({
             type="warning"
             showIcon
             style={{ marginTop: 8, padding: '2px 8px', fontSize: '0.8rem' }}
+            icon={
+              // @ts-expect-error TS2739: AntD icon type issue
+              <WarningOutlined />
+            }
           />
         )}
       </div>

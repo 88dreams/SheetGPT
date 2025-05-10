@@ -48,6 +48,7 @@ const EntityResolutionBadge: React.FC<EntityResolutionBadgeProps> = ({
     return (
       <Tooltip title={tooltipText}>
         <Tag color="purple" style={size === 'small' ? { fontSize: '0.8em', padding: '0 4px' } : {}}>
+          {/* @ts-expect-error TS2739: AntD icon type issue */}
           <InfoCircleOutlined /> Context
         </Tag>
       </Tooltip>
@@ -73,6 +74,7 @@ const EntityResolutionBadge: React.FC<EntityResolutionBadgeProps> = ({
   return (
     <Tooltip title={tooltipText}>
       <Tag color="green" style={size === 'small' ? { fontSize: '0.8em', padding: '0 4px' } : {}}>
+        {/* @ts-expect-error TS2739: AntD icon type issue */}
         <CheckCircleFilled /> Exact
       </Tag>
     </Tooltip>

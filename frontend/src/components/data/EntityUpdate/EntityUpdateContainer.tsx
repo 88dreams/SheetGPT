@@ -142,6 +142,7 @@ export const EntityUpdateContainer: React.FC = () => {
           <div style={{ textAlign: 'center', marginTop: 16 }}>
             <Button 
               type="primary" 
+              // @ts-expect-error TS2739: AntD icon type issue
               icon={<ToolOutlined />}
               onClick={handleClearSearch}
             >
@@ -198,6 +199,7 @@ export const EntityUpdateContainer: React.FC = () => {
           {' '}
           <Button 
             type="link" 
+            // @ts-expect-error TS2739: AntD icon type issue
             icon={<SearchOutlined />}
             onClick={() => handleManualSearch(searchQuery || document.querySelector('input')?.value || '')}
           >

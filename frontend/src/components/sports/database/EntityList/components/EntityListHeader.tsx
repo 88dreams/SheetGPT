@@ -106,6 +106,7 @@ const EntityListHeader: React.FC<EntityListHeaderProps> = ({
           <div className="w-full flex">
             <Input 
               ref={searchInputRef}
+              // @ts-expect-error TS2739: AntD icon type issue
               prefix={<SearchOutlined />} 
               placeholder={`Search ${getEntityTypeName(selectedEntityType)} (min 3 chars)`}
               defaultValue={searchValue}
@@ -115,6 +116,7 @@ const EntityListHeader: React.FC<EntityListHeaderProps> = ({
               className="rounded-r-none"
               suffix={
                 inputValue ? (
+                  // @ts-expect-error TS2739: AntD icon type issue
                   <CloseCircleFilled
                     className="cursor-pointer text-gray-400 hover:text-gray-600"
                     onClick={handleClearSearch}

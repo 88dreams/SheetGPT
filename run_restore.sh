@@ -15,7 +15,7 @@ fi
 DB_NAME="sheetgpt"
 DB_USER="postgres"
 DB_PASSWORD="postgres"
-BACKUP_FILE="/Users/lucas/Personal/P_CODE/SheetGPT/sheetgpt_backup.dump"
+BACKUP_FILE="/Users/lucas/Personal/P_CODE/SheetGPT/data/backups/sheetgpt_backup.dump"
 
 # Check if backup file exists
 if [ ! -f "$BACKUP_FILE" ]; then

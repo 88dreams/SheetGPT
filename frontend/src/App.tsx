@@ -59,6 +59,7 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
 
 const App: React.FC = () => {
   // Check token status and refresh if needed when the app loads
+  /*
   useEffect(() => {
     const checkAndRefreshToken = async () => {
       if (isTokenExpiredOrExpiringSoon()) {
@@ -82,6 +83,7 @@ const App: React.FC = () => {
       clearInterval(tokenCheckInterval);
     };
   }, []);
+  */
 
   return (
     <NotificationProvider>

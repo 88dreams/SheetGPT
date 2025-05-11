@@ -92,13 +92,24 @@ class DatabaseAdminService:
                     rows = data_result.fetchall()
                     if rows:
                         sql_content.append(f"-- Inserting data into {table}")
-                        for row in rows:
-                            values = []
-                            for value in row:
-                                if value is None: values.append("NULL")
-                                elif isinstance(value, (int, float)): values.append(str(value))
-                                else: values.append(f"'{str(value).replace("'", "''")}'") 
-                            sql_content.append(f"INSERT INTO {table} VALUES ({', '.join(values)});")
+                        for row_idx, row_data in enumerate(rows):
+                            current_values = []
+                            for col_idx, value in enumerate(row_data):
+                                if isinstance(value, str):
+                                    # Escape single quotes for SQL
+                                    escaped_val = value.replace("'", "''")
+                                    # Wrap in single quotes for SQL
+                                    current_values.append(f"'{escaped_val}'")
+                                elif isinstance(value, (int, float, bool)):
+                                    current_values.append(str(value))
+                                elif value is None:
+                                    current_values.append('NULL')
+                                else: # Fallback for other types
+                                    # Convert to string, then escape single quotes, then wrap in single quotes
+                                    str_val = str(value)
+                                    escaped_str_val = str_val.replace("'", "''")
+                                    current_values.append(f"'{escaped_str_val}'")
+                            sql_content.append(f"INSERT INTO {table} VALUES ({', '.join(current_values)});")
                         sql_content.append("")
             sql_content.append("COMMIT;")
             with open(backup_file, "w") as f:

@@ -21,6 +21,8 @@ services:
       - backend
 
   frontend-test:
+    profiles:
+      - tests
     build:
       context: ./frontend
       dockerfile: Dockerfile.test

@@ -1,8 +1,9 @@
 import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { describe, it, expect, jest, beforeEach } from '@jest/globals';
+import { describe, it, expect, jest, beforeEach, afterEach } from '@jest/globals';
 import '@testing-library/jest-dom';
+import { EntityType } from '../../../../types/sports';
 
 // Import the component to test
 import SmartEntitySearch from '../SmartEntitySearch';
@@ -10,48 +11,14 @@ import SmartEntitySearch from '../SmartEntitySearch';
 // Mock the entityResolver utility
 jest.mock('../../../../../src/utils/entityResolver', () => ({
   entityResolver: {
-    resolveEntity: jest.fn(async (type, name, options) => {
-      // Simulate response based on input
-      if (name === 'not found') {
-        if (options?.throwOnError) {
-          throw new Error('Entity not found');
-        }
+    resolveEntity: jest.fn(async (type: string, name: string, options?: { throwOnError?: boolean; context?: any; allowFuzzy?: boolean; minimumMatchScore?: number }) => {
+      const nameLC = name.toLowerCase();
+      if (nameLC === 'not found') {
+        if (options?.throwOnError) { throw new Error('Entity not found'); }
         return null;
       }
-
-      // Different match quality based on input
-      if (name.includes('exact')) {
-        return { 
-          id: `${type}_1`, 
-          name: `Exact ${type.charAt(0).toUpperCase() + type.slice(1)}`, 
-          type: type
-        };
-      } else if (name.includes('fuzzy')) {
-        return { 
-          id: `${type}_2`, 
-          name: `Fuzzy ${type.charAt(0).toUpperCase() + type.slice(1)}`, 
-          type: type
-        };
-      } else if (name.includes('context')) {
-        return { 
-          id: `${type}_3`, 
-          name: `Context ${type.charAt(0).toUpperCase() + type.slice(1)}`, 
-          type: type
-        };
-      } else if (name.includes('virtual')) {
-        return { 
-          id: `${type}_4`, 
-          name: `Virtual ${type.charAt(0).toUpperCase() + type.slice(1)}`, 
-          type: type
-        };
-      }
-
-      // Default case
-      return { 
-        id: `${type}_5`, 
-        name: `Default ${type.charAt(0).toUpperCase() + type.slice(1)}`, 
-        type: type
-      };
+      if (nameLC.includes('exact')) { return { id: `${type}_exact`, name: `Exact ${type}`, type: type }; }
+      return { id: `${type}_default`, name: `Default ${type}`, type: type };
     })
   },
   createMemoEqualityFn: jest.fn((obj) => obj)
@@ -60,49 +27,12 @@ jest.mock('../../../../../src/utils/entityResolver', () => ({
 // Mock the apiCache utility
 jest.mock('../../../../../src/utils/apiCache', () => ({
   apiCache: {
-    get: jest.fn((key) => {
-      if (key.includes('exact')) {
-        return {
-          resolution_info: {
-            match_score: 1.0,
-            fuzzy_matched: false,
-            context_matched: false,
-            virtual_entity: false,
-            resolved_via: 'exact_match'
-          }
-        };
-      } else if (key.includes('fuzzy')) {
-        return {
-          resolution_info: {
-            match_score: 0.85,
-            fuzzy_matched: true,
-            context_matched: false,
-            virtual_entity: false,
-            resolved_via: 'fuzzy_match'
-          }
-        };
-      } else if (key.includes('context')) {
-        return {
-          resolution_info: {
-            match_score: 0.9,
-            fuzzy_matched: false,
-            context_matched: true,
-            virtual_entity: false,
-            resolved_via: 'context_match'
-          }
-        };
-      } else if (key.includes('virtual')) {
-        return {
-          resolution_info: {
-            match_score: 1.0,
-            fuzzy_matched: false,
-            context_matched: false,
-            virtual_entity: true,
-            resolved_via: 'virtual_entity'
-          }
-        };
-      }
-      
+    get: jest.fn((key: string) => {
+      const keyLC = key.toLowerCase();
+      if (keyLC.includes('exact')) { return { resolution_info: { match_score: 1.0, fuzzy_matched: false, context_matched: false, virtual_entity: false, resolved_via: 'exact_match' } }; }
+      if (keyLC.includes('fuzzy')) { return { resolution_info: { match_score: 0.85, fuzzy_matched: true, context_matched: false, virtual_entity: false, resolved_via: 'fuzzy_match' } }; }
+      if (keyLC.includes('context')) { return { resolution_info: { match_score: 0.9, fuzzy_matched: false, context_matched: true, virtual_entity: false, resolved_via: 'context_match' } }; }
+      if (keyLC.includes('virtual')) { return { resolution_info: { match_score: 1.0, fuzzy_matched: false, context_matched: false, virtual_entity: true, resolved_via: 'virtual_entity' } }; }
       return null;
     })
   }
@@ -110,72 +40,39 @@ jest.mock('../../../../../src/utils/apiCache', () => ({
 
 // Mock fingerprint utility
 jest.mock('../../../../../src/utils/fingerprint', () => ({
-  createMemoEqualityFn: jest.fn((obj) => {
-    // Return a stable function that doesn't change between renders
-    return () => true;
-  })
+  createMemoEqualityFn: jest.fn(() => () => true)
 }));
 
 // Mock antd components
 jest.mock('antd', () => {
   const actual = jest.requireActual('antd');
-  
-  return {
-    ...actual,
-    AutoComplete: jest.fn(({ options, onSelect, onSearch, value, placeholder, notFoundContent, children }) => (
+  return Object.assign({}, actual, {
+    AutoComplete: jest.fn(({ options, onSelect, onSearch, value, placeholder, notFoundContent, children }: any) => (
       <div data-testid="auto-complete">
-        <input
-          data-testid="search-input"
-          value={value}
-          placeholder={placeholder}
-          onChange={(e) => onSearch(e.target.value)}
-        />
+        <input data-testid="search-input" value={value || ''} placeholder={placeholder} onChange={(e) => onSearch(e.target.value)} />
         <div data-testid="options-container">
-          {notFoundContent && options.length === 0 && (
-            <div data-testid="not-found">{notFoundContent}</div>
-          )}
-          {options.map((option, index) => (
-            <div 
-              key={option.key || index}
-              data-testid={`option-${index}`}
-              data-value={option.value}
-              data-entity={JSON.stringify(option.entity)}
-              onClick={() => onSelect(option.value, option)}
-            >
-              {React.isValidElement(option.label) ? (
-                <div data-testid={`option-label-${index}`}>{option.value}</div>
-              ) : (
-                option.label || option.value
-              )}
+          {notFoundContent && options && options.length === 0 && (<div data-testid="not-found">{notFoundContent}</div>)}
+          {options?.map((option: any, index: number) => (
+            <div key={option.key || index} data-testid={`option-${index}`} data-value={option.value} onClick={() => onSelect(option.value, option)}>
+              {React.isValidElement(option.label) ? option.value : (option.label || option.value)}
             </div>
           ))}
         </div>
         {children}
       </div>
     )),
-    Input: jest.fn(({ prefix, suffix, value, onChange, placeholder, loading }) => (
+    Input: jest.fn(({ prefix, suffix, value, onChange, placeholder, loading }: any) => (
       <div data-testid="input-container">
         {prefix && <span data-testid="input-prefix">{prefix}</span>}
-        <input
-          data-testid="input"
-          value={value}
-          onChange={onChange}
-          placeholder={placeholder}
-        />
+        <input data-testid="input" value={value || ''} onChange={onChange} placeholder={placeholder} />
         {loading && <span data-testid="loading-indicator">Loading...</span>}
         {suffix && <span data-testid="input-suffix">{suffix}</span>}
       </div>
     )),
-    Space: jest.fn(({ children }) => (
-      <div data-testid="space">{children}</div>
-    )),
-    Tag: jest.fn(({ color, children }) => (
-      <span data-testid={`tag-${color}`}>{children}</span>
-    )),
-    Tooltip: jest.fn(({ title, children }) => (
-      <div data-testid="tooltip" data-title={title}>{children}</div>
-    ))
-  };
+    Space: jest.fn(({ children }: any) => <div data-testid="space">{children}</div>),
+    Tag: jest.fn(({ color, children }: any) => <span data-testid={`tag-${color}`}>{children}</span>),
+    Tooltip: jest.fn(({ title, children }: any) => <div data-testid="tooltip" data-title={title as string}>{children}</div>)
+  });
 });
 
 // Mock icons
@@ -189,7 +86,7 @@ describe('SmartEntitySearch', () => {
   const mockOnEntitySelect = jest.fn();
   const defaultProps = {
     onEntitySelect: mockOnEntitySelect,
-    entityTypes: ['league', 'team', 'stadium'],
+    entityTypes: ['league', 'team', 'stadium'] as EntityType[],
     placeholder: 'Search entities...',
     minimumMatchScore: 0.6,
     showMatchDetails: true

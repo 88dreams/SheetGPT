@@ -1,11 +1,12 @@
 import React from 'react';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { describe, it, expect, jest, beforeEach } from '@jest/globals';
+import { describe, it, expect, jest, beforeEach, afterEach } from '@jest/globals';
 import '@testing-library/jest-dom';
 
 // Import the component to test
-import EntityUpdateContainer from '../../../../../frontend/src/components/data/EntityUpdate/EntityUpdateContainer';
+// import EntityUpdateContainer from '../../../../../frontend/src/components/data/EntityUpdate/EntityUpdateContainer';
+import EntityUpdateContainer from '../EntityUpdateContainer';
 
 // Mock the child components
 jest.mock('../../../../../frontend/src/components/data/EntityUpdate/SmartEntitySearch', () => {
@@ -67,32 +68,32 @@ jest.mock('../../../../../frontend/src/components/data/EntityUpdate/EntityCard',
   };
 });
 
-// Mock Typography to simplify testing
+// Mock antd components safely
 jest.mock('antd', () => {
-  const Original = jest.requireActual('antd');
-  return {
-    ...Original,
-    Typography: {
-      Title: ({ children, level }) => <h1 data-testid={`title-${level}`}>{children}</h1>,
-      Text: ({ children }) => <p data-testid="text">{children}</p>,
-      Paragraph: ({ children }) => <p data-testid="paragraph">{children}</p>,
+  const OriginalAntd = jest.requireActual('antd');
+  return Object.assign({}, OriginalAntd, {
+    // Add specific mocks for components used by EntityUpdateContainer
+    Tabs: jest.fn(({ items, activeKey, onChange }: any) => (
+      <div data-testid="tabs-mock">
+        {items.map((item: { key: string; label: string; children: React.ReactNode }) => (
+          <button key={item.key} onClick={() => onChange(item.key)} data-active={String(activeKey === item.key)} data-testid={`tab-${item.key}`}>
+            {item.label}
+          </button>
+        ))}
+        <div>{items.find((item: { key: string }) => item.key === activeKey)?.children}</div>
+      </div>
+    )),
+    Button: jest.fn(({ children, onClick, type, disabled, loading }: any) => 
+        <button onClick={onClick} disabled={disabled || loading} data-type={type} data-testid={`button-${type || 'default'}`}>{children}</button>
+    ),
+    message: { success: jest.fn(), error: jest.fn(), info: jest.fn() },
+    Typography: { 
+        Title: jest.fn(({level, children}: any) => <div data-testid={`title-${level}`}>{children}</div>),
+        Text: jest.fn(({children}: any) => <span>{children}</span>)
     },
-    Card: ({ children, title }) => (
-      <div data-testid="card">
-        {title && <div data-testid="card-title">{title}</div>}
-        {children}
-      </div>
-    ),
-    Space: ({ children, direction }) => (
-      <div data-testid={`space-${direction}`}>{children}</div>
-    ),
-    Alert: ({ message, description, type }) => (
-      <div data-testid={`alert-${type}`}>
-        <div data-testid="alert-message">{message}</div>
-        {description && <div data-testid="alert-description">{description}</div>}
-      </div>
-    ),
-  };
+    Alert: jest.fn(({message, type, description, showIcon}: any) => <div data-testid={`alert-${type}`}>{message}{description}</div>)
+    // Add other necessary AntD component mocks if used by EntityUpdateContainer
+  });
 });
 
 describe('EntityUpdateContainer', () => {

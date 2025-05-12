@@ -43,14 +43,17 @@ export default defineConfig({
         // Configure with better timeout and error handling
         configure: (proxy, _options) => {
           proxy.on('error', (err, _req, _res) => {
-            console.log('Proxy error, will retry automatically:', err.message);
+            console.log('VITE_PROXY: Proxy error, will retry automatically:', err.message);
           });
           proxy.on('proxyReq', (proxyReq, req, _res) => {
-            console.log('Sending API Request:', req.method, req.url);
-            console.log('Proxy target:', 'http://backend:8000' + req.url);
+            console.log('VITE_PROXY: Sending API Request:', req.method, req.url);
+            console.log('VITE_PROXY: Original Incoming Headers (from browser to Vite):', JSON.stringify(req.headers, null, 2));
+            // Log headers being set ON the outgoing request to the backend
+            console.log('VITE_PROXY: Outgoing ProxyRequest Headers (from Vite to backend):', JSON.stringify(proxyReq.getHeaders(), null, 2));
+            console.log('VITE_PROXY: Proxy target:', 'http://backend:8000' + req.url);
           });
           proxy.on('proxyRes', (proxyRes, req, _res) => {
-            console.log('Received API Response:', proxyRes.statusCode, req.url);
+            console.log('VITE_PROXY: Received API Response:', proxyRes.statusCode, req.url);
           });
         },
       },

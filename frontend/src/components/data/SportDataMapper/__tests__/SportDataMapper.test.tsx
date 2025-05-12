@@ -57,15 +57,20 @@ describe('SportDataMapper', () => {
     // Render the component
     render(<SportDataMapper {...testProps} />);
 
+    // Check if the mock was called
+    expect(SportDataMapperContainer).toHaveBeenCalled();
+
     // Extract the onClose prop that was passed to SportDataMapperContainer
-    const passedProps = (SportDataMapperContainer as jest.Mock).mock.calls[0][0] as {
+    const passedProps = ((SportDataMapperContainer as any).type as jest.Mock).mock.calls[0][0] as {
       onClose: () => void;
       isOpen: boolean;
       structuredData: StandardDataFormat;
     };
     
     // Call the onClose function
-    passedProps.onClose();
+    if (passedProps && passedProps.onClose) {
+      passedProps.onClose();
+    }
     
     // Check if the original onClose mock was called
     expect(onCloseMock).toHaveBeenCalledTimes(1);

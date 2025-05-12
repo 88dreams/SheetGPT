@@ -1,6 +1,6 @@
 import axios from 'axios';
 import { createEnhancedApiClient } from '../enhancedApiClient';
-import { APIError, NetworkError } from '../errors';
+import { ApiError, NetworkError } from '../errors';
 
 // Mock axios
 jest.mock('axios', () => {
@@ -176,7 +176,7 @@ describe('Enhanced API Client', () => {
         await errorHandler(apiError);
         fail('Should have thrown an error');
       } catch (error) {
-        expect(error).toBeInstanceOf(APIError);
+        expect(error).toBeInstanceOf(ApiError);
         expect(error.message).toBe('Entity not found');
         expect(error.status).toBe(404);
         expect(error.details).toEqual({ id: 'Invalid ID' });
@@ -231,7 +231,7 @@ describe('Enhanced API Client', () => {
         await errorHandler(serverError);
         fail('Should have thrown an error');
       } catch (error) {
-        expect(error).toBeInstanceOf(APIError);
+        expect(error).toBeInstanceOf(ApiError);
         expect(error.status).toBe(503);
         expect(error.message).toBe('Service Unavailable');
       }

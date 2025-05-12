@@ -82,9 +82,8 @@ async def list_contacts(
             sort_order=sort_order
         )
         
-        # Remove manual conversion - Return data that matches the response_model
         return {
-            "items": contacts, # Pass the list of SQLAlchemy Contact objects directly
+            "items": contacts, 
             "total": total,
             "skip": skip,
             "limit": limit
@@ -108,7 +107,6 @@ async def get_contact(
         service = ContactsService(db)
         contact = await service.get_contact(user_id, contact_id)
         
-        # Convert SQLAlchemy model to dictionary manually
         contact_dict = {
             "id": str(contact.id),
             "user_id": str(contact.user_id),
@@ -125,7 +123,6 @@ async def get_contact(
             "brand_associations": []
         }
         
-        # Add brand associations
         if hasattr(contact, 'brand_associations') and contact.brand_associations:
             for assoc in contact.brand_associations:
                 brand_data = {
@@ -142,7 +139,6 @@ async def get_contact(
                     "updated_at": assoc.updated_at.isoformat() if assoc.updated_at else None
                 }
                 
-                # Add brand name if available
                 if hasattr(assoc, 'brand') and assoc.brand:
                     brand_data["brand_name"] = assoc.brand.name
                 
@@ -162,7 +158,6 @@ async def update_contact(
     current_user: Dict = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
-    """Update a contact."""
     user_id = UUID(current_user["id"])
     try:
         service = ContactsService(db)
@@ -177,7 +172,6 @@ async def delete_contact(
     current_user: Dict = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
-    """Delete a contact."""
     user_id = UUID(current_user["id"])
     try:
         service = ContactsService(db)
@@ -197,10 +191,8 @@ async def associate_contact_with_brand(
     current_user: Dict = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
-    """Associate a contact with a brand."""
     user_id = UUID(current_user["id"])
     try:
-        # Ensure IDs match between path and body
         if request.contact_id != contact_id or request.brand_id != brand_id:
             raise HTTPException(
                 status_code=HTTP_400_BAD_REQUEST, 
@@ -233,7 +225,6 @@ async def remove_brand_association(
     current_user: Dict = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
-    """Remove a brand association from a contact."""
     user_id = UUID(current_user["id"])
     try:
         service = ContactsService(db)
@@ -247,19 +238,15 @@ async def test_upload(
     request: Request,
     file: UploadFile = File(...),
 ):
-    """Test endpoint for file uploads."""
     import logging
     logger = logging.getLogger("sheetgpt.api")
     
-    # Log full request information
     logger.info(f"Test upload request received: {request.headers}")
     logger.info(f"Test upload file: {file.filename}, size={file.size}, content_type={file.content_type}")
     
-    # Read a small part of the file to verify content
-    content = await file.read(1024)  # Read first 1KB
+    content = await file.read(1024) 
     logger.info(f"File content preview (first 100 bytes): {content[:100]}")
     
-    # Rewind the file for future use
     await file.seek(0)
     
     return {
@@ -270,6 +257,7 @@ async def test_upload(
         "preview": content[:100].decode('utf-8', errors='replace')
     }
 
+# Restore original function
 @router.post("/import/linkedin", response_model=ContactImportStats)
 async def import_linkedin_csv(
     file: UploadFile = File(...),
@@ -278,7 +266,6 @@ async def import_linkedin_csv(
     current_user: Dict = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
-    """Import contacts from a LinkedIn CSV export file."""
     user_id = UUID(current_user["id"])
     import logging
     logger = logging.getLogger("sheetgpt.api")
@@ -286,7 +273,6 @@ async def import_linkedin_csv(
     try:
         logger.info(f"LinkedIn CSV import started: file={file.filename}, size={file.size}, content_type={file.content_type}")
         
-        # Read and decode the file
         content = await file.read()
         logger.info(f"Read {len(content)} bytes from file")
         
@@ -297,9 +283,8 @@ async def import_linkedin_csv(
                 detail="Empty file received. Please upload a valid CSV file."
             )
         
-        # Try to detect encoding
         try:
-            content_str = content.decode('utf-8-sig')  # LinkedIn's typical encoding
+            content_str = content.decode('utf-8-sig')
             logger.info("File decoded using utf-8-sig encoding")
         except UnicodeDecodeError:
             try:
@@ -309,15 +294,10 @@ async def import_linkedin_csv(
                 content_str = content.decode('latin-1')
                 logger.info("File decoded using latin-1 encoding")
         
-        # Parse CSV data
         try:
-            # Look at the file content to understand its structure
             lines = content_str.splitlines()
             logger.info(f"First 5 lines of file: {lines[:5]}")
             
-            # Skip the header notes - LinkedIn CSVs typically have metadata notes at the top
-            # Find the actual header row which should contain the field names we need
-            # (First Name, Last Name, Email, etc.)
             actual_header_line = None
             for i, line in enumerate(lines):
                 if 'First Name' in line and 'Last Name' in line:
@@ -326,11 +306,9 @@ async def import_linkedin_csv(
                     break
             
             if actual_header_line is not None:
-                # Create a new CSV string with just the header and data
                 actual_csv = '\n'.join(lines[actual_header_line:])
                 logger.info(f"Reconstructed CSV starting with: {actual_csv[:200]}")
                 
-                # Parse the CSV with actual headers
                 csv_data = []
                 reader = csv.DictReader(io.StringIO(actual_csv))
                 header_row = reader.fieldnames
@@ -349,7 +327,6 @@ async def import_linkedin_csv(
                         detail="CSV file contains no valid data. Please check the file and try again."
                     )
             else:
-                # Fallback to regular parsing if we can't find the right header
                 csv_data = []
                 reader = csv.DictReader(io.StringIO(content_str))
                 header_row = reader.fieldnames
@@ -373,7 +350,6 @@ async def import_linkedin_csv(
                 detail=f"Invalid CSV format: {str(e)}. Please check the file and try again."
             )
         
-        # Import contacts
         service = ContactsService(db)
         stats = await service.import_linkedin_csv(
             user_id, 
@@ -384,9 +360,11 @@ async def import_linkedin_csv(
         
         return stats
     except Exception as e:
+        # Log the exception in detail before raising a generic HTTPException
+        logger.error(f"Unhandled error during LinkedIn CSV import: {str(e)}", exc_info=True)
         raise HTTPException(
-            status_code=HTTP_400_BAD_REQUEST,
-            detail=f"Error importing contacts: {str(e)}"
+            status_code=HTTP_400_BAD_REQUEST, # Or 500 if it's truly an internal server error
+            detail=f"Error importing contacts: An unexpected error occurred. Please check logs."
         )
 
 @router.post("/import/data", response_model=ContactImportStats)

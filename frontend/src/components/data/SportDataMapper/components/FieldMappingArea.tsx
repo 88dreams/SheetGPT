@@ -63,7 +63,10 @@ const getAllEntityFields = (entityType: EntityType | null): { name: string, requ
     'game_broadcast': ['game_id', 'broadcast_company_id', 'broadcast_type'],
     'production': ['entity_id', 'entity_type', 'service_type'],
     'brand': ['name', 'industry'],
-    'league_executive': ['name', 'league_id', 'position']
+    'league_executive': ['name', 'league_id', 'position'],
+    'person': ['name', 'role'],
+    'production_company': ['name', 'industry'],
+    'production_service': ['name', 'service_type']
   };
 
   // Define all fields for each entity type
@@ -78,7 +81,10 @@ const getAllEntityFields = (entityType: EntityType | null): { name: string, requ
     'game_broadcast': ['id', 'game_id', 'broadcast_company_id', 'production_company_id', 'broadcast_type', 'territory', 'start_time', 'end_time', 'created_at', 'updated_at'],
     'production': ['id', 'production_company_id', 'secondary_brand_id', 'entity_type', 'entity_id', 'service_type', 'start_date', 'end_date', 'created_at', 'updated_at'],
     'brand': ['id', 'name', 'industry', 'company_type', 'country', 'partner', 'partner_relationship', 'created_at', 'updated_at'],
-    'league_executive': ['id', 'name', 'league_id', 'position', 'start_date', 'end_date', 'created_at', 'updated_at']
+    'league_executive': ['id', 'name', 'league_id', 'position', 'start_date', 'end_date', 'created_at', 'updated_at'],
+    'person': ['id', 'name', 'role', 'email', 'phone', 'created_at', 'updated_at'],
+    'production_company': ['id', 'name', 'industry', 'country', 'founded_year', 'created_at', 'updated_at'],
+    'production_service': ['id', 'name', 'service_type', 'description', 'created_at', 'updated_at']
   };
 
   // Get the fields for the selected entity type

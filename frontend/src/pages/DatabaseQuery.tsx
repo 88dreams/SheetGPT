@@ -52,14 +52,19 @@ const DatabaseQuery: React.FC = () => {
     applySuggestedFix
   } = useQueryInput();
   
-  const { mutation: queryMutationFromHook } = useQueryExecution(queryName);
-  
-  const [queryResults, setQueryResults] = useState<any[]>([]);
+  const {
+    mutation: queryMutationFromHook,
+    executedQueryResults,
+    executionValidationError,
+    executionSuggestedSql,
+    executionGeneratedSql,
+    setExecutedQueryResults
+  } = useQueryExecution({ initialQueryName: queryName });
   
   const columnNamesHash = useMemo(() => {
-      if (queryResults.length === 0) return 'no_results';
-      return Object.keys(queryResults[0]).sort().join('|');
-  }, [queryResults]);
+      if (executedQueryResults.length === 0) return 'no_results';
+      return Object.keys(executedQueryResults[0]).sort().join('|');
+  }, [executedQueryResults]);
 
   const {
     visibleColumns,
@@ -79,7 +84,7 @@ const DatabaseQuery: React.FC = () => {
     handleColumnDragOver,
     handleColumnDrop,
     handleColumnDragEnd
-  } = useColumnManager({ queryResults, queryIdentifier: columnNamesHash });
+  } = useColumnManager({ queryResults: executedQueryResults, queryIdentifier: columnNamesHash });
 
   const [isBulkEditModalVisible, setIsBulkEditModalVisible] = useState<boolean>(false);
   
@@ -105,9 +110,9 @@ const DatabaseQuery: React.FC = () => {
   }, [setDestination]);
   
   const sortedResults = useMemo(() => {
-    if (!sortConfig || queryResults.length === 0) return queryResults;
+    if (!sortConfig || executedQueryResults.length === 0) return executedQueryResults;
     
-    return [...queryResults].sort((a, b) => {
+    return [...executedQueryResults].sort((a, b) => {
       const aValue = a[sortConfig.column];
       const bValue = b[sortConfig.column];
       
@@ -124,7 +129,7 @@ const DatabaseQuery: React.FC = () => {
         ? (aValue > bValue ? 1 : -1) 
         : (aValue > bValue ? -1 : 1);
     });
-  }, [queryResults, sortConfig]);
+  }, [executedQueryResults, sortConfig]);
   
   const formatCellValue = useCallback((value: any, column: string) => {
     if (value === null || value === undefined) return 'NULL';
@@ -143,7 +148,7 @@ const DatabaseQuery: React.FC = () => {
         
         const nameField = column === 'id' ? 'name' : column.replace('_id', '_name');
         
-        if (nameField && queryResults.length > 0 && queryResults[0].hasOwnProperty(nameField)) {
+        if (nameField && executedQueryResults.length > 0 && executedQueryResults[0].hasOwnProperty(nameField)) {
           const currentRow = sortedResults.find(row => row[column] === value);
           
           if (currentRow && currentRow[nameField] && 
@@ -177,11 +182,11 @@ const DatabaseQuery: React.FC = () => {
     }
     
     return String(value);
-  }, [showFullUuids, sortedResults, queryResults]);
+  }, [showFullUuids, sortedResults, executedQueryResults]);
   
   const deleteSelectedRows = () => {
     const newResults = sortedResults.filter((_, index) => !selectedRows.has(index));
-    setQueryResults(newResults);
+    setExecutedQueryResults(newResults);
     setSelectedRows(new Set());
   };
   
@@ -194,64 +199,16 @@ const DatabaseQuery: React.FC = () => {
   };
   
   const handleBulkEditSuccess = (updatedResults: any[]) => {
-    setQueryResults(updatedResults);
+    setExecutedQueryResults(updatedResults);
     setSelectedRows(new Set());
     showNotification('success', 'Bulk edit completed successfully');
   };
   
   useEffect(() => {
-    if (queryMutationFromHook.data) {
-      const data = queryMutationFromHook.data;
-      if (data.success === false && data.validation_error) {
-        setValidationError(data.validation_error);
-        setSuggestedSql(data.suggested_sql || null);
-        showNotification('warning', data.suggested_sql ? 'SQL validation issues found. Apply fix or edit SQL.' : 'SQL validation issues found.');
-      } else if (data.success === true) {
-        setValidationError(null);
-        setSuggestedSql(null);
-        setQueryResults(data.results || []);
-        if (data.generated_sql) {
-          setGeneratedSql(data.generated_sql);
-        }
-        if (data.export?.format === 'sheets') {
-          if (data.export.error) {
-            showNotification('error', data.export.error);
-          } else if (data.export.url) {
-            window.open(data.export.url, '_blank');
-            showNotification('success', 'Successfully exported to Google Sheets via backend.');
-            exporter.closeSheetsDialog();
-          }
-        } else if (data.export?.format === 'csv' && data.export.url) {
-            window.open(data.export.url, '_blank');
-            showNotification('success', 'CSV download link ready (via backend).');
-        }
-      }
+    if (executionGeneratedSql !== null) {
+      setGeneratedSql(executionGeneratedSql);
     }
-  }, [queryMutationFromHook.data, setValidationError, setSuggestedSql, showNotification, setGeneratedSql, exporter]);
-  
-  useEffect(() => {
-    if (queryMutationFromHook.error) {
-      const error = queryMutationFromHook.error;
-      console.error('Error executing query via hook:', error);
-      let errorMessage = 'Unknown error';
-      if (error instanceof Error) {
-        errorMessage = error.message;
-      }
-      if (typeof error === 'object' && error !== null && 'response' in error && 
-          typeof (error as any).response === 'object' && (error as any).response !== null && 'status' in (error as any).response) {
-        const axiosError = error as { response: { status: number; data?: { detail?: string; message?: string } } };
-        if (axiosError.response.status === 401) {
-          showNotification('error', 'Authentication error: Please log in again.');
-        } else {
-          const apiErrorMessage = axiosError.response?.data?.detail || axiosError.response?.data?.message || errorMessage;
-          showNotification('error', `Error executing query: ${apiErrorMessage}`);
-        }
-      } else {
-        showNotification('error', `Error executing query: ${errorMessage}`);
-      }
-      setGeneratedSql(null);
-    }
-  }, [queryMutationFromHook.error, showNotification, setGeneratedSql]);
+  }, [executionGeneratedSql, setGeneratedSql]);
   
   const executeQueryForDisplay = async () => {
     const queryText = !isNaturalLanguage && generatedSql ? generatedSql : naturalLanguageQuery;
@@ -307,7 +264,7 @@ const DatabaseQuery: React.FC = () => {
         <button
           className="px-3 py-1 text-sm border border-gray-300 rounded hover:bg-gray-100 flex items-center"
           disabled={
-            (!naturalLanguageQuery.trim() && !generatedSql?.trim() && queryResults.length === 0) ||
+            (!naturalLanguageQuery.trim() && !generatedSql?.trim() && executedQueryResults.length === 0) ||
             queryMutationFromHook.isLoading || isTranslating
           }
         >
@@ -317,8 +274,8 @@ const DatabaseQuery: React.FC = () => {
           <button
             className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 w-full text-left"
             onClick={() => 
-              queryResults.length > 0 
-                ? exporter.exportCurrentDataToCsvClientSide(queryResults, reorderedColumns, visibleColumns, queryName)
+              executedQueryResults.length > 0 
+                ? exporter.exportCurrentDataToCsvClientSide(executedQueryResults, reorderedColumns, visibleColumns, queryName)
                 : exporter.triggerBackendExport('csv')
             }
             disabled={queryMutationFromHook.isLoading || isTranslating}
@@ -328,7 +285,7 @@ const DatabaseQuery: React.FC = () => {
           <button
             className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 w-full text-left"
             onClick={() => 
-              queryResults.length > 0
+              executedQueryResults.length > 0
                 ? exporter.openSheetsDialog()
                 : exporter.triggerBackendExport('sheets', { sheetTitle: exporter.sheetsDialogTitle, templateName: exporter.selectedSheetTemplate })
             }
@@ -351,8 +308,8 @@ const DatabaseQuery: React.FC = () => {
   } = useRowSelection({ itemCount: sortedResults.length });
   
   const handleConfirmSheetsExportFromDialog = () => {
-    if (queryResults.length > 0) {
-      exporter.exportCurrentDataToSheetsAPI(queryResults, reorderedColumns, visibleColumns);
+    if (executedQueryResults.length > 0) {
+      exporter.exportCurrentDataToSheetsAPI(executedQueryResults, reorderedColumns, visibleColumns);
     } else {
       exporter.triggerBackendExport('sheets', {
         sheetTitle: exporter.sheetsDialogTitle,
@@ -394,8 +351,8 @@ const DatabaseQuery: React.FC = () => {
             setNaturalLanguageQuery={setNaturalLanguageQuery}
             generatedSql={generatedSql}
             setGeneratedSql={setGeneratedSql}
-            validationError={validationError}
-            suggestedSql={suggestedSql}
+            validationError={executionValidationError}
+            suggestedSql={executionSuggestedSql}
             isTranslating={isTranslating}
             isLoadingExecution={queryMutationFromHook.isLoading && !queryMutationFromHook.variables?.export_format}
             onTranslateQuery={handleTranslateQuery}
@@ -419,12 +376,12 @@ const DatabaseQuery: React.FC = () => {
                 <div className="text-red-500 p-4 border border-red-200 rounded bg-red-50">
                   Error: {(queryMutationFromHook.error as Error)?.message || 'Failed to execute query'}
                 </div>
-              ) : queryResults.length > 0 ? (
+              ) : executedQueryResults.length > 0 ? (
                 <div>
                   <QueryResultsToolbar
-                    queryResultsCount={queryResults.length}
+                    queryResultsCount={executedQueryResults.length}
                     selectedRowCount={selectedRowCount}
-                    onExportCsv={() => exporter.exportCurrentDataToCsvClientSide(queryResults, reorderedColumns, visibleColumns, queryName)}
+                    onExportCsv={() => exporter.exportCurrentDataToCsvClientSide(executedQueryResults, reorderedColumns, visibleColumns, queryName)}
                     onExportSheets={exporter.openSheetsDialog}
                     onToggleColumns={() => setShowColumnSelector(!showColumnSelector)}
                     onToggleUuids={() => setShowFullUuids(!showFullUuids)}
@@ -438,7 +395,7 @@ const DatabaseQuery: React.FC = () => {
                   
                   {showColumnSelector && (
                     <ColumnSelectorPanel 
-                      allColumns={columnOrder.length > 0 ? columnOrder : (queryResults.length > 0 ? Object.keys(queryResults[0]) : [])}
+                      allColumns={columnOrder.length > 0 ? columnOrder : (executedQueryResults.length > 0 ? Object.keys(executedQueryResults[0]) : [])}
                       visibleColumns={visibleColumns}
                       onToggleColumn={toggleColumnVisibility}
                       onShowAllColumns={showAllColumns}
@@ -464,7 +421,7 @@ const DatabaseQuery: React.FC = () => {
                     formatCellValue={formatCellValue}
                   />
                 </div>
-              ) : queryMutationFromHook.isSuccess && queryResults.length === 0 ? (
+              ) : queryMutationFromHook.isSuccess && executedQueryResults.length === 0 ? (
                 <div className="flex flex-col items-center justify-center h-64 text-amber-600">
                   <FaDatabase className="text-4xl mb-4" />
                   <p>Query executed successfully, but returned no results</p>
@@ -496,7 +453,7 @@ const DatabaseQuery: React.FC = () => {
       <BulkEditModal
         visible={isBulkEditModalVisible}
         onCancel={() => setIsBulkEditModalVisible(false)}
-        queryResults={queryResults} 
+        queryResults={executedQueryResults} 
         selectedIndexes={selectedRows}
         onSuccess={handleBulkEditSuccess}
       />

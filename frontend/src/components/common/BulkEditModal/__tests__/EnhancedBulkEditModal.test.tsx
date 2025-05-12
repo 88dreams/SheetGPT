@@ -3,8 +3,7 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { describe, it, expect, jest, beforeEach } from '@jest/globals';
 import '@testing-library/jest-dom';
 
-// Import the component to test
-import EnhancedBulkEditModal from '../../../../../frontend/src/components/common/BulkEditModal/EnhancedBulkEditModal';
+import EnhancedBulkEditModal from '../EnhancedBulkEditModal';
 
 // Mock the child components
 jest.mock('../../../../../frontend/src/components/common/BulkEditModal/components/FieldSelector', () => {
@@ -81,34 +80,15 @@ jest.mock('../../../../../frontend/src/components/common/BulkEditModal/hooks/use
   useFieldManagement: jest.fn(() => ({
     selectedFields: ['name', 'league_id'],
     fieldValues: { name: 'Test Name', league_id: 'league_123' },
-    toggleField: jest.fn(field => {
-      const mock = require('../../../../../frontend/src/components/common/BulkEditModal/hooks/useFieldManagement');
-      const current = mock.useFieldManagement().selectedFields;
-      let updated;
-      if (current.includes(field)) {
-        updated = current.filter(f => f !== field);
-      } else {
-        updated = [...current, field];
-      }
-      mock.useFieldManagement.mockImplementation(() => ({
-        ...mock.useFieldManagement(),
-        selectedFields: updated
-      }));
-    }),
-    setFieldValue: jest.fn((field, value) => {
-      const mock = require('../../../../../frontend/src/components/common/BulkEditModal/hooks/useFieldManagement');
-      mock.useFieldManagement.mockImplementation(() => ({
-        ...mock.useFieldManagement(),
-        fieldValues: { ...mock.useFieldManagement().fieldValues, [field]: value }
-      }));
-    }),
+    toggleField: jest.fn(),
+    setFieldValue: jest.fn((field: string, value: any) => {}),
     resetFields: jest.fn()
   }))
 }));
 
 jest.mock('../../../../../frontend/src/components/common/BulkEditModal/hooks/useBulkUpdate', () => ({
   useBulkUpdate: jest.fn(() => ({
-    updateEntities: jest.fn().mockResolvedValue({
+    updateEntities: jest.fn<() => Promise<{ success: number; failed: number; total: number; }>>().mockResolvedValue({
       success: 5,
       failed: 1,
       total: 6
@@ -156,13 +136,12 @@ jest.mock('../../../../../frontend/src/hooks/useEntityResolution', () => ({
 // Mock antd components
 jest.mock('antd', () => {
   const actual = jest.requireActual('antd');
-  return {
-    ...actual,
-    Modal: jest.fn(({ title, visible, onCancel, onOk, confirmLoading, children, footer, width }) => (
+  return Object.assign({}, actual, {
+    Modal: jest.fn(({ title, visible, onCancel, onOk, confirmLoading, children, footer, width }: any) => (
       <div 
         data-testid="modal" 
-        data-visible={visible ? 'true' : 'false'}
-        data-title={title}
+        data-visible={String(visible)}
+        data-title={title as string}
         data-width={width}
       >
         <div data-testid="modal-content">{children}</div>
@@ -178,7 +157,7 @@ jest.mock('antd', () => {
               <button 
                 data-testid="modal-ok"
                 onClick={onOk}
-                disabled={confirmLoading}
+                disabled={confirmLoading || false}
               >
                 {confirmLoading ? 'Loading...' : 'OK'}
               </button>
@@ -187,79 +166,22 @@ jest.mock('antd', () => {
         </div>
       </div>
     )),
-    Button: jest.fn(({ type, onClick, disabled, children, loading }) => (
-      <button
-        data-testid={`button-${type || 'default'}`}
-        onClick={onClick}
-        disabled={disabled || loading}
-        data-loading={loading ? 'true' : 'false'}
-      >
-        {children}
-      </button>
-    )),
-    Tabs: jest.fn(({ activeKey, onChange, items }) => (
-      <div data-testid="tabs">
-        <div data-testid="tabs-header">
-          {items.map((item) => (
-            <button
-              key={item.key}
-              data-testid={`tab-${item.key}`}
-              data-active={activeKey === item.key ? 'true' : 'false'}
-              onClick={() => onChange(item.key)}
-            >
-              {item.label}
-            </button>
-          ))}
-        </div>
-        <div data-testid="tab-content">
-          {items.find(item => item.key === activeKey)?.children}
-        </div>
-      </div>
-    )),
-    Collapse: jest.fn(({ activeKey, defaultActiveKey, onChange, items }) => (
-      <div data-testid="collapse">
-        {items.map((item) => (
-          <div 
-            key={item.key} 
-            data-testid={`collapse-panel-${item.key}`}
-            data-expanded={activeKey?.includes(item.key) || defaultActiveKey?.includes(item.key) ? 'true' : 'false'}
-          >
-            <div 
-              data-testid={`collapse-header-${item.key}`}
-              onClick={() => onChange(item.key)}
-            >
-              {item.label}
-            </div>
-            <div data-testid={`collapse-content-${item.key}`}>
-              {item.children}
-            </div>
-          </div>
-        ))}
-      </div>
-    )),
-    Space: jest.fn(({ children, direction }) => (
-      <div data-testid={`space-${direction || 'horizontal'}`}>{children}</div>
-    )),
-    Row: jest.fn(({ children }) => (
-      <div data-testid="row">{children}</div>
-    )),
-    Col: jest.fn(({ children, span }) => (
-      <div data-testid={`col-${span}`}>{children}</div>
-    )),
+    Button: jest.fn(({ children }: any) => <button>{children}</button>),
+    Tabs: jest.fn(({ children }: any) => <div>{children}</div>),
+    Collapse: jest.fn(({ children }: any) => <div>{children}</div>),
+    Space: jest.fn(({ children }: any) => <div>{children}</div>),
+    Row: jest.fn(({ children }: any) => <div>{children}</div>),
+    Col: jest.fn(({ children }: any) => <div>{children}</div>),
     message: {
       success: jest.fn(),
       error: jest.fn(),
       info: jest.fn()
     },
     Typography: {
-      Title: jest.fn(({ level, children }) => (
-        <div data-testid={`title-${level}`}>{children}</div>
-      )),
-      Text: jest.fn(({ type, children }) => (
-        <div data-testid={`text-${type || 'default'}`}>{children}</div>
-      ))
+      Title: jest.fn(({ children }: any) => <h1>{children}</h1>),
+      Text: jest.fn(({ children }: any) => <span>{children}</span>)
     }
-  };
+  });
 });
 
 describe('EnhancedBulkEditModal', () => {
@@ -271,10 +193,10 @@ describe('EnhancedBulkEditModal', () => {
   
   const defaultProps = {
     visible: true,
-    entityType: 'team',
-    selectedEntities: mockSelectedEntities,
+    entityType: 'team' as any,
+    selectedIds: Object.keys(mockSelectedEntities),
     onCancel: jest.fn(),
-    onComplete: jest.fn()
+    onSuccess: jest.fn()
   };
   
   beforeEach(() => {
@@ -375,14 +297,13 @@ describe('EnhancedBulkEditModal', () => {
     const { useBulkUpdate } = require('../../../../../frontend/src/components/common/BulkEditModal/hooks/useBulkUpdate');
     const { message } = require('antd');
     
-    // Mock the processing of entities
-    const mockUpdateEntities = jest.fn().mockResolvedValue({
+    const mockUpdateEntities = jest.fn<() => Promise<{ success: number; failed: number; total: number; }>>().mockResolvedValue({
       success: 5,
       failed: 1,
       total: 6
     });
     
-    useBulkUpdate.mockImplementation(() => ({
+    (useBulkUpdate as jest.Mock).mockImplementation(() => ({
       updateEntities: mockUpdateEntities,
       isProcessing: false,
       processed: 0,
@@ -408,16 +329,15 @@ describe('EnhancedBulkEditModal', () => {
       expect(message.success).toHaveBeenCalledWith('Updated 5 of 6 teams successfully');
     });
     
-    // Should call onComplete callback
-    expect(defaultProps.onComplete).toHaveBeenCalled();
+    // Should call onSuccess callback
+    expect(defaultProps.onSuccess).toHaveBeenCalled();
   });
 
   it('shows processing status during update', async () => {
     const { useBulkUpdate } = require('../../../../../frontend/src/components/common/BulkEditModal/hooks/useBulkUpdate');
     
-    // Mock the processing state
-    useBulkUpdate.mockImplementation(() => ({
-      updateEntities: jest.fn().mockResolvedValue({ success: 3, failed: 0, total: 3 }),
+    (useBulkUpdate as jest.Mock).mockImplementation(() => ({
+      updateEntities: jest.fn<() => Promise<{ success: number; failed: number; total: number; }>>().mockResolvedValue({ success: 3, failed: 0, total: 3 }),
       isProcessing: true,
       processed: 2,
       total: 3,
@@ -477,12 +397,10 @@ describe('EnhancedBulkEditModal', () => {
   it('handles errors during update', async () => {
     const { useBulkUpdate } = require('../../../../../frontend/src/components/common/BulkEditModal/hooks/useBulkUpdate');
     const { message } = require('antd');
-    
-    // Mock update failure
     const mockUpdateError = new Error('Update failed');
-    const mockUpdateEntities = jest.fn().mockRejectedValue(mockUpdateError);
+    const mockUpdateEntities = jest.fn<() => Promise<never>>().mockRejectedValue(mockUpdateError);
     
-    useBulkUpdate.mockImplementation(() => ({
+    (useBulkUpdate as jest.Mock).mockImplementation(() => ({
       updateEntities: mockUpdateEntities,
       isProcessing: false,
       processed: 0,
@@ -506,8 +424,8 @@ describe('EnhancedBulkEditModal', () => {
       expect(console.error).toHaveBeenCalledWith('Bulk update error:', mockUpdateError);
     });
     
-    // Should not call onComplete on error
-    expect(defaultProps.onComplete).not.toHaveBeenCalled();
+    // Should not call onSuccess on error
+    expect(defaultProps.onSuccess).not.toHaveBeenCalled();
     
     // Restore console.error
     console.error = originalConsoleError;

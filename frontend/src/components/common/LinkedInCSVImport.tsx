@@ -33,97 +33,60 @@ const LinkedInCSVImport: React.FC<LinkedInCSVImportProps> = ({ onImportComplete 
     setLoading(true);
     setImportStats(null);
 
-    // First try the test endpoint to debug file upload issues
     try {
-      console.log('Testing file upload with:', file.name, 'Size:', file.size, 'Type:', file.type);
+      console.log('File selected:', file.name, 'Size:', file.size, 'Type:', file.type);
       
-      // Create form data for test
-      const testFormData = new FormData();
-      testFormData.append('file', file);
+      const formData = new FormData();
+      formData.append('file', file);
       
-      console.log('TEST: FormData entries:');
-      for (const entry of testFormData.entries()) {
+      console.log('FormData entries:');
+      for (const entry of formData.entries()) {
         console.log('- Entry:', entry[0], entry[1]);
       }
       
-      // DEBUGGING: Try the test endpoint first
-      console.log('Sending file to test endpoint...');
-      try {
-        const testResponse = await fetch('/api/v1/contacts/test-upload', {
-          method: 'POST',
-          body: testFormData,
-          headers: {
-            'Authorization': `Bearer ${localStorage.getItem('auth_token')}`
-          }
-        });
-        
-        if (testResponse.ok) {
-          const testResult = await testResponse.json();
-          console.log('Test upload successful:', testResult);
-          
-          // Now try the real endpoint
-          console.log('File selected:', file.name, 'Size:', file.size, 'Type:', file.type);
-          
-          // Create form data - very important to use the correct field name 'file'
-          // which must match what the backend expects
-          const formData = new FormData();
-          formData.append('file', file);
-          
-          // Log form data entries to debug
-          console.log('FormData entries:');
-          for (const entry of formData.entries()) {
-            console.log('- Entry:', entry[0], entry[1]);
-          }
-          
-          // Use fetch directly instead of axios
-          const url = `/api/v1/contacts/import/linkedin?auto_match_brands=${matchBrands}&match_threshold=${matchThreshold}`;
-          console.log('Sending file to URL:', url);
-          
-          const fetchResponse = await fetch(url, {
-            method: 'POST',
-            body: formData,
-            headers: {
-              'Authorization': `Bearer ${localStorage.getItem('auth_token')}`
-            }
-          });
-          
-          if (fetchResponse.ok) {
-            const data = await fetchResponse.json();
-            console.log('LinkedIn CSV import response:', data);
-            setImportStats(data);
-            showNotification(
-              'success',
-              `Successfully imported ${data.imported_contacts} contacts with ${data.matched_brands} brand matches`
-            );
-            
-            // Call the callback if provided
-            if (onImportComplete) {
-              onImportComplete(data);
-            }
-          } else {
-            throw new Error(`Import failed with status: ${fetchResponse.status} ${fetchResponse.statusText}`);
-          }
-        } else {
-          throw new Error(`Test upload failed with status: ${testResponse.status} ${testResponse.statusText}`);
+      const url = `/api/v1/contacts/import/linkedin`;
+      const params = {
+        auto_match_brands: matchBrands,
+        match_threshold: matchThreshold
+      };
+      console.log('Sending file to URL:', url, 'with params:', params);
+
+      const response = await apiClient.post<ImportStats>(url, formData, {
+        params: params,
+        requiresAuth: true,
+        headers: {
+          // Content-Type is usually set automatically by the browser for FormData
+          // but if issues persist, uncomment the line below
+          // 'Content-Type': 'multipart/form-data' 
         }
-      } catch (testError) {
-        console.error('Test upload failed:', testError);
-        throw new Error(`Test upload failed: ${testError.message}`);
+      });
+
+      const data = response.data;
+      console.log('LinkedIn CSV import response:', data);
+      setImportStats(data);
+      showNotification(
+        'success',
+        `Successfully imported ${data.imported_contacts} contacts with ${data.matched_brands} brand matches`
+      );
+      
+      if (onImportComplete) {
+        onImportComplete(data);
       }
-    } catch (error) {
+
+    } catch (error: any) {
       console.error('Error importing contacts:', error);
+      const message = error.response?.data?.detail || error.message || 'Failed to import contacts. Please try again.';
       showNotification(
         'error',
-        'Failed to import contacts. Please try again.'
+        message
       );
     } finally {
       setLoading(false);
-      // Reset the file input
       if (fileInputRef.current) {
         fileInputRef.current.value = '';
       }
     }
-  }, [matchBrands, matchThreshold, onImportComplete, showNotification]);
+  }, [apiClient, matchBrands, matchThreshold, onImportComplete, showNotification]);
 
   const triggerFileInput = useCallback(() => {
     fileInputRef.current?.click();

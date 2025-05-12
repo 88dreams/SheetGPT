@@ -13,8 +13,9 @@ interface ExtendedRequestConfig extends AxiosRequestConfig {
 export const useApiClient = (config: ApiClientConfig = {}) => {
   const client: AxiosInstance = useMemo(() => {
     return axios.create({
-      baseURL: config.baseURL || '/api',
+      baseURL: config.baseURL || '',
       timeout: config.timeout || 10000,
+      // Default headers are set here, but we will override for FormData
       headers: {
         'Content-Type': 'application/json',
       },
@@ -44,12 +45,12 @@ export const useApiClient = (config: ApiClientConfig = {}) => {
 
   const get = useCallback(async <T = any>(url: string, config: ExtendedRequestConfig = {}) => {
     try {
-      const configWithAuth = addAuthHeader(config);
+      const finalConfig = addAuthHeader(config);
       console.log(`Making GET request to ${url}`, { 
-        hasAuth: !!configWithAuth.headers?.Authorization,
+        hasAuth: !!finalConfig.headers?.Authorization,
         requiresAuth: config.requiresAuth 
       });
-      const response = await client.get<T>(url, configWithAuth);
+      const response = await client.get<T>(url, finalConfig);
       return response;
     } catch (error) {
       console.error('API GET Error:', error);
@@ -59,26 +60,35 @@ export const useApiClient = (config: ApiClientConfig = {}) => {
 
   const post = useCallback(async <T = any>(url: string, data = {}, config: ExtendedRequestConfig = {}) => {
     try {
-      const configWithAuth = addAuthHeader(config);
-      console.log(`Making POST request to ${url}`, { 
-        hasAuth: !!configWithAuth.headers?.Authorization,
-        requiresAuth: config.requiresAuth,
-        contentType: configWithAuth.headers?.['Content-Type']
-      });
-      
-      // For FormData, make sure Content-Type is not set at all
+      const baseConfigWithAuth = addAuthHeader(config);
+      let finalConfig = baseConfigWithAuth;
+
       if (data instanceof FormData) {
-        console.log('FormData detected, ensuring proper Content-Type header handling');
-        // ALWAYS delete Content-Type header for FormData
-        // This lets the browser set it automatically with boundary parameter
-        if (configWithAuth.headers) {
-          delete configWithAuth.headers['Content-Type'];
-          console.log('Removed Content-Type header for FormData request');
-        }
+        console.log('FormData detected, explicitly setting Content-Type to multipart/form-data.');
+        const formDataHeaders = { ...baseConfigWithAuth.headers };
+        // Explicitly set Content-Type for FormData. Axios should handle the boundary.
+        formDataHeaders['Content-Type'] = 'multipart/form-data'; 
+        finalConfig = { ...baseConfigWithAuth, headers: formDataHeaders };
+        // console.log('Content-Type header removed for FormData request.'); // Old log
+      } else {
+        // For non-FormData, ensure our default (or passed) Content-Type is set
+        finalConfig = {
+          ...baseConfigWithAuth,
+          headers: {
+            ...baseConfigWithAuth.headers,
+            'Content-Type': baseConfigWithAuth.headers?.['Content-Type'] || 'application/json',
+          }
+        };
       }
       
+      console.log(`Making POST request to ${url}`, { 
+        hasAuth: !!finalConfig.headers?.Authorization,
+        requiresAuth: config.requiresAuth,
+        contentType: finalConfig.headers?.['Content-Type']
+      });
+      
       try {
-        const response = await client.post<T>(url, data, configWithAuth);
+        const response = await client.post<T>(url, data, finalConfig);
         console.log(`POST response for ${url}:`, response.status, response.statusText);
         return response;
       } catch (axiosError: any) {
@@ -99,12 +109,21 @@ export const useApiClient = (config: ApiClientConfig = {}) => {
 
   const put = useCallback(async <T = any>(url: string, data = {}, config: ExtendedRequestConfig = {}) => {
     try {
-      const configWithAuth = addAuthHeader(config);
+      // Similar logic for PUT if it also needs to handle FormData, but typically not.
+      // For now, assume JSON unless FormData is explicitly handled like in POST.
+      const finalConfig = addAuthHeader({
+        ...config,
+        headers: {
+            ...config.headers,
+            'Content-Type': config.headers?.['Content-Type'] || 'application/json',
+        }
+      });
+
       console.log(`Making PUT request to ${url}`, { 
-        hasAuth: !!configWithAuth.headers?.Authorization,
+        hasAuth: !!finalConfig.headers?.Authorization,
         requiresAuth: config.requiresAuth 
       });
-      const response = await client.put<T>(url, data, configWithAuth);
+      const response = await client.put<T>(url, data, finalConfig);
       return response;
     } catch (error) {
       console.error('API PUT Error:', error);
@@ -114,12 +133,12 @@ export const useApiClient = (config: ApiClientConfig = {}) => {
 
   const del = useCallback(async <T = any>(url: string, config: ExtendedRequestConfig = {}) => {
     try {
-      const configWithAuth = addAuthHeader(config);
+      const finalConfig = addAuthHeader(config);
       console.log(`Making DELETE request to ${url}`, { 
-        hasAuth: !!configWithAuth.headers?.Authorization,
+        hasAuth: !!finalConfig.headers?.Authorization,
         requiresAuth: config.requiresAuth 
       });
-      const response = await client.delete<T>(url, configWithAuth);
+      const response = await client.delete<T>(url, finalConfig);
       return response;
     } catch (error) {
       console.error('API DELETE Error:', error);

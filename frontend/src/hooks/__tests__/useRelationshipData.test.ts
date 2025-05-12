@@ -1,4 +1,5 @@
-import { renderHook, act } from '@testing-library/react-hooks';
+// import { renderHook, act } from '@testing-library/react-hooks';
+import { renderHook, act, waitFor } from '@testing-library/react';
 import { useRelationshipData, useCommonEntityData, useEntityRelationships } from '../useRelationshipData';
 import { relationshipLoader } from '../../utils/relationshipLoader';
 
@@ -47,7 +48,7 @@ describe('useRelationshipData', () => {
     (relationshipLoader.loadRelationshipsForMultiple as jest.Mock).mockResolvedValue(mockRelationships);
     
     // Render the hook
-    const { result, waitForNextUpdate } = renderHook(() => 
+    const { result } = renderHook(() => 
       useRelationshipData('league', ['l1'])
     );
     
@@ -55,11 +56,12 @@ describe('useRelationshipData', () => {
     expect(result.current.isLoading).toBe(true);
     expect(result.current.error).toBe(null);
     
-    // Wait for the data to load
-    await waitForNextUpdate();
+    // Use waitFor to await updates
+    await waitFor(() => {
+      expect(result.current.isLoading).toBe(false);
+    });
     
     // Check that the data was loaded
-    expect(result.current.isLoading).toBe(false);
     expect(result.current.entitiesByType).toEqual({ league: mockLeagues });
     expect(result.current.relationshipsByEntityId).toEqual(mockRelationships);
     expect(result.current.leagues).toEqual(mockLeagues);
@@ -93,7 +95,7 @@ describe('useRelationshipData', () => {
     (relationshipLoader.preloadEntitySet as jest.Mock).mockResolvedValue(mockEntities);
     
     // Render the hook
-    const { result, waitForNextUpdate } = renderHook(() => 
+    const { result } = renderHook(() => 
       useRelationshipData('league', [], { preloadSet: 'FORM_BASICS' })
     );
     
@@ -101,11 +103,12 @@ describe('useRelationshipData', () => {
     expect(result.current.isLoading).toBe(true);
     expect(result.current.error).toBe(null);
     
-    // Wait for the data to load
-    await waitForNextUpdate();
+    // Use waitFor to await updates
+    await waitFor(() => {
+      expect(result.current.isLoading).toBe(false);
+    });
     
     // Check that the data was loaded
-    expect(result.current.isLoading).toBe(false);
     expect(result.current.entitiesByType).toEqual(mockEntities);
     expect(result.current.leagues).toEqual(mockEntities.league);
     expect(result.current.divisions_conferences).toEqual(mockEntities.division_conference);
@@ -130,7 +133,7 @@ describe('useRelationshipData', () => {
     (relationshipLoader.loadRelationshipsForMultiple as jest.Mock).mockResolvedValue(mockRelationships);
     
     // Render the hook with loadOnMount: false
-    const { result, waitForNextUpdate } = renderHook(() => 
+    const { result } = renderHook(() => 
       useRelationshipData('league', ['l1'], { loadOnMount: false })
     );
     
@@ -145,11 +148,12 @@ describe('useRelationshipData', () => {
     // Check that loading state was updated
     expect(result.current.isLoading).toBe(true);
     
-    // Wait for the data to load
-    await waitForNextUpdate();
+    // Use waitFor to await updates
+    await waitFor(() => {
+      expect(result.current.isLoading).toBe(false);
+    });
     
     // Check that the data was loaded
-    expect(result.current.isLoading).toBe(false);
     expect(result.current.entitiesByType).toEqual({ league: mockLeagues });
     expect(result.current.relationshipsByEntityId).toEqual(mockRelationships);
     
@@ -168,7 +172,7 @@ describe('useRelationshipData', () => {
     (relationshipLoader._fetchEntitiesWithFilter as jest.Mock).mockRejectedValue(mockError);
     
     // Render the hook
-    const { result, waitForNextUpdate } = renderHook(() => 
+    const { result } = renderHook(() => 
       useRelationshipData('league', ['l1'])
     );
     
@@ -176,12 +180,13 @@ describe('useRelationshipData', () => {
     expect(result.current.isLoading).toBe(true);
     expect(result.current.error).toBe(null);
     
-    // Wait for the error to be caught
-    await waitForNextUpdate();
+    // Use waitFor to await updates
+    await waitFor(() => {
+      expect(result.current.isLoading).toBe(false);
+      expect(result.current.error).toBe(mockError);
+    });
     
     // Check that the error was caught
-    expect(result.current.isLoading).toBe(false);
-    expect(result.current.error).toBe(mockError);
     expect(result.current.entitiesByType).toEqual({});
     expect(result.current.relationshipsByEntityId).toEqual({});
   });
@@ -201,7 +206,7 @@ describe('useCommonEntityData', () => {
     (relationshipLoader.preloadEntitySet as jest.Mock).mockResolvedValue(mockEntities);
     
     // Render the hook
-    const { result, waitForNextUpdate } = renderHook(() => 
+    const { result } = renderHook(() => 
       useCommonEntityData()
     );
     
@@ -209,11 +214,12 @@ describe('useCommonEntityData', () => {
     expect(result.current.isLoading).toBe(true);
     expect(result.current.error).toBe(null);
     
-    // Wait for the data to load
-    await waitForNextUpdate();
+    // Use waitFor to await updates
+    await waitFor(() => {
+      expect(result.current.isLoading).toBe(false);
+    });
     
     // Check that the data was loaded
-    expect(result.current.isLoading).toBe(false);
     expect(result.current.entitiesByType).toEqual(mockEntities);
     
     // Check that the preloadEntitySet method was called with the default set
@@ -231,12 +237,14 @@ describe('useCommonEntityData', () => {
     (relationshipLoader.preloadEntitySet as jest.Mock).mockResolvedValue(mockEntities);
     
     // Render the hook with custom set
-    const { result, waitForNextUpdate } = renderHook(() => 
+    const { result } = renderHook(() => 
       useCommonEntityData('MEDIA_ENTITIES')
     );
     
-    // Wait for the data to load
-    await waitForNextUpdate();
+    // Use waitFor to await updates
+    await waitFor(() => {
+      expect(result.current.isLoading).toBe(false); 
+    });
     
     // Check that the preloadEntitySet method was called with the custom set
     expect(relationshipLoader.preloadEntitySet).toHaveBeenCalledWith(
@@ -264,7 +272,7 @@ describe('useEntityRelationships', () => {
     (relationshipLoader.loadRelationshipsForMultiple as jest.Mock).mockResolvedValue(mockRelationships);
     
     // Render the hook
-    const { result, waitForNextUpdate } = renderHook(() => 
+    const { result } = renderHook(() => 
       useEntityRelationships('league', 'l1')
     );
     
@@ -272,11 +280,12 @@ describe('useEntityRelationships', () => {
     expect(result.current.isLoading).toBe(true);
     expect(result.current.error).toBe(null);
     
-    // Wait for the data to load
-    await waitForNextUpdate();
+    // Use waitFor to await updates
+    await waitFor(() => {
+      expect(result.current.isLoading).toBe(false);
+    });
     
     // Check that the data was loaded
-    expect(result.current.isLoading).toBe(false);
     expect(result.current.entity).toEqual(mockLeagues[0]);
     expect(result.current.relationships).toEqual(mockRelationships['l1']);
     
@@ -312,12 +321,14 @@ describe('useEntityRelationships', () => {
     (relationshipLoader.loadRelationshipsForMultiple as jest.Mock).mockResolvedValue({});
     
     // Render the hook
-    const { result, waitForNextUpdate } = renderHook(() => 
+    const { result } = renderHook(() => 
       useEntityRelationships('league', 'l1')
     );
     
-    // Wait for the data to load
-    await waitForNextUpdate();
+    // Use waitFor to await updates
+    await waitFor(() => {
+      expect(result.current.isLoading).toBe(false);
+    });
     
     // Check that the hook returned empty data
     expect(result.current.entity).toBe(null);

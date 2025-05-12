@@ -57,11 +57,9 @@ export function useConversations({
     refetchOnReconnect: true
   });
 
-  // Flatten conversations from all pages
-  // @ts-expect-error TS2339 - Compiler struggling with type inference for page.items here
-  const conversations = conversationsData?.pages.flatMap(page => page.items) || [];
-  // @ts-expect-error TS2339 - Compiler struggling with type inference for pages[0].total here
-  const totalConversations = conversationsData?.pages[0]?.total || 0;
+  // Flatten conversations from all pages with proper type assertions
+  const conversations: Conversation[] = conversationsData?.pages.flatMap((page) => ((page as unknown) as ConversationPage).items) || [];
+  const totalConversations: number = ((conversationsData?.pages[0] as unknown) as ConversationPage | undefined)?.total ?? 0;
 
   // Handle loading more conversations
   const handleLoadMore = () => {

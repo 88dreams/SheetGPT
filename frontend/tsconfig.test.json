@@ -5,6 +5,5 @@
     "esModuleInterop": true,
     "allowSyntheticDefaultImports": true,
     "types": ["jest", "node", "@testing-library/jest-dom"]
-  },
-  "include": ["src/**/*.test.ts", "src/**/*.test.tsx", "src/jest-setup.ts"]
+  }
 } 

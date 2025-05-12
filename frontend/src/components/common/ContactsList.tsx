@@ -207,7 +207,7 @@ const ContactsList: React.FC<ContactsListProps> = ({ brandId, onContactSelect })
       
       // For all sorting types, including brand_name, use the server's pagination and sorting
       // For brand_name, we'll just apply additional client-side sorting to the current page
-      let url = `/v1/contacts/?skip=${calculatedSkip}&limit=${limit}&sort_by=${sortBy !== 'brand_name' ? sortBy : 'last_name'}&sort_order=${sortOrder}`;
+      let url = `/api/v1/contacts/?skip=${calculatedSkip}&limit=${limit}&sort_by=${sortBy !== 'brand_name' ? sortBy : 'last_name'}&sort_order=${sortOrder}`;
       
       if (searchQuery) {
         url += `&search=${encodeURIComponent(searchQuery)}`;

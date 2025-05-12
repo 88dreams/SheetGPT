@@ -72,6 +72,8 @@ describe('memoization utilities', () => {
   describe('withMemoForwardRef', () => {
     it('should create a memoized component that forwards refs', () => {
       const ref = React.createRef<HTMLDivElement>();
+      // Add @ts-expect-error for the complex HOC typing issue
+      // @ts-expect-error TS2345 (or the specific error code if different now)
       const MemoizedRefComponent = withMemoForwardRef(ForwardRefComponent);
       
       render(<MemoizedRefComponent ref={ref} text="Ref Text" />);
@@ -81,6 +83,8 @@ describe('memoization utilities', () => {
     });
     
     it('should have proper displayName', () => {
+      // Add @ts-expect-error for the complex HOC typing issue
+      // @ts-expect-error TS2345 (or the specific error code if different now)
       const MemoizedRefComponent = withMemoForwardRef(ForwardRefComponent);
       expect(MemoizedRefComponent.displayName).toContain('ForwardRef');
     });

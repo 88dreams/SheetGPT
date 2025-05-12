@@ -2,15 +2,19 @@
 export type EntityType = 
   | 'league' 
   | 'team' 
-  | 'player' 
+  | 'player' // player is often synonymous with person in sports contexts
   | 'game' 
   | 'stadium' 
   | 'broadcast' 
-  | 'production' 
+  | 'production' // This might map to production_service or be distinct
   | 'brand'
   | 'game_broadcast'
   | 'league_executive'
-  | 'division_conference';
+  | 'division_conference'
+  | 'person' // Added based on linter error
+  | 'production_company' // Added based on linter error
+  | 'production_service' // Added based on linter error
+  ;
 
 export interface EntityTypeInfo {
   id: EntityType;

@@ -2,6 +2,7 @@ import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { describe, it, expect, jest, beforeEach } from '@jest/globals';
 import '@testing-library/jest-dom';
+import { EntityType } from '../../../../types/sports';
 
 // Import the component to test
 import EntityCard from '../EntityCard';
@@ -72,7 +73,7 @@ jest.mock('../EntityResolutionBadge', () => {
 // Mock the API client hook
 jest.mock('../../../../../src/hooks/useApiClient', () => ({
   useApiClient: jest.fn(() => ({
-    put: jest.fn(async (url, data) => {
+    put: jest.fn(async (url: string, data: any) => {
       return { data: { ...data, updated: true } };
     })
   }))
@@ -81,8 +82,8 @@ jest.mock('../../../../../src/hooks/useApiClient', () => ({
 // Mock the apiCache
 jest.mock('../../../../../src/utils/apiCache', () => ({
   apiCache: {
-    get: jest.fn((key) => {
-      if (key.includes('fuzzy')) {
+    get: jest.fn((key: string) => {
+      if (typeof key === 'string' && key.includes('fuzzy')) {
         return {
           resolution_info: {
             match_score: 0.85,
@@ -93,7 +94,7 @@ jest.mock('../../../../../src/utils/apiCache', () => ({
           }
         };
       }
-      if (key.includes('context')) {
+      if (typeof key === 'string' && key.includes('context')) {
         return {
           resolution_info: {
             match_score: 0.9,
@@ -104,7 +105,7 @@ jest.mock('../../../../../src/utils/apiCache', () => ({
           }
         };
       }
-      if (key.includes('virtual')) {
+      if (typeof key === 'string' && key.includes('virtual')) {
         return {
           resolution_info: {
             match_score: 1.0,
@@ -124,8 +125,7 @@ jest.mock('../../../../../src/utils/apiCache', () => ({
 jest.mock('antd', () => {
   const actual = jest.requireActual('antd');
   
-  return {
-    ...actual,
+  return Object.assign({}, actual, {
     Card: jest.fn(({ title, children }) => (
       <div data-testid="card">
         <div data-testid="card-title">{title}</div>
@@ -176,7 +176,7 @@ jest.mock('antd', () => {
       )),
       Paragraph: jest.fn(({ children }) => <p data-testid="paragraph">{children}</p>)
     }
-  };
+  });
 });
 
 // Mock icons
@@ -190,7 +190,10 @@ describe('EntityCard', () => {
   const mockEntity = {
     id: 'team_123',
     name: 'Test Team',
-    league_id: 'league_456'
+    league_id: 'league_456',
+    position: 'CEO',
+    start_date: '2023-01-01',
+    end_date: '2024-01-01'
   };
   
   const mockOnUpdate = jest.fn();
@@ -198,7 +201,7 @@ describe('EntityCard', () => {
   
   const defaultProps = {
     entity: mockEntity,
-    entityType: 'team',
+    entityType: 'league_executive' as EntityType,
     onUpdate: mockOnUpdate,
     onSelectRelated: mockOnSelectRelated
   };
@@ -225,7 +228,7 @@ describe('EntityCard', () => {
     // Check initial content
     expect(screen.getByTestId('quick-edit-form')).toBeInTheDocument();
     expect(screen.getByTestId('quick-edit-form')).toHaveTextContent('Entity: Test Team');
-    expect(screen.getByTestId('quick-edit-form')).toHaveTextContent('Type: team');
+    expect(screen.getByTestId('quick-edit-form')).toHaveTextContent('Type: league_executive');
     expect(screen.getByTestId('quick-edit-form')).toHaveTextContent('Editing: No');
     
     // Check edit button
@@ -293,13 +296,13 @@ describe('EntityCard', () => {
   it('handles entity updates correctly', async () => {
     const { message } = require('antd');
     const { useApiClient } = require('../../../../../src/hooks/useApiClient');
-    const mockPut = jest.fn().mockResolvedValue({
+    
+    // Explicitly type the mock function
+    const mockPut = jest.fn<() => Promise<{ data: any }>>().mockResolvedValue({
       data: { ...mockEntity, name: 'Test Team (Updated)', updated: true }
     });
     
-    useApiClient.mockReturnValue({
-      put: mockPut
-    });
+    useApiClient.mockReturnValue({ put: mockPut });
     
     render(<EntityCard {...defaultProps} />);
     
@@ -345,15 +348,12 @@ describe('EntityCard', () => {
     const { message } = require('antd');
     const { useApiClient } = require('../../../../../src/hooks/useApiClient');
     
-    // Mock API error
     const mockError = new Error('API Error');
-    const mockPut = jest.fn().mockRejectedValue(mockError);
+    // Explicitly type the mock function to expect a Promise rejection
+    const mockPut = jest.fn<() => Promise<never>>().mockRejectedValue(mockError);
     
-    useApiClient.mockReturnValue({
-      put: mockPut
-    });
+    useApiClient.mockReturnValue({ put: mockPut });
     
-    // Mock console.error to prevent test output noise
     const originalConsoleError = console.error;
     console.error = jest.fn();
     
@@ -380,7 +380,6 @@ describe('EntityCard', () => {
     // Should still be in edit mode
     expect(screen.getByTestId('quick-edit-form')).toHaveTextContent('Editing: Yes');
     
-    // Restore console.error
     console.error = originalConsoleError;
   });
 
@@ -404,7 +403,10 @@ describe('EntityCard', () => {
     const leagueEntity = {
       id: 'league_456',
       name: 'Test League',
-      sport: 'Football'
+      sport: 'Football',
+      country: 'USA',
+      created_at: '2023-01-01',
+      updated_at: '2023-01-01'
     };
     
     render(

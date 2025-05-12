@@ -14,7 +14,7 @@ describe('useRecordNavigation', () => {
     
     expect(result.current.currentRecordIndex).toBe(0);
     expect(result.current.totalRecords).toBe(3);
-    expect(result.current.includedRecordsCount).toBe(3);
+    expect(result.current.stats.includedRecords).toBe(3);
     expect(result.current.excludedRecords.size).toBe(0);
   });
   
@@ -83,48 +83,49 @@ describe('useRecordNavigation', () => {
   it('should toggle exclude record', () => {
     const { result } = renderHook(() => useRecordNavigation(mockData));
     
-    // Initially no records are excluded
     expect(result.current.excludedRecords.size).toBe(0);
     expect(result.current.isCurrentRecordExcluded()).toBe(false);
     
-    // Exclude the current record (index 0)
     act(() => {
       result.current.toggleExcludeRecord();
     });
     
     expect(result.current.excludedRecords.size).toBe(1);
     expect(result.current.isCurrentRecordExcluded()).toBe(true);
+    expect(result.current.stats.includedRecords).toBe(2);
     
-    // Toggle again to include the record
     act(() => {
       result.current.toggleExcludeRecord();
     });
     
     expect(result.current.excludedRecords.size).toBe(0);
     expect(result.current.isCurrentRecordExcluded()).toBe(false);
+    expect(result.current.stats.includedRecords).toBe(3);
   });
   
-  it('should get current record', () => {
+  it('should get current record correctly via index and included records', () => {
     const { result } = renderHook(() => useRecordNavigation(mockData));
     
-    expect(result.current.getCurrentRecord()).toEqual(mockData[0]);
+    // Get current record using index and the included records array
+    let currentRec = result.current.getIncludedRecords()[result.current.currentRecordIndex!];
+    expect(currentRec).toEqual(mockData[0]);
     
     act(() => {
       result.current.goToNextRecord();
     });
     
-    expect(result.current.getCurrentRecord()).toEqual(mockData[1]);
+    currentRec = result.current.getIncludedRecords()[result.current.currentRecordIndex!];
+    expect(currentRec).toEqual(mockData[1]);
   });
   
   it('should get included records', () => {
     const { result } = renderHook(() => useRecordNavigation(mockData));
     
-    // Initially all records should be included
     const initialIncluded = result.current.getIncludedRecords();
     expect(initialIncluded).toHaveLength(3);
     expect(initialIncluded).toEqual(mockData);
+    expect(result.current.stats.includedRecords).toBe(3);
     
-    // Exclude the first record (index 0)
     act(() => {
       result.current.setCurrentRecordIndex(0);
     });
@@ -133,26 +134,25 @@ describe('useRecordNavigation', () => {
       result.current.toggleExcludeRecord();
     });
     
-    // Check that the first record is excluded
     const includedAfterFirstExclusion = result.current.getIncludedRecords();
     expect(includedAfterFirstExclusion).toHaveLength(2);
     expect(includedAfterFirstExclusion).toEqual([mockData[1], mockData[2]]);
+    expect(result.current.stats.includedRecords).toBe(2);
     
-    // Exclude the second record (index 1)
     act(() => {
-      result.current.setCurrentRecordIndex(1);
+      result.current.setCurrentRecordIndex(1); // Current index is now 1 relative to original data
     });
     
     act(() => {
-      result.current.toggleExcludeRecord();
+      // This will toggle exclusion for original index 1
+      result.current.toggleExcludeRecord(); 
     });
     
-    // Now only the third record should remain
     const finalIncluded = result.current.getIncludedRecords();
     expect(finalIncluded).toHaveLength(1);
     expect(finalIncluded).toEqual([mockData[2]]);
+    expect(result.current.stats.includedRecords).toBe(1);
     
-    // Check that the excluded records set has the correct indices
     expect(result.current.excludedRecords.has(0)).toBe(true);
     expect(result.current.excludedRecords.has(1)).toBe(true);
     expect(result.current.excludedRecords.has(2)).toBe(false);

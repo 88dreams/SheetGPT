@@ -72,6 +72,7 @@ const ContactsList: React.FC<ContactsListProps> = ({ brandId, onContactSelect })
   const [rescanning, setRescanning] = useState(false);
   const [isThresholdModalVisible, setIsThresholdModalVisible] = useState(false);
   const [rescanThreshold, setRescanThreshold] = useState(0.8);
+  const [refetchKey, setRefetchKey] = useState(0);
   
   // Column visibility state
   const [visibleColumns, setVisibleColumns] = useState<Record<string, boolean>>({
@@ -187,54 +188,28 @@ const ContactsList: React.FC<ContactsListProps> = ({ brandId, onContactSelect })
   }, []);
 
   const fetchContacts = useCallback(async () => {
-    // Prevent duplicate or overlapping requests
     if (isLoadingRef.current) {
       console.log('Skipping contacts fetch - already loading');
       return;
     }
-    
-    // Set loading state and track that we're in a request
     isLoadingRef.current = true;
     setLoading(true);
     setError(null);
-    
-    // Create a unique ID for this request to track race conditions
     const thisRequestId = ++requestIdRef.current;
-    
     try {
-      // Calculate skip from currentPage
       const calculatedSkip = (currentPage - 1) * limit;
-      
-      // For all sorting types, including brand_name, use the server's pagination and sorting
-      // For brand_name, we'll just apply additional client-side sorting to the current page
       let url = `/api/v1/contacts/?skip=${calculatedSkip}&limit=${limit}&sort_by=${sortBy !== 'brand_name' ? sortBy : 'last_name'}&sort_order=${sortOrder}`;
-      
-      if (searchQuery) {
-        url += `&search=${encodeURIComponent(searchQuery)}`;
-      }
-      
-      if (brandId) {
-        url += `&brand_id=${brandId}`;
-      }
-      
+      if (searchQuery) url += `&search=${encodeURIComponent(searchQuery)}`;
+      if (brandId) url += `&brand_id=${brandId}`;
       console.log(`Fetching contacts for page ${currentPage}, URL:`, url, 'requestId:', thisRequestId);
       const response = await apiClient.get<ContactsResponse>(url, { requiresAuth: true });
       console.log(`Received ${response.data?.items?.length || 0} contacts, requestId:`, thisRequestId);
-      
-      // Only update state if this is still the current request
-      // and the component is still mounted
       if (thisRequestId === requestIdRef.current && isMounted.current) {
         console.log('Setting contacts data from response, requestId:', thisRequestId);
-        
-        // Handle the case where response.data is missing expected structure
         const items = response.data?.items || [];
         const totalCount = response.data?.total || 0;
-        
-        // Save contacts for client-side operations
         setContacts(items);
         setTotal(totalCount);
-        
-        // Update skip to match current page (maintain consistency)
         if (calculatedSkip !== skip) {
           skipChangeSource.current = 'skip';
           setSkip(calculatedSkip);
@@ -365,7 +340,6 @@ const ContactsList: React.FC<ContactsListProps> = ({ brandId, onContactSelect })
   // that should trigger a data refetch
   useEffect(() => {
     if (!isMounted.current) return;
-    
     const currentRequest = {
       currentPage,
       limit,
@@ -374,8 +348,6 @@ const ContactsList: React.FC<ContactsListProps> = ({ brandId, onContactSelect })
       searchQuery: searchQuery || '',
       brandId: brandId || ''
     };
-    
-    // Check if this is a duplicate request
     const lastReq = lastRequest.current;
     const isDuplicate = 
       lastReq.currentPage === currentRequest.currentPage &&
@@ -384,21 +356,17 @@ const ContactsList: React.FC<ContactsListProps> = ({ brandId, onContactSelect })
       lastReq.sortOrder === currentRequest.sortOrder &&
       lastReq.searchQuery === currentRequest.searchQuery &&
       lastReq.brandId === currentRequest.brandId;
-    
     if (!isDuplicate) {
-      console.log('ContactsList effect triggered, fetching contacts...');
-      // Update the last request ref BEFORE making the fetch
+      console.log('ContactsList effect triggered (dependencies changed), fetching contacts...');
       lastRequest.current = {...currentRequest};
-      // Call fetch outside the effect to prevent effect cycles
-      setTimeout(() => {
-        if (isMounted.current) {
-          fetchContacts();
-        }
-      }, 0);
+      // Directly call fetch, removed setTimeout
+      if (isMounted.current) {
+          fetchContactsRef.current(); 
+      }
     } else {
-      console.log('Skipping duplicate data fetch request');
+      console.log('Skipping duplicate data fetch request due to unchanged dependencies.');
     }
-  }, [currentPage, limit, sortBy, sortOrder, searchQuery, brandId]);
+  }, [currentPage, limit, sortBy, sortOrder, searchQuery, brandId, fetchContacts, refetchKey]);
 
   const handleSortChange = useCallback((field: string) => {
     // Toggle order if clicking the same field, otherwise default to ascending
@@ -510,50 +478,43 @@ const ContactsList: React.FC<ContactsListProps> = ({ brandId, onContactSelect })
 
   // New function to actually perform the rescan after confirming threshold
   const confirmRescanWithThreshold = useCallback(async () => {
-    setIsThresholdModalVisible(false); // Close modal
+    setIsThresholdModalVisible(false);
     setRescanning(true);
-    
     console.log(`Starting re-scan with threshold: ${rescanThreshold}`);
-    
     try {
-      const response = await apiClient.post('/v1/contacts/rematch-brands', 
+      const response = await apiClient.post('/api/v1/contacts/rematch-brands', 
         { match_threshold: rescanThreshold }, 
-        { 
-          requiresAuth: true,
-          timeout: 60000 
-        }
+        { requiresAuth: true, timeout: 60000 }
       );
-      
       console.log('Re-scan API response:', response.data);
-      
       if (response.data.success) {
         const stats = response.data.stats;
         let message = `Re-scan complete! Checked ${stats.total_contacts} contacts.`;
         if (stats.associations_added > 0 || stats.associations_removed > 0) {
           message += ` Added ${stats.associations_added}, Removed ${stats.associations_removed} associations.`;
-        } else {
-          message += ` No association changes needed.`;
-        }
+        } else { message += ` No association changes needed.`; }
         message += ` Kept ${stats.associations_kept}. Total after: ${stats.total_brand_associations_after}.`;
-        
         if (stats.errors && stats.errors.length > 0) {
            message += ` Encountered ${stats.errors.length} errors during DB operations.`
-           showNotification('info', message); // Show as info if there were errors during commit
-        } else {
-           showNotification('success', message);
-        }
+           showNotification('info', message);
+        } else { showNotification('success', message); }
         
-        // Invalidate the contacts query cache instead of manual refetch
-        // This assumes the query key used for fetching contacts starts with 'contacts'
-        // Adjust key if necessary based on actual useQuery implementation
-        console.log("Invalidating contacts query cache...");
-        await queryClient.invalidateQueries(['contacts']); 
-      } else {
-        showNotification('error', 'Backend reported failure during re-scan.');
-      }
-    } catch (err) {
+        console.log("Invalidating contacts query cache (if used elsewhere)...");
+        await queryClient.invalidateQueries({ queryKey: ['contacts'], exact: false }); 
+
+        console.log("Triggering contact list refetch...");
+        if (currentPage === 1) {
+          // If already on page 1, changing currentPage to 1 won't trigger useEffect.
+          // In this case, use the refetchKey.
+          setRefetchKey(prevKey => prevKey + 1);
+        } else {
+          // If not on page 1, going back to page 1 will change a dependency and trigger useEffect.
+          setCurrentPage(1);
+        }
+
+      } else { showNotification('error', 'Backend reported failure during re-scan.'); }
+    } catch (err: any) {
       console.error('Error re-scanning contacts:', err);
-      // Handle specific timeout error message
       let errorMsg = 'Failed to re-scan contacts. Please try again.';
       if (err.code === 'ECONNABORTED' || err.message?.includes('timeout')) {
         errorMsg = 'Re-scan operation timed out. It might be processing in the background. Please check back later.';
@@ -562,7 +523,7 @@ const ContactsList: React.FC<ContactsListProps> = ({ brandId, onContactSelect })
     } finally {
       setRescanning(false);
     }
-  }, [apiClient, rescanThreshold, showNotification, queryClient]);
+  }, [apiClient, rescanThreshold, showNotification, queryClient, setRefetchKey, currentPage]);
 
   // Render sort icon
   const renderSortIcon = (field: string) => {

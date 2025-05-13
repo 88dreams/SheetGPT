@@ -43,11 +43,13 @@ export const useDataSelection = (): UseDataSelectionResult => {
   const [verificationAttempts, setVerificationAttempts] = useState(0);
   const { showNotification } = useNotification();
   const queryClient = useQueryClient();
+  
+  console.log('[useDataSelection] Initializing - selectedDataId from state:', selectedDataId);
 
   // Store the selected data ID in session storage when it changes
   useEffect(() => {
     if (selectedDataId) {
-      console.log('DataManagement: Storing selected data ID in session storage:', selectedDataId);
+      // console.log('DataManagement: Storing selected data ID in session storage:', selectedDataId); // Original log
       sessionStorage.setItem('last_selected_data_id', selectedDataId);
     }
   }, [selectedDataId]);
@@ -57,7 +59,7 @@ export const useDataSelection = (): UseDataSelectionResult => {
     if (!selectedDataId && !selectedFromParams) {
       const storedDataId = sessionStorage.getItem('last_selected_data_id');
       if (storedDataId) {
-        console.log('DataManagement: Restoring selected data ID from session storage:', storedDataId);
+        console.log('[useDataSelection] Restoring selectedDataId from session storage:', storedDataId);
         setSelectedDataId(storedDataId);
       }
     }
@@ -66,9 +68,8 @@ export const useDataSelection = (): UseDataSelectionResult => {
   // Handle selection from URL params
   useEffect(() => {
     if (selectedFromParams) {
-      console.log('DataManagement: Setting selected data ID from URL parameter:', selectedFromParams);
+      console.log('[useDataSelection] Setting selectedDataId from URL parameter:', selectedFromParams);
       setSelectedDataId(selectedFromParams);
-      // Also ensure it's saved to session storage for persistence
       sessionStorage.setItem('last_selected_data_id', selectedFromParams);
     }
   }, [selectedFromParams]);
@@ -77,9 +78,8 @@ export const useDataSelection = (): UseDataSelectionResult => {
   useEffect(() => {
     const recentDataId = sessionStorage.getItem('recent_data_id');
     if (recentDataId && (!selectedDataId || selectedDataId !== recentDataId)) {
-      console.log('DataManagement: Found recent data ID in session storage:', recentDataId);
+      console.log('[useDataSelection] Setting selectedDataId from recent_data_id:', recentDataId);
       setSelectedDataId(recentDataId);
-      // Clear the recent data ID to prevent it from being reused
       sessionStorage.removeItem('recent_data_id');
     }
   }, [selectedDataId]);
@@ -129,7 +129,7 @@ export const useDataSelection = (): UseDataSelectionResult => {
     ['structured-data', selectedDataId], 
     () => {
       if (!selectedDataId) return Promise.resolve(null);
-      console.log('DataManagement: Fetching selected data for ID:', selectedDataId);
+      console.log('[useDataSelection] Querying for selectedDataId:', selectedDataId);
       return api.data.getStructuredDataById(selectedDataId);
     }, 
     {
@@ -264,11 +264,25 @@ export const useDataSelection = (): UseDataSelectionResult => {
 
   // Handle data selection
   const handleSelectData = (dataId: string) => {
-    console.log('DataManagement: Selecting data ID:', dataId);
+    console.log('[useDataSelection] handleSelectData called with ID:', dataId);
     setSelectedDataId(dataId);
   };
 
-  const isLoading = isLoadingAll || isLoadingMessage || isLoadingSelected || isVerifyingData;
+  // Add log before calculating final isLoading
+  console.log('[useDataSelection] Calculating isLoading. Individual states:', {
+    isLoadingAll,
+    isLoadingMessage,
+    isLoadingSelected,
+    isVerifyingData,
+    currentSelectedDataId: selectedDataId
+  });
+
+  // const isLoading = isLoadingAll || isLoadingMessage || isLoadingSelected || isVerifyingData;
+  const isLoading = 
+    isLoadingAll || 
+    (!!messageId && isLoadingMessage) || 
+    (!!selectedDataId && isLoadingSelected) || 
+    isVerifyingData;
 
   // Delete data functionality
   const handleDeleteData = async (dataId: string, e: React.MouseEvent) => {

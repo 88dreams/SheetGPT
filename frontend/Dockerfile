@@ -11,8 +11,9 @@ WORKDIR /workspace/frontend
 COPY package.json yarn.lock* ./
 # If yarn.lock exists, copy it too. The wildcard handles its potential absence.
 
-# Install dependencies using yarn
+# Install dependencies using yarn (Re-enable --frozen-lockfile)
 RUN yarn install --frozen-lockfile
+# RUN yarn install
 
 # Explicitly remove Vite cache after installation
 RUN rm -rf node_modules/.vite

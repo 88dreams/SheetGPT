@@ -79,7 +79,7 @@ const DraggableConversationItem: React.FC<ConversationItemProps> = ({
   restoreConversationMutation,
   deleteConversationMutation
 }) => {
-  const ref = useRef<HTMLDivElement>(null);
+  const ref = useRef<HTMLTableRowElement>(null);
   const itemType = 'conversation'; // Consistent item type
   
   const [{ isDragging }, dragRef] = useDrag({
@@ -129,18 +129,18 @@ const DraggableConversationItem: React.FC<ConversationItemProps> = ({
   const opacity = isDragging ? 0.5 : 1;
   
   return (
-    <div
+    <tr
       ref={ref}
-      className={`relative rounded cursor-pointer transition-colors ${
+      className={`relative cursor-pointer transition-colors border-b border-gray-200 ${
         selectedId === conversation.id
-          ? 'bg-blue-100 hover:bg-blue-200'
-          : 'hover:bg-gray-100'
+          ? 'bg-blue-50 hover:bg-blue-100'
+          : 'hover:bg-gray-50'
       }${isOver ? ' border-2 border-blue-400' : ''}`}
       onClick={() => onSelect(String(conversation.id))} 
       style={{ opacity, cursor: 'pointer' }}
     >
-      <div className="flex items-center px-4 py-2">
-        <div className="w-5 mr-4 flex justify-center">
+      <td className="w-8 py-2 px-4 align-top">
+        <div className="flex justify-center items-center h-full">
           <input
             type="checkbox"
             checked={isSelected}
@@ -149,6 +149,8 @@ const DraggableConversationItem: React.FC<ConversationItemProps> = ({
             className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
           />
         </div>
+      </td>
+      <td className="py-2 pr-4 align-top">
         <div className="min-w-0 flex-1">
           {editingConversation === conversation.id ? (
             <div className="flex items-center space-x-2" onClick={e => e.stopPropagation()}>
@@ -175,30 +177,32 @@ const DraggableConversationItem: React.FC<ConversationItemProps> = ({
             </div>
           ) : (
             <div className="flex-1 min-w-0">
-              <div className="flex items-center">
-                <h3 className={`font-medium truncate text-sm ${conversation.meta_data?.archived ? 'text-gray-500' : ''}`}>
-                  {conversation.title}
-                </h3>
-                {conversation.meta_data?.archived && (
-                  <span className="ml-2 px-1.5 py-0.5 text-xs bg-amber-100 text-amber-800 rounded">
-                    Archived
-                  </span>
-                )}
-              </div>
-              {conversation.description && (
-                <p className="text-xs text-gray-600 truncate">
-                  {conversation.description}
-                </p>
-              )}
               <div className="flex items-center justify-between">
-                <p className="text-xs text-gray-400">
-                  {conversation.meta_data?.archived_at 
-                    ? `Archived: ${formatDate(String(conversation.meta_data.archived_at))}`
-                    : `Created: ${formatDate(conversation.created_at)}`
-                  }
-                </p>
+                <div className="flex-1 min-w-0 mr-2">
+                  <div className="flex items-center">
+                    <h3 className={`font-medium truncate text-sm ${conversation.meta_data?.archived ? 'text-gray-500' : ''}`}>
+                      {conversation.title}
+                    </h3>
+                    {conversation.meta_data?.archived && (
+                      <span className="ml-2 px-1.5 py-0.5 text-xs bg-amber-100 text-amber-800 rounded">
+                        Archived
+                      </span>
+                    )}
+                  </div>
+                  {conversation.description && (
+                    <p className="text-xs text-gray-600 truncate">
+                      {conversation.description}
+                    </p>
+                  )}
+                  <p className="text-xs text-gray-400 mt-1">
+                    {conversation.meta_data?.archived_at 
+                      ? `Archived: ${formatDate(String(conversation.meta_data.archived_at))}`
+                      : `Created: ${formatDate(conversation.created_at)}`
+                    }
+                  </p>
+                </div>
                 {selectedId === conversation.id && (
-                  <div className="flex space-x-1">
+                  <div className="flex space-x-1 flex-shrink-0">
                     <button
                       onClick={(e) => onStartEdit(conversation, e)}                       
                       className="p-1 text-blue-600 hover:text-blue-800 bg-blue-50 hover:bg-blue-100 rounded"
@@ -236,8 +240,8 @@ const DraggableConversationItem: React.FC<ConversationItemProps> = ({
             </div>
           )}
         </div>
-      </div>
-    </div>
+      </td>
+    </tr>
   );
 };
 

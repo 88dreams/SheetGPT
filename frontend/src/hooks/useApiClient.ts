@@ -23,15 +23,15 @@ export const useApiClient = (config: ApiClientConfig = {}) => {
   }, [config.baseURL, config.timeout]);
 
   // Helper function to get the auth token and add it to request headers
-  const addAuthHeader = useCallback((config: ExtendedRequestConfig) => {
+  const addAuthHeader = useCallback((config: ExtendedRequestConfig): ExtendedRequestConfig => {
     // Clone the config to avoid mutating the original
-    const newConfig = { ...config };
+    const newConfig: ExtendedRequestConfig = { ...config };
     
     if (config.requiresAuth) {
       const token = localStorage.getItem('auth_token');
       if (token) {
         newConfig.headers = {
-          ...newConfig.headers,
+          ...config.headers, // Use config.headers as the base
           'Authorization': `Bearer ${token}`
         };
         console.log('Added auth token to request headers');

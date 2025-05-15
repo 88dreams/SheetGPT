@@ -2,7 +2,7 @@
 FROM node:18-bullseye
 
 # Set working directory to match the mount point subdir
-WORKDIR /workspace/frontend
+WORKDIR /app
 
 # Yarn is likely pre-installed or installed in a base layer, remove explicit install
 # RUN npm install -g yarn

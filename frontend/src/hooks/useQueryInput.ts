@@ -8,7 +8,7 @@ export interface QueryInputState {
     queryName: string;
     setQueryName: React.Dispatch<React.SetStateAction<string>>;
     generatedSql: string | null;
-    setGeneratedSql: React.Dispatch<React.SetStateAction<string | null>>;
+    setGeneratedSql: (newSql: string | null) => void;
     isNaturalLanguage: boolean; // Mode for execution (might be less relevant here, more for execution hook)
     setIsNaturalLanguage: React.Dispatch<React.SetStateAction<boolean>>; // If kept here
     validationError: string | null;
@@ -28,45 +28,44 @@ export const useQueryInput = (): QueryInputState => {
 
     const [naturalLanguageQuery, setNaturalLanguageQuery] = useState<string>('');
     const [queryName, setQueryName] = useState<string>('');
-    const [generatedSql, setGeneratedSql] = useState<string | null>(null);
+    const [generatedSql, setGeneratedSqlState] = useState<string | null>(null);
     const [isNaturalLanguage, setIsNaturalLanguage] = useState<boolean>(true);
     const [validationError, setValidationError] = useState<string | null>(null);
     const [suggestedSql, setSuggestedSql] = useState<string | null>(null);
     const [isTranslating, setIsTranslating] = useState<boolean>(false);
 
     // Load initial state from session storage
-    useEffect(() => {
-        const query = sessionStorage.getItem('queryText');
-        if (query) setNaturalLanguageQuery(query);
-        const name = sessionStorage.getItem('queryName');
-        if (name) setQueryName(name);
-        const isNatural = sessionStorage.getItem('isNaturalLanguage');
-        setIsNaturalLanguage(isNatural === 'true');
-        const sqlGenerated = sessionStorage.getItem('generatedSql');
-        if (sqlGenerated) setGeneratedSql(sqlGenerated);
-        // Note: Validation errors/suggestions are typically transient and not persisted
-    }, []);
+    // useEffect(() => {
+    //     const query = sessionStorage.getItem('queryText');
+    //     if (query) setNaturalLanguageQuery(query);
+    //     const name = sessionStorage.getItem('queryName');
+    //     if (name) setQueryName(name);
+    //     const isNatural = sessionStorage.getItem('isNaturalLanguage');
+    //     setIsNaturalLanguage(isNatural === 'true');
+    //     const sqlGenerated = sessionStorage.getItem('generatedSql');
+    //     if (sqlGenerated) setGeneratedSqlState(sqlGenerated);
+    // }, []);
 
     // Persist state to session storage
-    useEffect(() => { sessionStorage.setItem('queryText', naturalLanguageQuery || ''); }, [naturalLanguageQuery]);
-    useEffect(() => { sessionStorage.setItem('queryName', queryName || ''); }, [queryName]);
-    useEffect(() => { sessionStorage.setItem('isNaturalLanguage', String(isNaturalLanguage)); }, [isNaturalLanguage]);
-    useEffect(() => {
-         // Only save non-null generated SQL
-        if (generatedSql !== null) {
-            sessionStorage.setItem('generatedSql', generatedSql);
-        } else {
-             // Optionally remove if cleared
-             // sessionStorage.removeItem('generatedSql');
-        }
-    }, [generatedSql]);
+    // useEffect(() => { sessionStorage.setItem('queryText', naturalLanguageQuery || ''); }, [naturalLanguageQuery]);
+    // useEffect(() => { sessionStorage.setItem('queryName', queryName || ''); }, [queryName]);
+    // useEffect(() => { sessionStorage.setItem('isNaturalLanguage', String(isNaturalLanguage)); }, [isNaturalLanguage]);
+    // useEffect(() => {
+    //      // Only save non-null generated SQL
+    //     if (generatedSql !== null) {
+    //         sessionStorage.setItem('generatedSql', generatedSql);
+    //     } else {
+    //          // Optionally remove if cleared
+    //          // sessionStorage.removeItem('generatedSql');
+    //     }
+    // }, [generatedSql]);
 
     // Handler to call translation API endpoint
     const handleTranslateQuery = useCallback(async () => {
         if (!naturalLanguageQuery.trim() || isTranslating) return;
 
         setIsTranslating(true);
-        setGeneratedSql(null); // Clear previous SQL
+        setGeneratedSqlState(null); // Use renamed setter
         setValidationError(null);
         setSuggestedSql(null);
 
@@ -80,7 +79,7 @@ export const useQueryInput = (): QueryInputState => {
             });
 
             if (response.data.generated_sql) {
-                setGeneratedSql(response.data.generated_sql);
+                setGeneratedSqlState(response.data.generated_sql); // Use renamed setter
                 showNotification('success', 'Translation successful!');
             } else {
                  showNotification('warning', 'Translation did not return SQL.');
@@ -96,39 +95,38 @@ export const useQueryInput = (): QueryInputState => {
         } finally {
             setIsTranslating(false);
         }
-    }, [naturalLanguageQuery, isTranslating, showNotification]);
+    }, [naturalLanguageQuery, isTranslating, showNotification /*, setGeneratedSqlState, setValidationError, setSuggestedSql */]);
 
     const clearNaturalLanguageQuery = useCallback(() => {
         setNaturalLanguageQuery('');
-    }, []);
+    }, [/* setNaturalLanguageQuery */]);
 
     const clearGeneratedSql = useCallback(() => {
-        setGeneratedSql(null);
-        setValidationError(null); // Clear errors when SQL is cleared
+        setGeneratedSqlState(null); // Use renamed setter
+        setValidationError(null);
         setSuggestedSql(null);
-        // Maybe remove from session storage explicitly?
-        sessionStorage.removeItem('generatedSql'); 
-    }, []);
+        // DO NOT interact with sessionStorage here directly
+    }, [/* setGeneratedSqlState, setValidationError, setSuggestedSql */]);
 
     const applySuggestedFix = useCallback(() => {
         if (suggestedSql) {
-            setGeneratedSql(suggestedSql);
-            setSuggestedSql(null);       // Clear suggestion
-            setValidationError(null);    // Clear the associated error
+            setGeneratedSqlState(suggestedSql); // Use renamed setter
+            setSuggestedSql(null);       
+            setValidationError(null);    
         }
-    }, [suggestedSql]);
+    }, [suggestedSql /*, setGeneratedSqlState, setSuggestedSql, setValidationError */]);
 
     // When user manually edits the SQL text area, clear validation errors
     // This needs to be handled in the component's onChange for the SQL textarea,
     // maybe by calling a specific handler returned from this hook.
     // Let's add a handler for that.
-    const handleSqlChange = useCallback((newSql: string) => {
-        setGeneratedSql(newSql);
+    const handleSqlChange = useCallback((newSql: string | null) => { // Allow null
+        setGeneratedSqlState(newSql); // Use renamed setter
         if (validationError) {
             setValidationError(null);
             setSuggestedSql(null);
         }
-    }, [validationError]);
+    }, [validationError /*, setGeneratedSqlState, setValidationError, setSuggestedSql */]);
 
 
     return {
@@ -137,13 +135,13 @@ export const useQueryInput = (): QueryInputState => {
         queryName,
         setQueryName,
         generatedSql,
-        setGeneratedSql: handleSqlChange, // Expose the handler for direct changes
+        setGeneratedSql: handleSqlChange, 
         isNaturalLanguage,
         setIsNaturalLanguage,
         validationError,
-        setValidationError, // Might be needed by execution hook?
+        setValidationError, 
         suggestedSql,
-        setSuggestedSql,    // Might be needed by execution hook?
+        setSuggestedSql,    
         isTranslating,
         // Handlers
         handleTranslateQuery,

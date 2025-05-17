@@ -11,7 +11,7 @@ import dayjs from 'dayjs';
 
 // Define prop types that match the original component
 interface BulkEditModalProps {
-  visible: boolean;
+  open: boolean;
   onCancel: () => void;
   entityType?: string;
   selectedIds?: string[];
@@ -39,7 +39,7 @@ const getFieldType = (value: any): string => {
 };
 
 const BulkEditModal: React.FC<BulkEditModalProps> = ({
-  visible,
+  open,
   onCancel,
   entityType,
   selectedIds = [],
@@ -68,7 +68,7 @@ const BulkEditModal: React.FC<BulkEditModalProps> = ({
   
   // Reset form when modal opens/closes
   useEffect(() => {
-    if (!visible) {
+    if (!open) {
       form.resetFields();
       setSelectedFields(new Set());
       setIsProcessing(false);
@@ -79,7 +79,7 @@ const BulkEditModal: React.FC<BulkEditModalProps> = ({
         messages: []
       });
     }
-  }, [visible, form]);
+  }, [open, form]);
   
   // Get fields available for editing
   const fields = React.useMemo(() => {
@@ -282,7 +282,7 @@ const BulkEditModal: React.FC<BulkEditModalProps> = ({
   return (
     <Modal
       title={getModalTitle()}
-      open={visible}
+      open={open}
       onCancel={onCancel}
       footer={null}
       width={800}

@@ -78,8 +78,8 @@ class EntityNameResolver:
             # Handle broadcast rights (has broadcast_company_id, entity_id, division_conference_id)
             elif entity_type in ['broadcast', 'broadcast_right', 'broadcast_rights']:
                 if 'broadcast_company_id' in entity and entity['broadcast_company_id']:
-                    company_result = await db.execute(select(BroadcastCompany.name).where(
-                        BroadcastCompany.id == entity['broadcast_company_id']
+                    company_result = await db.execute(select(Brand.name).where(
+                        Brand.id == entity['broadcast_company_id']
                     ))
                     item_dict["broadcast_company_name"] = company_result.scalar()
                 
@@ -161,8 +161,9 @@ class EntityNameResolver:
                                 item_dict["league_name"] = league_data[0]
                                 item_dict["league_sport"] = league_data[1]
                 
-                # If we have a division_conference_id but no league yet, get league from that
-                if 'division_conference_id' in entity and entity['division_conference_id'] and not item_dict["league_id"]:
+                # Resolve division_conference_name if division_conference_id is present
+                # This should happen regardless of whether a league_id was found via entity_id
+                if 'division_conference_id' in entity and entity['division_conference_id']:
                     div_conf_query = select(DivisionConference.name, DivisionConference.league_id).where(
                         DivisionConference.id == entity['division_conference_id']
                     )
@@ -172,12 +173,11 @@ class EntityNameResolver:
                     if div_conf_row:
                         item_dict["division_conference_name"] = div_conf_row[0]
                         
-                        # Add league info if we have the league_id
-                        if div_conf_row[1]:
-                            # Store the league_id from the division/conference
+                        # If this division/conference provides a league_id, 
+                        # and no league_id was determined from the primary entity_id, 
+                        # or if you want this to be the overriding league context:
+                        if div_conf_row[1] and not item_dict.get("league_id"):
                             item_dict["league_id"] = div_conf_row[1]
-                            
-                            # Get league name and sport
                             league_result = await db.execute(select(League.name, League.sport).where(
                                 League.id == div_conf_row[1]
                             ))
@@ -185,7 +185,10 @@ class EntityNameResolver:
                             if league_data:
                                 item_dict["league_name"] = league_data[0]
                                 item_dict["league_sport"] = league_data[1]
-                    
+                            else:
+                                item_dict["league_name"] = "League (from Div/Conf) Not Found"
+                                item_dict["league_sport"] = None
+                
                 # Generate a name for broadcast rights
                 entity_name = item_dict.get("entity_name")
                 company_name = item_dict.get("broadcast_company_name")
@@ -211,12 +214,6 @@ class EntityNameResolver:
                     if production_company:
                         # Remove any "(Brand)" suffix
                         item_dict["production_company_name"] = production_company.replace(" (Brand)", "")
-                    else:
-                        # Fallback to old production company table
-                        company_result = await db.execute(select(ProductionCompany.name).where(
-                            ProductionCompany.id == entity['production_company_id']
-                        ))
-                        item_dict["production_company_name"] = company_result.scalar()
                 
                 # Handle entity_id based on entity_type
                 if 'entity_type' in entity and 'entity_id' in entity and entity['entity_id']:
@@ -340,14 +337,14 @@ class EntityNameResolver:
                     item_dict["game_name"] = await get_game_display_name(db, entity['game_id'])
                 
                 if 'broadcast_company_id' in entity and entity['broadcast_company_id']:
-                    company_result = await db.execute(select(BroadcastCompany.name).where(
-                        BroadcastCompany.id == entity['broadcast_company_id']
+                    company_result = await db.execute(select(Brand.name).where(
+                        Brand.id == entity['broadcast_company_id']
                     ))
                     item_dict["broadcast_company_name"] = company_result.scalar()
                 
                 if 'production_company_id' in entity and entity['production_company_id']:
-                    company_result = await db.execute(select(ProductionCompany.name).where(
-                        ProductionCompany.id == entity['production_company_id']
+                    company_result = await db.execute(select(Brand.name).where(
+                        Brand.id == entity['production_company_id']
                     ))
                     item_dict["production_company_name"] = company_result.scalar()
                     
@@ -380,18 +377,12 @@ class EntityNameResolver:
             elif entity_type in ['stadium', 'stadiums']:
                 if 'host_broadcaster_id' in entity and entity['host_broadcaster_id']:
                     try:
-                        # First try looking up in BroadcastCompany
-                        broadcaster_result = await db.execute(
-                            select(BroadcastCompany.name).where(BroadcastCompany.id == entity['host_broadcaster_id'])
+                        # Use Brand for host_broadcaster_id as BroadcastCompany is not defined
+                        # And Brand is the universal model for companies
+                        brand_result = await db.execute(
+                            select(Brand.name).where(Brand.id == entity['host_broadcaster_id'])
                         )
-                        broadcaster_name = broadcaster_result.scalar()
-
-                        # If not found, try looking up in Brand table
-                        if not broadcaster_name:
-                            brand_result = await db.execute(
-                                select(Brand.name).where(Brand.id == entity['host_broadcaster_id'])
-                            )
-                            broadcaster_name = brand_result.scalar()
+                        broadcaster_name = brand_result.scalar()
                             
                         item_dict["host_broadcaster_name"] = broadcaster_name
                     except Exception as e:

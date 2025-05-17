@@ -11,44 +11,28 @@ SheetGPT is a full-stack application that combines AI-powered chat capabilities 
 
 ## Current Status
 
-As of May 2025, the project has implemented:
+As of June 15, 2025:
 
-- LinkedIn CSV Import for contacts and brand relationship management
-  - Import contacts from LinkedIn CSV exports
-  - Automatic matching of contact companies to existing brands
-  - Contact management with brand relationship editing
-  - Fuzzy matching for company name resolution
-  - Progress tracking and import statistics
+- **Development Environment:** A stable Docker-based development environment using VS Code (or Cursor) Dev Containers is now established and the primary way to work on the project. This has resolved numerous previous build, dependency, and runtime issues.
+- **Database:** The primary database has been restored from a backup, and all Alembic migrations are successfully applied, ensuring the schema is up-to-date.
+- **Core Functionality:**
+  - LinkedIn CSV Import for contacts is now fully functional, including brand relationship matching.
+  - SportDataMapper component is operational.
+  - User authentication, AI chat, structured data management, sports database features, and Google Sheets export are implemented.
+- **Backend Refactoring:** The main database service (`database_management.py`) has been refactored into more focused, maintainable services (e.g., for queries, AI processing, admin tasks).
+- **Frontend Refactoring:** The `DatabaseQuery.tsx` page is partially refactored, and this work is now unblocked.
+- **Next Steps:** The immediate focus is on resolving outstanding TypeScript errors in the `frontend/src/` codebase.
 
-- SportDataMapper component with reliable record navigation
-  - Resolved inconsistency between development and production builds
-  - Enhanced component state handling for better stability
-  - Added improved debugging for production environment issues
-  - Implemented robust field value fallback mechanism
-
-- User authentication and management
-- Chat interface with AI integration
-- Structured data extraction and management
-- Sports database with comprehensive entity models
-- Frontend-backend integration for all core features
-- Google Sheets export functionality with template support
-- Enhanced data transformation with support for various formats
-- Special handling for NFL teams data and other structured formats
-- Admin functionality with database management capabilities
-  - Role-based access control with admin privileges
-  - Settings page with admin-only sections
-  - Database cleaning functionality for administrators
-  - Utility script for setting users as admins
-- Production deployment with distributed architecture
-  - Frontend deployed on Netlify at 88gpts.com/sheetgpt
-  - Backend API running on Digital Ocean at api.88gpts.com 
-  - Cross-domain authentication with JWT
-  - PostgreSQL database with SSL encryption
-  - Custom SSL context for asyncpg driver compatibility
-  - Enhanced CORS for secure cross-domain communication
-  - Sub-path deployment with proper asset handling
+For detailed progress, see [docs/PROGRESS.md](docs/PROGRESS.md).
 
 ## Recent Improvements
+
+### Dev Environment Stabilization & Critical Bug Fixes (June 2025)
+- Successfully configured and connected to a Docker Dev Container for the `frontend` service after extensive troubleshooting.
+- Resolved multiple Docker build errors including issues with the `frontend-builder` stage, type definition conflicts (e.g., `react-virtualized-auto-sizer`), and VS Code Server compatibility (by changing base images from Alpine to Debian Bullseye).
+- Corrected `.devcontainer` configurations (`workspaceFolder`, `runServices`, GID conflict resolution) and added a root `.dockerignore`.
+- Restored the database from backup and applied all Alembic migrations, fixing schema-related errors.
+- Fixed the LinkedIn CSV contact import feature by resolving `Content-Type` handling for `FormData` in the frontend API client and correcting API pathing.
 
 ### Dependency Troubleshooting (May 2025)
 - Conducted extensive investigation into persistent @tanstack/react-query dependency issues
@@ -108,32 +92,46 @@ As of May 2025, the project has implemented:
 
 ## Development Setup
 
-The project uses Docker for development with volume mounts for hot reloading:
+The project uses Docker for development. **The recommended method is to use the VS Code (or Cursor) Dev Containers extension.**
 
-```bash
-# Clone the repository
-git clone https://github.com/yourusername/sheetgpt.git
-cd sheetgpt
+1.  **Prerequisites:**
+    *   Docker Desktop installed and running.
+    *   VS Code or Cursor editor.
+    *   The "Dev Containers" extension installed in your editor.
 
-# Start the development environment
-docker-compose up --build -d
+2.  **Getting Started with Dev Containers:**
+    *   Clone the repository: `git clone https://github.com/yourusername/sheetgpt.git && cd sheetgpt`
+    *   Open the `SheetGPT` folder in VS Code/Cursor.
+    *   Use the Command Palette (`Cmd+Shift+P` or `Ctrl+Shift+P`) and run: `Dev Containers: Reopen in Container`.
+    *   The extension will build the necessary images (if not already built or if `--no-cache` was used recently) and start the `frontend`, `backend`, and `db` services as defined in `.devcontainer/devcontainer.json` and `docker-compose.yml`.
+    *   The frontend (Vite dev server) will be available at `http://localhost:5173`.
+    *   The backend API (FastAPI) will be available at `http://localhost:8000` (or `http://backend:8000` from within the Docker network).
 
-# Install frontend dependencies
-docker-compose exec frontend npm install
+3.  **Manual Docker Compose Commands (for specific tasks outside Dev Container or for troubleshooting):**
+    ```bash
+    # Start all services in detached mode
+    docker compose up -d
 
-# Initialize the database (creates tables and test user)
-docker cp init_db.py sheetgpt-backend-1:/app/ && docker exec -it sheetgpt-backend-1 python /app/init_db.py
+    # Stop all services
+    docker compose down
 
-# Or run database migrations (alternative approach)
-docker-compose exec backend python src/scripts/alembic_wrapper.py upgrade
+    # Stop services AND remove volumes (e.g., to reset database)
+    docker compose down -v
 
-# Access the application
-open http://localhost:3000
+    # Rebuild a specific service image, ignoring cache
+    docker compose build --no-cache <service_name>  # e.g., frontend, backend, app
 
-# Default test user credentials
-# Email: test@example.com
-# Password: password123
-```
+    # Apply database migrations (after db and backend are up)
+    docker compose run --rm backend python src/scripts/alembic_wrapper.py upgrade
+
+    # Run backend tests
+    docker compose run --rm backend pytest
+
+    # Run frontend tests
+    ./run-tests.sh
+    ```
+
+- For database initialization details if issues persist after migrations, see the `Database Initialization` section below or `docs/NEW_AGENT.md`.
 
 ## Database Initialization
 

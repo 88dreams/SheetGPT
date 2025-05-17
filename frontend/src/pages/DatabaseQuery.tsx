@@ -27,12 +27,27 @@ import QueryResultsToolbar from '../components/query/QueryResultsToolbar';
 import SavedQueriesDisplay from '../components/query/SavedQueriesDisplay';
 import ColumnSelectorPanel from '../components/query/ColumnSelectorPanel';
 
+const SESSION_STORAGE_KEY = 'databaseQueryState';
+
+interface PersistedQueryState {
+  naturalLanguageQuery: string;
+  queryName: string;
+  generatedSql: string | null;
+  isNaturalLanguage: boolean;
+  executedQueryResults: any[];
+  executionValidationError: string | null;
+  executionSuggestedSql: string | null;
+  executionGeneratedSql: string | null;
+}
+
 const DatabaseQuery: React.FC = () => {
   usePageTitle('Database Query');
   
   const { setDestination } = useDataFlow();
   const { showNotification } = useNotification();
   
+  const [isStateLoadedFromStorage, setIsStateLoadedFromStorage] = useState(false);
+
   const {
     naturalLanguageQuery,
     setNaturalLanguageQuery,
@@ -55,10 +70,13 @@ const DatabaseQuery: React.FC = () => {
   const {
     mutation: queryMutationFromHook,
     executedQueryResults,
+    setExecutedQueryResults,
     executionValidationError,
+    setExecutionValidationError,
     executionSuggestedSql,
+    setExecutionSuggestedSql,
     executionGeneratedSql,
-    setExecutedQueryResults
+    setExecutionGeneratedSql,
   } = useQueryExecution({ initialQueryName: queryName });
   
   const columnNamesHash = useMemo(() => {
@@ -326,6 +344,108 @@ const DatabaseQuery: React.FC = () => {
     showNotification('info', `Loaded query: "${query.name}"`);
   }, [setNaturalLanguageQuery, setQueryName, setGeneratedSql, showNotification]);
 
+  // Log changes to naturalLanguageQuery directly
+  useEffect(() => {
+    console.log('[DEBUG] naturalLanguageQuery changed to:', naturalLanguageQuery);
+  }, [naturalLanguageQuery]);
+
+  // Log changes to executedQueryResults directly
+  useEffect(() => {
+    console.log('[DEBUG] executedQueryResults changed, length:', executedQueryResults?.length);
+  }, [executedQueryResults]);
+
+  // Load state from sessionStorage on mount
+  useEffect(() => {
+    console.log('[DEBUG] Attempting to load state from sessionStorage...');
+    const storedStateRaw = sessionStorage.getItem(SESSION_STORAGE_KEY);
+    if (storedStateRaw) {
+      try {
+        const storedState: PersistedQueryState = JSON.parse(storedStateRaw);
+        console.log('[DEBUG] Found stored state:', storedState);
+
+        const rehydratedGeneratedSql = storedState.generatedSql || null;
+        let rehydratedExecutionGeneratedSql = storedState.executionGeneratedSql || null;
+
+        // If the main generatedSql was explicitly cleared (is null in storage),
+        // then also treat executionGeneratedSql as cleared for rehydration purposes,
+        // to prevent the sync effect from immediately overwriting the cleared input.
+        if (rehydratedGeneratedSql === null) {
+          rehydratedExecutionGeneratedSql = null;
+        }
+
+        console.log(`[DEBUG] Calling setNaturalLanguageQuery with: "${storedState.naturalLanguageQuery || ''}"`);
+        setNaturalLanguageQuery(storedState.naturalLanguageQuery || '');
+        
+        console.log(`[DEBUG] Calling setQueryName with: "${storedState.queryName || ''}"`);
+        setQueryName(storedState.queryName || '');
+
+        console.log(`[DEBUG] Calling setGeneratedSql with: "${rehydratedGeneratedSql}"`);
+        setGeneratedSql(rehydratedGeneratedSql); // This calls handleSqlChange from useQueryInput
+        
+        if (setExecutedQueryResults) {
+            console.log(`[DEBUG] Calling setExecutedQueryResults with ${storedState.executedQueryResults?.length || 0} items.`);
+            setExecutedQueryResults(storedState.executedQueryResults || []);
+        } else {
+            console.warn('[DEBUG] setExecutedQueryResults is not defined!');
+        }
+        
+        if (setExecutionValidationError) {
+            console.log(`[DEBUG] Calling setExecutionValidationError with: "${storedState.executionValidationError || null}"`);
+            setExecutionValidationError(storedState.executionValidationError || null);
+        }
+        if (setExecutionSuggestedSql) {
+            console.log(`[DEBUG] Calling setExecutionSuggestedSql with: "${storedState.executionSuggestedSql || null}"`);
+            setExecutionSuggestedSql(storedState.executionSuggestedSql || null);
+        }
+        if (setExecutionGeneratedSql) {
+            console.log(`[DEBUG] Calling setExecutionGeneratedSql with: "${rehydratedExecutionGeneratedSql}"`);
+            setExecutionGeneratedSql(rehydratedExecutionGeneratedSql);
+        }
+        
+        console.log('DatabaseQuery: Loaded state from sessionStorage successfully.');
+      } catch (error) {
+        console.error('DatabaseQuery: Error parsing state from sessionStorage', error);
+        sessionStorage.removeItem(SESSION_STORAGE_KEY); 
+      }
+    }
+    setIsStateLoadedFromStorage(true); 
+    console.log('[DEBUG] isStateLoadedFromStorage set to true.');
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); 
+
+  // Save state to sessionStorage when relevant parts change, only after initial load attempt
+  useEffect(() => {
+    if (!isStateLoadedFromStorage) {
+      console.log('[DEBUG] Skipping save to sessionStorage: initial load not complete.');
+      return; 
+    }
+
+    console.log('[DEBUG] Attempting to save state to sessionStorage...');
+    const stateToPersist: PersistedQueryState = {
+      naturalLanguageQuery,
+      queryName,
+      generatedSql,
+      isNaturalLanguage: isNaturalLanguage || !generatedSql, 
+      executedQueryResults,
+      executionValidationError: executionValidationError || null,
+      executionSuggestedSql,
+      executionGeneratedSql,
+    };
+    sessionStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(stateToPersist));
+    console.log('[DEBUG] Saved state to sessionStorage:', stateToPersist);
+  }, [isStateLoadedFromStorage, naturalLanguageQuery, queryName, generatedSql, isNaturalLanguage, executedQueryResults, executionValidationError, executionSuggestedSql, executionGeneratedSql]);
+
+  const clearAllQueryResults = () => {
+    console.log('[DEBUG] Clearing all query results');
+    if (setExecutedQueryResults) {
+      setExecutedQueryResults([]);
+    }
+    if (setSelectedRows) {
+      setSelectedRows(new Set());
+    }
+    showNotification('info', 'Query results have been cleared.');
+  };
+
   return (
     <div className="h-full pt-0">
       <SheetsExportDialog
@@ -386,7 +506,7 @@ const DatabaseQuery: React.FC = () => {
                     onToggleColumns={() => setShowColumnSelector(!showColumnSelector)}
                     onToggleUuids={() => setShowFullUuids(!showFullUuids)}
                     showFullUuids={showFullUuids}
-                    onClearResults={deleteSelectedRows}
+                    onClearResults={clearAllQueryResults}
                     onBulkEdit={handleBulkEdit}
                     onDeleteSelected={deleteSelectedRows}
                     isLoading={queryMutationFromHook.isLoading}
@@ -451,7 +571,7 @@ const DatabaseQuery: React.FC = () => {
       </PageContainer>
       
       <BulkEditModal
-        visible={isBulkEditModalVisible}
+        open={isBulkEditModalVisible}
         onCancel={() => setIsBulkEditModalVisible(false)}
         queryResults={executedQueryResults} 
         selectedIndexes={selectedRows}

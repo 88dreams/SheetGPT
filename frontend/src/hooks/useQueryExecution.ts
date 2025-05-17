@@ -33,12 +33,13 @@ export interface QueryResponse {
 export interface UseQueryExecutionReturn {
   mutation: UseMutationResult<QueryResponse, Error, QueryData>;
   executedQueryResults: any[];
-  executionValidationError: string | null;
-  executionSuggestedSql: string | null;
-  executionGeneratedSql: string | null;
   setExecutedQueryResults: React.Dispatch<React.SetStateAction<any[]>>;
-  // Callback to allow component to signal Sheets dialog closure or other actions
-  // For now, we'll handle Sheets URL opening directly in the hook if possible
+  executionValidationError: string | null;
+  setExecutionValidationError: React.Dispatch<React.SetStateAction<string | null>>;
+  executionSuggestedSql: string | null;
+  setExecutionSuggestedSql: React.Dispatch<React.SetStateAction<string | null>>;
+  executionGeneratedSql: string | null;
+  setExecutionGeneratedSql: React.Dispatch<React.SetStateAction<string | null>>;
 }
 
 // Helper function for CSV download fallback
@@ -194,10 +195,13 @@ export const useQueryExecution = (props: UseQueryExecutionProps = {}): UseQueryE
   return {
     mutation: queryMutation,
     executedQueryResults,
-    executionValidationError,
-    executionSuggestedSql,
-    executionGeneratedSql,
     setExecutedQueryResults,
+    executionValidationError,
+    setExecutionValidationError,
+    executionSuggestedSql,
+    setExecutionSuggestedSql,
+    executionGeneratedSql,
+    setExecutionGeneratedSql,
   };
 };
 

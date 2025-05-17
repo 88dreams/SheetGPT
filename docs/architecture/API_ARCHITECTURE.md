@@ -329,13 +329,13 @@ GET /api/v1/export/auth/token - Get OAuth token for Google Drive integration
 ```
 GET /api/v1/contacts/ - List contacts with filters and pagination.
   Response: PaginatedContactsResponse (contains list of ContactWithBrandsResponse)
-  - ContactWithBrandsResponse includes nested Brand details via ContactBrandAssociationResponse.brand (BrandRead schema)
+  - ContactWithBrandsResponse includes nested Brand details via ContactBrandAssociationResponse.brand (uses BrandRead schema for nested brand).
 
 POST /api/v1/contacts/ - Create a new contact.
 
 GET /api/v1/contacts/{contact_id} - Get a specific contact.
-  Response: ContactWithBrandsResponse (or equivalent structure including nested brand)
-  *Note: Needs update to use response_model serialization instead of manual dict.* 
+  Response: Returns a detailed Contact structure including brand associations.
+  *Note: Currently uses manual dictionary conversion for response; should ideally use a Pydantic response_model for consistency and auto-documentation.*
 
 PUT /api/v1/contacts/{contact_id} - Update a contact.
 
@@ -345,11 +345,15 @@ POST /api/v1/contacts/{contact_id}/brands/{brand_id} - Associate contact with a 
 
 DELETE /api/v1/contacts/{contact_id}/brands/{brand_id} - Remove brand association.
 
-POST /api/v1/contacts/import/linkedin - Import contacts from CSV.
+POST /api/v1/contacts/import/linkedin - Import contacts from a LinkedIn CSV export file.
+  - Expects 'multipart/form-data' with a 'file' field containing the CSV.
+  - Query Parameters: auto_match_brands (bool, default True), match_threshold (float, default 0.6).
   - Performs matching against Brands and other entities (League, Team, Stadium, ProductionService), creating representative Brands as needed.
+  Response: ContactImportStats
 
 POST /api/v1/contacts/import/data - Import contacts from structured JSON data.
   - Same matching logic as CSV import.
+  Response: ContactImportStats
 
 POST /api/v1/contacts/rematch-brands - Re-scan contacts and sync associations.
   Request Body: { "match_threshold": float } (0.0 to 1.0)
@@ -746,4 +750,4 @@ function Pagination({
 }
 ```
 
-Updated: April 18, 2025
+Updated: June 15, 2025

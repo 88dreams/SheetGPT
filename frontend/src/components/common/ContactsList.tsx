@@ -1016,7 +1016,7 @@ const ContactsList: React.FC<ContactsListProps> = ({ brandId, onContactSelect })
       {/* Threshold Setting Modal */}
       <Modal
         title="Set Re-scan Confidence Threshold"
-        visible={isThresholdModalVisible}
+        open={isThresholdModalVisible}
         onOk={confirmRescanWithThreshold} // Use the new function on OK
         onCancel={() => setIsThresholdModalVisible(false)}
         confirmLoading={rescanning} // Show loading state on confirm button

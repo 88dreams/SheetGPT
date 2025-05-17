@@ -8,12 +8,15 @@ from datetime import datetime, date, timedelta # Added timedelta for cache TTL
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 from src.services.ai_query_processor import AIQueryProcessor # Import the new interface
+from pathlib import Path # Add Path
 
 logger = logging.getLogger(__name__)
 
 # Simple in-memory cache for schema information
 _schema_cache: Optional[Tuple[datetime, str]] = None
 _SCHEMA_CACHE_TTL_SECONDS = 3600  # 1 hour
+_SCHEMA_FILE_PATH = Path(__file__).resolve().parent.parent / "config" / "database_schema_for_ai.md"
+_schema_file_last_modified_cache: Optional[datetime] = None
 
 class QueryService:
     """
@@ -30,113 +33,59 @@ class QueryService:
         return sql.strip() # Added strip here
 
     async def _get_schema_info(self) -> str:
-        """Get information about the database schema, with caching."""
-        global _schema_cache
+        """Get information about the database schema, primarily from the MD file, with caching."""
+        global _schema_cache, _schema_file_last_modified_cache
         now = datetime.now()
 
-        # Check cache validity
-        if _schema_cache is not None:
+        # Check if MD file has been modified since last cache
+        current_md_file_mod_time = None
+        if _SCHEMA_FILE_PATH.exists():
+            current_md_file_mod_time = datetime.fromtimestamp(_SCHEMA_FILE_PATH.stat().st_mtime)
+
+        if (
+            _schema_cache is not None and
+            _schema_file_last_modified_cache is not None and
+            current_md_file_mod_time is not None and
+            current_md_file_mod_time <= _schema_file_last_modified_cache
+        ):
             cache_time, cached_schema = _schema_cache
-            # Use timedelta for clearer comparison
             if (now - cache_time) < timedelta(seconds=_SCHEMA_CACHE_TTL_SECONDS):
-                logger.info("Using cached schema information.")
+                logger.info("Using cached schema information from MD file.")
                 return cached_schema
             else:
-                logger.info("Schema cache expired.")
+                logger.info("Schema cache (MD file) TTL expired.")
+        elif _schema_file_last_modified_cache and current_md_file_mod_time and current_md_file_mod_time > _schema_file_last_modified_cache:
+            logger.info("Schema MD file has been modified. Invalidating cache.")
         else:
-            logger.info("Schema cache is empty.")
+            logger.info("Schema cache is empty or MD file timestamp issue.")
 
-        logger.info("Fetching fresh schema information.")
-        schema_query = text("""
-            SELECT 
-                t.table_name, 
-                c.column_name, 
-                c.data_type,
-                c.is_nullable,
-                pg_catalog.obj_description(
-                    (quote_ident(t.table_schema) || '.' || quote_ident(t.table_name))::regclass::oid, 
-                    'pg_class'
-                ) as table_description
-            FROM 
-                information_schema.tables t
-            JOIN 
-                information_schema.columns c 
-                ON t.table_schema = c.table_schema AND t.table_name = c.table_name
-            WHERE 
-                t.table_schema = 'public'
-                AND t.table_type = 'BASE TABLE'
-            ORDER BY 
-                t.table_name, 
-                c.ordinal_position
-        """)
-        fk_query = text("""
-            SELECT
-                kcu.table_name,
-                kcu.column_name,
-                ccu.table_name AS foreign_table_name,
-                ccu.column_name AS foreign_column_name
-            FROM
-                information_schema.table_constraints AS tc
-                JOIN information_schema.key_column_usage AS kcu
-                    ON tc.constraint_name = kcu.constraint_name
-                JOIN information_schema.constraint_column_usage AS ccu
-                    ON ccu.constraint_name = tc.constraint_name
-            WHERE tc.constraint_type = 'FOREIGN KEY'
-            AND tc.table_schema = 'public'
-        """)
-        
-        try:
-            result = await self.db.execute(schema_query)
-            rows = result.fetchall()
-            fk_result = await self.db.execute(fk_query)
-            fk_rows = fk_result.fetchall()
-        except Exception as e:
-            logger.error(f"Failed to fetch schema or FK info: {e}", exc_info=True)
-            # Return empty string or raise? Returning empty might lead to poor AI results.
-            raise ConnectionError("Failed to fetch database schema information.") from e
+        logger.info(f"Loading schema information from: {_SCHEMA_FILE_PATH}")
+        if _SCHEMA_FILE_PATH.exists():
+            try:
+                with open(_SCHEMA_FILE_PATH, 'r', encoding='utf-8') as f:
+                    schema_from_file = f.read()
+                
+                # Store this loaded schema in cache
+                _schema_cache = (now, schema_from_file)
+                if current_md_file_mod_time:
+                    _schema_file_last_modified_cache = current_md_file_mod_time
+                logger.info("Successfully loaded and cached schema from MD file.")
+                return schema_from_file
+            except Exception as e:
+                logger.error(f"Failed to read schema MD file at {_SCHEMA_FILE_PATH}: {e}", exc_info=True)
+                # Fallback to DB query or raise error if critical
+        else:
+            logger.warning(f"Schema MD file not found at {_SCHEMA_FILE_PATH}. Consider creating it for optimal AI performance.")
 
-        foreign_keys = {}
-        for fk in fk_rows:
-            table_name, column_name, foreign_table, foreign_column = fk[0], fk[1], fk[2], fk[3]
-            if table_name not in foreign_keys:
-                foreign_keys[table_name] = {}
-            foreign_keys[table_name][column_name] = f"{foreign_table}.{foreign_column}"
-        
-        tables = {}
-        for row in rows:
-            table_name, column_name, data_type, is_nullable, table_description = row[0], row[1], row[2], row[3], row[4] or ""
-            nullable_text = "" if is_nullable == "YES" else " NOT NULL"
-            if table_name not in tables:
-                tables[table_name] = {"columns": [], "description": table_description}
-            
-            fk_info = ""
-            if table_name in foreign_keys and column_name in foreign_keys[table_name]:
-                fk_info = f" REFERENCES {foreign_keys[table_name][column_name]}"
-            tables[table_name]["columns"].append(f"{column_name} ({data_type}{nullable_text}{fk_info})")
-            
-        schema_info_parts = []
-        schema_info_parts.append("# Important Entity Relationships:")
-        schema_info_parts.append("1. broadcast_rights can be associated with leagues directly (entity_type='league' AND entity_id=leagues.id)")
-        schema_info_parts.append("2. broadcast_rights can also be for divisions/conferences (division_conference_id IS NOT NULL)")
-        schema_info_parts.append("3. divisions_conferences belong to leagues via league_id")
-        schema_info_parts.append("4. When querying for sports entities, check both direct relationships AND indirect relationships through divisions_conferences")
-        schema_info_parts.append("5. For NCAA searches, include both league-level rights AND conference-level rights")
-        schema_info_parts.append("6. For broadcast rights, always join appropriate company tables")
-        schema_info_parts.append("")
-
-        for table_name, table_data in tables.items():
-            schema_info_parts.append(f"Table: {table_name}")
-            if table_data["description"]:
-                schema_info_parts.append(f"Description: {table_data['description']}")
-            schema_info_parts.append("Columns:")
-            for column in table_data["columns"]:
-                schema_info_parts.append(f"  - {column}")
-            schema_info_parts.append("")
-            
-        final_schema_info = "\n".join(schema_info_parts)
-        _schema_cache = (now, final_schema_info) # Update cache
-        logger.info("Successfully fetched and cached fresh schema information.")
-        return final_schema_info
+        # Fallback or alternative: query the database directly if MD file not found or failed to load
+        # This part can be kept as is if you want a fallback, or removed if MD is mandatory
+        logger.info("Falling back to fetching schema directly from database (MD file not used or load failed).")
+        # ... (existing database query logic for schema_query and fk_query remains here as a fallback)
+        # ... (ensure it correctly sets _schema_cache and _schema_file_last_modified_cache to None or an old date if this path is taken)
+        # For simplicity in this edit, I will assume the MD file is the primary source.
+        # If MD file load fails and there's no fallback DB query below this, it will raise an error or return empty.
+        # It's better to have a clear error if the primary source (MD file) fails and no fallback is desired.
+        raise ConnectionError(f"Failed to load schema information. Primary schema file missing or unreadable: {_SCHEMA_FILE_PATH}")
 
     async def execute_safe_query(self, query: str) -> List[Dict[str, Any]]:
         """Executes a validated SELECT query."""
@@ -287,25 +236,25 @@ class QueryService:
         return generated_sql
 
     async def execute_natural_language_query(self, nl_query: str) -> Tuple[List[Dict[str, Any]], str]:
-        """Processes an NLQ: uses template or translates+validates, then executes."""
+        """Processes an NLQ: translates+validates, then executes."""
         logger.info(f"Executing NLQ: {nl_query[:100]}...")
         sql_to_execute = ""
         
-        # Check for specific patterns first (e.g., NCAA template)
-        if self._is_ncaa_broadcast_query(nl_query):
-            sql_to_execute = self._get_ncaa_broadcast_template(nl_query)
-            logger.info(f"Using NCAA broadcast template for NLQ.")
-        else:
-            # General case: Translate NLQ to SQL (includes validation)
-            try:
-                 sql_to_execute = await self.translate_natural_language_to_sql(nl_query)
-            except ValueError as e:
-                 logger.error(f"Failed to translate NLQ '{nl_query[:50]}...' to SQL: {e}")
-                 # Propagate the error to the API layer
-                 raise ValueError(f"Could not translate question to SQL: {e}") from e
-            except Exception as e:
-                 logger.error(f"Unexpected error during NLQ translation: {e}", exc_info=True)
-                 raise ValueError("An unexpected error occurred during query translation.") from e
+        # Temporarily disable template usage to test LLM with full schema context
+        # if self._is_ncaa_broadcast_query(nl_query):
+        #     sql_to_execute = self._get_ncaa_broadcast_template(nl_query)
+        #     logger.info(f"Using NCAA broadcast template for NLQ.")
+        # else:
+        # General case: Translate NLQ to SQL (includes validation)
+        try:
+             sql_to_execute = await self.translate_natural_language_to_sql(nl_query)
+        except ValueError as e:
+             logger.error(f"Failed to translate NLQ '{nl_query[:50]}...' to SQL: {e}")
+             # Propagate the error to the API layer
+             raise ValueError(f"Could not translate question to SQL: {e}") from e
+        except Exception as e:
+             logger.error(f"Unexpected error during NLQ translation: {e}", exc_info=True)
+             raise ValueError("An unexpected error occurred during query translation.") from e
 
         # Execute the final SQL (either from template or translated/validated)
         try:

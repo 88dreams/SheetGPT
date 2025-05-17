@@ -9,7 +9,7 @@ const { Text } = Typography;
 
 // Define prop types that match the original component
 interface BulkEditModalProps {
-  visible: boolean;
+  open: boolean;
   onCancel: () => void;
   entityType?: string;
   selectedIds?: string[];
@@ -22,7 +22,7 @@ interface BulkEditModalProps {
  * Simplified BulkEditModal component to avoid infinite update loops
  */
 const EnhancedBulkEditModal: React.FC<BulkEditModalProps> = ({
-  visible,
+  open,
   onCancel,
   entityType,
   selectedIds = [],
@@ -43,7 +43,7 @@ const EnhancedBulkEditModal: React.FC<BulkEditModalProps> = ({
   // Reset state when modal opens/closes
   useEffect(() => {
     // Only run when visibility changes to avoid loops
-    if (visible) {
+    if (open) {
       setCurrentView('fields');
       setIsProcessing(false);
       setProcessingProgress(0);
@@ -52,7 +52,7 @@ const EnhancedBulkEditModal: React.FC<BulkEditModalProps> = ({
       setSelectedFields({});
       setFieldValues({});
     }
-  }, [visible]);
+  }, [open]);
   
   // Toggle selection for a field
   const handleToggleField = (fieldName: string) => {
@@ -151,7 +151,7 @@ const EnhancedBulkEditModal: React.FC<BulkEditModalProps> = ({
   return (
     <Modal
       title={getModalTitle()}
-      open={visible}
+      open={open}
       onCancel={onCancel}
       width={800}
       footer={null}

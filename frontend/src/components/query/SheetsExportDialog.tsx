@@ -38,7 +38,7 @@ const SheetsExportDialog: React.FC<SheetsExportDialogProps> = ({
   return (
     <Modal
       title={dialogTitle}
-      visible={isVisible}
+      open={isVisible}
       onCancel={onClose}
       footer={[
         <Button key="back" onClick={onClose} disabled={isConfirmExportingInProgress}>

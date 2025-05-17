@@ -12,7 +12,7 @@ src/
 ├── api/               # Domain-specific endpoints
 ├── models/            # SQLAlchemy models
 ├── schemas/           # Pydantic schemas
-├── services/          # Business logic
+├── services/          # Business logic (database_management.py refactored into focused services e.g., query_service, ai_query_processor, database_admin_service, etc.)
 │   ├── sports/        # Sports domain services
 │   │   ├── facade.py              # API coordination
 │   │   ├── entity_resolver.py     # Reference resolution
@@ -89,20 +89,23 @@ frontend/
    - Resolution confidence visualization
    - Enhanced entity search with fuzzy matching
 
-#### Build & Dependency Management (Updated May 7, 2025)
-- Uses `yarn` (v1) for dependency management (switched from `npm` due to resolution issues).
-- Development: 
-  - The `frontend` service in `docker-compose.yml` uses `frontend/Dockerfile`.
-  - `frontend/Dockerfile` sets `NODE_ENV=development` and its `CMD` starts the Vite dev server (`./node_modules/.bin/vite --host 0.0.0.0`).
-  - The `frontend` service in `docker-compose.yml` also ensures `NODE_ENV=development` is set, overriding any Dockerfile ENV if different, for a consistent development server experience.
-- Production Build:
-  - The root `Dockerfile` contains a `frontend-builder` stage.
-  - This stage installs dependencies using `yarn install --frozen-lockfile`.
-  - Crucially, it now executes `RUN yarn build` to compile static frontend assets into `frontend/dist/`.
-  - The `backend-prod` stage in the root `Dockerfile` (used by the `app` service in `docker-compose.yml`) copies these assets from `/app/frontend/dist` (within the `frontend-builder` stage) to its own `/app/frontend/dist` to be served.
-- `frontend/.dockerignore` prevents local `node_modules` from overwriting the container's during the `COPY . .` build step in `frontend/Dockerfile`.
+#### Build & Dependency Management (Updated June 15, 2025)
+- Uses `yarn` (v1) for frontend dependency management.
+- **Development Environment (Dev Container):**
+  - The primary development method is via VS Code Dev Containers (`.devcontainer/devcontainer.json`).
+  - This uses the `frontend` service from `docker-compose.yml`, which builds `frontend/Dockerfile`.
+  - `frontend/Dockerfile` now uses `node:18-bullseye` as a base and sets `NODE_ENV=development`. Its `CMD` starts the Vite dev server (`./node_modules/.bin/vite --host 0.0.0.0`).
+  - The `docker-compose.yml` mounts the entire project to `/workspace` in the `frontend` service, with `frontend/node_modules` isolated. The `workspaceFolder` in `devcontainer.json` is set to `/workspace`.
+- **Production Frontend Assets Build:**
+  - The root `Dockerfile` contains a `frontend-builder` stage, also using `node:18-bullseye`.
+  - This stage installs dependencies using `yarn install --frozen-lockfile` (after `rm -rf node_modules` and clearing yarn cache for robustness).
+  - It executes `RUN yarn build` (which runs `tsc && vite build`) to compile static assets into `/app/frontend/dist/` within that build stage.
+  - The `backend-prod` stage in the root `Dockerfile` (used by the `app` service) copies these assets from the `frontend-builder` stage to its own `/app/frontend/dist` for serving.
+- **`.dockerignore` files:**
+  - A root `.dockerignore` prevents `frontend/node_modules` from being copied into the `frontend-builder` stage's context by the `COPY frontend/ ./frontend/` command.
+  - `frontend/.dockerignore` prevents local `node_modules` from interfering with `frontend/Dockerfile`'s `COPY . .` command.
 - Docker anonymous volume for `/workspace/frontend/node_modules` (as defined in `docker-compose.yml` for the `frontend` service) helps persist dependencies between runs while allowing local code syncing for development.
-- **Important:** If encountering unexpected dependency versions at runtime or build issues, ensure stale anonymous volumes are cleared using `docker-compose down -v` and consider rebuilding images with `--no-cache`.
+- **Troubleshooting:** If encountering unexpected dependency versions or build issues, clear stale Docker volumes (`docker-compose down -v`) and rebuild images with `--no-cache` (e.g., `docker compose build --no-cache frontend` or `docker compose build --no-cache app`).
 
 #### Notable Fixes
 - **Pagination:** Resolved issue where paginated entity lists (e.g., Brands) did not update correctly on page change by disabling `keepPreviousData` in the relevant `useQuery` configuration within `SportsDatabaseContext`.

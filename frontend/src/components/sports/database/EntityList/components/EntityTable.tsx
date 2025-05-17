@@ -422,6 +422,7 @@ const EntityTable: React.FC<EntityTableProps> = ({
                     />
                   ) : (
                     <div className="text-sm text-gray-700 overflow-hidden text-ellipsis">
+                      {/* Diagnostic Log Removed */}
                       {getDisplayValue(entity, field, selectedEntityType, showFullUuids)}
                     </div>
                   )}

@@ -88,7 +88,7 @@ const EntityList: React.FC<EntityListProps> = ({ className = '' }) => {
     
     // Special handling for broadcast rights
     if (selectedEntityType === 'broadcast') {
-      coreFields = ['broadcast_company_name', 'entity_name', 'entity_type', 'territory', 'league_name', 'id', 'created_at', 'updated_at'];
+      coreFields = ['broadcast_company_id', 'entity_id', 'division_conference_id', 'entity_type', 'territory', 'league_name', 'id', 'created_at', 'updated_at'];
     }
     
     // For production services, prioritize production_company_name, entity_name and entity_type
@@ -435,7 +435,7 @@ const EntityList: React.FC<EntityListProps> = ({ className = '' }) => {
 
       {/* Bulk Edit Modal */}
       <BulkEditModal 
-        visible={isBulkEditModalVisible}
+        open={isBulkEditModalVisible}
         onCancel={() => setIsBulkEditModalVisible(false)}
         entityType={selectedEntityType}
         selectedIds={Object.keys(selectedEntities).filter(id => selectedEntities[id])}

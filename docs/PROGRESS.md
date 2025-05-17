@@ -2,6 +2,28 @@
 
 ## Latest Updates (June 2025)
 
+### Dev Environment Stabilization & CSV Import Fix (June 15, 2025) 
+- **Objective**: Establish a stable Docker Dev Container environment, restore database integrity, and resolve critical CSV import functionality.
+- **Key Achievements & Fixes:**
+    - **Dev Container Environment:**
+        - Successfully configured and connected to a Docker Dev Container for the `frontend` service after extensive troubleshooting.
+        - Resolved multiple Docker build errors including missing directories (`templates/`), `frontend-builder` stage misconfigurations (switched from `npm` to `yarn`, corrected file paths and build contexts), `react-virtualized-auto-sizer` type definition conflicts (by removing obsolete `@types` package as main package bundles types), and VS Code Server compatibility issues (by changing base images from Alpine to Debian Bullseye for `frontend` and `frontend-builder`).
+        - Corrected `.devcontainer/devcontainer.json` settings (`workspaceFolder`, `runServices`, `updateRemoteUserUID` for GID conflicts) and simplified `.devcontainer/docker-compose.yml`.
+        - Added and configured a root `.dockerignore` file to prevent `node_modules` overwriting during Docker builds.
+    - **Database Setup:**
+        - Restored the primary database from a backup (`sheetgpt_backup.dump`).
+        - Successfully applied all pending Alembic migrations to bring the restored database schema to the latest version (`head`), resolving previous `UndefinedTableError` for `game_broadcasts` by ensuring correct migration history and state.
+    - **CSV Import Functionality:**
+        - Diagnosed and fixed 404 and 400 errors for the `/api/v1/contacts/import/linkedin` endpoint.
+        - Corrected `Content-Type` handling for `FormData` requests in `frontend/src/hooks/useApiClient.ts` (changed default `baseURL` and ensured correct `Content-Type` for `FormData` via explicit setting to `multipart/form-data` which resolved an issue where `application/json` was being sent).
+        - Ensured Vite proxy correctly forwards API requests and fixed a 404 for GET `/v1/contacts/` by correcting the frontend call to `/api/v1/contacts/`.
+        - The CSV contact import feature is now confirmed as operational.
+    - **Refactoring Status:**
+        - Backend refactoring of `database_management.py` into smaller, focused services is complete.
+        - Frontend refactoring of `DatabaseQuery.tsx` is partially complete and is now unblocked for further work.
+- **Current Status**: The local development environment is stable. The application is functional with the restored database and fixed CSV import.
+- **Immediate Next Step**: Address and resolve the numerous TypeScript errors present in the `frontend/src/` codebase, leveraging the stable Dev Container environment.
+
 ### Docker Environment Standardization (June 14, 2025)
 - **Objective**: Restore Docker configurations to a standard working state for both production builds and local development within the dev container.
 - **Key Fixes & Changes:**

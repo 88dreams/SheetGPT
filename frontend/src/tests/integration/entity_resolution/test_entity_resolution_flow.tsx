@@ -532,10 +532,10 @@ describe('Entity Resolution Integration Tests', () => {
     
     render(
       <EnhancedBulkEditModal
-        visible={true}
+        open={true}
+        onCancel={mockOnCancel}
         entityType="team"
         selectedIds={mockSelectedIds}
-        onCancel={mockOnCancel}
         onSuccess={mockOnSuccess}
       />
     );

@@ -13,7 +13,7 @@ import { Modal } from 'antd';
 import { 
   FaDatabase, FaPlay, FaDownload, FaSave, FaFileExport, FaTable, FaKeyboard, 
   FaFileCode, FaFileAlt, FaSort, FaSortUp, FaSortDown, FaEye, FaEyeSlash, 
-  FaTrash, FaCheck, FaColumns, FaEdit, FaPencilAlt, FaKey, FaArrowsAlt
+  FaTrash, FaCheck, FaColumns, FaEdit, FaPencilAlt, FaKey, FaArrowsAlt, FaQuestionCircle
 } from 'react-icons/fa';
 import BulkEditModal from '../components/common/BulkEditModal';
 import QueryResultsTable from '../components/query/QueryResultsTable';
@@ -26,6 +26,7 @@ import QueryInputPanel from '../components/query/QueryInputPanel';
 import QueryResultsToolbar from '../components/query/QueryResultsToolbar';
 import SavedQueriesDisplay from '../components/query/SavedQueriesDisplay';
 import ColumnSelectorPanel from '../components/query/ColumnSelectorPanel';
+import QueryHelperModal from '../components/query/QueryHelperModal';
 
 const SESSION_STORAGE_KEY = 'databaseQueryState';
 
@@ -268,8 +269,32 @@ const DatabaseQuery: React.FC = () => {
     showNotification('success', `Query "${queryName}" has been saved`);
   };
   
+  const [isQueryHelperVisible, setIsQueryHelperVisible] = useState<boolean>(false);
+
+  const handleOpenQueryHelper = () => {
+    setIsQueryHelperVisible(true);
+  };
+
+  const handleCloseQueryHelper = () => {
+    setIsQueryHelperVisible(false);
+  };
+
+  const handleApplyGeneratedNLQ = (nlq: string) => {
+    setNaturalLanguageQuery(nlq);
+    setGeneratedSql(null);
+    setQueryName('Generated from Helper');
+    showNotification('info', 'Query populated from helper. You can now translate or execute it.');
+  };
+
   const pageActions = (
     <div className="flex gap-2">
+      <button
+        className="px-3 py-1 text-sm border border-gray-300 rounded hover:bg-gray-100 flex items-center"
+        onClick={handleOpenQueryHelper}
+        title="Open Query Helper"
+      >
+        <FaQuestionCircle className="mr-2" /> Query Helper
+      </button>
       <button
         className="px-3 py-1 text-sm border border-gray-300 rounded hover:bg-gray-100 flex items-center"
         onClick={saveQuery}
@@ -448,6 +473,11 @@ const DatabaseQuery: React.FC = () => {
 
   return (
     <div className="h-full pt-0">
+      <QueryHelperModal 
+        isVisible={isQueryHelperVisible}
+        onClose={handleCloseQueryHelper}
+        onApplyQuery={handleApplyGeneratedNLQ}
+      />
       <SheetsExportDialog
         isVisible={exporter.isSheetsDialogVisible}
         spreadsheetTitle={exporter.sheetsDialogTitle}

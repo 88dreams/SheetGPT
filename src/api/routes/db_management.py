@@ -7,6 +7,8 @@ import sys
 from pathlib import Path
 from datetime import datetime
 from io import StringIO
+from pydantic import BaseModel, Field
+import re # For parsing the markdown
 
 from fastapi import APIRouter, Depends, HTTPException, status, Response, BackgroundTasks
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -28,6 +30,106 @@ router = APIRouter()
 
 # Create a shared AnthropicService instance
 anthropic_service = AnthropicService()
+
+# --- Pydantic Models for Schema Summary ---
+class SchemaColumn(BaseModel):
+    name: str
+    dataType: Optional[str] = None # Example: VARCHAR, UUID, TIMESTAMP
+    description: Optional[str] = None
+    isFilterable: bool = False # Placeholder, logic to determine this can be added
+    isRelationalId: bool = False # Placeholder
+    relatedTable: Optional[str] = None # Placeholder
+
+class SchemaTable(BaseModel):
+    name: str
+    description: Optional[str] = None
+    columns: List[SchemaColumn] = []
+    # relationships: Optional[List[str]] = None # Could add parsed relationships later
+
+class SchemaSummaryResponse(BaseModel):
+    tables: List[SchemaTable]
+
+# --- Helper to Parse the Markdown Schema --- 
+# (This will be a simplified parser for now)
+_SCHEMA_MD_FILE_PATH = Path(__file__).resolve().parent.parent.parent / "config" / "database_schema_for_ai.md"
+
+def parse_schema_markdown_for_summary(md_content: str) -> SchemaSummaryResponse:
+    tables_data: List[SchemaTable] = []
+    current_table_name: Optional[str] = None
+    current_table_description: Optional[str] = None
+    current_columns: List[SchemaColumn] = []
+
+    # Regex to find table names more reliably
+    table_regex = re.compile(r"^\*\*Table: `([^`]+)`\*\*$", re.MULTILINE)
+    # Regex for column lines, trying to capture name and optionally type
+    column_regex = re.compile(r"^\s*\*\s*`([^`]+)`\s*\(([^)]+)\):\s*(.*)$") # name (TYPE, PK/FK): Description
+    column_simple_regex = re.compile(r"^\s*\*\s*`([^`]+)`.*$") # Basic column name capture
+    description_regex = re.compile(r"^\* Description:\s*(.*)$")
+
+    lines = md_content.splitlines()
+    for i, line in enumerate(lines):
+        table_match = table_regex.match(line)
+        if table_match:
+            if current_table_name: # Save previous table
+                tables_data.append(SchemaTable(name=current_table_name, description=current_table_description, columns=current_columns))
+            
+            current_table_name = table_match.group(1)
+            current_table_description = None # Reset for new table
+            current_columns = []
+            # Check next lines for description
+            if i + 1 < len(lines):
+                desc_match = description_regex.match(lines[i+1])
+                if desc_match:
+                    current_table_description = desc_match.group(1).strip()
+            continue
+
+        if current_table_name: # Only process lines if we are inside a table block
+            if line.strip().lower() == "* columns:": # Column section started
+                continue
+            
+            col_match = column_regex.match(line)
+            if col_match:
+                col_name = col_match.group(1)
+                col_type_details = col_match.group(2)
+                col_desc = col_match.group(3).strip()
+                # Extract primary type from details like "UUID, PK" or "VARCHAR, NULLABLE"
+                col_type = col_type_details.split(',')[0].strip()
+                current_columns.append(SchemaColumn(name=col_name, dataType=col_type, description=col_desc))
+            else:
+                simple_col_match = column_simple_regex.match(line)
+                if simple_col_match and line.strip().lower() != "* columns:": # ensure it's a column line not the header
+                    # Fallback for simpler column lines if detailed regex fails
+                    # This might happen if the format in MD isn't perfectly consistent
+                    col_name = simple_col_match.group(1)
+                    # Try to find description on the same line after potential type info
+                    desc_part = line.split(':', 1)[-1].strip() if ':' in line else None
+                    current_columns.append(SchemaColumn(name=col_name, description=desc_part or None))
+    
+    if current_table_name: # Save the last table
+        tables_data.append(SchemaTable(name=current_table_name, description=current_table_description, columns=current_columns))
+
+    return SchemaSummaryResponse(tables=tables_data)
+
+# --- Endpoint --- 
+@router.get("/schema-summary", response_model=SchemaSummaryResponse)
+async def get_schema_summary_route() -> SchemaSummaryResponse:
+    """Returns a structured summary of the database schema, parsed from the AI context file."""
+    if not _SCHEMA_MD_FILE_PATH.exists():
+        logger.error(f"Schema MD file not found at {_SCHEMA_MD_FILE_PATH} for summary endpoint.")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Schema description file not found.")
+    try:
+        with open(_SCHEMA_MD_FILE_PATH, 'r', encoding='utf-8') as f:
+            md_content = f.read()
+        
+        schema_summary = parse_schema_markdown_for_summary(md_content)
+        if not schema_summary.tables:
+            logger.warning(f"Schema MD file at {_SCHEMA_MD_FILE_PATH} was parsed but yielded no tables.")
+            # Optionally raise an error or return empty if this is unexpected
+
+        return schema_summary
+    except Exception as e:
+        logger.error(f"Failed to read or parse schema MD file for summary: {str(e)}", exc_info=True)
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to process schema information.")
 
 @router.get("/stats", response_model=dict)
 async def get_database_statistics_route(

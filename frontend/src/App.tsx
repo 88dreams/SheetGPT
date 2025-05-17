@@ -4,6 +4,7 @@ import { useAuth } from './hooks/useAuth'
 import { NotificationProvider } from './contexts/NotificationContext'
 import { DataFlowProvider } from './contexts/DataFlowContext'
 import { ChatProvider } from './contexts/ChatContext'
+import { SchemaProvider } from './contexts/SchemaContext'
 import Layout from './components/Layout'
 import Navbar from './components/Navbar'
 import Login from './pages/Login'
@@ -120,7 +121,14 @@ const App: React.FC = () => {
               <Route path="data/:id" element={<Navigate to="data" replace />} />
               <Route path="sports" element={<SportsDatabase />} />
               <Route path="sports/:entityType/:id" element={<EntityDetail />} />
-              <Route path="database" element={<DatabaseQuery />} />
+              <Route 
+                path="database" 
+                element={                  
+                  <SchemaProvider>  
+                    <DatabaseQuery />
+                  </SchemaProvider>
+                } 
+              />
               <Route path="contacts" element={<Contacts />} />
               <Route path="settings" element={<Settings />} />
               <Route path="help/*" element={<Documentation />} />

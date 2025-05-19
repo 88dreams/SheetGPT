@@ -2,9 +2,15 @@
 
 > **IMPORTANT**: Production deployment active: Frontend on Netlify (88gpts.com/sheetgpt) and backend on Digital Ocean (api.88gpts.com).
 
-> **CRITICAL DEPENDENCY ISSUE**: Currently troubleshooting @tanstack/react-query dependency issues. See DEPENDENCY_ANALYSIS.md for details of approaches tried.
+> **CRITICAL DEPENDENCY ISSUE**: (Note: This section might be outdated if the dependency issue was resolved. Verify current status.) Currently troubleshooting @tanstack/react-query dependency issues. See DEPENDENCY_ANALYSIS.md for details of approaches tried.
 
 ## Recent Improvements
+
+### Query Page UX, NLQ Accuracy & Query Helper (May 17, 2025)
+- ✅ **Database Query Page:** Implemented robust state persistence (sessionStorage) for inputs and results. Fixed "Clear Results" and SQL clear persistence.
+- ✅ **NLQ-to-SQL Accuracy:** Enhanced Claude's SQL generation by providing a detailed schema context file (`src/config/database_schema_for_ai.md`) with guidelines (e.g., for case-insensitivity, entity resolution). Resolved backend `EntityNameResolver` bugs.
+- ✅ **Query Helper UI (Initial):** Added backend endpoint for schema summary. Implemented frontend `SchemaContext` and an initial "Query Helper" modal to assist users in constructing NLQs via table/column selection and basic filtering.
+- ✅ **Bug Fixes & Maintenance:** Corrected resolved name display in "Broadcast Rights" table. Updated Ant Design Modals to use `open` prop, resolving deprecation warnings. Addressed login issue due to DB service not running.
 
 ### Dependency Resolution Investigation (May 3, 2025)
 - ✅ Conducted thorough analysis of @tanstack/react-query dependency issue
@@ -30,17 +36,23 @@
 - ✅ Resolved blank screen issue and production build reference errors
 - ✅ Enhanced venue detection with track/speedway support
 
-### Component State Management Fixes (June 2, 2025)
+### Component State Management Fixes (May 2, 2025)
 - ✅ Fixed infinite update loops with useRef pattern for breaking circular dependencies
 - ✅ Improved export functionality with consistent column visibility
 - ✅ Enhanced fingerprint comparison for more reliable state updates
 
-### SQL Validation System (June 1, 2025)
+### SQL Validation System (May 1, 2025)
 - ✅ Backend validation with Claude API for PostgreSQL-specific issues
 - ✅ Automatic SQL correction with visual feedback
 - ✅ Fixed SQLAlchemy relationship configurations
 
 ## Key Features
+
+### Natural Language Query (NLQ) to SQL
+- Utilizes Claude LLM for advanced translation of user questions into SQL queries.
+- **Enhanced Context**: Leverages a detailed schema description file (`src/config/database_schema_for_ai.md`) fed to the LLM, containing table structures, column descriptions, relationships, and SQL generation guidelines. This significantly improves query accuracy and handling of nuances like case-insensitivity and entity-specific logic.
+- Includes backend SQL validation and AI-assisted correction capabilities.
+- **Query Helper UI**: Frontend tools to assist users in formulating effective NLQs by browsing schema and applying filters, generating an NLQ for LLM processing.
 
 ### Entity Resolution
 - Cross-entity type search with intelligent fallbacks

@@ -791,6 +791,111 @@ Response (200 OK):
 }
 ```
 
+## Database Management Endpoints (Updated/New Examples)
+
+### Query Database (NLQ or SQL)
+```http
+POST /api/v1/db-management/query
+Authorization: Bearer <your_jwt_token>
+Content-Type: application/json
+
+{
+    "query": "Show all leagues in the sport of Football",
+    "natural_language": true,
+    "translate_only": false
+}
+```
+Response (200 OK):
+```json
+{
+    "success": true,
+    "results": [
+        {"id": "uuid-for-nfl", "name": "National Football League", "sport": "Football", ...},
+        {"id": "uuid-for-ncaaf", "name": "NCAA Division I football", "sport": "Football", ...}
+    ],
+    "generated_sql": "SELECT leagues.id, leagues.name, leagues.sport FROM leagues WHERE LOWER(leagues.sport) = LOWER('Football') AND leagues.deleted_at IS NULL ORDER BY leagues.name LIMIT 100"
+}
+```
+
+### Translate NLQ to SQL Only
+```http
+POST /api/v1/db-management/query
+Authorization: Bearer <your_jwt_token>
+Content-Type: application/json
+
+{
+    "query": "Which teams are in the SEC?",
+    "natural_language": true,
+    "translate_only": true
+}
+```
+Response (200 OK):
+```json
+{
+    "success": true,
+    "results": [],
+    "generated_sql": "SELECT t.id, t.name AS team_name, l.name AS league_name, dc.name AS conference_name FROM teams t JOIN leagues l ON t.league_id = l.id JOIN divisions_conferences dc ON t.division_conference_id = dc.id WHERE dc.name ILIKE 'SEC' AND t.deleted_at IS NULL AND l.deleted_at IS NULL AND dc.deleted_at IS NULL ORDER BY t.name LIMIT 100"
+}
+```
+
+### Get Database Schema Summary (for UI Helpers)
+```http
+GET /api/v1/db-management/schema-summary
+Authorization: Bearer <your_jwt_token>
+```
+Response (200 OK):
+```json
+{
+    "tables": [
+        {
+            "name": "leagues",
+            "description": "Stores information about sports leagues...",
+            "columns": [
+                {
+                    "name": "id",
+                    "dataType": "UUID",
+                    "description": "Unique identifier for the league.",
+                    "isFilterable": false,
+                    "isRelationalId": false,
+                    "relatedTable": null
+                },
+                {
+                    "name": "name",
+                    "dataType": "VARCHAR",
+                    "description": "Full name of the league...",
+                    "isFilterable": true,
+                    "isRelationalId": false,
+                    "relatedTable": null
+                }
+                // ... other columns for leagues
+            ]
+        },
+        {
+            "name": "teams",
+            "description": "Stores information about sports teams...",
+            "columns": [
+                // ... columns for teams
+            ]
+        }
+        // ... other tables
+    ]
+}
+```
+
+### Get Database Statistics (Admin)
+```http
+GET /api/v1/db-management/stats
+Authorization: Bearer <admin_jwt_token>
+```
+Response (200 OK):
+```json
+{
+    "total_leagues": 25,
+    "total_teams": 500,
+    // ... other stats
+}
+```
+
 ## Error Responses
 
 ### 1. Authentication Error

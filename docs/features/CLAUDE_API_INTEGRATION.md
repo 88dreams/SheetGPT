@@ -47,12 +47,17 @@ SheetGPT leverages Claude 3.7 Sonnet for these key AI capabilities:
   - End dates: "2020" → "2020-12-31"
 
 #### Natural Language to SQL
-- Multi-level extraction with fallbacks:
-  1. SQL code block extraction
-  2. General code block extraction
-  3. SELECT pattern matching
-- Relationship-aware schema context
-- Preview mode for SQL validation
+- **Claude AI Translation**: Converts user questions to SQL.
+- **Rich Schema Context**: Employs a detailed, manually curated schema description file (`/workspace/src/config/database_schema_for_ai.md`) which is passed to Claude. This file includes:
+    - Table structures (columns, data types).
+    - Descriptions of tables and columns, explaining their purpose and relationships.
+    - Specific SQL generation guidelines (e.g., for case-insensitivity, handling specific entities like "NCAA Division I football", join strategies).
+    - This rich context significantly improves the accuracy and relevance of generated SQL.
+- **Dynamic Schema Information (Fallback)**: The system can also dynamically query database metadata as a fallback or supplement to the static schema file.
+- **Relationship-Aware Generation**: Aims to correctly infer and implement necessary joins based on the schema and question.
+- **Security Validation**: Includes backend checks and AI-assisted validation to prevent unsafe SQL operations and correct common SQL errors.
+- **User Assistance (Frontend)**: A "Query Helper" UI on the frontend uses a parsed version of the schema (via a dedicated API endpoint) to help users construct well-formed NLQs.
+- **Preview Mode (Conceptual)**: (If applicable, or remove if not current) SQL validation with preview.
 
 #### Optimized Streaming
 - Sentence-level chunking for smooth rendering
@@ -290,4 +295,4 @@ SESSION_COOKIE_SAMESITE=None
 
 Access the chat functionality in production at [88gpts.com/sheetgpt/chat](https://88gpts.com/sheetgpt/chat)
 
-Updated: April 18, 2025
+Updated: May 17, 2025

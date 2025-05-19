@@ -7,7 +7,7 @@ const Documentation: React.FC = () => {
   return (
     <div>
       <PageHeader title="Documentation" description="Browse application documentation" />
-      <DocumentationBrowser />
+      <DocumentationBrowser key="static-doc-browser" />
     </div>
   );
 };

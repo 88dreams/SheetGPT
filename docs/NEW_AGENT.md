@@ -18,6 +18,7 @@ SheetGPT combines AI-powered chat (Claude) with structured data management and a
   - **Representative Brands:** The `Brand` model is also used to represent non-company entities (League, Team, Stadium, ProductionService) for contact association via the `representative_entity_type` field.
   - **Entity Resolution:** Services exist to resolve entity names to IDs (`src/services/sports/`).
   - **Contacts:** Imported contacts (`src/models/sports_models.py::Contact`) are linked to Brands (real or representative) via `ContactBrandAssociation`.
+  - **AI Schema Context:** A descriptive schema with guidelines (`src/config/database_schema_for_ai.md`) is provided to the backend LLM (Claude) to improve NLQ-to-SQL accuracy.
 
 - **Further Reading:**
   - `docs/architecture/TECHNICAL_DESCRIPTION.md` (Detailed architecture)
@@ -54,28 +55,38 @@ SheetGPT combines AI-powered chat (Claude) with structured data management and a
 ## Code Structure & Patterns
 
 - **Backend (`src/`):** Organized by features (`api`, `services`, `models`, `schemas`). Uses facade pattern in services. `database_management.py` has been refactored into more focused services.
-- **Frontend (`frontend/src/`):** Organized by features/components (`components`, `pages`, `hooks`, `contexts`, `services`). Emphasizes custom hooks for state management and logic. `DatabaseQuery.tsx` is undergoing refactoring.
+- **Frontend (`frontend/src/`):** Organized by features/components (`components`, `pages`, `hooks`, `contexts`, `services`). Emphasizes custom hooks for state management and logic. `DatabaseQuery.tsx` has been enhanced with state persistence and a new Query Helper modal.
 - **Further Reading:**
   - `docs/development/REFACTORING_GUIDE.md` (Project-specific coding patterns)
 
-## Current Status (June 15, 2025)
+## Current Status (May 17, 2025)
 
-- **Development Environment:** Stable Docker Dev Container environment established for frontend development. This resolved numerous persistent build and runtime issues.
-- **Database:** Restored from backup and all Alembic migrations successfully applied. Schema is up-to-date.
-- **Core Functionality:** Key features like Chat, Sports DB, Data Mapping, and Export remain implemented. Contact import (CSV) is now functional after resolving `Content-Type` and API pathing issues.
-- **Refactoring:** 
-    - Backend: `database_management.py` refactoring into smaller services is complete.
-    - Frontend: `DatabaseQuery.tsx` refactoring is partially complete and unblocked.
+- **Development Environment & Database:** Stable and operational.
+- **Core Functionality:** Key features (Chat, Sports DB, Data Mapping, Export, CSV Contact Import) are functional.
+- **Database Query Page:** 
+    - Implemented robust state persistence for query inputs, SQL, and results using `sessionStorage`.
+    - Fixed issues with clearing query inputs/results and their persisted state.
+- **NLQ-to-SQL Translation:**
+    - Significantly improved by providing a detailed schema context file (`database_schema_for_ai.md`) to the backend LLM (Claude).
+    - This context includes guidelines for case-insensitive queries and better entity resolution.
+    - Addressed backend bugs in `EntityNameResolver` for more accurate data display.
+- **Query Helper UI:** 
+    - Added a new backend endpoint (`/api/v1/db-management/schema-summary`) to serve structured schema info to the frontend.
+    - Implemented a `SchemaContext` for frontend schema access.
+    - Developed an initial "Query Helper / Builder" modal that allows users to select tables, apply basic filters, and generate an NLQ string.
+- **UI Maintenance:** Resolved several Ant Design Modal deprecation warnings (`visible` to `open` prop).
 - See `docs/PROGRESS.md` for a detailed history of updates and fixes.
 
 ## Current Focus
 
-1.  **Resolve Frontend TypeScript Errors:** Address outstanding TypeScript errors in `frontend/src/` codebase, leveraging the stable Dev Container environment.
-2.  **Continue Frontend Refactoring:** Complete the refactoring of `DatabaseQuery.tsx` and other targeted components.
-3.  **Production Stability Improvements** (Logging, reliability, performance).
-4.  **Data Visualization Capabilities** (Relationship graphs, dashboards).
-5.  **Mobile Responsive Enhancements** (Layouts, controls, performance).
+1.  **Enhance Query Helper UI & NLQ Assistance:** 
+    - Add schema-aware autocomplete/hints to the main NLQ input.
+    - Improve filter capabilities (e.g., operators, value suggestions) in the Query Helper modal.
+2.  **Improve NLQ Ambiguity Handling:** Further explore strategies to detect and resolve ambiguous user queries, potentially by guiding the LLM or enhancing frontend assistance.
+3.  **Resolve Frontend TypeScript & Linter Errors:** Address outstanding TypeScript errors and module resolution issues (Pylance warnings) in `frontend/src/` and backend files.
+4.  **Continue Frontend Refactoring:** As needed, particularly for `DatabaseQuery.tsx` if further modularization is beneficial.
+5.  **Production Stability & Performance Improvements.**
 
 ---
 *This document provides a starting point. Please refer to the linked documents for more detail.*
-*Last updated: June 15, 2025*
+*Last updated: May 17, 2025*

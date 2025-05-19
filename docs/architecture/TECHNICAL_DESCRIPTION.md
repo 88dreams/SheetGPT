@@ -42,6 +42,11 @@ src/
    - Role-based access control
    - Cross-domain support for production deployment
 
+4. **AI-Powered Query Translation:**
+   - Utilizes Claude LLM for Natural Language Query (NLQ) to SQL translation.
+   - Employs a detailed, manually curated schema description file (`src/config/database_schema_for_ai.md`) to provide rich context and SQL generation guidelines to the LLM, improving accuracy and handling of specific patterns (e.g., case-insensitivity, entity resolution nuances).
+   - Includes backend services for SQL validation and correction, potentially using AI assistance.
+
 ### Frontend (React + TypeScript)
 
 #### Core Structure
@@ -81,6 +86,7 @@ frontend/
    - Conditional state updates to break circular dependencies
    - Fingerprinting for complex object comparisons
    - Session-resilient state persistence
+   - **Query Page Persistence:** The Database Query page now uses `sessionStorage` to persist user inputs (NLQ, query name, SQL), query results, and related execution feedback across page navigations, enhancing user experience.
 
 3. **UI Features**
    - Column persistence with drag-and-drop
@@ -88,8 +94,10 @@ frontend/
    - Standardized table styling for consistency
    - Resolution confidence visualization
    - Enhanced entity search with fuzzy matching
+   - **Query Helper UI (Initial):** An interactive modal on the Database Query page assists users in constructing NLQs by allowing them to select tables and apply basic column filters based on a dynamically fetched schema summary.
+   - The schema summary is provided by a new backend endpoint that parses the `database_schema_for_ai.md` file.
 
-#### Build & Dependency Management (Updated June 15, 2025)
+#### Build & Dependency Management (Updated May 17, 2025)
 - Uses `yarn` (v1) for frontend dependency management.
 - **Development Environment (Dev Container):**
   - The primary development method is via VS Code Dev Containers (`.devcontainer/devcontainer.json`).
@@ -114,8 +122,9 @@ frontend/
 
 1. **Natural Language to SQL**
    ```
-   Question → Schema Context → Claude AI → SQL Generation → 
-   Validation → Execution → Name Resolution → Display
+   User NLQ → Detailed Schema Context (from MD file) + Specialized Guidance → Claude AI → 
+   Generated SQL → AI-Assisted Validation/Correction → Execution → 
+   Name Resolution (if needed) → Display Results to User
    ```
 
 2. **Entity Resolution System**
@@ -184,19 +193,16 @@ User → api.88gpts.com (Digital Ocean) → Backend API → PostgreSQL
 - Enhanced form fields with resolution feedback
 - Column persistence across sessions with dual storage
 
-## Current Focus Areas
+## Current Focus Areas (as of May 17, 2025)
 
-1. **Production Stability**
-   - Enhanced error logging
-   - Backend service reliability
-   - Database query optimization
-
-2. **Data Visualization**
-   - Interactive relationship visualization
-   - Analytics dashboard
-   - Time-based data exploration
-
-3. **Mobile Responsiveness**
-   - Table layouts for smaller screens
-   - Touch-friendly controls
-   - Optimized mobile performance
+1.  **Query Assistance & NLQ Accuracy:**
+    - Enhance Query Helper UI (schema-aware autocomplete, advanced filters).
+    - Improve NLQ ambiguity handling and refine LLM prompting strategies.
+2.  **Development Environment & Code Health:**
+    - Resolve outstanding frontend TypeScript errors and Pylance module resolution issues.
+3.  **Frontend Refactoring & Stability:**
+    - Continue refactoring components like `DatabaseQuery.tsx` as needed.
+    - Focus on production stability, logging, and performance optimizations.
+4.  **New Feature Development (as prioritized):**
+    - Data visualization capabilities.
+    - Mobile responsiveness enhancements.

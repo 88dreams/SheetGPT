@@ -289,6 +289,7 @@ POST /api/v1/db/query/translate - Translate question to SQL only
 POST /api/v1/db/export - Export query results to CSV or Sheets
 POST /api/v1/db/backup - Create database backup
 GET /api/v1/db/stats - Get database statistics
+GET /api/v1/db-management/schema-summary - Get a structured summary of the database schema for UI builders/helpers. Parses src/config/database_schema_for_ai.md.
 ```
 
 ### Export Functionality
@@ -750,4 +751,4 @@ function Pagination({
 }
 ```
 
-Updated: June 15, 2025
+Updated: May 17, 2025

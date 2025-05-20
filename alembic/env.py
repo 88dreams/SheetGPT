@@ -15,12 +15,9 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 # Import the SQLAlchemy declarative Base and models
 from src.utils.database import Base
-from src.models.models import User, Conversation, Message, StructuredData, DataColumn, DataChangeHistory
-from src.models.sports_models import (
-    League, Stadium, Team, Player, Game, BroadcastRights,
-    ProductionService, Brand,
-    TeamRecord, TeamOwnership, LeagueExecutive, GameBroadcast
-)
+# from src.models.models import User, Conversation, Message, StructuredData, DataColumn, DataChangeHistory # Old import
+from src.models import models # Ensures all models in models.py are loaded
+from src.models.sports_models import * # Ensures all models in sports_models.py are loaded
 from src.utils.config import get_settings
 
 # this is the Alembic Config object, which provides
@@ -41,6 +38,14 @@ if config.config_file_name is not None:
 
 # add your model's MetaData object here for 'autogenerate' support
 target_metadata = Base.metadata
+
+def include_object(object, name, type_, reflected, compare_to):
+    """
+    Exclude specific tables from Alembic's comparison.
+    """
+    if type_ == "table" and name == "system_metadata":
+        return False
+    return True
 
 def run_migrations_offline() -> None:
     """Run migrations in 'offline' mode."""
@@ -73,6 +78,7 @@ def do_run_migrations(connection: Connection) -> None:
         connection=connection,
         target_metadata=target_metadata,
         compare_type=True,
+        include_object=include_object
     )
 
     with context.begin_transaction():

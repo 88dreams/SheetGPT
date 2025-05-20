@@ -1,0 +1,239 @@
+1746  execve("/usr/local/bin/docker-compose", ["/usr/local/bin/docker-compose", "config", "--services"], 0xfffff759db18 /* 31 vars */) = 0
+1746  openat(AT_FDCWD, "/sys/kernel/mm/transparent_hugepage/hpage_pmd_size", O_RDONLY) = 3
+1746  clone(child_stack=0x4000060000, flags=CLONE_VM|CLONE_FS|CLONE_FILES|CLONE_SIGHAND|CLONE_THREAD|CLONE_SYSVSEM) = 1747
+1746  clone(child_stack=0x4000062000, flags=CLONE_VM|CLONE_FS|CLONE_FILES|CLONE_SIGHAND|CLONE_THREAD|CLONE_SYSVSEM) = 1748
+1746  clone(child_stack=0x400005c000, flags=CLONE_VM|CLONE_FS|CLONE_FILES|CLONE_SIGHAND|CLONE_THREAD|CLONE_SYSVSEM) = 1749
+1748  clone(child_stack=0x4000092000, flags=CLONE_VM|CLONE_FS|CLONE_FILES|CLONE_SIGHAND|CLONE_THREAD|CLONE_SYSVSEM) = 1750
+1746  readlinkat(AT_FDCWD, "/proc/self/exe", "/usr/local/bin/compose-switch", 128) = 29
+1746  newfstatat(AT_FDCWD, "/vscode/cursor-server/bin/linux-arm64/96e5b01ca25f8fbd4c4c10bc69b15f6228c80770/bin/remote-cli/docker", 0x400011e038, 0) = -1 ENOENT (No such file or directory)
+1746  newfstatat(AT_FDCWD, "/usr/local/sbin/docker", 0x400011e0f8, 0) = -1 ENOENT (No such file or directory)
+1746  newfstatat(AT_FDCWD, "/usr/local/bin/docker", 0x400011e1b8, 0) = -1 ENOENT (No such file or directory)
+1746  newfstatat(AT_FDCWD, "/usr/sbin/docker", 0x400011e278, 0) = -1 ENOENT (No such file or directory)
+1746  newfstatat(AT_FDCWD, "/usr/bin/docker", {st_mode=S_IFREG|0755, st_size=41684896, ...}, 0) = 0
+1746  execve("/usr/bin/docker", ["docker", "compose", "config", "--services"], 0x400000a240 /* 32 vars */ <unfinished ...>
+1749  +++ exited with 0 +++
+1748  +++ exited with 0 +++
+1747  +++ exited with 0 +++
+1750  +++ exited with 0 +++
+1746  <... execve resumed>)             = 0
+1746  faccessat(AT_FDCWD, "/etc/ld.so.preload", R_OK) = -1 ENOENT (No such file or directory)
+1746  openat(AT_FDCWD, "/etc/ld.so.cache", O_RDONLY|O_CLOEXEC) = 3
+1746  openat(AT_FDCWD, "/lib/aarch64-linux-gnu/libresolv.so.2", O_RDONLY|O_CLOEXEC) = 3
+1746  openat(AT_FDCWD, "/lib/aarch64-linux-gnu/libpthread.so.0", O_RDONLY|O_CLOEXEC) = 3
+1746  openat(AT_FDCWD, "/lib/aarch64-linux-gnu/libdl.so.2", O_RDONLY|O_CLOEXEC) = 3
+1746  openat(AT_FDCWD, "/lib/aarch64-linux-gnu/libc.so.6", O_RDONLY|O_CLOEXEC) = 3
+1746  openat(AT_FDCWD, "/proc/self/maps", O_RDONLY|O_CLOEXEC) = 3
+1746  openat(AT_FDCWD, "/sys/kernel/mm/transparent_hugepage/hpage_pmd_size", O_RDONLY) = 3
+1746  clone(child_stack=0xffff5f1ffad0, flags=CLONE_VM|CLONE_FS|CLONE_FILES|CLONE_SIGHAND|CLONE_THREAD|CLONE_SYSVSEM|CLONE_SETTLS|CLONE_PARENT_SETTID|CLONE_CHILD_CLEARTID, parent_tid=[1751], tls=0xffff5f2008d0, child_tidptr=0xffff5f2002a0) = 1751
+1746  clone(child_stack=0xffff5e7ffad0, flags=CLONE_VM|CLONE_FS|CLONE_FILES|CLONE_SIGHAND|CLONE_THREAD|CLONE_SYSVSEM|CLONE_SETTLS|CLONE_PARENT_SETTID|CLONE_CHILD_CLEARTID, parent_tid=[1752], tls=0xffff5e8008d0, child_tidptr=0xffff5e8002a0) = 1752
+1746  clone(child_stack=0xffff5ddffad0, flags=CLONE_VM|CLONE_FS|CLONE_FILES|CLONE_SIGHAND|CLONE_THREAD|CLONE_SYSVSEM|CLONE_SETTLS|CLONE_PARENT_SETTID|CLONE_CHILD_CLEARTID, parent_tid=[1753], tls=0xffff5de008d0, child_tidptr=0xffff5de002a0) = 1753
+1752  clone(child_stack=0xffff5d3ffad0, flags=CLONE_VM|CLONE_FS|CLONE_FILES|CLONE_SIGHAND|CLONE_THREAD|CLONE_SYSVSEM|CLONE_SETTLS|CLONE_PARENT_SETTID|CLONE_CHILD_CLEARTID, parent_tid=[1754], tls=0xffff5d4008d0, child_tidptr=0xffff5d4002a0) = 1754
+1746  clone(child_stack=0xffff5c9ffad0, flags=CLONE_VM|CLONE_FS|CLONE_FILES|CLONE_SIGHAND|CLONE_THREAD|CLONE_SYSVSEM|CLONE_SETTLS|CLONE_PARENT_SETTID|CLONE_CHILD_CLEARTID, parent_tid=[1755], tls=0xffff5ca008d0, child_tidptr=0xffff5ca002a0) = 1755
+1746  readlinkat(AT_FDCWD, "/proc/self/exe", "/usr/bin/docker", 128) = 15
+1746  openat(AT_FDCWD, "/usr/bin/docker", O_RDONLY|O_CLOEXEC) = 3
+1746  openat(AT_FDCWD, "/proc/self/auxv", O_RDONLY|O_CLOEXEC) = 3
+1746  newfstatat(AT_FDCWD, "/proc", {st_mode=S_IFDIR|0555, st_size=0, ...}, 0) = 0
+1746  statfs("/proc", {f_type=PROC_SUPER_MAGIC, f_bsize=4096, f_blocks=0, f_bfree=0, f_bavail=0, f_files=0, f_ffree=0, f_fsid={val=[91, 0]}, f_namelen=255, f_frsize=4096, f_flags=ST_VALID|ST_NOSUID|ST_NODEV|ST_NOEXEC|ST_RELATIME}) = 0
+1746  newfstatat(AT_FDCWD, "/usr/lib/libykcs11.so", 0x400039e0f8, 0) = -1 ENOENT (No such file or directory)
+1746  newfstatat(AT_FDCWD, "/usr/lib/libykcs11.so.1", 0x400039e1b8, 0) = -1 ENOENT (No such file or directory)
+1746  newfstatat(AT_FDCWD, "/usr/lib64/libykcs11.so", 0x400039e278, 0) = -1 ENOENT (No such file or directory)
+1746  newfstatat(AT_FDCWD, "/usr/lib64/libykcs11.so.1", 0x400039e338, 0) = -1 ENOENT (No such file or directory)
+1746  newfstatat(AT_FDCWD, "/usr/lib/x86_64-linux-gnu/libykcs11.so", 0x400039e3f8, 0) = -1 ENOENT (No such file or directory)
+1746  newfstatat(AT_FDCWD, "/usr/local/lib/libykcs11.so", 0x400039e4b8, 0) = -1 ENOENT (No such file or directory)
+1755  clone(child_stack=0xffff57dffad0, flags=CLONE_VM|CLONE_FS|CLONE_FILES|CLONE_SIGHAND|CLONE_THREAD|CLONE_SYSVSEM|CLONE_SETTLS|CLONE_PARENT_SETTID|CLONE_CHILD_CLEARTID, parent_tid=[1756], tls=0xffff57e008d0, child_tidptr=0xffff57e002a0) = 1756
+1756  tgkill(1746, 1753, SIGURG <unfinished ...>
+1753  --- SIGURG {si_signo=SIGURG, si_code=SI_TKILL, si_pid=1746, si_uid=0} ---
+1756  <... tgkill resumed>)             = 0
+1754  clone(child_stack=0xffff573ffad0, flags=CLONE_VM|CLONE_FS|CLONE_FILES|CLONE_SIGHAND|CLONE_THREAD|CLONE_SYSVSEM|CLONE_SETTLS|CLONE_PARENT_SETTID|CLONE_CHILD_CLEARTID, parent_tid=[1757], tls=0xffff574008d0, child_tidptr=0xffff574002a0) = 1757
+1753  tgkill(1746, 1756, SIGURG <unfinished ...>
+1756  --- SIGURG {si_signo=SIGURG, si_code=SI_TKILL, si_pid=1746, si_uid=0} ---
+1753  <... tgkill resumed>)             = 0
+1753  tgkill(1746, 1756, SIGURG)        = 0
+1756  --- SIGURG {si_signo=SIGURG, si_code=SI_TKILL, si_pid=1746, si_uid=0} ---
+1753  tgkill(1746, 1754, SIGURG)        = 0
+1754  --- SIGURG {si_signo=SIGURG, si_code=SI_TKILL, si_pid=1746, si_uid=0} ---
+1754  openat(AT_FDCWD, "/root/.docker/config.json", O_RDONLY|O_CLOEXEC) = 3
+1753  tgkill(1746, 1754, SIGURG <unfinished ...>
+1754  --- SIGURG {si_signo=SIGURG, si_code=SI_TKILL, si_pid=1746, si_uid=0} ---
+1753  <... tgkill resumed>)             = 0
+1754  readlinkat(AT_FDCWD, "/proc/self/exe", "/usr/bin/docker", 128) = 15
+1754  newfstatat(AT_FDCWD, "/root/.docker/cli-plugins/docker-compose", 0x40000fda78, 0) = -1 ENOENT (No such file or directory)
+1754  newfstatat(AT_FDCWD, "/usr/local/lib/docker/cli-plugins/docker-compose", 0x40000fdb38, 0) = -1 ENOENT (No such file or directory)
+1754  newfstatat(AT_FDCWD, "/usr/local/libexec/docker/cli-plugins/docker-compose", 0x40000fdbf8, 0) = -1 ENOENT (No such file or directory)
+1754  newfstatat(AT_FDCWD, "/usr/lib/docker/cli-plugins/docker-compose", 0x40000fdcb8, 0) = -1 ENOENT (No such file or directory)
+1754  newfstatat(AT_FDCWD, "/usr/libexec/docker/cli-plugins/docker-compose", {st_mode=S_IFREG|0755, st_size=73421614, ...}, 0) = 0
+1754  openat(AT_FDCWD, "/dev/null", O_RDONLY|O_CLOEXEC) = 3
+1754  waitid(P_PIDFD, 10, NULL, WEXITED, NULL) = -1 ECHILD (No child processes)
+1754  pidfd_send_signal(10, 0, NULL, 0) = 0
+1754  clone(child_stack=NULL, flags=CLONE_VM|CLONE_PIDFD|CLONE_VFORK <unfinished ...>
+1758  exit_group(0)                     = ?
+1758  +++ exited with 0 +++
+1754  <... clone resumed>, parent_tid=[11]) = 1758
+1754  waitid(P_PIDFD, 11, NULL, WEXITED|__WCLONE, NULL) = 0
+1754  clone(child_stack=NULL, flags=CLONE_VM|CLONE_PIDFD|CLONE_VFORK|SIGCHLD <unfinished ...>
+1759  execve("/usr/libexec/docker/cli-plugins/docker-compose", ["/usr/libexec/docker/cli-plugins/"..., "docker-cli-plugin-metadata"], 0x40004ecfc0 /* 32 vars */ <unfinished ...>
+1754  <... clone resumed>, parent_tid=[12]) = 1759
+1759  <... execve resumed>)             = 0
+1759  openat(AT_FDCWD, "/sys/kernel/mm/transparent_hugepage/hpage_pmd_size", O_RDONLY) = 3
+1754  waitid(P_PIDFD, 12,  <unfinished ...>
+1753  clone(child_stack=0xffff569ffad0, flags=CLONE_VM|CLONE_FS|CLONE_FILES|CLONE_SIGHAND|CLONE_THREAD|CLONE_SYSVSEM|CLONE_SETTLS|CLONE_PARENT_SETTID|CLONE_CHILD_CLEARTID, parent_tid=[1760], tls=0xffff56a008d0, child_tidptr=0xffff56a002a0) = 1760
+1759  clone(child_stack=0x400006a000, flags=CLONE_VM|CLONE_FS|CLONE_FILES|CLONE_SIGHAND|CLONE_THREAD|CLONE_SYSVSEM) = 1761
+1759  clone(child_stack=0x40000b4000, flags=CLONE_VM|CLONE_FS|CLONE_FILES|CLONE_SIGHAND|CLONE_THREAD|CLONE_SYSVSEM) = 1762
+1759  clone(child_stack=0x40000b0000, flags=CLONE_VM|CLONE_FS|CLONE_FILES|CLONE_SIGHAND|CLONE_THREAD|CLONE_SYSVSEM) = 1763
+1762  clone(child_stack=0x4000118000, flags=CLONE_VM|CLONE_FS|CLONE_FILES|CLONE_SIGHAND|CLONE_THREAD|CLONE_SYSVSEM) = 1764
+1759  readlinkat(AT_FDCWD, "/proc/self/exe", "/usr/libexec/docker/cli-plugins/"..., 128) = 46
+1759  openat(AT_FDCWD, "/usr/libexec/docker/cli-plugins/docker-compose", O_RDONLY|O_CLOEXEC) = 3
+1759  openat(AT_FDCWD, "/proc/self/auxv", O_RDONLY|O_CLOEXEC) = 3
+1759  newfstatat(AT_FDCWD, "/proc", {st_mode=S_IFDIR|0555, st_size=0, ...}, 0) = 0
+1759  statfs("/proc", {f_type=PROC_SUPER_MAGIC, f_bsize=4096, f_blocks=0, f_bfree=0, f_bavail=0, f_files=0, f_ffree=0, f_fsid={val=[91, 0]}, f_namelen=255, f_frsize=4096, f_flags=ST_VALID|ST_NOSUID|ST_NODEV|ST_NOEXEC|ST_RELATIME}) = 0
+1764  clone(child_stack=0x4000518000, flags=CLONE_VM|CLONE_FS|CLONE_FILES|CLONE_SIGHAND|CLONE_THREAD|CLONE_SYSVSEM) = 1765
+1765  tgkill(1759, 1759, SIGURG)        = 0
+1759  --- SIGURG {si_signo=SIGURG, si_code=SI_TKILL, si_pid=1759, si_uid=0} ---
+1764  clone(child_stack=0x4000514000, flags=CLONE_VM|CLONE_FS|CLONE_FILES|CLONE_SIGHAND|CLONE_THREAD|CLONE_SYSVSEM) = 1766
+1759  tgkill(1759, 1765, SIGURG)        = 0
+1765  --- SIGURG {si_signo=SIGURG, si_code=SI_TKILL, si_pid=1759, si_uid=0} ---
+1766  tgkill(1759, 1759, SIGURG)        = 0
+1765  tgkill(1759, 1763, SIGURG)        = 0
+1763  --- SIGURG {si_signo=SIGURG, si_code=SI_TKILL, si_pid=1759, si_uid=0} ---
+1759  --- SIGURG {si_signo=SIGURG, si_code=SI_TKILL, si_pid=1759, si_uid=0} ---
+1762  clone(child_stack=0x4000440000, flags=CLONE_VM|CLONE_FS|CLONE_FILES|CLONE_SIGHAND|CLONE_THREAD|CLONE_SYSVSEM <unfinished ...>
+1766  tgkill(1759, 1765, SIGURG)        = 0
+1762  <... clone resumed>)              = 1767
+1765  --- SIGURG {si_signo=SIGURG, si_code=SI_TKILL, si_pid=1759, si_uid=0} ---
+1766  tgkill(1759, 1759, SIGURG)        = 0
+1759  --- SIGURG {si_signo=SIGURG, si_code=SI_TKILL, si_pid=1759, si_uid=0} ---
+1765  tgkill(1759, 1766, SIGURG <unfinished ...>
+1766  tgkill(1759, 1765, SIGURG)        = 0
+1765  <... tgkill resumed>)             = 0
+1766  --- SIGURG {si_signo=SIGURG, si_code=SI_TKILL, si_pid=1759, si_uid=0} ---
+1765  --- SIGURG {si_signo=SIGURG, si_code=SI_TKILL, si_pid=1759, si_uid=0} ---
+1765  tgkill(1759, 1759, SIGURG)        = 0
+1759  --- SIGURG {si_signo=SIGURG, si_code=SI_TKILL, si_pid=1759, si_uid=0} ---
+1759  tgkill(1759, 1765, SIGURG <unfinished ...>
+1765  --- SIGURG {si_signo=SIGURG, si_code=SI_TKILL, si_pid=1759, si_uid=0} ---
+1759  <... tgkill resumed>)             = 0
+1759  tgkill(1759, 1765, SIGURG <unfinished ...>
+1765  --- SIGURG {si_signo=SIGURG, si_code=SI_TKILL, si_pid=1759, si_uid=0} ---
+1759  <... tgkill resumed>)             = 0
+1759  tgkill(1759, 1767, SIGURG)        = 0
+1767  --- SIGURG {si_signo=SIGURG, si_code=SI_TKILL, si_pid=1759, si_uid=0} ---
+1764  exit_group(0)                     = ?
+1766  +++ exited with 0 +++
+1765  +++ exited with 0 +++
+1764  +++ exited with 0 +++
+1762  +++ exited with 0 +++
+1767  +++ exited with 0 +++
+1763  +++ exited with 0 +++
+1761  +++ exited with 0 +++
+1759  +++ exited with 0 +++
+1757  --- SIGCHLD {si_signo=SIGCHLD, si_code=CLD_EXITED, si_pid=1759, si_uid=0, si_status=0, si_utime=0, si_stime=1} ---
+1754  <... waitid resumed>{si_signo=SIGCHLD, si_code=CLD_EXITED, si_pid=1759, si_uid=0, si_status=0, si_utime=0, si_stime=0}, WEXITED, {ru_utime={tv_sec=0, tv_usec=10202}, ru_stime={tv_sec=0, tv_usec=13602}, ...}) = 0
+1754  openat(AT_FDCWD, "/proc/sys/net/core/somaxconn", O_RDONLY|O_CLOEXEC) = 6
+1754  clone(child_stack=NULL, flags=CLONE_VM|CLONE_PIDFD|CLONE_VFORK|SIGCHLD <unfinished ...>
+1768  execve("/usr/libexec/docker/cli-plugins/docker-compose", ["/usr/libexec/docker/cli-plugins/"..., "compose", "config", "--services"], 0x40004ed200 /* 35 vars */ <unfinished ...>
+1754  <... clone resumed>, parent_tid=[8]) = 1768
+1768  <... execve resumed>)             = 0
+1768  openat(AT_FDCWD, "/sys/kernel/mm/transparent_hugepage/hpage_pmd_size", O_RDONLY) = 3
+1754  waitid(P_PIDFD, 8,  <unfinished ...>
+1768  clone(child_stack=0x400006a000, flags=CLONE_VM|CLONE_FS|CLONE_FILES|CLONE_SIGHAND|CLONE_THREAD|CLONE_SYSVSEM) = 1769
+1768  clone(child_stack=0x40000b4000, flags=CLONE_VM|CLONE_FS|CLONE_FILES|CLONE_SIGHAND|CLONE_THREAD|CLONE_SYSVSEM) = 1770
+1768  clone(child_stack=0x40000b0000, flags=CLONE_VM|CLONE_FS|CLONE_FILES|CLONE_SIGHAND|CLONE_THREAD|CLONE_SYSVSEM) = 1771
+1770  clone(child_stack=0x4000118000, flags=CLONE_VM|CLONE_FS|CLONE_FILES|CLONE_SIGHAND|CLONE_THREAD|CLONE_SYSVSEM) = 1772
+1768  readlinkat(AT_FDCWD, "/proc/self/exe", "/usr/libexec/docker/cli-plugins/"..., 128) = 46
+1768  openat(AT_FDCWD, "/usr/libexec/docker/cli-plugins/docker-compose", O_RDONLY|O_CLOEXEC) = 3
+1768  openat(AT_FDCWD, "/proc/self/auxv", O_RDONLY|O_CLOEXEC) = 3
+1768  newfstatat(AT_FDCWD, "/proc", {st_mode=S_IFDIR|0555, st_size=0, ...}, 0) = 0
+1768  statfs("/proc", {f_type=PROC_SUPER_MAGIC, f_bsize=4096, f_blocks=0, f_bfree=0, f_bavail=0, f_files=0, f_ffree=0, f_fsid={val=[91, 0]}, f_namelen=255, f_frsize=4096, f_flags=ST_VALID|ST_NOSUID|ST_NODEV|ST_NOEXEC|ST_RELATIME}) = 0
+1770  tgkill(1768, 1768, SIGURG <unfinished ...>
+1768  clone(child_stack=0x4000114000, flags=CLONE_VM|CLONE_FS|CLONE_FILES|CLONE_SIGHAND|CLONE_THREAD|CLONE_SYSVSEM <unfinished ...>
+1770  <... tgkill resumed>)             = 0
+1768  <... clone resumed>)              = 1773
+1772  clone(child_stack=0x4000518000, flags=CLONE_VM|CLONE_FS|CLONE_FILES|CLONE_SIGHAND|CLONE_THREAD|CLONE_SYSVSEM) = 1774
+1768  --- SIGURG {si_signo=SIGURG, si_code=SI_TKILL, si_pid=1768, si_uid=0} ---
+1773  tgkill(1768, 1768, SIGURG)        = 0
+1768  --- SIGURG {si_signo=SIGURG, si_code=SI_TKILL, si_pid=1768, si_uid=0} ---
+1772  tgkill(1768, 1773, SIGURG <unfinished ...>
+1773  tgkill(1768, 1770, SIGURG <unfinished ...>
+1772  <... tgkill resumed>)             = 0
+1773  <... tgkill resumed>)             = 0
+1773  --- SIGURG {si_signo=SIGURG, si_code=SI_TKILL, si_pid=1768, si_uid=0} ---
+1770  --- SIGURG {si_signo=SIGURG, si_code=SI_TKILL, si_pid=1768, si_uid=0} ---
+1773  tgkill(1768, 1768, SIGURG)        = 0
+1768  --- SIGURG {si_signo=SIGURG, si_code=SI_TKILL, si_pid=1768, si_uid=0} ---
+1773  tgkill(1768, 1768, SIGURG <unfinished ...>
+1770  tgkill(1768, 1773, SIGURG <unfinished ...>
+1773  <... tgkill resumed>)             = 0
+1770  <... tgkill resumed>)             = 0
+1768  --- SIGURG {si_signo=SIGURG, si_code=SI_TKILL, si_pid=1768, si_uid=0} ---
+1773  --- SIGURG {si_signo=SIGURG, si_code=SI_TKILL, si_pid=1768, si_uid=0} ---
+1774  clone(child_stack=0x4000610000, flags=CLONE_VM|CLONE_FS|CLONE_FILES|CLONE_SIGHAND|CLONE_THREAD|CLONE_SYSVSEM <unfinished ...>
+1773  tgkill(1768, 1770, SIGURG <unfinished ...>
+1770  tgkill(1768, 1773, SIGURG <unfinished ...>
+1773  <... tgkill resumed>)             = 0
+1773  --- SIGURG {si_signo=SIGURG, si_code=SI_TKILL, si_pid=1768, si_uid=0} ---
+1770  <... tgkill resumed>)             = 0
+1774  <... clone resumed>)              = 1775
+1770  --- SIGURG {si_signo=SIGURG, si_code=SI_TKILL, si_pid=1768, si_uid=0} ---
+1773  tgkill(1768, 1770, SIGURG <unfinished ...>
+1770  tgkill(1768, 1773, SIGURG <unfinished ...>
+1773  <... tgkill resumed>)             = 0
+1770  <... tgkill resumed>)             = 0
+1773  --- SIGURG {si_signo=SIGURG, si_code=SI_TKILL, si_pid=1768, si_uid=0} ---
+1770  --- SIGURG {si_signo=SIGURG, si_code=SI_TKILL, si_pid=1768, si_uid=0} ---
+1773  tgkill(1768, 1768, SIGURG)        = 0
+1768  --- SIGURG {si_signo=SIGURG, si_code=SI_TKILL, si_pid=1768, si_uid=0} ---
+1773  tgkill(1768, 1768, SIGURG)        = 0
+1768  --- SIGURG {si_signo=SIGURG, si_code=SI_TKILL, si_pid=1768, si_uid=0} ---
+1773  tgkill(1768, 1772, SIGURG)        = 0
+1772  --- SIGURG {si_signo=SIGURG, si_code=SI_TKILL, si_pid=1768, si_uid=0} ---
+1772  openat(AT_FDCWD, "/root/.docker/config.json", O_RDONLY|O_CLOEXEC) = 6
+1772  newfstatat(AT_FDCWD, "/root/.kube/config", 0x400014c278, 0) = -1 ENOENT (No such file or directory)
+1772  readlinkat(AT_FDCWD, "/proc/self/exe", "/usr/libexec/docker/cli-plugins/"..., 128) = 46
+1772  newfstatat(AT_FDCWD, "/root/.kube/config", 0x400014c4b8, 0) = -1 ENOENT (No such file or directory)
+1770  newfstatat(AT_FDCWD, "/root/.kube/config", 0x400014cdb8, 0) = -1 ENOENT (No such file or directory)
+1770  newfstatat(AT_FDCWD, ".", {st_mode=S_IFDIR|0755, st_size=4096, ...}, 0) = 0
+1770  newfstatat(AT_FDCWD, "/app", {st_mode=S_IFDIR|0755, st_size=4096, ...}, 0) = 0
+1770  newfstatat(AT_FDCWD, "/app/.env", 0x400014d478, 0) = -1 ENOENT (No such file or directory)
+1773  clone(child_stack=0x4000514000, flags=CLONE_VM|CLONE_FS|CLONE_FILES|CLONE_SIGHAND|CLONE_THREAD|CLONE_SYSVSEM) = 1776
+1768  newfstatat(AT_FDCWD, ".", {st_mode=S_IFDIR|0755, st_size=4096, ...}, 0) = 0
+1768  newfstatat(AT_FDCWD, "/app", {st_mode=S_IFDIR|0755, st_size=4096, ...}, 0) = 0
+1768  newfstatat(AT_FDCWD, ".", {st_mode=S_IFDIR|0755, st_size=4096, ...}, 0) = 0
+1768  newfstatat(AT_FDCWD, "/app", {st_mode=S_IFDIR|0755, st_size=4096, ...}, 0) = 0
+1768  newfstatat(AT_FDCWD, "/app/.env", 0x40003d8878, 0) = -1 ENOENT (No such file or directory)
+1768  newfstatat(AT_FDCWD, ".", {st_mode=S_IFDIR|0755, st_size=4096, ...}, 0) = 0
+1768  newfstatat(AT_FDCWD, "/app", {st_mode=S_IFDIR|0755, st_size=4096, ...}, 0) = 0
+1768  newfstatat(AT_FDCWD, "/app/compose.yaml", 0x40003d8ab8, 0) = -1 ENOENT (No such file or directory)
+1768  newfstatat(AT_FDCWD, "/app/compose.yml", 0x40003d8b78, 0) = -1 ENOENT (No such file or directory)
+1768  newfstatat(AT_FDCWD, "/app/docker-compose.yml", 0x40003d8c38, 0) = -1 ENOENT (No such file or directory)
+1768  newfstatat(AT_FDCWD, "/app/docker-compose.yaml", 0x40003d8cf8, 0) = -1 ENOENT (No such file or directory)
+1768  newfstatat(AT_FDCWD, "/compose.yaml", 0x40003d8db8, 0) = -1 ENOENT (No such file or directory)
+1768  newfstatat(AT_FDCWD, "/compose.yml", 0x40003d8e78, 0) = -1 ENOENT (No such file or directory)
+1768  newfstatat(AT_FDCWD, "/docker-compose.yml", 0x40003d8f38, 0) = -1 ENOENT (No such file or directory)
+1768  newfstatat(AT_FDCWD, "/docker-compose.yaml", 0x40003d8ff8, 0) = -1 ENOENT (No such file or directory)
+1768  newfstatat(AT_FDCWD, ".", {st_mode=S_IFDIR|0755, st_size=4096, ...}, 0) = 0
+1768  newfstatat(AT_FDCWD, "/app", {st_mode=S_IFDIR|0755, st_size=4096, ...}, 0) = 0
+1768  newfstatat(AT_FDCWD, "/app/.env", 0x40003d9238, 0) = -1 ENOENT (No such file or directory)
+1768  newfstatat(AT_FDCWD, ".", {st_mode=S_IFDIR|0755, st_size=4096, ...}, 0) = 0
+1768  newfstatat(AT_FDCWD, "/app", {st_mode=S_IFDIR|0755, st_size=4096, ...}, 0) = 0
+1768  exit_group(1)                     = ?
+1776  +++ exited with 1 +++
+1775  +++ exited with 1 +++
+1774  +++ exited with 1 +++
+1773  +++ exited with 1 +++
+1772  +++ exited with 1 +++
+1771  +++ exited with 1 +++
+1770  +++ exited with 1 +++
+1769  +++ exited with 1 +++
+1768  +++ exited with 1 +++
+1760  --- SIGCHLD {si_signo=SIGCHLD, si_code=CLD_EXITED, si_pid=1768, si_uid=0, si_status=1, si_utime=0, si_stime=1} ---
+1754  <... waitid resumed>{si_signo=SIGCHLD, si_code=CLD_EXITED, si_pid=1768, si_uid=0, si_status=1, si_utime=0, si_stime=0}, WEXITED, {ru_utime={tv_sec=0, tv_usec=13948}, ru_stime={tv_sec=0, tv_usec=19179}, ...}) = 0
+1754  exit_group(1)                     = ?
+1757  +++ exited with 1 +++
+1755  +++ exited with 1 +++
+1756  +++ exited with 1 +++
+1760  +++ exited with 1 +++
+1753  +++ exited with 1 +++
+1751  +++ exited with 1 +++
+1754  +++ exited with 1 +++
+1752  +++ exited with 1 +++
+1746  +++ exited with 1 +++

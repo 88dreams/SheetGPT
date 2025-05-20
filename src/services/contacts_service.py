@@ -282,7 +282,8 @@ class ContactsService:
         user_id: UUID, 
         csv_data: List[Dict[str, str]],
         auto_match_brands: bool = True,
-        match_threshold: float = 0.6
+        match_threshold: float = 0.6,
+        import_source_tag: Optional[str] = None
     ) -> Dict[str, Any]:
         """
         Import contacts from LinkedIn CSV export.
@@ -376,6 +377,10 @@ class ContactsService:
                         existing_contact.connected_on = connected_on
                     if email and not existing_contact.email:
                         existing_contact.email = email
+                    
+                    # Update import_source_tag if provided for an existing contact
+                    if import_source_tag is not None:
+                        existing_contact.import_source_tag = import_source_tag
                         
                     existing_contact.updated_at = datetime.utcnow()
                     contact = existing_contact
@@ -389,7 +394,8 @@ class ContactsService:
                         linkedin_url=profile_url,
                         company=company,
                         position=position,
-                        connected_on=connected_on
+                        connected_on=connected_on,
+                        import_source_tag=import_source_tag
                     )
                     self.db.add(contact)
                     await self.db.flush()  # Generate ID without committing
@@ -950,3 +956,48 @@ class ContactsService:
         for row in reader:
             csv_data.append(row)
         return csv_data
+
+    async def bulk_update_contacts_tag(
+        self,
+        user_id: UUID,
+        new_tag: str,
+        target_contacts: str = "all_untagged"  # "all" or "all_untagged"
+    ) -> Dict[str, Any]:
+        """
+        Bulk updates the import_source_tag for a specified set of contacts for a user.
+        Returns a dictionary with the count of updated contacts.
+        """
+        if target_contacts not in ["all", "all_untagged"]:
+            raise ValidationError("Invalid value for target_contacts. Must be 'all' or 'all_untagged'.")
+
+        query = select(Contact).where(Contact.user_id == user_id)
+
+        if target_contacts == "all_untagged":
+            query = query.where(or_(Contact.import_source_tag == None, Contact.import_source_tag == ''))
+        
+        # To get a count of how many will be updated (optional, but good for stats)
+        # This requires a separate count query before update or more complex update-returning logic
+        # For simplicity now, we'll update and then count, or just return a success message initially.
+        # A more robust way is to use update().returning(Contact.id) if the DB supports it well with ORM,
+        # or a separate count query.
+
+        # Fetch contacts to update
+        result = await self.db.execute(query)
+        contacts_to_update = result.scalars().all()
+
+        updated_count = 0
+        if not contacts_to_update:
+            return {"updated_count": 0, "message": "No contacts found matching the criteria."}
+
+        for contact in contacts_to_update:
+            contact.import_source_tag = new_tag
+            contact.updated_at = datetime.utcnow()
+            updated_count += 1
+        
+        try:
+            await self.db.commit()
+        except Exception as e:
+            await self.db.rollback()
+            raise e # Re-raise after rollback
+        
+        return {"updated_count": updated_count, "message": f"Successfully updated {updated_count} contacts."}

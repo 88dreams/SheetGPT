@@ -8,12 +8,12 @@ from pathlib import Path
 sys.path.append(str(Path(__file__).parent.parent.parent))
 
 # Create mock sports models to prevent circular dependency issues
-class MockSportsModels:
-    def __getattr__(self, name):
-        return None
+# class MockSportsModels:
+# def __getattr__(self, name):
+# return None
 
 # Temporarily modify sys.modules to prevent sports_models from being imported
-sys.modules['src.models.sports_models'] = MockSportsModels()
+# sys.modules['src.models.sports_models'] = MockSportsModels()
 
 # Import alembic components
 from alembic.config import Config

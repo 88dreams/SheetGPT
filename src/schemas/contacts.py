@@ -1,5 +1,5 @@
 from pydantic import BaseModel, Field, EmailStr, validator
-from typing import List, Optional, Dict, Any, Union
+from typing import List, Optional, Dict, Any, Union, Literal
 from uuid import UUID
 from datetime import date, datetime
 
@@ -16,6 +16,7 @@ class ContactBase(BaseModel):
     position: Optional[str] = None
     connected_on: Optional[date] = None
     notes: Optional[str] = None
+    import_source_tag: Optional[str] = None
 
 class ContactCreate(ContactBase):
     pass
@@ -119,3 +120,8 @@ class ContactListParams(BaseModel):
     brand_id: Optional[UUID] = None
     sort_by: Optional[str] = "last_name"
     sort_order: Optional[str] = "asc"
+
+# Schema for bulk updating contact tags
+class BulkUpdateTagRequest(BaseModel):
+    new_tag: str = Field(..., min_length=1, description="The new import source tag to apply.")
+    target_contacts: Literal["all", "all_untagged"] = Field("all_untagged", description="Which contacts to target: 'all' or 'all_untagged'.")

@@ -36,6 +36,7 @@ interface Contact {
   position?: string;
   connected_on?: string;
   notes?: string;
+  import_source_tag?: string;
   brand_associations: ContactBrandAssociation[];
 }
 
@@ -81,6 +82,7 @@ const ContactsList: React.FC<ContactsListProps> = ({ brandId, onContactSelect })
     company: true,
     position: true,
     connected_on: true,
+    import_source_tag: true,
     brand_count: true
   });
 
@@ -91,6 +93,7 @@ const ContactsList: React.FC<ContactsListProps> = ({ brandId, onContactSelect })
     company: { width: 200, display: 'Company' },
     position: { width: 200, display: 'Position' },
     connected_on: { width: 150, display: 'Connected On' },
+    import_source_tag: { width: 180, display: 'Import Tag', sortField: 'import_source_tag' },
     brand_count: { width: 200, display: 'Matched Brands', sortField: 'brand_name' }
   };
 
@@ -135,6 +138,7 @@ const ContactsList: React.FC<ContactsListProps> = ({ brandId, onContactSelect })
       company: true,
       position: true,
       connected_on: true,
+      import_source_tag: true,
       brand_count: true
     });
   }, []);
@@ -146,6 +150,7 @@ const ContactsList: React.FC<ContactsListProps> = ({ brandId, onContactSelect })
     'company',
     'position',
     'connected_on',
+    'import_source_tag',
     'brand_count'
   ];
 
@@ -484,7 +489,7 @@ const ContactsList: React.FC<ContactsListProps> = ({ brandId, onContactSelect })
     try {
       const response = await apiClient.post('/api/v1/contacts/rematch-brands', 
         { match_threshold: rescanThreshold }, 
-        { requiresAuth: true, timeout: 60000 }
+        { requiresAuth: true }
       );
       console.log('Re-scan API response:', response.data);
       if (response.data.success) {
@@ -900,6 +905,17 @@ const ContactsList: React.FC<ContactsListProps> = ({ brandId, onContactSelect })
                       <td className="px-3 py-3 whitespace-nowrap border-r border-gray-200">
                         {contact.connected_on ? (
                           <span className="text-sm text-gray-900">{new Date(contact.connected_on).toLocaleDateString()}</span>
+                        ) : (
+                          <span className="text-gray-400 text-sm">-</span>
+                        )}
+                      </td>
+                    )}
+
+                    {/* Import Source Tag column */}
+                    {visibleColumns.import_source_tag !== false && (
+                      <td className="px-3 py-3 whitespace-nowrap border-r border-gray-200">
+                        {contact.import_source_tag ? (
+                          <span className="text-sm text-gray-900 truncate max-w-xs" title={contact.import_source_tag}>{contact.import_source_tag}</span>
                         ) : (
                           <span className="text-gray-400 text-sm">-</span>
                         )}

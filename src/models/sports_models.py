@@ -14,7 +14,7 @@ class League(TimestampedBase):
     __tablename__ = "leagues"
     __table_args__ = (
         UniqueConstraint('name', name='uq_leagues_name'),
-        Index('ix_leagues_name', 'name'),
+        Index('ix_leagues_name', 'name', unique=True),
     )
 
     id: Mapped[UUID] = mapped_column(
@@ -129,7 +129,7 @@ class Stadium(TimestampedBase):
     __tablename__ = "stadiums"
     __table_args__ = (
         UniqueConstraint('name', name='uq_stadiums_name'),
-        Index('ix_stadiums_name', 'name'),
+        Index('ix_stadiums_name', 'name', unique=True),
     )
 
     id: Mapped[UUID] = mapped_column(
@@ -196,7 +196,7 @@ class Team(TimestampedBase):
     __tablename__ = "teams"
     __table_args__ = (
         UniqueConstraint('name', name='uq_teams_name'),
-        Index('ix_teams_name', 'name'),
+        Index('ix_teams_name', 'name', unique=True),
     )
 
     id: Mapped[UUID] = mapped_column(
@@ -805,6 +805,11 @@ class Contact(TimestampedBase):
     notes: Mapped[Optional[str]] = mapped_column(
         Text,
         nullable=True
+    )
+    import_source_tag: Mapped[Optional[str]] = mapped_column(
+        String(255),
+        nullable=True,
+        index=True
     )
     deleted_at: Mapped[Optional[datetime]] = mapped_column(
         DateTime(timezone=True),

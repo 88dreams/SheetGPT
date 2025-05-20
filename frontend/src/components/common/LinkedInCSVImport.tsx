@@ -25,6 +25,7 @@ const LinkedInCSVImport: React.FC<LinkedInCSVImportProps> = ({ onImportComplete 
   const [importStats, setImportStats] = useState<ImportStats | null>(null);
   const [matchBrands, setMatchBrands] = useState(true);
   const [matchThreshold, setMatchThreshold] = useState(0.6);
+  const [importSourceTag, setImportSourceTag] = useState('');
 
   const handleFileSelect = useCallback(async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -38,27 +39,23 @@ const LinkedInCSVImport: React.FC<LinkedInCSVImportProps> = ({ onImportComplete 
       
       const formData = new FormData();
       formData.append('file', file);
+      formData.append('import_source_tag', importSourceTag);
       
       console.log('FormData entries:');
       for (const entry of formData.entries()) {
         console.log('- Entry:', entry[0], entry[1]);
       }
       
-      const url = `/api/v1/contacts/import/linkedin`;
-      const params = {
-        auto_match_brands: matchBrands,
-        match_threshold: matchThreshold
-      };
-      console.log('Sending file to URL:', url, 'with params:', params);
+      const queryParams = new URLSearchParams({
+        auto_match_brands: String(matchBrands),
+        match_threshold: String(matchThreshold)
+      }).toString();
+      const url = `/api/v1/contacts/import/linkedin?${queryParams}`;
+      
+      console.log('Sending file to URL:', url);
 
       const response = await apiClient.post<ImportStats>(url, formData, {
-        params: params,
-        requiresAuth: true,
-        headers: {
-          // Content-Type is usually set automatically by the browser for FormData
-          // but if issues persist, uncomment the line below
-          // 'Content-Type': 'multipart/form-data' 
-        }
+        requiresAuth: true
       });
 
       const data = response.data;
@@ -86,7 +83,7 @@ const LinkedInCSVImport: React.FC<LinkedInCSVImportProps> = ({ onImportComplete 
         fileInputRef.current.value = '';
       }
     }
-  }, [apiClient, matchBrands, matchThreshold, onImportComplete, showNotification]);
+  }, [apiClient, matchBrands, matchThreshold, importSourceTag, onImportComplete, showNotification]);
 
   const triggerFileInput = useCallback(() => {
     fileInputRef.current?.click();
@@ -114,6 +111,23 @@ const LinkedInCSVImport: React.FC<LinkedInCSVImportProps> = ({ onImportComplete 
             <li>Choose CSV format and download the file</li>
           </ol>
         </div>
+      </div>
+
+      <div className="mb-4">
+        <label htmlFor="importSourceTag" className="block text-sm font-medium text-gray-700 mb-1">
+          Import Source Tag (Optional)
+        </label>
+        <input
+          type="text"
+          id="importSourceTag"
+          value={importSourceTag}
+          onChange={(e) => setImportSourceTag(e.target.value)}
+          placeholder="e.g., LinkedIn Export Q агрессор, Conference Leads"
+          className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+        />
+        <p className="mt-1 text-xs text-gray-500">
+          A label to identify this batch of imported contacts.
+        </p>
       </div>
 
       <div className="mb-4">

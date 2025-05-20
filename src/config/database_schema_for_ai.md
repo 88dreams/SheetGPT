@@ -113,5 +113,40 @@ DATABASE SCHEMA:
     *   `division_conference_id` (if present) links to `divisions_conferences.id`.
     *   `entity_id` refers to an ID in another table, determined by the `entity_type` column.
 
+**Table: `contacts`**
+*   Description: Stores contact information, typically imported from external sources like LinkedIn.
+*   Columns:
+    *   `id` (UUID, PK): Unique identifier for the contact.
+    *   `user_id` (UUID, FK -> `users.id`): The user who owns this contact.
+    *   `first_name` (VARCHAR): First name of the contact.
+    *   `last_name` (VARCHAR): Last name of the contact.
+    *   `email` (VARCHAR, NULLABLE): Email address of the contact.
+    *   `linkedin_url` (VARCHAR, NULLABLE): URL to the contact's LinkedIn profile.
+    *   `company` (VARCHAR, NULLABLE): Company the contact is associated with (as per import).
+    *   `position` (VARCHAR, NULLABLE): Position or title of the contact.
+    *   `connected_on` (DATE, NULLABLE): Date the connection was made (e.g., on LinkedIn).
+    *   `notes` (TEXT, NULLABLE): General notes about the contact.
+    *   `import_source_tag` (VARCHAR, NULLABLE): A tag indicating the source or batch of this contact import. *Examples: "LinkedIn Export Q4 2023", "Conference Leads - CES 2024", "John Doe LI Import". This can be used to filter or group contacts by their import origin.*
+    *   `created_at` (TIMESTAMP): Timestamp of creation.
+    *   `updated_at` (TIMESTAMP): Timestamp of last update.
+    *   `deleted_at` (TIMESTAMP, NULLABLE): Timestamp if the contact is soft-deleted. *Queries should generally filter using `WHERE contacts.deleted_at IS NULL`.*
+*   Relationships:
+    *   Belongs to one `users` via `user_id`.
+    *   Can be associated with multiple `brands` via the `contact_brand_associations` table.
+
+**Table: `contact_brand_associations`**
+*   Description: Links contacts to brands, indicating a relationship (e.g., employment).
+*   Columns:
+    *   `id` (UUID, PK): Unique identifier for the association.
+    *   `contact_id` (UUID, FK -> `contacts.id`): The contact.
+    *   `brand_id` (UUID, FK -> `brands.id`): The brand.
+    *   `confidence_score` (FLOAT): A score indicating the confidence of this association.
+    *   `association_type` (VARCHAR): Type of association (e.g., "employed_at").
+    *   `is_current` (BOOLEAN): Whether this is a current association.
+    *   `is_primary` (BOOLEAN): Whether this is the primary association for the contact.
+    *   `created_at` (TIMESTAMP): Timestamp of creation.
+    *   `updated_at` (TIMESTAMP): Timestamp of last update.
+    *   `deleted_at` (TIMESTAMP, NULLABLE): Timestamp if soft-deleted.
+
 ---
 *This schema description provides context for commonly queried tables. Other tables like `games`, `players`, `production_services`, `game_broadcasts`, `contacts`, etc., also exist and follow similar patterns with IDs, names, and timestamp/deletion fields. If a query involves these, make logical joins based on foreign key relationships implied by `_id` column names.* 

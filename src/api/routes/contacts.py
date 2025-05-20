@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Query, Request
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Query, Request, Form
 from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.status import HTTP_201_CREATED, HTTP_400_BAD_REQUEST
 from typing import List, Optional, Dict, Any
@@ -21,6 +21,7 @@ from src.schemas.contacts import (
     ContactListParams,
     ContactCSVImport,
     ContactCSVRow,
+    BulkUpdateTagRequest
 )
 from src.utils.database import get_db
 from src.utils.auth import get_current_user
@@ -263,6 +264,7 @@ async def import_linkedin_csv(
     file: UploadFile = File(...),
     auto_match_brands: bool = Query(True),
     match_threshold: float = Query(0.6, ge=0.0, le=1.0),
+    import_source_tag: Optional[str] = Form(None),
     current_user: Dict = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
@@ -355,7 +357,8 @@ async def import_linkedin_csv(
             user_id, 
             csv_data,
             auto_match_brands=auto_match_brands,
-            match_threshold=match_threshold
+            match_threshold=match_threshold,
+            import_source_tag=import_source_tag
         )
         
         return stats
@@ -433,6 +436,31 @@ async def rematch_contacts(
         print(f"Error during contact rematch: {e}")
         # Consider more specific error handling based on potential exceptions
         raise HTTPException(status_code=500, detail=f"Failed to rematch contacts: {str(e)}")
+
+@router.post("/bulk-update-tag", response_model=Dict[str, Any])
+async def bulk_update_tag_for_contacts(
+    request_body: BulkUpdateTagRequest,
+    current_user: Dict = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """Bulk updates the import_source_tag for a specified set of user's contacts."""
+    user_id = UUID(current_user["id"])
+    service = ContactsService(db)
+    import logging # For logging potential errors
+    logger = logging.getLogger("sheetgpt.api.contacts") # More specific logger
+    try:
+        result = await service.bulk_update_contacts_tag(
+            user_id=user_id,
+            new_tag=request_body.new_tag,
+            target_contacts=request_body.target_contacts
+        )
+        return result
+    except ValidationError as e:
+        logger.warning(f"Validation error during bulk tag update for user {user_id}: {str(e)}")
+        raise HTTPException(status_code=HTTP_400_BAD_REQUEST, detail=str(e))
+    except Exception as e:
+        logger.error(f"Unexpected error during bulk tag update for user {user_id}: {str(e)}", exc_info=True)
+        raise HTTPException(status_code=500, detail="An unexpected error occurred during bulk tag update.")
 
 @router.get("/brands/{brand_id}/count", response_model=Dict[str, int])
 async def get_contacts_count_by_brand(

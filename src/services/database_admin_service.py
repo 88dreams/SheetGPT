@@ -62,16 +62,28 @@ class DatabaseAdminService:
             ]
             
             for table in tables:
+                # Skip alembic_version table for data dump if it exists
+                if table == 'alembic_version':
+                    # We might still want its schema if a schema-only dump is intended
+                    # For now, let's get its schema but not data.
+                    # Or, if we want a full pg_dump like behavior, we might handle it differently.
+                    # For this script, focusing on application tables.
+                    pass # Handled by schema dump section potentially, or skip data.
+
+                # Get CREATE TABLE statement (simplified, might not handle all constraints/types perfectly)
+                # This part of your script seems to be more for schema than data, let's assume it's okay for now
+                # or could be replaced by pg_dump for schema if needed.
+                # For data, we focus on the INSERTs.
                 schema_query = text(f"""
                     SELECT 
                         'CREATE TABLE ' || 
                         quote_ident(table_schema) || '.' || quote_ident(table_name) || 
                         '(' || 
                         string_agg(
-                            quote_ident(column_name) || ' ' || data_type || 
+                            quote_ident(column_name) || ' ' || udt_name || 
                             CASE WHEN character_maximum_length IS NOT NULL THEN '(' || character_maximum_length || ')' ELSE '' END ||
                             CASE WHEN is_nullable = 'NO' THEN ' NOT NULL' ELSE '' END,
-                            ', '
+                            ', ' ORDER BY ordinal_position
                         ) || 
                         ');' AS create_statement
                     FROM information_schema.columns
@@ -82,37 +94,59 @@ class DatabaseAdminService:
                 create_statement = schema_result.scalar_one_or_none()
                 
                 if create_statement:
-                    sql_content.append(f"-- Creating table {table}")
+                    sql_content.append(f"-- Schema for table {table}")
                     sql_content.append(create_statement)
                     sql_content.append("")
+                else:
+                    logger.warning(f"Could not retrieve CREATE TABLE statement for {table}")
+                    sql_content.append(f"-- Could not retrieve CREATE TABLE statement for {table}")
+                    sql_content.append("")
+
+                # Data dump part
+                # Limit rows for safety/performance in this script; consider full dump for production backups
+                # The tables excluded here were for brevity in the original snippet, adjust as needed.
+                # if table not in ["messages", "structured_data"]: # Original exclusion
+                # For a more complete backup, you'd likely want all tables or a configurable exclude list.
+                # We will attempt to dump all tables for now, but be mindful of large tables.
                 
-                if table not in ["messages", "structured_data"]:
-                    data_query = text(f"SELECT * FROM {table} LIMIT 1000") # bezpieczeństwo
-                    data_result = await self.db.execute(data_query)
-                    rows = data_result.fetchall()
-                    if rows:
-                        sql_content.append(f"-- Inserting data into {table}")
-                        for row_idx, row_data in enumerate(rows):
-                            current_values = []
-                            for col_idx, value in enumerate(row_data):
-                                if isinstance(value, str):
-                                    # Escape single quotes for SQL
-                                    escaped_val = value.replace("'", "''")
-                                    # Wrap in single quotes for SQL
-                                    current_values.append(f"'{escaped_val}'")
-                                elif isinstance(value, (int, float, bool)):
-                                    current_values.append(str(value))
-                                elif value is None:
-                                    current_values.append('NULL')
-                                else: # Fallback for other types
-                                    # Convert to string, then escape single quotes, then wrap in single quotes
-                                    str_val = str(value)
-                                    escaped_str_val = str_val.replace("'", "''")
-                                    current_values.append(f"'{escaped_str_val}'")
-                            sql_content.append(f"INSERT INTO {table} VALUES ({', '.join(current_values)});")
-                        sql_content.append("")
+                data_query = text(f"SELECT * FROM public.\"{table}\"") # Ensure schema.table quoting for safety
+                data_result = await self.db.execute(data_query)
+                rows = data_result.fetchall()
+                
+                if rows:
+                    column_names = [col[0] for col in data_result.cursor.description] # Get column names from cursor
+                    quoted_column_names = [f'\"{name}\"' for name in column_names] # Quote column names for SQL
+                    
+                    sql_content.append(f"-- Inserting data into {table}")
+                    for row_data in rows:
+                        current_values = []
+                        for value in row_data:
+                            if value is None:
+                                current_values.append('NULL')
+                            elif isinstance(value, bool):
+                                current_values.append('TRUE' if value else 'FALSE')
+                            elif isinstance(value, (int, float)):
+                                current_values.append(str(value))
+                            elif isinstance(value, (datetime, date)):
+                                current_values.append(f"'{value.isoformat()}'")
+                            elif isinstance(value, UUID):
+                                current_values.append(f"'{str(value)}'")
+                            elif isinstance(value, (dict, list)):
+                                json_str = json.dumps(value) 
+                                escaped_json_str = json_str.replace("'", "''") 
+                                current_values.append(f"'{escaped_json_str}'")
+                            elif isinstance(value, str):
+                                escaped_val = value.replace("'", "''").replace("\\", "\\\\") # Also escape backslashes for SQL
+                                current_values.append(f"'{escaped_val}'")
+                            else: 
+                                str_val = str(value)
+                                escaped_str_val = str_val.replace("'", "''").replace("\\", "\\\\")
+                                current_values.append(f"'{escaped_str_val}'")
+                        sql_content.append(f"INSERT INTO public.\"{table}\" ({', '.join(quoted_column_names)}) VALUES ({', '.join(current_values)});")
+                    sql_content.append("")
+
             sql_content.append("COMMIT;")
-            with open(backup_file, "w") as f:
+            with open(backup_file, "w", encoding='utf-8') as f: # Added encoding
                 f.write("\n".join(sql_content))
             logger.info(f"Database backup completed successfully: {backup_file}")
             return str(backup_file)

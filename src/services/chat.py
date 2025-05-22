@@ -198,13 +198,6 @@ class ChatService:
         if not conversation:
             raise ValueError("Conversation not found")
 
-        # DEBUG: Log loaded messages before returning
-        self.logger.info(f"ChatService.get_conversation: Found conversation {conversation.id}.")
-        if conversation.messages:
-            self.logger.info(f"ChatService.get_conversation: Loaded {len(conversation.messages)} messages for conversation {conversation.id}. Message IDs: {[msg.id for msg in conversation.messages]}")
-        else:
-            self.logger.info(f"ChatService.get_conversation: No messages loaded for conversation {conversation.id} (conversation.messages is empty or None).")
-        
         return conversation
 
     async def get_chat_response(

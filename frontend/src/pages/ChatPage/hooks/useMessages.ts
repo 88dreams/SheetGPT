@@ -14,29 +14,14 @@ export function useMessages({ conversationId, enabled = true }: UseMessagesOptio
     isError,
     refetch
   } = useQuery<Message[], Error>(['messages', conversationId], async () => {
-    console.log('useMessages: Fetching messages for conversationId:', conversationId);
-    
     if (!conversationId) {
-      console.log('useMessages: conversationId is falsy, returning [].');
       return [];
     }
     
     let conversationResponse;
-    try {
-      conversationResponse = await api.chat.getConversation(conversationId);
-      console.log('useMessages: Raw API response for getConversation:', conversationResponse);
-    } catch (apiError) {
-      console.error('useMessages: Error calling api.chat.getConversation:', apiError);
-      throw apiError;
-    }
+    conversationResponse = await api.chat.getConversation(conversationId);
 
     const messages = conversationResponse.messages;
-    
-    console.log('useMessages: Messages extracted from response:', {
-      conversationId,
-      messageCount: messages ? messages.length : 'undefined',
-      areMessagesArray: Array.isArray(messages)
-    });
     
     return messages || [];
   }, {

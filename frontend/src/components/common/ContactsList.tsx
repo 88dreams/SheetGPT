@@ -835,121 +835,115 @@ const ContactsList: React.FC<ContactsListProps> = ({ brandId, onContactSelect })
                     className="hover:bg-gray-50 cursor-pointer border-b border-gray-200"
                     onClick={() => onContactSelect && onContactSelect(contact)}
                   >
-                    {/* Name column */}
-                    {visibleColumns.name !== false && (
-                      <td className="px-3 py-3 whitespace-nowrap border-r border-gray-200">
-                        <div className="flex items-center">
-                          <div className="flex-shrink-0 h-10 w-10 bg-gray-200 rounded-full flex items-center justify-center">
-                            <FaUser className="text-gray-500" />
-                          </div>
-                          <div className="ml-4">
-                            <div className="text-sm font-medium text-gray-900">
-                              {contact.first_name} {contact.last_name}
-                            </div>
-                            {contact.email && visibleColumns.email === false && (
-                              <div className="flex text-xs text-gray-500 mt-1">
-                                <div className="flex items-center mr-3" title={contact.email}>
-                                  <FaEnvelope className="mr-1" />
-                                  <span className="truncate max-w-xs">{contact.email}</span>
-                                </div>
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      </td>
-                    )}
-                    
-                    {/* Email column */}
-                    {visibleColumns.email !== false && (
-                      <td className="px-3 py-3 whitespace-nowrap border-r border-gray-200">
-                        {contact.email ? (
-                          <div className="flex items-center text-sm text-gray-900">
-                            <FaEnvelope className="mr-1 text-gray-400" />
-                            <a href={`mailto:${contact.email}`} className="text-blue-600 hover:text-blue-800" onClick={(e) => e.stopPropagation()}>
-                              {contact.email}
-                            </a>
-                          </div>
-                        ) : (
-                          <span className="text-gray-400 text-sm">-</span>
-                        )}
-                      </td>
-                    )}
-                    
-                    {/* Company column */}
-                    {visibleColumns.company !== false && (
-                      <td className="px-3 py-3 whitespace-nowrap border-r border-gray-200">
-                        {contact.company ? (
-                          <div className="flex items-center text-sm text-gray-900">
-                            <FaBuilding className="mr-1 text-gray-400" />
-                            {contact.company}
-                          </div>
-                        ) : (
-                          <span className="text-gray-400 text-sm">-</span>
-                        )}
-                      </td>
-                    )}
-                    
-                    {/* Position column */}
-                    {visibleColumns.position !== false && (
-                      <td className="px-3 py-3 whitespace-nowrap border-r border-gray-200">
-                        {contact.position ? (
-                          <span className="text-sm text-gray-900">{contact.position}</span>
-                        ) : (
-                          <span className="text-gray-400 text-sm">-</span>
-                        )}
-                      </td>
-                    )}
-                    
-                    {/* Connected On column */}
-                    {visibleColumns.connected_on !== false && (
-                      <td className="px-3 py-3 whitespace-nowrap border-r border-gray-200">
-                        {contact.connected_on ? (
-                          <span className="text-sm text-gray-900">{new Date(contact.connected_on).toLocaleDateString()}</span>
-                        ) : (
-                          <span className="text-gray-400 text-sm">-</span>
-                        )}
-                      </td>
-                    )}
+                    {columnOrder.map(columnKey => {
+                      if (visibleColumns[columnKey] === false) return null;
 
-                    {/* Import Source Tag column */}
-                    {visibleColumns.import_source_tag !== false && (
-                      <td className="px-3 py-3 whitespace-nowrap border-r border-gray-200">
-                        {contact.import_source_tag ? (
-                          <span className="text-sm text-gray-900 truncate max-w-xs" title={contact.import_source_tag}>{contact.import_source_tag}</span>
-                        ) : (
-                          <span className="text-gray-400 text-sm">-</span>
-                        )}
-                      </td>
-                    )}
-                    
-                    {/* Brand Count column */}
-                    {visibleColumns.brand_count !== false && (
-                      <td className="px-3 py-3 whitespace-nowrap border-r border-gray-200">
-                        <div className="flex flex-wrap gap-1">
-                          {contact.brand_associations && contact.brand_associations.length > 0 ? (
-                            contact.brand_associations.map((association) => (
-                              <span 
-                                key={association.id}
-                                className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
-                                  association.is_primary 
-                                    ? 'bg-blue-100 text-blue-800' 
-                                    : 'bg-gray-100 text-gray-800'
-                                }`}
-                                title={`Confidence: ${Math.round(association.confidence_score * 100)}%`}
-                              >
-                                {association.brand?.name || 'Unknown'}
-                                {association.brand?.representative_entity_type && (
-                                  <span className="ml-1">({association.brand.representative_entity_type})</span>
+                      let cellContent;
+                      switch (columnKey) {
+                        case 'name':
+                          cellContent = (
+                            <div className="flex items-center">
+                              <div className="flex-shrink-0 h-10 w-10 bg-gray-200 rounded-full flex items-center justify-center">
+                                <FaUser className="text-gray-500" />
+                              </div>
+                              <div className="ml-4">
+                                <div className="text-sm font-medium text-gray-900">
+                                  {contact.first_name} {contact.last_name}
+                                </div>
+                                {contact.email && visibleColumns.email === false && (
+                                  <div className="flex text-xs text-gray-500 mt-1">
+                                    <div className="flex items-center mr-3" title={contact.email}>
+                                      <FaEnvelope className="mr-1" />
+                                      <span className="truncate max-w-xs">{contact.email}</span>
+                                    </div>
+                                  </div>
                                 )}
-                                {association.is_primary && ' (Primary)'}
-                              </span>
-                            ))
+                              </div>
+                            </div>
+                          );
+                          break;
+                        case 'email':
+                          cellContent = contact.email ? (
+                            <div className="flex items-center text-sm text-gray-900">
+                              <FaEnvelope className="mr-1 text-gray-400" />
+                              <a href={`mailto:${contact.email}`} className="text-blue-600 hover:text-blue-800" onClick={(e) => e.stopPropagation()}>
+                                {contact.email}
+                              </a>
+                            </div>
+                          ) : (
+                            <span className="text-gray-400 text-sm">-</span>
+                          );
+                          break;
+                        case 'company':
+                          cellContent = contact.company ? (
+                            <div className="flex items-center text-sm text-gray-900">
+                              <FaBuilding className="mr-1 text-gray-400" />
+                              {contact.company}
+                            </div>
+                          ) : (
+                            <span className="text-gray-400 text-sm">-</span>
+                          );
+                          break;
+                        case 'position':
+                          cellContent = contact.position ? (
+                            <span className="text-sm text-gray-900">{contact.position}</span>
+                          ) : (
+                            <span className="text-gray-400 text-sm">-</span>
+                          );
+                          break;
+                        case 'connected_on':
+                          cellContent = contact.connected_on ? (
+                            <span className="text-sm text-gray-900">{new Date(contact.connected_on).toLocaleDateString()}</span>
+                          ) : (
+                            <span className="text-gray-400 text-sm">-</span>
+                          );
+                          break;
+                        case 'import_source_tag':
+                          cellContent = contact.import_source_tag ? (
+                            <span className="text-sm text-gray-900 truncate max-w-xs" title={contact.import_source_tag}>{contact.import_source_tag}</span>
+                          ) : (
+                            <span className="text-gray-400 text-sm">-</span>
+                          );
+                          break;
+                        case 'brand_count': // This key corresponds to "Matched Brands"
+                          cellContent = (contact.brand_associations && contact.brand_associations.length > 0) ? (
+                            <div className="flex flex-wrap gap-1">
+                              {contact.brand_associations.map((association) => (
+                                <span 
+                                  key={association.id}
+                                  className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
+                                    association.is_primary 
+                                      ? 'bg-blue-100 text-blue-800' 
+                                      : 'bg-gray-100 text-gray-800'
+                                  }`}
+                                  title={`Confidence: ${Math.round(association.confidence_score * 100)}%`}
+                                >
+                                  {association.brand?.name || 'Unknown'}
+                                  {association.brand?.representative_entity_type && (
+                                    <span className="ml-1">({association.brand.representative_entity_type})</span>
+                                  )}
+                                  {association.is_primary && ' (Primary)'}
+                                </span>
+                              ))}
+                            </div>
                           ) : (
                             <span className="text-gray-400 text-sm">No brand matches</span>
-                          )}
-                        </div>
-                      </td>
-                    )}
+                          );
+                          break;
+                        default:
+                          cellContent = null;
+                      }
+
+                      // For columns like 'name', the cellContent is already a complex div.
+                      // For simpler text/span content, we might want to wrap it consistently if needed,
+                      // but here we'll just render the cellContent directly as it's designed per case.
+                      // The td className applies to all.
+                      return (
+                        <td key={columnKey} className="px-3 py-3 whitespace-nowrap border-r border-gray-200">
+                          {cellContent}
+                        </td>
+                      );
+                    })}
                   </tr>
                 ))}
               </tbody>

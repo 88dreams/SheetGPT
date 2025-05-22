@@ -3,7 +3,7 @@ import { useApiClient } from '../../hooks/useApiClient';
 import { useNotification } from '../../contexts/NotificationContext';
 import { FaEnvelope, FaLinkedin, FaBuilding, FaUser, FaSort, FaSortUp, FaSortDown, FaSearch, FaTimes, FaSpinner, FaColumns, FaSync, FaAddressBook, FaFileUpload } from 'react-icons/fa';
 import { useDragAndDrop } from '../../components/data/DataTable/hooks/useDragAndDrop';
-import { Modal, InputNumber, Tooltip } from 'antd';
+import { Modal, InputNumber, Tooltip, Input } from 'antd';
 import { useQueryClient } from '@tanstack/react-query';
 
 interface Brand {
@@ -74,9 +74,14 @@ const ContactsList: React.FC<ContactsListProps> = ({ brandId, onContactSelect })
   const [isThresholdModalVisible, setIsThresholdModalVisible] = useState(false);
   const [rescanThreshold, setRescanThreshold] = useState(0.8);
   const [refetchKey, setRefetchKey] = useState(0);
+  const [selectedContactIds, setSelectedContactIds] = useState<Set<string>>(new Set());
+  const [isRetagModalVisible, setIsRetagModalVisible] = useState(false);
+  const [retagValue, setRetagValue] = useState('');
+  const [isRetagging, setIsRetagging] = useState(false);
   
   // Column visibility state
   const [visibleColumns, setVisibleColumns] = useState<Record<string, boolean>>({
+    select: true,
     name: true,
     email: true,
     company: true,
@@ -88,6 +93,7 @@ const ContactsList: React.FC<ContactsListProps> = ({ brandId, onContactSelect })
 
   // Define the column definitions with width and a display name
   const columnDefinitions = {
+    select: { width: 60, display: 'Select', sortField: null },
     name: { width: 250, display: 'Name', sortField: 'last_name' },
     email: { width: 200, display: 'Email' },
     company: { width: 200, display: 'Company' },
@@ -133,6 +139,7 @@ const ContactsList: React.FC<ContactsListProps> = ({ brandId, onContactSelect })
   // Show all columns
   const showAllColumns = useCallback(() => {
     setVisibleColumns({
+      select: true,
       name: true,
       email: true,
       company: true,
@@ -145,6 +152,7 @@ const ContactsList: React.FC<ContactsListProps> = ({ brandId, onContactSelect })
   
   // Initial column order
   const initialColumnOrder = [
+    'select',
     'name',
     'email',
     'company',
@@ -530,6 +538,50 @@ const ContactsList: React.FC<ContactsListProps> = ({ brandId, onContactSelect })
     }
   }, [apiClient, rescanThreshold, showNotification, queryClient, setRefetchKey, currentPage]);
 
+  // Handler for opening the retag modal
+  const handleOpenRetagModal = () => {
+    if (selectedContactIds.size === 0) {
+      showNotification('info', 'Please select at least one contact to retag.');
+      return;
+    }
+    setRetagValue(''); // Clear previous tag value
+    setIsRetagModalVisible(true);
+  };
+
+  // Handler for confirming the retag operation
+  const handleConfirmRetag = async () => {
+    if (!retagValue.trim()) {
+      showNotification('error', 'Please enter a tag value.');
+      return;
+    }
+    if (selectedContactIds.size === 0) {
+      showNotification('error', 'No contacts selected.');
+      return;
+    }
+
+    setIsRetagging(true);
+    try {
+      const response = await apiClient.post('/api/v1/contacts/bulk-update-specific-tags', {
+        contact_ids: Array.from(selectedContactIds),
+        new_tag: retagValue.trim(),
+      }, { requiresAuth: true });
+
+      showNotification('success', response.data.message || `Successfully retagged ${response.data.updated_count} contacts.`);
+      setSelectedContactIds(new Set()); // Clear selection
+      setIsRetagModalVisible(false); // Close modal
+      
+      // Directly refetch contacts data
+      console.log("ContactsList: Retag successful, directly calling fetchContactsRef.current() to refresh data.");
+      fetchContactsRef.current();
+
+    } catch (err: any) {
+      console.error('Error retagging contacts:', err);
+      showNotification('error', err.response?.data?.detail || 'Failed to retag contacts.');
+    } finally {
+      setIsRetagging(false);
+    }
+  };
+
   // Render sort icon
   const renderSortIcon = (field: string) => {
     if (sortBy !== field) {
@@ -650,6 +702,28 @@ const ContactsList: React.FC<ContactsListProps> = ({ brandId, onContactSelect })
     return columnDefinitions[column].width;
   }, []);
 
+  // Toggle selection for a single contact
+  const handleToggleSelectContact = (contactId: string) => {
+    setSelectedContactIds(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(contactId)) {
+        newSet.delete(contactId);
+      } else {
+        newSet.add(contactId);
+      }
+      return newSet;
+    });
+  };
+
+  // Toggle selection for all currently displayed contacts
+  const handleToggleSelectAll = () => {
+    if (selectedContactIds.size === displayContacts.length && displayContacts.length > 0) {
+      setSelectedContactIds(new Set());
+    } else {
+      setSelectedContactIds(new Set(displayContacts.map(c => c.id)));
+    }
+  };
+
   return (
     <div className="bg-white rounded-lg shadow overflow-hidden">
       <div className="p-4 border-b flex flex-col md:flex-row md:items-center justify-between">
@@ -669,6 +743,17 @@ const ContactsList: React.FC<ContactsListProps> = ({ brandId, onContactSelect })
             )}
             Re-scan for brand matches
           </button>
+
+          {/* Retag Selected Button - New */} 
+          {selectedContactIds.size > 0 && (
+            <button
+              onClick={handleOpenRetagModal}
+              className="ml-4 px-3 py-1 rounded-md flex items-center bg-green-50 text-green-700 border border-green-300 hover:bg-green-100 disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+              title="Retag selected contacts"
+            >
+              Retag Selected ({selectedContactIds.size})
+            </button>
+          )}
         </div>
         
         <div className="flex flex-col md:flex-row md:items-center space-y-2 md:space-y-0 md:space-x-2">
@@ -789,7 +874,6 @@ const ContactsList: React.FC<ContactsListProps> = ({ brandId, onContactSelect })
                   {columnOrder.map(column => {
                     if (visibleColumns[column] === false) return null;
                     
-                    // Get the proper sort field (special case for name)
                     const sortField = columnDefinitions[column].sortField || column;
                     
                     return (
@@ -801,28 +885,39 @@ const ContactsList: React.FC<ContactsListProps> = ({ brandId, onContactSelect })
                           relative border-r border-gray-200 hover:bg-gray-100 group
                           ${dragOverItem === column ? 'bg-blue-50' : ''}
                         `}
-                        onClick={() => handleSortChange(sortField)}
-                        draggable="true"
-                        onDragStart={(e) => handleDragStart(e, column)}
-                        onDragOver={(e) => handleDragOver(e, column)}
-                        onDrop={(e) => handleDrop(e, column)}
-                        onDragEnd={handleDragEnd}
+                        onClick={() => column === 'select' ? {} : handleSortChange(sortField)}
+                        draggable={column !== 'select'}
+                        onDragStart={(e) => column !== 'select' && handleDragStart(e, column)}
+                        onDragOver={(e) => column !== 'select' && handleDragOver(e, column)}
+                        onDrop={(e) => column !== 'select' && handleDrop(e, column)}
+                        onDragEnd={column !== 'select' && handleDragEnd}
                       >
-                        <div className="flex items-center">
-                          <span>{columnDefinitions[column].display}</span>
-                          {renderSortIcon(sortField)}
-                          
-                          {/* Resize handle */}
-                          <div 
-                            className="absolute top-0 right-0 h-full w-4 cursor-col-resize"
-                            onMouseDown={(e) => startResize(e, column)}
-                            onClick={(e) => e.stopPropagation()}
-                          >
-                            <div className="h-full flex items-center justify-center">
-                              <div className="h-4/5 w-0.5 bg-gray-300 group-hover:bg-blue-500 hover:bg-blue-500"></div>
+                        {column === 'select' ? (
+                          <div className="flex items-center justify-center">
+                            <input
+                              type="checkbox"
+                              className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                              checked={displayContacts.length > 0 && selectedContactIds.size === displayContacts.length}
+                              onChange={handleToggleSelectAll}
+                              title={selectedContactIds.size === displayContacts.length && displayContacts.length > 0 ? "Deselect all" : "Select all"}
+                            />
+                          </div>
+                        ) : (
+                          <div className="flex items-center">
+                            <span>{columnDefinitions[column].display}</span>
+                            {columnDefinitions[column].sortField !== null && renderSortIcon(sortField)}
+                            {/* Resize handle */}
+                            <div 
+                              className="absolute top-0 right-0 h-full w-4 cursor-col-resize"
+                              onMouseDown={(e) => startResize(e, column)}
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              <div className="h-full flex items-center justify-center">
+                                <div className="h-4/5 w-0.5 bg-gray-300 group-hover:bg-blue-500 hover:bg-blue-500"></div>
+                              </div>
                             </div>
                           </div>
-                        </div>
+                        )}
                       </th>
                     );
                   })}
@@ -832,112 +927,124 @@ const ContactsList: React.FC<ContactsListProps> = ({ brandId, onContactSelect })
                 {displayContacts.map((contact) => (
                   <tr 
                     key={contact.id}
-                    className="hover:bg-gray-50 cursor-pointer border-b border-gray-200"
+                    className={`hover:bg-gray-50 cursor-pointer border-b border-gray-200 ${
+                      selectedContactIds.has(contact.id) ? 'bg-yellow-50' : ''
+                    }`}
                     onClick={() => onContactSelect && onContactSelect(contact)}
                   >
                     {columnOrder.map(columnKey => {
                       if (visibleColumns[columnKey] === false) return null;
 
                       let cellContent;
-                      switch (columnKey) {
-                        case 'name':
-                          cellContent = (
-                            <div className="flex items-center">
-                              <div className="flex-shrink-0 h-10 w-10 bg-gray-200 rounded-full flex items-center justify-center">
-                                <FaUser className="text-gray-500" />
-                              </div>
-                              <div className="ml-4">
-                                <div className="text-sm font-medium text-gray-900">
-                                  {contact.first_name} {contact.last_name}
+                      if (columnKey === 'select') {
+                        cellContent = (
+                          <div className="flex items-center justify-center">
+                            <input
+                              type="checkbox"
+                              className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                              checked={selectedContactIds.has(contact.id)}
+                              onChange={() => handleToggleSelectContact(contact.id)}
+                              onClick={(e) => e.stopPropagation()}
+                            />
+                          </div>
+                        );
+                      } else {
+                        switch (columnKey) {
+                          case 'name':
+                            cellContent = (
+                              <div className="flex items-center">
+                                <div className="flex-shrink-0 h-10 w-10 bg-gray-200 rounded-full flex items-center justify-center">
+                                  <FaUser className="text-gray-500" />
                                 </div>
-                                {contact.email && visibleColumns.email === false && (
-                                  <div className="flex text-xs text-gray-500 mt-1">
-                                    <div className="flex items-center mr-3" title={contact.email}>
-                                      <FaEnvelope className="mr-1" />
-                                      <span className="truncate max-w-xs">{contact.email}</span>
-                                    </div>
+                                <div className="ml-4">
+                                  <div className="text-sm font-medium text-gray-900">
+                                    {contact.first_name} {contact.last_name}
                                   </div>
-                                )}
-                              </div>
-                            </div>
-                          );
-                          break;
-                        case 'email':
-                          cellContent = contact.email ? (
-                            <div className="flex items-center text-sm text-gray-900">
-                              <FaEnvelope className="mr-1 text-gray-400" />
-                              <a href={`mailto:${contact.email}`} className="text-blue-600 hover:text-blue-800" onClick={(e) => e.stopPropagation()}>
-                                {contact.email}
-                              </a>
-                            </div>
-                          ) : (
-                            <span className="text-gray-400 text-sm">-</span>
-                          );
-                          break;
-                        case 'company':
-                          cellContent = contact.company ? (
-                            <div className="flex items-center text-sm text-gray-900">
-                              <FaBuilding className="mr-1 text-gray-400" />
-                              {contact.company}
-                            </div>
-                          ) : (
-                            <span className="text-gray-400 text-sm">-</span>
-                          );
-                          break;
-                        case 'position':
-                          cellContent = contact.position ? (
-                            <span className="text-sm text-gray-900">{contact.position}</span>
-                          ) : (
-                            <span className="text-gray-400 text-sm">-</span>
-                          );
-                          break;
-                        case 'connected_on':
-                          cellContent = contact.connected_on ? (
-                            <span className="text-sm text-gray-900">{new Date(contact.connected_on).toLocaleDateString()}</span>
-                          ) : (
-                            <span className="text-gray-400 text-sm">-</span>
-                          );
-                          break;
-                        case 'import_source_tag':
-                          cellContent = contact.import_source_tag ? (
-                            <span className="text-sm text-gray-900 truncate max-w-xs" title={contact.import_source_tag}>{contact.import_source_tag}</span>
-                          ) : (
-                            <span className="text-gray-400 text-sm">-</span>
-                          );
-                          break;
-                        case 'brand_count': // This key corresponds to "Matched Brands"
-                          cellContent = (contact.brand_associations && contact.brand_associations.length > 0) ? (
-                            <div className="flex flex-wrap gap-1">
-                              {contact.brand_associations.map((association) => (
-                                <span 
-                                  key={association.id}
-                                  className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
-                                    association.is_primary 
-                                      ? 'bg-blue-100 text-blue-800' 
-                                      : 'bg-gray-100 text-gray-800'
-                                  }`}
-                                  title={`Confidence: ${Math.round(association.confidence_score * 100)}%`}
-                                >
-                                  {association.brand?.name || 'Unknown'}
-                                  {association.brand?.representative_entity_type && (
-                                    <span className="ml-1">({association.brand.representative_entity_type})</span>
+                                  {contact.email && visibleColumns.email === false && (
+                                    <div className="flex text-xs text-gray-500 mt-1">
+                                      <div className="flex items-center mr-3" title={contact.email}>
+                                        <FaEnvelope className="mr-1" />
+                                        <span className="truncate max-w-xs">{contact.email}</span>
+                                      </div>
+                                    </div>
                                   )}
-                                  {association.is_primary && ' (Primary)'}
-                                </span>
-                              ))}
-                            </div>
-                          ) : (
-                            <span className="text-gray-400 text-sm">No brand matches</span>
-                          );
-                          break;
-                        default:
-                          cellContent = null;
+                                </div>
+                              </div>
+                            );
+                            break;
+                          case 'email':
+                            cellContent = contact.email ? (
+                              <div className="flex items-center text-sm text-gray-900">
+                                <FaEnvelope className="mr-1 text-gray-400" />
+                                <a href={`mailto:${contact.email}`} className="text-blue-600 hover:text-blue-800" onClick={(e) => e.stopPropagation()}>
+                                  {contact.email}
+                                </a>
+                              </div>
+                            ) : (
+                              <span className="text-gray-400 text-sm">-</span>
+                            );
+                            break;
+                          case 'company':
+                            cellContent = contact.company ? (
+                              <div className="flex items-center text-sm text-gray-900">
+                                <FaBuilding className="mr-1 text-gray-400" />
+                                {contact.company}
+                              </div>
+                            ) : (
+                              <span className="text-gray-400 text-sm">-</span>
+                            );
+                            break;
+                          case 'position':
+                            cellContent = contact.position ? (
+                              <span className="text-sm text-gray-900">{contact.position}</span>
+                            ) : (
+                              <span className="text-gray-400 text-sm">-</span>
+                            );
+                            break;
+                          case 'connected_on':
+                            cellContent = contact.connected_on ? (
+                              <span className="text-sm text-gray-900">{new Date(contact.connected_on).toLocaleDateString()}</span>
+                            ) : (
+                              <span className="text-gray-400 text-sm">-</span>
+                            );
+                            break;
+                          case 'import_source_tag':
+                            cellContent = contact.import_source_tag ? (
+                              <span className="text-sm text-gray-900 truncate max-w-xs" title={contact.import_source_tag}>{contact.import_source_tag}</span>
+                            ) : (
+                              <span className="text-gray-400 text-sm">-</span>
+                            );
+                            break;
+                          case 'brand_count':
+                            cellContent = (contact.brand_associations && contact.brand_associations.length > 0) ? (
+                              <div className="flex flex-wrap gap-1">
+                                {contact.brand_associations.map((association) => (
+                                  <span 
+                                    key={association.id}
+                                    className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
+                                      association.is_primary 
+                                        ? 'bg-blue-100 text-blue-800' 
+                                        : 'bg-gray-100 text-gray-800'
+                                    }`}
+                                    title={`Confidence: ${Math.round(association.confidence_score * 100)}%`}
+                                  >
+                                    {association.brand?.name || 'Unknown'}
+                                    {association.brand?.representative_entity_type && (
+                                      <span className="ml-1">({association.brand.representative_entity_type})</span>
+                                    )}
+                                    {association.is_primary && ' (Primary)'}
+                                  </span>
+                                ))}
+                              </div>
+                            ) : (
+                              <span className="text-gray-400 text-sm">No brand matches</span>
+                            );
+                            break;
+                          default:
+                            cellContent = null;
+                        }
                       }
 
-                      // For columns like 'name', the cellContent is already a complex div.
-                      // For simpler text/span content, we might want to wrap it consistently if needed,
-                      // but here we'll just render the cellContent directly as it's designed per case.
-                      // The td className applies to all.
                       return (
                         <td key={columnKey} className="px-3 py-3 whitespace-nowrap border-r border-gray-200">
                           {cellContent}
@@ -1027,9 +1134,9 @@ const ContactsList: React.FC<ContactsListProps> = ({ brandId, onContactSelect })
       <Modal
         title="Set Re-scan Confidence Threshold"
         open={isThresholdModalVisible}
-        onOk={confirmRescanWithThreshold} // Use the new function on OK
+        onOk={confirmRescanWithThreshold}
         onCancel={() => setIsThresholdModalVisible(false)}
-        confirmLoading={rescanning} // Show loading state on confirm button
+        confirmLoading={rescanning}
         okText="Confirm Re-scan"
       >
         <p className="mb-4">
@@ -1045,13 +1152,35 @@ const ContactsList: React.FC<ContactsListProps> = ({ brandId, onContactSelect })
             max={1.0}
             step={0.05}
             value={rescanThreshold}
-            onChange={(value) => setRescanThreshold(value ?? 0.8)} // Handle null value from InputNumber
+            onChange={(value) => setRescanThreshold(value ?? 0.8)}
             style={{ width: '100px' }}
           />
           <Tooltip title="0.0 (very loose) to 1.0 (exact match). Default: 0.8">
             <span className="ml-2 text-gray-400 cursor-help">(?)</span>
           </Tooltip>
         </div>
+      </Modal>
+
+      {/* Retag Modal - New */}
+      <Modal
+        title={`Retag ${selectedContactIds.size} Selected Contact(s)`}
+        open={isRetagModalVisible}
+        onOk={handleConfirmRetag}
+        onCancel={() => setIsRetagModalVisible(false)}
+        confirmLoading={isRetagging}
+        okText="Confirm Retag"
+        okButtonProps={{ disabled: !retagValue.trim() }}
+      >
+        <p className="mb-4">
+          Enter the new 'Import Source Tag' to apply to the selected contacts.
+          This will overwrite any existing tag on these contacts.
+        </p>
+        <Input
+          placeholder="Enter new import tag"
+          value={retagValue}
+          onChange={(e) => setRetagValue(e.target.value)}
+          onPressEnter={(e) => { if (retagValue.trim()) handleConfirmRetag(); }}
+        />
       </Modal>
     </div>
   );

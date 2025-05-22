@@ -125,3 +125,11 @@ class ContactListParams(BaseModel):
 class BulkUpdateTagRequest(BaseModel):
     new_tag: str = Field(..., min_length=1, description="The new import source tag to apply.")
     target_contacts: Literal["all", "all_untagged"] = Field("all_untagged", description="Which contacts to target: 'all' or 'all_untagged'.")
+
+class BulkUpdateSpecificContactsTagRequest(BaseModel):
+    """Schema for updating the import source tag for a list of specific contact IDs."""
+    contact_ids: List[UUID] = Field(..., min_items=1)
+    new_tag: str = Field(..., min_length=1, max_length=255)
+
+class ContactFullResponse(ContactResponse):
+    brand_associations: List[ContactBrandAssociationResponse] = []

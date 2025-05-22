@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Query, Request, Form
 from sqlalchemy.ext.asyncio import AsyncSession
-from starlette.status import HTTP_201_CREATED, HTTP_400_BAD_REQUEST
+from starlette.status import HTTP_201_CREATED, HTTP_400_BAD_REQUEST, HTTP_200_OK
 from typing import List, Optional, Dict, Any
 from uuid import UUID
 import csv
@@ -21,7 +21,8 @@ from src.schemas.contacts import (
     ContactListParams,
     ContactCSVImport,
     ContactCSVRow,
-    BulkUpdateTagRequest
+    BulkUpdateTagRequest,
+    BulkUpdateSpecificContactsTagRequest
 )
 from src.utils.database import get_db
 from src.utils.auth import get_current_user
@@ -491,3 +492,26 @@ async def get_contacts_count_by_brand(
             status_code=500,
             detail=f"Error getting contact count for brand: {str(e)}"
         )
+
+@router.post("/bulk-update-specific-tags", status_code=HTTP_200_OK)
+async def bulk_update_specific_tags(
+    request_body: BulkUpdateSpecificContactsTagRequest,
+    current_user: Dict = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """Update the import_source_tag for a list of specific contacts."""
+    user_id = UUID(current_user["id"])
+    contacts_service = ContactsService(db)
+    try:
+        updated_count = await contacts_service.bulk_update_specific_contacts_tag(
+            user_id=user_id,
+            contact_ids=request_body.contact_ids,
+            new_tag=request_body.new_tag
+        )
+        return {"message": f"Successfully updated import_source_tag for {updated_count} contacts.", "updated_count": updated_count}
+    except EntityNotFoundError as e:
+        raise HTTPException(status_code=HTTP_404_NOT_FOUND, detail=str(e))
+    except Exception as e:
+        # Log the exception for debugging
+        print(f"Error in bulk_update_specific_tags: {str(e)}") # Replace with proper logging if available
+        raise HTTPException(status_code=HTTP_500_INTERNAL_SERVER_ERROR, detail="An unexpected error occurred while updating contact tags.")

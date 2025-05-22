@@ -7,7 +7,7 @@ import io
 from difflib import SequenceMatcher
 
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, and_, or_, func
+from sqlalchemy import select, and_, or_, func, update
 from sqlalchemy.orm import selectinload, joinedload
 
 from src.models.sports_models import Contact, ContactBrandAssociation, Brand, League, Team, Stadium, ProductionService
@@ -1001,3 +1001,43 @@ class ContactsService:
             raise e # Re-raise after rollback
         
         return {"updated_count": updated_count, "message": f"Successfully updated {updated_count} contacts."}
+
+    async def bulk_update_specific_contacts_tag(
+        self,
+        user_id: UUID,
+        contact_ids: List[UUID],
+        new_tag: str
+    ) -> int:
+        """Update the import_source_tag for a specific list of contacts."""
+        if not contact_ids:
+            return 0
+
+        stmt = (
+            update(Contact)
+            .where(Contact.user_id == user_id)
+            .where(Contact.id.in_(contact_ids))
+            .values(import_source_tag=new_tag)
+            .execution_options(synchronize_session=False)  # Important for bulk updates
+        )
+        result = await self.db.execute(stmt)
+        await self.db.commit()
+        
+        updated_count = result.rowcount
+        print(f"User {user_id} updated import_source_tag for {updated_count} contacts to '{new_tag}'. Contact IDs: {contact_ids}")
+        return updated_count
+
+    async def get_contact_by_id(self, contact_id: UUID, user_id: UUID) -> Optional[Contact]:
+        query = select(Contact).where(
+            and_(
+                Contact.id == contact_id,
+                Contact.user_id == user_id
+            )
+        ).options(selectinload(Contact.brand_associations).joinedload(ContactBrandAssociation.brand))
+        
+        result = await self.db.execute(query)
+        contact = result.scalars().first()
+        
+        if not contact:
+            raise EntityNotFoundError(f"Contact with ID {contact_id} not found")
+        
+        return contact

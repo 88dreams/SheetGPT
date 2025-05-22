@@ -92,9 +92,63 @@ services:
       timeout: 5s
       retries: 5
 
+  # --- Start of new services for Graphiti ---
+  neo4j:
+    image: neo4j:5 # You can choose a specific Neo4j 5.x version
+    ports:
+      - "7474:7474" # Neo4j Browser
+      - "7687:7687" # Bolt protocol
+    volumes:
+      - neo4j-data:/data
+      - neo4j-logs:/logs
+    environment:
+      - NEO4J_AUTH=neo4j/sheetgpt # IMPORTANT: Change this password!
+      # - NEO4J_PLUGINS=["graph-data-science"] # Uncomment to add plugins if needed
+    healthcheck:
+      test: ["CMD-SHELL", "wget -O /dev/null -q http://localhost:7474 || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  graphiti_mcp:
+    build:
+      context: ../TOOLS/graphiti/mcp_server # Context is the directory containing the Dockerfile
+      dockerfile: Dockerfile # Dockerfile is directly in that context directory
+    ports:
+      - "8001:8001" # Exposing the port we set in graphiti_mcp_server.py
+    depends_on:
+      neo4j:
+        condition: service_healthy # Wait for Neo4j to be healthy
+    environment:
+      # --- Graphiti Core / MCP Server Configuration ---
+      # Update these with your actual values or use a .env file
+      - NEO4J_URI=bolt://neo4j:7687
+      - NEO4J_USER=neo4j
+      - NEO4J_PASSWORD=sheetgpt # MUST MATCH the NEO4J_AUTH password above
+      - OPENAI_API_KEY=${OPENAI_API_KEY} # Using the same as SheetGPT
+      # - MODEL_NAME=gpt-4.1-mini # Default, uncomment to override
+      # - EMBEDDER_MODEL_NAME=text-embedding-3-small # Default, uncomment to override
+      # - LLM_TEMPERATURE=0.0 # Default, uncomment to override
+      # - AZURE_OPENAI_ENDPOINT= # If using Azure OpenAI
+      # - AZURE_OPENAI_API_VERSION=
+      # - AZURE_OPENAI_DEPLOYMENT_NAME=
+      # - AZURE_OPENAI_EMBEDDING_DEPLOYMENT_NAME=
+      # - AZURE_OPENAI_USE_MANAGED_IDENTITY=false
+      - USE_CUSTOM_ENTITIES=true # Or false, depending on your needs
+      # - GROUP_ID=my_default_graph_group # Optional: set a default group_id for Graphiti
+      # --- MCP Server Specific ---
+      # The port is now set in the script, but you could also pass it via env if Graphiti's Dockerfile/script supports it
+      # - MCP_PORT=8001 # Example if Graphiti's entrypoint script could take port from env
+      # - MCP_TRANSPORT=sse # Default in script, can be overridden if entrypoint handles it
+    # volumes:
+      # - ../TOOLS/graphiti:/app # If you need live code reloading for Graphiti dev, similar to SheetGPT backend
+      # You might need to adjust this based on Graphiti's Dockerfile WORKDIR and how it runs.
+
 volumes:
   local-data:
     # Using a local volume instead of external network storage
   postgres-data:
     # Using a named volume for better persistence
     # This ensures data is preserved across container restarts and rebuilds
+  neo4j-data: # New volume for Neo4j data
+  neo4j-logs: # New volume for Neo4j logs

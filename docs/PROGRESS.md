@@ -377,3 +377,71 @@
    - Improved table layouts for smaller screens
    - Touch-friendly UI controls
    - Optimized performance for mobile devices
+
+## Feature: Contact Import Source Tagging
+
+**Objective:** Add a way to tag contacts with their import source and display this tag, plus allow bulk-tagging of existing contacts.
+
+**Overall Progress:** Mostly complete, pending database recovery and final verification.
+
+### Completed Tasks:
+
+**1. Database and Model Changes:**
+    *   Added `import_source_tag: Mapped[Optional[str]]` to `Contact` model (`src/models/sports_models.py`).
+    *   Troubleshot and successfully generated an Alembic migration (`58e7409c6c41...`) after resolving `env.py` model loading issues.
+    *   Manually edited the migration to include only `add_column` for `import_source_tag` and `create_index` for `ix_contacts_import_source_tag`.
+    *   Successfully applied this migration (before database loss).
+
+**2. Backend API and Service Changes:**
+    *   Modified `ContactsService.import_linkedin_csv` to accept and use `import_source_tag` (`src/services/contacts_service.py`).
+    *   Updated API endpoint `/api/v1/contacts/import/linkedin` to accept `import_source_tag` as Form data (`src/api/routes/contacts.py`).
+
+**3. Frontend UI Changes (Import Form):**
+    *   In `frontend/src/components/common/LinkedInCSVImport.tsx`:
+        *   Added state and input field for `importSourceTag`.
+        *   Updated `handleFileSelect` to include `import_source_tag` in `FormData`.
+        *   Resolved linter errors related to `apiClient.post` config.
+
+**4. Frontend UI Changes (Displaying the Tag):**
+    *   Updated `Contact` interface in `frontend/src/pages/Contacts.tsx`.
+    *   In `frontend/src/components/common/ContactsList.tsx`:
+        *   Updated local `Contact` interface.
+        *   Added column definition and rendering for "Import Tag".
+        *   Made tag column visible by default.
+        *   Fixed linter error by removing unsupported `timeout` from `apiClient.post`.
+
+**5. Backend Schema for API Response:**
+    *   Added `import_source_tag: Optional[str] = None` to `ContactBase` Pydantic schema in `src/schemas/contacts.py`.
+
+**6. Bulk Tagging Feature for Existing Contacts:**
+    *   **Backend:**
+        *   Added `bulk_update_contacts_tag` method to `ContactsService`.
+        *   Added `BulkUpdateTagRequest` Pydantic model.
+        *   Added `POST /api/v1/contacts/bulk-update-tag` API endpoint.
+    *   **Frontend:**
+        *   Added "Bulk Update Tags" button and modal form in `ContactsPage.tsx`.
+        *   Implemented `handleBulkTagOk` to call the new API.
+
+**7. Database Issue Identification:**
+    *   Investigated login failure.
+    *   Discovered an empty database (no tables, including `alembic_version`).
+    *   Identified the cause: `docker-compose down -v` deleted the `postgres-data` volume.
+
+### Current Status & Next Steps:
+
+**A. Database Restore & Migration:**
+    1.  **Services Started:** `db`, `backend`, `frontend` services started via `docker-compose up -d`.
+    2.  **Backup Copied:** Backup file `backup_20250515_173015.sql` copied into the `db` container at `/tmp/backup_20250515_173015.sql`.
+    3.  **Restore from Backup:** Execute `psql` in the `db` container to restore the backup.
+        *   `docker-compose -p sheetgpt -f docker-compose.yml -f docker-compose.dev.yml exec -T db psql -U postgres -d postgres -f /tmp/backup_20250515_173015.sql`
+    4.  **Determine Alembic State:** Check the `alembic_version` table post-restore to find the last applied migration from the backup.
+        *   `docker-compose -p sheetgpt -f docker-compose.yml -f docker-compose.dev.yml exec -T db psql -U postgres -d postgres -c "TABLE alembic_version;"`
+    5.  **Apply Missing Migrations:** Run `alembic upgrade head` (or to a specific version if needed) to apply subsequent migrations, including the one for `import_source_tag`.
+        *   `docker-compose -p sheetgpt -f docker-compose.yml -f docker-compose.dev.yml exec backend python src/scripts/alembic_wrapper.py upgrade head`
+
+**B. Verification:**
+    1.  Confirm user login is functional.
+    2.  Test importing contacts with `import_source_tag`.
+    3.  Verify the tag is displayed correctly in the contacts list.
+    4.  Test the bulk-tagging feature for existing contacts.
+    5.  Perform a general check of application stability.

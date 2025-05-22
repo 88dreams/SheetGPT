@@ -87,6 +87,59 @@ SheetGPT combines AI-powered chat (Claude) with structured data management and a
 4.  **Continue Frontend Refactoring:** As needed, particularly for `DatabaseQuery.tsx` if further modularization is beneficial.
 5.  **Production Stability & Performance Improvements.**
 
+## Project Status: Import Source Tag Feature & Database Recovery
+
+**Objective:** Implement an `import_source_tag` for Contacts to track their origin, and allow bulk tagging of existing contacts.
+
+**Current Situation:**
+
+The project was progressing well, with backend and frontend changes largely complete for adding the `import_source_tag` to individual contact imports and display, as well as a new bulk-tagging feature. However, a `docker-compose down -v` command was inadvertently run, which deleted the PostgreSQL data volume, leading to a complete loss of database tables.
+
+**Immediate Next Steps:**
+
+1.  **Restore Database from Backup:**
+    *   A backup file (`backup_20250515_173015.sql`) has been copied into the `sheetgpt-db-1` Docker container at `/tmp/backup_20250515_173015.sql`.
+    *   The immediate task is to restore this backup using `psql` inside the `db` container. The command will likely be:
+        ```bash
+        docker-compose -p sheetgpt -f docker-compose.yml -f docker-compose.dev.yml exec -T db psql -U postgres -d postgres -f /tmp/backup_20250515_173015.sql
+        ```
+2.  **Assess Alembic State Post-Restore:**
+    *   After the restore, we need to check the `alembic_version` table to see which migration was last applied *before* the backup was taken.
+    *   Command:
+        ```bash
+        docker-compose -p sheetgpt -f docker-compose.yml -f docker-compose.dev.yml exec -T db psql -U postgres -d postgres -c "TABLE alembic_version;"
+        ```
+3.  **Apply Subsequent Alembic Migrations:**
+    *   Identify any migrations generated *after* the backup point, especially the one that adds the `import_source_tag` column to the `contacts` table (likely `58e7409c6c41...` or a successor if new ones were generated before the data loss).
+    *   Run `alembic upgrade head` (or to the specific migration ID) to bring the database schema up to date with the latest model changes.
+        ```bash
+        docker-compose -p sheetgpt -f docker-compose.yml -f docker-compose.dev.yml exec backend python src/scripts/alembic_wrapper.py upgrade head
+        ```
+4.  **Verify Functionality:**
+    *   Once the database is restored and migrations are applied, thoroughly test:
+        *   User login.
+        *   Importing contacts with the new `import_source_tag`.
+        *   Display of the `import_source_tag` in the contacts list.
+        *   The bulk-tagging feature.
+
+**Key Files Modified for `import_source_tag` feature:**
+
+*   **Models:** `src/models/sports_models.py` (added `import_source_tag` to `Contact`)
+*   **Schemas:** `src/schemas/contacts.py` (added `import_source_tag` to `ContactBase`, `BulkUpdateTagRequest`)
+*   **Services:** `src/services/contacts_service.py` (modified `import_linkedin_csv`, added `bulk_update_contacts_tag`)
+*   **API Routes:** `src/api/routes/contacts.py` (modified `/import/linkedin`, added `/bulk-update-tag`)
+*   **Alembic:**
+    *   `alembic/env.py` (modified to ensure `sports_models` are loaded)
+    *   Migration script (e.g., `alembic/versions/58e7409c6c41_... .py`) for adding the column and index.
+*   **Frontend Components:**
+    *   `frontend/src/components/common/LinkedInCSVImport.tsx` (added input field for tag)
+    *   `frontend/src/pages/Contacts.tsx` (added bulk update modal, updated `Contact` interface)
+    *   `frontend/src/components/common/ContactsList.tsx` (added column and display for tag)
+
+**Important Note on Alembic:** The Alembic setup required explicit import of `sports_models` in `env.py` to correctly autogenerate migrations. The migration script for `import_source_tag` was manually edited to ensure only the necessary changes were applied.
+
+The primary goal now is to recover the database to a known good state and then ensure all schema changes for the `import_source_tag` are correctly applied and functional.
+
 ---
 *This document provides a starting point. Please refer to the linked documents for more detail.*
 *Last updated: May 17, 2025*

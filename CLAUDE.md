@@ -172,3 +172,39 @@
 - Wait for verification before updating git
 - Always run lint and typecheck before submitting changes
 - Add comprehensive test coverage for all new features
+
+## Feature Update: Contact Import Source Tagging & DB Recovery (as of last update)
+
+**1. Contact Import Source Tagging Feature:**
+
+*   **Purpose:** To allow users to tag contacts with their import source (e.g., "LinkedIn Q1 Export", "Conference Leads") and to display this tag. This helps in organizing and segmenting contacts based on their origin.
+*   **Functionality Added:**
+    *   **Model Change:** `Contact` model now has an `import_source_tag` (optional string) field.
+    *   **API Update (Import):** LinkedIn CSV import endpoint (`/api/v1/contacts/import/linkedin`) now accepts an `import_source_tag` which is saved with the contact.
+    *   **UI Update (Import):** The LinkedIn CSV import form has a new text field to specify this tag during import.
+    *   **UI Update (Display):** The main Contacts list/table now has a new column to display the `import_source_tag` for each contact.
+    *   **API Schema:** Pydantic schemas for contact responses now include the `import_source_tag`.
+    *   **Bulk Tagging:**
+        *   **Backend:** New service method and API endpoint (`POST /api/v1/contacts/bulk-update-tag`) to bulk-update the `import_source_tag` for existing contacts (either all contacts for a user or all currently untagged contacts for a user).
+        *   **Frontend:** A "Bulk Update Tags" button on the Contacts page opens a modal allowing users to specify a new tag and choose whether to apply it to all their contacts or only to those currently untagged.
+
+**2. Database Situation & Next Steps:**
+
+*   **Issue:** The PostgreSQL database was accidentally wiped due to a `docker-compose down -v` command, which removed the data volume.
+*   **Recovery Plan:**
+    1.  A database backup (`backup_20250515_173015.sql`) has been copied into the `db` container.
+    2.  **Immediate Action:** Restore this backup using `psql`.
+    3.  **Post-Restore:** Check the `alembic_version` table to see the last applied migration in the backup.
+    4.  **Migration:** Apply any subsequent Alembic migrations (especially the one for `import_source_tag`) to bring the schema up to date using `alembic upgrade head`.
+    5.  **Verification:** Thoroughly test login, contact import with tagging, tag display, and bulk tagging features.
+
+**Key Files Touched for this Feature:**
+*   `src/models/sports_models.py` (Contact model)
+*   `src/schemas/contacts.py` (Pydantic schemas)
+*   `src/services/contacts_service.py` (Logic for import and bulk update)
+*   `src/api/routes/contacts.py` (API endpoints)
+*   `alembic/versions/...` (Migration script for new column/index)
+*   `alembic/env.py` (Ensured models are loaded for Alembic)
+*   `frontend/src/components/common/LinkedInCSVImport.tsx` (Import form UI)
+*   `frontend/src/pages/Contacts.tsx` (Bulk update UI, Contact interface)
+*   `frontend/src/components/common/ContactsList.tsx` (Tag display in table)

@@ -135,6 +135,7 @@ services:
       # - AZURE_OPENAI_EMBEDDING_DEPLOYMENT_NAME=
       # - AZURE_OPENAI_USE_MANAGED_IDENTITY=false
       - USE_CUSTOM_ENTITIES=true # Or false, depending on your needs
+      - GROUP_ID=sheetgpt_main_graph
       # - GROUP_ID=my_default_graph_group # Optional: set a default group_id for Graphiti
       # --- MCP Server Specific ---
       # The port is now set in the script, but you could also pass it via env if Graphiti's Dockerfile/script supports it

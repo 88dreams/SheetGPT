@@ -23,7 +23,7 @@ As of June 15, 2025:
 - **Frontend Refactoring:** The `DatabaseQuery.tsx` page is partially refactored, and this work is now unblocked.
 - **Next Steps:** The immediate focus is on resolving outstanding TypeScript errors in the `frontend/src/` codebase.
 
-For detailed progress, see [docs/PROGRESS.md](docs/PROGRESS.md).
+For detailed progress, see [docs/PROGRESS.md](./docs/PROGRESS.md).
 
 ## Recent Improvements
 
@@ -41,7 +41,7 @@ For detailed progress, see [docs/PROGRESS.md](docs/PROGRESS.md).
 - Developed module resolution strategies for managing complex NPM dependencies
 - Created parallel development branches for testing different solution approaches
 - Documented troubleshooting process in DEPENDENCY_ANALYSIS.md for future reference
-- For detailed information, see the [Dependency Analysis Document](DEPENDENCY_ANALYSIS.md)
+- For detailed information, see the [Dependency Analysis Document](./DEPENDENCY_ANALYSIS.md)
 
 ### LinkedIn CSV Contact Import (April 2025)
 - Created new database models for contacts and brand associations with confidence scoring
@@ -53,7 +53,7 @@ For detailed progress, see [docs/PROGRESS.md](docs/PROGRESS.md).
 - Added configurable import options with adjustable matching threshold
 - Properly indexed database fields for optimized querying
 - Integrated contact management with main navigation and application flow
-- See full details in [LinkedIn Integration Documentation](docs/features/LINKEDIN_INTEGRATION.md)
+- See full details in [LinkedIn Integration Documentation](./docs/features/LINKEDIN_INTEGRATION.md)
 
 ### Brand Relationship Entity Consolidation
 - Integrated Brand Relationship functionality directly into the Brand entity
@@ -195,7 +195,7 @@ gh run view [run-id]
 gh run watch [run-id]
 ```
 
-For more detailed information about the CI/CD pipeline, see [CI/CD Pipeline](docs/CI_CD_PIPELINE.md).
+For more detailed information about the CI/CD pipeline, see [CI/CD Pipeline](./docs/deployment/CI_CD_PIPELINE.md).
 
 ## Dependencies
 
@@ -209,30 +209,30 @@ For more detailed information about the CI/CD pipeline, see [CI/CD Pipeline](doc
 For more detailed information, see our organized documentation:
 
 - **Architecture**
-  - [API Architecture](docs/architecture/API_ARCHITECTURE.md)
-  - [Technical Description](docs/architecture/TECHNICAL_DESCRIPTION.md)
-  - [Sports API Endpoints](docs/architecture/SPORTS_API_ENDPOINTS.md)
+  - [API Architecture](./docs/architecture/API_ARCHITECTURE.md)
+  - [Technical Description](./docs/architecture/TECHNICAL_DESCRIPTION.md)
+  - [Sports API Endpoints](./docs/architecture/SPORTS_API_ENDPOINTS.md)
 
 - **Features**
-  - [Claude API Integration](docs/features/CLAUDE_API_INTEGRATION.md)
-  - [Sport Field Feature](docs/features/SPORT_FIELD_FEATURE.md)
+  - [Claude API Integration](./docs/features/CLAUDE_API_INTEGRATION.md)
+  - [Sport Field Feature](./docs/features/SPORT_FIELD_FEATURE.md)
 
 - **Maintenance**
-  - [Database Maintenance](docs/maintenance/DATABASE_MAINTENANCE.md)
-  - [Alembic Guide](docs/maintenance/ALEMBIC_GUIDE.md)
-  - [Testing Guide](docs/maintenance/TESTING_GUIDE.md)
-  - [Troubleshooting](docs/maintenance/TROUBLESHOOTING.md)
+  - [Database Maintenance](./docs/maintenance/DATABASE_MAINTENANCE.md)
+  - [Alembic Guide](./docs/maintenance/ALEMBIC_GUIDE.md)
+  - [Testing Guide](./docs/maintenance/TESTING_GUIDE.md)
+  - [Troubleshooting](./docs/maintenance/TROUBLESHOOTING.md)
 
 - **Deployment**
-  - [Deployment Environments](docs/deployment/DEPLOYMENT_ENVIRONMENTS.md)
-  - [AWS Deployment](docs/deployment/AWS_DEPLOYMENT.md)
-  - [CI/CD Pipeline](docs/deployment/CI_CD_PIPELINE.md)
+  - [Deployment Environments](./docs/deployment/DEPLOYMENT_ENVIRONMENTS.md)
+  - [AWS Deployment](./docs/deployment/AWS_DEPLOYMENT.md)
+  - [CI/CD Pipeline](./docs/deployment/CI_CD_PIPELINE.md)
 
 - **Features**
-  - [LinkedIn Integration](docs/features/LINKEDIN_INTEGRATION.md)
-  - [Progress](docs/PROGRESS.md)
+  - [LinkedIn Integration](./docs/features/LINKEDIN_INTEGRATION.md)
+  - [Progress](./docs/PROGRESS.md)
 
-See the [Documentation Index](docs/README.md) for a complete list of documents.
+See the [Documentation Index](./docs/README.md) for a complete list of documents.
 
 ## Database Architecture
 

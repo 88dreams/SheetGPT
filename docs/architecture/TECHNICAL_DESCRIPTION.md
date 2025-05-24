@@ -209,138 +209,84 @@ User → api.88gpts.com (Digital Ocean) → Backend API → PostgreSQL
 
 ## Feature: Contact Import Source Tagging
 
-**Objective:** Allow users to specify an `import_source_tag` during contact import (e.g., LinkedIn CSV import), display this tag, and provide a mechanism to bulk-tag existing contacts.
+**Objective:** Add a way to tag contacts with their import source and display this tag, plus allow bulk-tagging of existing contacts.
 
-### 1. Data Model (SQLAlchemy)
+**Overall Progress:** Mostly complete, pending database recovery and final verification.
 
-*   **File:** `src/models/sports_models.py`
-*   **Model:** `Contact`
-*   **Change:** Added a new field `import_source_tag`.
-    ```python
-    class Contact(Base, HasUser):
-        # ... other fields ...
-        import_source_tag: Mapped[Optional[str]]
-    ```
-*   **Database Migration (Alembic):**
-    *   An Alembic migration script (e.g., `alembic/versions/58e7409c6c41_add_import_source_tag_to_contacts.py`) was generated and manually refined.
-    *   **Operations:**
-        *   `op.add_column('contacts', sa.Column('import_source_tag', sa.String(), nullable=True))`
-        *   `op.create_index(op.f('ix_contacts_import_source_tag'), 'contacts', ['import_source_tag'], unique=False)`
-    *   **Note:** `alembic/env.py` was modified to explicitly import models from `src.models.sports_models` to ensure correct autogeneration (`from src.models.sports_models import *`).
+### Completed Tasks:
 
-### 2. Backend Implementation
+**1. Database and Model Changes:**
+    *   Added `import_source_tag: Mapped[Optional[str]]` to `Contact` model (`src/models/sports_models.py`).
+    *   Troubleshot and successfully generated an Alembic migration (`58e7409c6c41...`) after resolving `env.py` model loading issues.
+    *   Manually edited the migration to include only `add_column` for `import_source_tag` and `create_index` for `ix_contacts_import_source_tag`.
+    *   Successfully applied this migration (before database loss).
 
-#### 2.1. Pydantic Schemas
+**2. Backend API and Service Changes:**
+    *   Modified `ContactsService.import_linkedin_csv` to accept and use `import_source_tag` (`src/services/contacts_service.py`).
+    *   Updated API endpoint `/api/v1/contacts/import/linkedin` to accept `import_source_tag` as Form data (`src/api/routes/contacts.py`).
 
-*   **File:** `src/schemas/contacts.py`
-*   **Changes:**
-    *   `ContactBase` (and thus `ContactResponse`, `ContactWithBrandsResponse`): Added `import_source_tag: Optional[str] = None` to include it in API responses.
-    *   `BulkUpdateTagRequest`: New schema for the bulk update endpoint.
-        ```python
-        class BulkUpdateTagRequest(BaseModel):
-            new_tag: str
-            target_contacts: str = Field(default="all_untagged", pattern="^(all|all_untagged)$")
-        ```
+**3. Frontend UI Changes (Import Form):**
+    *   In `frontend/src/components/common/LinkedInCSVImport.tsx`:
+        *   Added state and input field for `importSourceTag`.
+        *   Updated `handleFileSelect` to include `import_source_tag` in `FormData`.
+        *   Resolved linter errors related to `apiClient.post` config.
 
-#### 2.2. Service Layer
+**4. Frontend UI Changes (Displaying the Tag):**
+    *   Updated `Contact` interface in `frontend/src/pages/Contacts.tsx`.
+    *   In `frontend/src/components/common/ContactsList.tsx`:
+        *   Updated local `Contact` interface.
+        *   Added column definition and rendering for "Import Tag".
+        *   Made tag column visible by default.
+        *   Fixed linter error by removing unsupported `timeout` from `apiClient.post`.
 
-*   **File:** `src/services/contacts_service.py`
-*   **Class:** `ContactsService`
-*   **Method:** `import_linkedin_csv`
-    *   Modified to accept `import_source_tag: Optional[str]`.
-    *   When creating or updating `Contact` objects, this tag is now set.
-*   **New Method:** `bulk_update_contacts_tag`
-    ```python
-    async def bulk_update_contacts_tag(
-        self, user_id: UUID, new_tag: str, target_contacts: str = "all_untagged"
-    ) -> int: # Returns count of updated contacts
-        stmt = select(Contact).filter_by(user_id=user_id)
-        if target_contacts == "all_untagged":
-            stmt = stmt.filter(Contact.import_source_tag.is_(None))
-        
-        contacts_to_update = await self.session.scalars(stmt)
-        updated_count = 0
-        for contact in contacts_to_update:
-            contact.import_source_tag = new_tag
-            self.session.add(contact)
-            updated_count += 1
-        
-        if updated_count > 0:
-            await self.session.commit()
-        return updated_count
-    ```
+**5. Backend Schema for API Response:**
+    *   Added `import_source_tag: Optional[str] = None` to `ContactBase` Pydantic schema in `src/schemas/contacts.py`.
 
-#### 2.3. API Endpoints
+**6. Bulk Tagging Feature for Existing Contacts:**
+    *   **Backend:**
+        *   Added `bulk_update_contacts_tag` method to `ContactsService`.
+        *   Added `BulkUpdateTagRequest` Pydantic model.
+        *   Added `POST /api/v1/contacts/bulk-update-tag` API endpoint.
+    *   **Frontend:**
+        *   Added "Bulk Update Tags" button and modal form in `ContactsPage.tsx`.
+        *   Implemented `handleBulkTagOk` to call the new API.
 
-*   **File:** `src/api/routes/contacts.py`
-*   **Endpoint:** `POST /api/v1/contacts/import/linkedin`
-    *   Modified to accept `import_source_tag: Optional[str] = Form(None)`.
-    *   Passes the `import_source_tag` to `ContactsService.import_linkedin_csv`.
-*   **New Endpoint:** `POST /api/v1/contacts/bulk-update-tag`
-    ```python
-    @router.post("/bulk-update-tag", status_code=status.HTTP_200_OK)
-    async def bulk_update_contacts_import_tag(
-        current_user: Annotated[User, Depends(get_current_active_user)],
-        request_body: BulkUpdateTagRequest,
-        contacts_service: ContactsService = Depends(get_contacts_service),
-    ):
-        updated_count = await contacts_service.bulk_update_contacts_tag(
-            user_id=current_user.id,
-            new_tag=request_body.new_tag,
-            target_contacts=request_body.target_contacts,
-        )
-        return {"message": f"Successfully updated {updated_count} contacts.", "updated_count": updated_count}
-    ```
+**7. Selective Contact Retagging (NEW):**
+    *   **Backend:**
+        *   Added `BulkUpdateSpecificContactsTagRequest` Pydantic schema for request body (`src/schemas/contacts.py`).
+        *   Implemented `ContactsService.bulk_update_specific_contacts_tag` to update tags for a provided list of contact IDs (`src/services/contacts_service.py`).
+        *   Created new API endpoint `POST /api/v1/contacts/bulk-update-specific-tags` (`src/api/routes/contacts.py`).
+        *   Corrected `status` import in `contacts.py` API routes.
+    *   **Frontend (`ContactsList.tsx`):**
+        *   Added state management for selected contact IDs.
+        *   Implemented checkboxes in the table for individual contact selection and a header checkbox for select/deselect all visible.
+        *   Added a "Retag Selected (N)" button, enabled when contacts are selected.
+        *   Implemented a modal for users to input the new tag.
+        *   Ensured the contacts list directly refetches data after a successful retag operation for immediate UI update.
+    *   **Bug Fix (Related to Contacts List):**
+        *   Corrected a bug where custom column order (from `localStorage`) could cause data cells to misalign with their headers. Refactored `<tbody>` rendering in `ContactsList.tsx` to iterate over `columnOrder` for data cells, ensuring consistent alignment with headers.
 
-### 3. Frontend Implementation
+**8. Database Issue Identification:**
+    *   Investigated login failure.
+    *   Discovered an empty database (no tables, including `alembic_version`).
+    *   Identified the cause: `docker-compose down -v` deleted the `postgres-data` volume.
 
-#### 3.1. LinkedIn CSV Import Component
+### Current Status & Next Steps:
 
-*   **File:** `frontend/src/components/common/LinkedInCSVImport.tsx`
-*   **Changes:**
-    *   Added state for `importSourceTag`: `const [importSourceTag, setImportSourceTag] = useState<string>('');`
-    *   Added an `Input` field for the user to enter the tag.
-        ```tsx
-        <Input
-          placeholder="Enter import source tag (e.g., SpringConference2024)"
-          value={importSourceTag}
-          onChange={(e) => setImportSourceTag(e.target.value)}
-          style={{ marginTop: '10px' }}
-        />
-        ```
-    *   Modified `handleFileSelect` to append `import_source_tag` to `FormData` if provided:
-        ```javascript
-        if (importSourceTag) {
-          formData.append('import_source_tag', importSourceTag);
-        }
-        // apiClient.post call adjusted for FormData with potential query params in URL
-        ```
+**A. Database Restore & Migration:**
+    1.  **Services Started:** `db`, `backend`, `frontend` services started via `docker-compose up -d`.
+    2.  **Backup Copied:** Backup file `backup_20250515_173015.sql` copied into the `db` container at `/tmp/backup_20250515_173015.sql`.
+    3.  **Restore from Backup:** Execute `psql` in the `db` container to restore the backup.
+        *   `docker-compose -p sheetgpt -f docker-compose.yml -f docker-compose.dev.yml exec -T db psql -U postgres -d postgres -f /tmp/backup_20250515_173015.sql`
+    4.  **Determine Alembic State:** Check the `alembic_version` table post-restore to find the last applied migration from the backup.
+        *   `docker-compose -p sheetgpt -f docker-compose.yml -f docker-compose.dev.yml exec -T db psql -U postgres -d postgres -c "TABLE alembic_version;"`
+    5.  **Apply Missing Migrations:** Run `alembic upgrade head` (or to a specific version if needed) to apply subsequent migrations, including the one for `import_source_tag`.
+        *   `docker-compose -p sheetgpt -f docker-compose.yml -f docker-compose.dev.yml exec backend python src/scripts/alembic_wrapper.py upgrade head`
 
-#### 3.2. Contacts Page & List
-
-*   **File:** `frontend/src/pages/Contacts.tsx`
-    *   Updated `Contact` interface to include `import_source_tag?: string;`.
-    *   Added state for bulk update modal visibility and form data.
-    *   Implemented "Bulk Update Tags" button, Modal, and Form (Ant Design components).
-    *   Function `handleBulkTagOk` calls the `/api/v1/contacts/bulk-update-tag` endpoint.
-*   **File:** `frontend/src/components/common/ContactsList.tsx`
-    *   Updated local `Contact` interface: `interface Contact extends DefaultContact { import_source_tag?: string; }`
-    *   Added column definition for "Import Tag":
-        ```tsx
-        {
-          key: 'import_source_tag',
-          title: 'Import Tag',
-          dataIndex: 'import_source_tag',
-          sorter: (a, b) => (a.import_source_tag || '').localeCompare(b.import_source_tag || ''),
-          render: (tag?: string) => tag || '-',
-        }
-        ```
-    *   Added `import_source_tag` to default visible columns (`visibleColumns`, `showAllColumns`, `initialColumnOrder`).
-    *   Rendered the tag in the table body: `<td>{contact.import_source_tag || '-'}</td>`.
-
-### 4. Key Challenges & Solutions during this Feature Development
-
-*   **Alembic Autogeneration:** Initially, Alembic tried to drop all tables. This was resolved by ensuring all SQLAlchemy models (especially those in `src/models/sports_models.py`) were imported into `target_metadata` within `alembic/env.py`.
-*   **Manual Migration Editing:** The autogenerated migration script was overly aggressive. It was manually edited to only include the necessary `add_column` and `create_index` operations for the `import_source_tag`.
-*   **Frontend API Calls:** Adjustments were needed for `apiClient.post` when sending `FormData` and ensuring query parameters were part of the URL string, not in the config object for such POST requests. Unsupported `headers` and `timeout` properties were removed from some `apiClient.post` calls using `FormData` or where not applicable.
-*   **Database Reset:** Accidental deletion of the `postgres-data` volume via `docker-compose down -v` necessitated a database restore from backup and a re-application of migrations. This highlighted the importance of careful volume management and regular backups.
+**B. Verification:**
+    1.  Confirm user login is functional.
+    2.  Test importing contacts with `import_source_tag`.
+    3.  Verify the tag is displayed correctly in the contacts list.
+    4.  Test the bulk-tagging feature for existing contacts.
+    5.  Test the selective retagging feature for specific contacts.
+    6.  Perform a general check of application stability.

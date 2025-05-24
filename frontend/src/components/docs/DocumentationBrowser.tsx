@@ -202,27 +202,42 @@ const DocumentationBrowser: React.FC = () => {
 
   // Convert document links to work with our router
   const processMarkdown = (content: string): string => {
-    console.log("Processing markdown links, content length:", content.length);    
-    // Convert Markdown links to relative paths for react-router
+    // console.log("Processing markdown links, content length:", content.length);
     return content.replace(/\[([^\]]+)\]\(([^)]+)\)/g, (match, text, url) => {
       if (url.startsWith('http')) {
         return match; // External links remain unchanged
       }
-      const currentDir = docPath ? docPath.split('/').slice(0, -1).join('/') : '';
-      let newPath = url;
-      if (url.startsWith('./')) {
-        newPath = url.substring(2);
-      } else if (!url.startsWith('/')) {
-        newPath = currentDir ? `${currentDir}/${url}` : url;
-      } else if (url.startsWith('/')) {
-        newPath = url.substring(1);
+
+      let resolvedPath;
+      if (url.startsWith('/')) {
+        // Path is absolute from docs root (e.g. /PROGRESS.md)
+        resolvedPath = url.substring(1);
+      } else {
+        // Path is relative to the current document
+        // docPath is like "folder/subfolder/file.md" or "file.md"
+        const currentDocDir = docPath ? (docPath.includes('/') ? docPath.substring(0, docPath.lastIndexOf('/')) : '') : '';
+        const pathSegments = (currentDocDir ? currentDocDir + '/' + url : url).split('/');
+        const newPathSegments = [];
+        for (const segment of pathSegments) {
+          if (segment === '.' || segment === '') continue;
+          if (segment === '..') {
+            if (newPathSegments.length > 0) {
+              newPathSegments.pop();
+            }
+          } else {
+            newPathSegments.push(segment);
+          }
+        }
+        resolvedPath = newPathSegments.join('/');
       }
-      if (newPath.endsWith('.md')) {
-        newPath = newPath.substring(0, newPath.length - 3);
+
+      // Ensure .md extension
+      if (resolvedPath && !resolvedPath.endsWith('.md')) {
+        resolvedPath = resolvedPath + '.md';
       }
-      const routePath = newPath;
-      // console.log(`Converted link: ${url} -> /${routePath}`); // Debug for links
-      return `[${text}](/${routePath})`; // Ensure links are suitable for react-router
+      
+      // console.log(`processMarkdown: Original URL: ${url}, Current Doc Path: ${docPath}, Resolved URL for Link: ${resolvedPath}`);
+      return `[${text}](${resolvedPath || ''})`; // This href will be used by the custom 'a' renderer
     });
   };
 
@@ -256,6 +271,19 @@ const DocumentationBrowser: React.FC = () => {
         ))}
       </ul>
     );
+  };
+
+  // Custom 'a' tag renderer for ReactMarkdown
+  const CustomLinkRenderer = (props: any) => {
+    const href = props.href;
+    if (href && href.startsWith('http')) {
+      return <a {...props} target="_blank" rel="noopener noreferrer">{props.children}</a>;
+    }
+    // Internal link, href should be like "architecture/API_ARCHITECTURE.md"
+    // The Link component `to` prop will be relative to the current route.
+    // If current route is /help/*, then `to="architecture/API_ARCHITECTURE.md"
+    // will correctly navigate to /help/architecture/API_ARCHITECTURE.md
+    return <Link to={href || ''} {...props}>{props.children}</Link>; // Pass other props like title
   };
 
   // Error boundary function for document rendering
@@ -295,6 +323,9 @@ const DocumentationBrowser: React.FC = () => {
               [rehypeSanitize, sanitizeConfig],
               [rehypeExternalLinks, { target: '_blank', rel: ['nofollow', 'noopener', 'noreferrer'] }]
             ]}
+            components={{
+              a: CustomLinkRenderer, // Override 'a' tag rendering
+            }}
           >
             {processedContentWithLinks}
           </ReactMarkdown>

@@ -2,6 +2,24 @@
 
 ## Latest Updates (May 2025)
 
+### Selective Contact Retagging (May 21, 2025) NEW ENTRY
+- **Objective**: Allow users to select specific contacts from the list and apply a new `import_source_tag` to them.
+- **Key Achievements & Fixes:**
+    - **Backend:**
+        - Added Pydantic schema `BulkUpdateSpecificContactsTagRequest` for the request body (`src/schemas/contacts.py`).
+        - Implemented `ContactsService.bulk_update_specific_contacts_tag` to update tags for a provided list of contact IDs (`src/services/contacts_service.py`).
+        - Created new API endpoint `POST /api/v1/contacts/bulk-update-specific-tags` (`src/api/routes/contacts.py`).
+        - Corrected `status` import in `contacts.py` API routes.
+    - **Frontend (`ContactsList.tsx`):
+        - Added state management for selected contact IDs.
+        - Implemented checkboxes in the table for individual contact selection and a header checkbox for select/deselect all visible.
+        - Added a "Retag Selected (N)" button, enabled when contacts are selected.
+        - Implemented a modal for users to input the new tag.
+        - Ensured the contacts list directly refetches data after a successful retag operation for immediate UI update.
+    - **Bug Fix (Related to Contacts List):**
+        - Corrected a bug where custom column order (from `localStorage`) could cause data cells to misalign with their headers. Refactored `<tbody>` rendering in `ContactsList.tsx` to iterate over `columnOrder` for data cells, ensuring consistent alignment with headers.
+- **Current Status**: Feature implemented and functional. Users can now select multiple contacts and apply a new import tag to them efficiently.
+
 ### Query Page Enhancements, NLQ Accuracy, and Query Helper UI (May 17, 2025)
 - **Objective**: Improve user experience on the Database Query page, enhance Natural Language Query (NLQ) to SQL translation accuracy, and introduce a UI tool to help users construct queries.
 - **Key Achievements & Fixes:**

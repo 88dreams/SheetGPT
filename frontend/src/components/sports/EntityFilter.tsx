@@ -122,19 +122,16 @@ const EntityFilter: React.FC<EntityFilterProps> = ({
   const [newFilter, setNewFilter] = useState<Partial<FilterConfig>>({});
   const [fieldType, setFieldType] = useState<'string' | 'number' | 'date' | 'boolean'>('string');
 
-  // Reset new filter when entity type changes
   useEffect(() => {
     setNewFilter({});
     setFilters(initialFilters);
   }, [entityType, initialFilters]);
 
-  // Update field type when field changes
   useEffect(() => {
     if (newFilter.field) {
-      const fieldOption = FIELD_OPTIONS[entityType].find(f => f.value === newFilter.field);
+      const fieldOption = FIELD_OPTIONS[entityType]?.find(f => f.value === newFilter.field);
       if (fieldOption) {
         setFieldType(fieldOption.type);
-        // Reset operator and value when field type changes
         setNewFilter(prev => ({ field: prev.field }));
       }
     }
@@ -143,55 +140,40 @@ const EntityFilter: React.FC<EntityFilterProps> = ({
   const handleAddFilter = () => {
     if (newFilter.field && newFilter.operator && newFilter.value !== undefined) {
       const newFilterConfig = newFilter as FilterConfig;
-      setFilters([...filters, newFilterConfig]);
+      setFilters(prev => [...prev, newFilterConfig]);
       setNewFilter({});
     }
   };
 
   const handleRemoveFilter = (index: number) => {
-    const updatedFilters = [...filters];
-    updatedFilters.splice(index, 1);
-    setFilters(updatedFilters);
+    setFilters(prev => {
+      const updatedFilters = [...prev];
+      updatedFilters.splice(index, 1);
+      return updatedFilters;
+    });
   };
 
-  const handleApplyFilters = () => {
-    console.log('EntityFilter: Applying filters:', filters);
+  const handleApplyInternalFilters = () => {
+    console.log('EntityFilter: Applying internal filters:', filters);
     
-    // Make a deep copy of the filters to ensure we're not passing references
     const filtersCopy = JSON.parse(JSON.stringify(filters));
-    
-    // Ensure proper value types for each filter
     const processedFilters = filtersCopy.map((filter: FilterConfig) => {
-      const fieldOption = FIELD_OPTIONS[entityType].find(f => f.value === filter.field);
+      const fieldOption = FIELD_OPTIONS[entityType]?.find(f => f.value === filter.field);
       if (!fieldOption) return filter;
       
-      // Convert value to the appropriate type based on the field type
       switch (fieldOption.type) {
-        case 'number':
-          return { ...filter, value: Number(filter.value) };
-        case 'boolean':
-          return { ...filter, value: Boolean(filter.value) };
-        default:
-          return filter;
+        case 'number': return { ...filter, value: Number(filter.value) };
+        case 'boolean': return { ...filter, value: Boolean(filter.value) };
+        default: return filter;
       }
     });
     
-    // Debug log to show the filter value
-    console.log('EntityFilter: Processed filters:', processedFilters);
-    if (processedFilters.length > 0) {
-      console.log('EntityFilter: First filter value type:', typeof processedFilters[0].value);
-      console.log('EntityFilter: First filter value:', processedFilters[0].value);
-    }
-    
-    // Apply the filters
     onApplyFilters(processedFilters);
-    
-    // Close the filter panel
     setIsOpen(false);
   };
 
-  const handleClearFilters = () => {
-    console.log('EntityFilter: Clearing filters');
+  const handleClearInternalFilters = () => {
+    console.log('EntityFilter: Clearing internal filters and calling context onClearFilters');
     setFilters([]);
     setNewFilter({});
     onClearFilters();
@@ -265,7 +247,7 @@ const EntityFilter: React.FC<EntityFilterProps> = ({
           <div className="flex items-center">
             <span className="mr-2 text-sm text-gray-600">{filters.length} filter(s) applied</span>
             <button
-              onClick={handleClearFilters}
+              onClick={handleClearInternalFilters}
               className="text-red-600 hover:text-red-800"
             >
               <FaTimes className="mr-1" /> Clear All
@@ -278,14 +260,14 @@ const EntityFilter: React.FC<EntityFilterProps> = ({
         <div className="bg-white p-4 border rounded shadow-sm">
           <h3 className="text-lg font-medium mb-3">Filter {entityType.charAt(0).toUpperCase() + entityType.slice(1)}s</h3>
           
-          {/* Current filters */}
           {filters.length > 0 && (
             <div className="mb-4">
               <h4 className="text-sm font-medium mb-2">Applied Filters:</h4>
               <div className="space-y-2">
                 {filters.map((filter, index) => {
-                  const fieldOption = FIELD_OPTIONS[entityType].find(f => f.value === filter.field);
-                  const operatorOption = fieldOption ? OPERATOR_OPTIONS[fieldOption.type].find(o => o.value === filter.operator) : null;
+                  const fieldOption = FIELD_OPTIONS[entityType]?.find(f => f.value === filter.field);
+                  const currentFieldType = fieldOption ? fieldOption.type : 'string';
+                  const operatorOption = OPERATOR_OPTIONS[currentFieldType]?.find(o => o.value === filter.operator);
                   
                   return (
                     <div key={index} className="flex items-center justify-between bg-gray-50 p-2 rounded">
@@ -307,7 +289,6 @@ const EntityFilter: React.FC<EntityFilterProps> = ({
             </div>
           )}
           
-          {/* Add new filter */}
           <div className="grid grid-cols-1 md:grid-cols-4 gap-3 mb-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Field</label>
@@ -366,7 +347,7 @@ const EntityFilter: React.FC<EntityFilterProps> = ({
               Cancel
             </button>
             <button
-              onClick={handleApplyFilters}
+              onClick={handleApplyInternalFilters}
               className="px-3 py-1 text-sm font-medium rounded flex items-center bg-indigo-600 text-white hover:bg-indigo-700 disabled:bg-gray-300 disabled:cursor-not-allowed"
               disabled={filters.length === 0}
             >

@@ -73,44 +73,24 @@ export const sportsService = {
     // Add filters to the request
     if (filters && filters.length > 0) {
       try {
-        // Log the filters we're sending
-        console.log(`API: Original filters for ${entityType}:`, filters);
-        console.log(`API: First filter value type:`, typeof filters[0].value);
-        
-        // Ensure filters have the correct structure expected by the backend
+        // Reverted to simple filter mapping
         const formattedFilters = filters.map(filter => ({
           field: filter.field,
           operator: filter.operator,
           value: filter.value
         }));
         
-        console.log(`API: Formatted filters:`, formattedFilters);
-        console.log(`API: First formatted filter value type:`, typeof formattedFilters[0].value);
-        
-        // Convert filters to a format the API can understand
         const filtersParam = JSON.stringify(formattedFilters);
         params.append('filters', filtersParam);
-        console.log(`API: Adding filters to ${entityType} request:`, filtersParam);
-        console.log(`API: URL-encoded filters:`, encodeURIComponent(filtersParam));
       } catch (error) {
         console.error('Error stringifying filters:', error);
       }
     }
 
     const url = `/sports/entities/${entityType}?${params.toString()}`;
-    console.log(`API: Making request to ${url}`);
     
     try {
       const result = await request(url, { requiresAuth: true });
-      console.log(`API: Received response for ${entityType}:`, {
-        resultType: typeof result,
-        isArray: Array.isArray(result),
-        length: Array.isArray(result) ? result.length : 'not an array',
-        sample: Array.isArray(result) && result.length > 0 ? result[0] : result
-      });
-      
-      // No sanitization needed anymore since the entity type mapping has been fixed
-      
       return result;
     } catch (error) {
       console.error(`API: Error fetching ${entityType} entities:`, error);

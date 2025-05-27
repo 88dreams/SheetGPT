@@ -188,15 +188,11 @@ const EntityList: React.FC<EntityListProps> = ({ className = '' }) => {
   const [clientFilteredCount, setClientFilteredCount] = useState<number | null>(null);
   
   // Effect to reset search input value when filters are cleared externally
-  // This ensures the input field is cleared when filters are cleared
   useEffect(() => {
-    // If there are no active filters, but we have a search input value
-    // then we need to reset the search input value
     if ((!activeFilters || activeFilters.length === 0) && searchInputValue) {
-      console.log('No active filters, resetting search input value');
       setSearchInputValue('');
       setSearchQuery('');
-      setClientFilteredCount(null);  // Reset the filtered count
+      setClientFilteredCount(null);
     }
   }, [activeFilters, searchInputValue]);
   
@@ -207,44 +203,50 @@ const EntityList: React.FC<EntityListProps> = ({ className = '' }) => {
     }
   }, [searchQuery]);
   
-  // Search handler - search across all records via API and highlight matched rows in the UI
+  // Reverted Search handler
   const handleSearchSelect = (query: string) => {
-    console.log(`EntityList: handleSearchSelect called with query: "${query}"`);
-    
-    // If query is empty, clear the search
     if (!query || query.length === 0) {
-      console.log('EntityList: Empty query received - clearing search and filters');
-      // Clear UI state
       setSearchQuery('');
       setSearchInputValue('');
-      
-      // Clear backend filters
       handleClearFilters();
-      
-      return; // Exit early
+      return;
     }
     
-    // Store the search query for UI highlighting
     setSearchQuery(query.toLowerCase());
-    // Update the input value state to keep it in sync
     setSearchInputValue(query);
     
-    // Check if we have a non-empty search query with at least 3 characters
     if (query.length >= 3) {
-      // Create a search filter to send to the backend
-      // This will search all records, not just the current page
-      const searchFilters: FilterConfig[] = [
-        {
-          field: 'name',
-          operator: 'contains',
-          value: query
+      // Get visible, searchable columns
+      const searchableVisibleColumns = columnOrder.filter(colName => 
+        visibleColumns[colName] &&
+        colName !== 'id' &&
+        !colName.endsWith('_id') &&
+        colName !== 'created_at' &&
+        colName !== 'updated_at' &&
+        colName !== 'deleted_at'
+      );
+
+      if (searchableVisibleColumns.length > 0) {
+        const searchFilters: FilterConfig[] = [
+          {
+            field: `search_columns:${searchableVisibleColumns.join(',')}`,
+            operator: 'contains',
+            value: query
+          }
+        ];
+        setCurrentPage(1);
+        handleApplyFilters(searchFilters);
+      } else {
+        // If no searchable columns are visible, clear existing search/filters.
+        // This prevents sending an empty "search_columns:" filter.
+        if (activeFilters && activeFilters.length > 0) {
+           handleClearFilters();
         }
-      ];
-      
-      console.log(`EntityList: Searching for: ${query} - applying global search filter`);
-      // Apply filters and always reset to page 1 when searching
-      setCurrentPage(1);
-      handleApplyFilters(searchFilters);
+      }
+    } else {
+      if (activeFilters && activeFilters.length > 0) {
+        handleClearFilters();
+      }
     }
   };
 
@@ -288,30 +290,14 @@ const EntityList: React.FC<EntityListProps> = ({ className = '' }) => {
     [selectedEntitiesFingerprint]
   );
 
-  // Loading state - only show full loading screen on initial load (when no entities data)
-  if (isLoading && (!entities || entities.length === 0)) {
-    return (
-      <div className={`flex justify-center items-center h-64 ${className}`}>
-        <LoadingSpinner size="medium" />
-        <span className="ml-2 text-gray-600">Loading entities...</span>
-      </div>
-    );
-  }
+  // Check if we have no entities but should still show the interface (e.g., when search returns no results)
+  // This logic was added to fix search bar visibility and can remain, as it's generally useful.
+  const hasNoEntities = !entities || entities.length === 0;
+  const shouldShowEmptyState = hasNoEntities && (!hasActiveFilters && !searchInputValue);
 
-  // Error state - no entity type selected
-  if (!selectedEntityType) {
-    return (
-      <div className={`flex justify-center items-center h-64 border rounded-lg bg-gray-50 ${className}`}>
-        <div className="text-center text-gray-500">
-          <p>No entity type selected</p>
-          <p className="text-sm mt-2">Please select an entity type to view data</p>
-        </div>
-      </div>
-    );
-  }
-
-  // Empty state - no entities found
-  if (!entities || entities.length === 0) {
+  // If we should show the empty state (no filters, no search, no entities), show simplified view
+  // This logic can also remain as it pertains to display, not filter creation.
+  if (shouldShowEmptyState) {
     return (
       <div className={`flex justify-center items-center h-64 border rounded-lg bg-gray-50 ${className}`}>
         <div className="text-center text-gray-500">
@@ -324,7 +310,7 @@ const EntityList: React.FC<EntityListProps> = ({ className = '' }) => {
 
   return (
     <div className={`bg-white rounded-lg shadow ${className}`}>
-      {/* Header with search and export buttons */}
+      {/* Header with search and export buttons - always show this */}
       <EntityListHeader
         selectedEntityType={selectedEntityType}
         showColumnSelector={showColumnSelector}
@@ -333,7 +319,7 @@ const EntityList: React.FC<EntityListProps> = ({ className = '' }) => {
         setShowFullUuids={setShowFullUuids}
         openExportDialog={exportHook.openExportDialog}
         onSearch={handleSearchSelect}
-        searchValue={searchInputValue} // Pass the current search input value to control the input field
+        searchValue={searchInputValue}
       />
       
       {/* Column selector dropdown */}

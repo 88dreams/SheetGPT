@@ -254,13 +254,34 @@ const EntityTable: React.FC<EntityTableProps> = ({
     // as they have already been filtered by the server
     const filteredCount = entities.length;
     
-    // Report the filtered count back to the parent component
-    if (onFilteredCountChange) {
-      onFilteredCountChange(filteredCount);
-    }
+    // DO NOT Report the filtered count back to the parent component from here
+    // if (onFilteredCountChange) {
+    //   onFilteredCountChange(filteredCount);
+    // }
     
     return filteredCount;
-  }, [searchQuery, entities, onFilteredCountChange]);
+  }, [searchQuery, entities]); // onFilteredCountChange removed from dependencies here
+
+  // useEffect to report the filtered count back to the parent component
+  const prevReportedCountRef = useRef<number | undefined>();
+  useEffect(() => {
+    if (searchQuery && searchQuery.length >= 3) {
+      if (onFilteredCountChange && matchingEntitiesCount !== prevReportedCountRef.current) {
+        onFilteredCountChange(matchingEntitiesCount);
+        prevReportedCountRef.current = matchingEntitiesCount;
+      }
+    } else {
+      // If search query is cleared or too short, and we had previously reported a count,
+      // signal to clear it in the parent (e.g., by passing null or a specific value)
+      // Parent (EntityList) is expected to handle this specific reset logic if needed via its own effects.
+      // However, to be more direct, if onFilteredCountChange is present and a count was previously reported:
+      if (onFilteredCountChange && prevReportedCountRef.current !== undefined && prevReportedCountRef.current !== null) {
+        // Assuming EntityList expects null to clear the count display
+        onFilteredCountChange(0); // Or perhaps null, depending on parent expectation
+        prevReportedCountRef.current = 0; // Or null
+      }
+    }
+  }, [matchingEntitiesCount, searchQuery, onFilteredCountChange]); // Keep onFilteredCountChange if its stability is unsure, or remove if stable
 
   return (
     <div className="overflow-auto border border-gray-200 rounded-md relative">

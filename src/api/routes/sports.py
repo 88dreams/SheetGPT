@@ -5,6 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from sqlalchemy.exc import SQLAlchemyError
 from pydantic import ValidationError
+import math
 
 from src.models.sports_models import (
     League, Team, Player, Game, Stadium, 
@@ -95,19 +96,30 @@ async def get_entities(
 
         # Standard, consistent handling for all entity types
         result = await sports_service.get_entities_with_related_names(
-            db=db,
             entity_type=entity_type,
             page=page,
-            limit=limit,
-            sort_by=sort_by,
+            page_size=limit,
+            sort_field=sort_by,
             sort_direction=sort_direction,
             filters=filter_conditions
         )
         
-        # Log the number of results for debugging
-        print(f"Found {len(result.get('items', []))} results for {entity_type} with filters: {filter_conditions}")
+        # Unpack the tuple result
+        entities_list, total_count = result
+
+        # Construct the dictionary for PaginatedResponse
+        response_data = {
+            "items": entities_list,
+            "total": total_count,
+            "page": page,
+            "size": limit, # 'limit' is the query param for page size
+            "pages": math.ceil(total_count / limit) if limit > 0 else 0 # Avoid division by zero, return 0 pages if limit is 0
+        }
         
-        return result
+        # Log the number of results for debugging using the new response_data dict
+        print(f"Found {len(response_data.get('items', []))} results for {entity_type} with filters: {filter_conditions}")
+        
+        return response_data # This dict will be validated by PaginatedResponse
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:

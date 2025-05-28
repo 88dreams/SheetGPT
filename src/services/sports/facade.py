@@ -1,10 +1,13 @@
 from sqlalchemy.ext.asyncio import AsyncSession
-from typing import List, Optional, Dict, Any, Type
+from typing import List, Optional, Dict, Any, Tuple
 from uuid import UUID
 import logging
 import math
-from sqlalchemy import select, func, or_
+from sqlalchemy import select, func, or_, desc, asc, inspect, column, text
 from sqlalchemy.types import String, Text,  VARCHAR # Import string types for checking
+from sqlalchemy.orm import aliased, contains_eager, selectinload # Added aliased and contains_eager
+from sqlalchemy.exc import SQLAlchemyError, NoResultFound, IntegrityError
+from sqlalchemy.sql.expression import literal_column
 
 from src.models.sports_models import (
     League, Team, Player, Game, Stadium, 
@@ -40,8 +43,59 @@ from src.services.sports.brand_service import BrandService
 from src.services.sports.game_broadcast_service import GameBroadcastService
 from src.services.sports.league_executive_service import LeagueExecutiveService
 from src.services.sports.division_conference_service import DivisionConferenceService
+from src.utils.database import get_db_session as get_session # Added import
 
 logger = logging.getLogger(__name__)
+
+# Define the relationship map for searchable related fields
+# Path items are relationship attribute names (strings) on the *current* model in the traversal
+# Target_fields are attribute names (strings) on the *final* model in the path
+SEARCH_RELATIONSHIP_MAP = {
+    # BroadcastRights (entity_type="broadcast")
+    ("broadcast", "league_name"): {
+        "path_attrs": ["division_conference", "league"], 
+        "target_fields": ["name", "nickname"]
+    },
+    ("broadcast", "league_sport"): { 
+        "path_attrs": ["division_conference", "league"], 
+        "target_fields": ["sport"]
+    },
+    ("broadcast", "division_conference_name"): {
+        "path_attrs": ["division_conference"],
+        "target_fields": ["name", "nickname"]
+    },
+    ("broadcast", "broadcast_company_name"): {
+        "path_attrs": ["broadcaster"], # broadcaster is relationship from BroadcastRights to Brand
+        "target_fields": ["name"]
+    },
+    # ("broadcast", "entity_name"): { ... deferred for now due to polymorphism ... }
+
+    # ProductionService (entity_type="production")
+    ("production", "production_company_name"): {
+        "path_attrs": ["production_company"], # production_company is relationship to Brand
+        "target_fields": ["name"]
+    },
+    ("production", "secondary_brand_name"): {
+        "path_attrs": ["secondary_brand"],    # secondary_brand is relationship to Brand
+        "target_fields": ["name"]
+    },
+    # ("production", "entity_name"): { ... deferred for now due to polymorphism ... }
+
+    # Team (entity_type="team")
+    ("team", "league_name"): {
+        "path_attrs": ["league"],
+        "target_fields": ["name", "nickname"]
+    },
+    ("team", "division_conference_name"): {
+        "path_attrs": ["division_conference"],
+        "target_fields": ["name", "nickname"]
+    },
+    ("team", "stadium_name"): {
+        "path_attrs": ["stadium"],
+        "target_fields": ["name"]
+    }
+    # TODO: Add more mappings for other entity_types and their relevant related fields
+}
 
 class SportsService:
     """Facade service for managing sports entities."""
@@ -291,109 +345,117 @@ class SportsService:
             result[column.name] = getattr(model, column.name)
         return result
     
-    async def get_entities_with_related_names(self, db: AsyncSession, entity_type: str, page: int = 1, limit: int = 50, sort_by: str = "id", sort_direction: str = "asc", filters: Optional[List[Dict[str, Any]]] = None) -> Dict[str, Any]:
-        """Get entities with related entity names for better display in the UI."""
-        if entity_type not in self.ENTITY_TYPES:
-            raise ValueError(f"Invalid entity type: {entity_type}")
+    async def get_entities_with_related_names(
+        self,
+        entity_type: str,
+        page: int = 1,
+        page_size: int = 10,
+        sort_field: Optional[str] = None,
+        sort_direction: Optional[str] = "asc",
+        filters: Optional[List[Dict[str, Any]]] = None,
+        include_related: bool = True  # New parameter to control including related names
+    ) -> Tuple[List[Dict[str, Any]], int]:
+        logger.debug(f"Service: Getting entities for {entity_type} with page={page}, page_size={page_size}, sort_field={sort_field}, sort_direction={sort_direction}, filters={filters}, include_related={include_related}")
         
-        model_class = self.ENTITY_TYPES[entity_type]
-        query = select(model_class) # Base query
+        async with get_session() as session:
+            model_class = self.ENTITY_TYPES.get(entity_type)
+            if not model_class:
+                logger.error(f"Service: Invalid entity type: {entity_type}")
+                raise ValueError(f"Invalid entity type: {entity_type}")
 
-        if filters:
-            logger.info(f"Applying filters to {entity_type}: {filters}")
-            for filter_item in filters:
-                field = filter_item.get("field")
-                operator = filter_item.get("operator")
-                value = str(filter_item.get("value", "")).lower() # Ensure value is string and lowercased
-                
-                if field and operator and value: # Ensure all parts are present
+            query = select(model_class)
+            # Initial total_query, will be refined if filters are present
+            total_query = select(func.count()).select_from(model_class) 
+
+            if filters:
+                logger.debug(f"Applying filters: {filters}")
+                for filter_item in filters:
+                    field = filter_item.get("field")
+                    operator = filter_item.get("operator")
+                    value = filter_item.get("value")
+
+                    if not field or not operator:
+                        logger.warning(f"Skipping invalid filter item: {filter_item}")
+                        continue
+                    
+                    logger.debug(f"Processing filter: field={field}, operator={operator}, value={value}")
+
                     if field.startswith("search_columns:") and operator == "contains":
-                        columns_to_search_str = field.split(":", 1)[1]
-                        columns_to_search = [col.strip() for col in columns_to_search_str.split(',') if col.strip()]
-                        
+                        column_names = field.split("search_columns:")[1].split(',')
                         or_conditions = []
-                        for col_name in columns_to_search:
+                        for col_name in column_names:
                             if hasattr(model_class, col_name):
                                 column_attr = getattr(model_class, col_name)
-                                # Check if the column is a string-like type before applying lower().contains()
                                 if isinstance(column_attr.type, (String, Text, VARCHAR)):
-                                    or_conditions.append(func.lower(column_attr).contains(value))
+                                    or_conditions.append(func.lower(column_attr).contains(str(value).lower()))
                                 else:
-                                    logger.info(f"Skipping column '{col_name}' in search_columns for model {model_class.__name__} as it is not a string type (type: {column_attr.type}).")
+                                    logger.warning(f"Column '{col_name}' is not a string type, skipping for text search.")
                             else:
-                                logger.warning(f"Column '{col_name}' specified in search_columns not found in model {model_class.__name__}")
-                        
+                                logger.warning(f"Column '{col_name}' not found on model '{model_class.__name__}', skipping for text search.")
                         if or_conditions:
                             query = query.where(or_(*or_conditions))
-                        else:
-                            logger.warning(f"search_columns filter for '{field}' resulted in no valid conditions for {model_class.__name__}")
-                            # If no searchable string columns were found, this means the filter term cannot match.
-                            # To ensure no results are returned if the intent was to search but no valid columns existed:
-                            # import sqlalchemy
-                            # query = query.where(sqlalchemy.sql.false())
+                    elif hasattr(model_class, field):
+                        column_attr = getattr(model_class, field)
+                        if operator == "eq":
+                            query = query.where(column_attr == value)
+                        elif operator == "neq":
+                            query = query.where(column_attr != value)
+                        elif operator == "gt":
+                            query = query.where(column_attr > value)
+                        elif operator == "lt":
+                            query = query.where(column_attr < value)
+                        elif operator == "contains" and isinstance(column_attr.type, (String, Text, VARCHAR)):
+                            query = query.where(func.lower(column_attr).contains(str(value).lower()))
+                        elif operator == "startswith" and isinstance(column_attr.type, (String, Text, VARCHAR)):
+                            query = query.where(func.lower(column_attr).startswith(str(value).lower()))
+                        elif operator == "endswith" and isinstance(column_attr.type, (String, Text, VARCHAR)):
+                            query = query.where(func.lower(column_attr).endswith(str(value).lower()))
+                    else:
+                        logger.warning(f"Field '{field}' not found on model or operator '{operator}' not supported for it.")
+                
+                # After all filters are applied, construct the total_query based on the filtered query
+                filtered_subquery = query.distinct().subquery()
+                total_query = select(func.count()).select_from(filtered_subquery)
 
-                    # Fallback to original name filter if not a search_columns request for "name"
-                    elif hasattr(model_class, field) and field == "name" and operator == "contains":
-                        query = query.where(
-                            func.lower(getattr(model_class, field)).contains(value)
-                        )
-                    # else:
-                    #    logger.warning(f"Unsupported filter item: {filter_item}")
-            
-        # Get total count *after* filters have been applied
-        # Using distinct().subquery() for count is safer with OR conditions that might match multiple columns in the same row.
-        count_query = select(func.count()).select_from(query.distinct().subquery())
-        total_count = await db.scalar(count_query)
-
-        # Sorting logic (this part was complex and likely needs careful reversion to its exact prior state)
-        # For safety, this is a simplified version of the sorting from previous facade.py versions.
-        # A full revert should use git history for this section.
-        relationship_sort = await self.get_relationship_sort_config(entity_type, sort_by)
-        logger.info(f"get_entities_with_related_names: Sorting {entity_type} by {sort_by} ({sort_direction}) - Relationship config: {relationship_sort}")
-
-        if relationship_sort and not relationship_sort.get("special_case"):
-            join_model = relationship_sort["join_model"]
-            join_on_field_name = relationship_sort["join_field"]
-            sort_on_related_field_name = relationship_sort["sort_field"]
-            query = query.outerjoin(join_model, getattr(model_class, join_on_field_name) == join_model.id)
-            sort_column_on_joined_table = getattr(join_model, sort_on_related_field_name)
-            if sort_direction.lower() == "desc":
-                query = query.order_by(sort_column_on_joined_table.desc().nulls_last())
-            else:
-                query = query.order_by(sort_column_on_joined_table.asc().nulls_last())
-        elif not (relationship_sort and relationship_sort.get("special_case") == "polymorphic"): # Standard field sort
-            if hasattr(model_class, sort_by):
-                sort_column = getattr(model_class, sort_by)
+            # Sorting
+            if sort_field and hasattr(model_class, sort_field):
+                sort_attr = getattr(model_class, sort_field)
                 if sort_direction.lower() == "desc":
-                    query = query.order_by(sort_column.desc().nulls_last())
+                    query = query.order_by(desc(sort_attr))
                 else:
-                    query = query.order_by(sort_column.asc().nulls_last())
+                    query = query.order_by(asc(sort_attr))
+            else: # Default sort if field not found or not provided
+                query = query.order_by(asc(model_class.id))
+
+
+            # Add pagination
+            query = query.offset((page - 1) * page_size).limit(page_size)
+            
+            # Execute query
+            result = await session.execute(query)
+            entities = result.scalars().all()
+            
+            # Convert entities to dicts
+            entities_dicts = [self._model_to_dict(entity) for entity in entities]
+
+            if include_related:
+                try:
+                    entities_with_related_names = await EntityNameResolver.get_entities_with_related_names(session, entity_type, entities_dicts)
+                except Exception as e:
+                    logger.error(f"Error in EntityNameResolver for {entity_type}: {e}", exc_info=True)
+                    entities_with_related_names = entities_dicts # Fallback
             else:
-                logger.warning(f"Field {sort_by} not found in {entity_type} for direct sorting, defaulting to id")
-                query = query.order_by(model_class.id.desc() if sort_direction.lower() == "desc" else model_class.id.asc())
-        
-        # Pagination
-        query = query.offset((page - 1) * limit).limit(limit)
-        result_proxy = await db.execute(query)
-        entities_from_db = result_proxy.scalars().all()
-        items_for_response = [self._model_to_dict(entity) for entity in entities_from_db]
+                entities_with_related_names = entities_dicts
 
-        # Polymorphic sort and name resolution logic (also complex, ensure it matches prior state)
-        if relationship_sort and relationship_sort.get("special_case") == "polymorphic":
-            processed_items_for_sort = await EntityNameResolver.get_entities_with_related_names(db, entity_type, items_for_response)
-            def get_sort_key(entity):
-                value = entity.get(sort_by)
-                return str(value).lower() if value is not None else ""
-            items_for_response = sorted(processed_items_for_sort, key=get_sort_key, reverse=(sort_direction.lower() == "desc"))
-        elif not (relationship_sort and relationship_sort.get("special_case") == "polymorphic"):
-             items_for_response = await EntityNameResolver.get_entities_with_related_names(db, entity_type, items_for_response)
+            # Calculate total count
+            total_count_result = await session.execute(total_query) # Use the refined total_query
+            total_count = total_count_result.scalar_one_or_none()
+            if total_count is None: total_count = 0
+            
+            logger.info(f"Calculated total_count: {total_count} for entity_type='{entity_type}' with given filters.")
+            logger.debug(f"Total count SQL: {str(total_query.compile(compile_kwargs={'literal_binds': True}))}")
 
-        final_items_cleaned = [EntityNameResolver.clean_entity_fields(entity_type, item) for item in items_for_response]
-        
-        return {
-            "items": final_items_cleaned, "total": total_count, "page": page,
-            "size": limit, "pages": math.ceil(total_count / limit)
-        }
+            return entities_with_related_names, total_count
     
     # League methods
     async def get_leagues(self, db: AsyncSession) -> List[League]:

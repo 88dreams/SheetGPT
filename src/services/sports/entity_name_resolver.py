@@ -215,6 +215,15 @@ class EntityNameResolver:
                         # Remove any "(Brand)" suffix
                         item_dict["production_company_name"] = production_company.replace(" (Brand)", "")
                 
+                # Resolve secondary_brand_name if secondary_brand_id exists
+                if 'secondary_brand_id' in entity and entity['secondary_brand_id']:
+                    secondary_brand_result = await db.execute(select(Brand.name).where(
+                        Brand.id == entity['secondary_brand_id']
+                    ))
+                    secondary_brand_name = secondary_brand_result.scalar()
+                    if secondary_brand_name:
+                        item_dict["secondary_brand_name"] = secondary_brand_name.replace(" (Brand)", "")
+                
                 # Handle entity_id based on entity_type
                 if 'entity_type' in entity and 'entity_id' in entity and entity['entity_id']:
                     # Initialize league sport fields

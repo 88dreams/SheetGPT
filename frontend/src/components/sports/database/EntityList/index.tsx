@@ -1,16 +1,16 @@
-import React, { useState, useMemo, useRef, useEffect } from 'react';
+import React, { useState, useMemo, useRef, useEffect, useCallback } from 'react';
 import { fingerprint } from '../../../../utils/fingerprint';
 import { useNavigate } from 'react-router-dom';
 import { Modal } from 'antd';
-import { useSportsDatabase } from '../SportsDatabaseContext';
+import { useSportsDatabase, EntityField } from '../SportsDatabaseContext';
 import { FilterConfig } from '../../EntityFilter';
-import LoadingSpinner from '../../../common/LoadingSpinner';
-import BulkEditModal from '../../../common/BulkEditModal';
-import { EntityCard } from '../../../data/EntityUpdate/EntityCard';
+// import LoadingSpinner from '../../../common/LoadingSpinner'; // Keep commented if not used directly
+import BulkEditModal from '../../../common/BulkEditModal'; // Restore import
+import { EntityCard } from '../../../data/EntityUpdate/EntityCard'; // Restore import
 import { Entity, EntityType, BaseEntity } from '../../../../types/sports';
 import { useDragAndDrop } from '../../../data/DataTable/hooks/useDragAndDrop';
 
-// Import components
+// Restore Child Component imports
 import {
   EntityListHeader,
   ColumnSelector,
@@ -18,114 +18,171 @@ import {
   EntityTable,
   BulkActionBar
 } from './components';
-
-// Direct import for pagination to ensure we use our new version
 import Pagination from './components/Pagination';
 
-// Import hooks
+// Custom Hook imports
 import {
   useColumnVisibility,
   useInlineEdit,
   useEntityExport
 } from './hooks';
 
-interface EntityListProps {
-  className?: string;
+// Helper function (lodash.debounce is a common choice for production)
+// You can replace this with an import if you have lodash or a similar utility
+const debounce = (func: (...args: any[]) => void, delay: number) => {
+  let timeoutId: NodeJS.Timeout;
+  return (...args: any[]) => {
+    clearTimeout(timeoutId);
+    timeoutId = setTimeout(() => func(...args), delay);
+  };
+};
+
+// Define ColumnConfig based on what useColumnVisibility and the table might need
+// This is an assumption; adjust if ColumnConfig is more complex or defined elsewhere
+interface ColumnConfig {
+  key: string;      // fieldName
+  label: string;    // display name
+  type: string;     // data type
+  isSortable?: boolean;
+  // other properties as needed by useColumnVisibility or your table lib
 }
 
-/**
- * EntityList Component - Displays and manages entity data in a table with bulk operations
- */
+interface EntityListProps {
+  className?: string;
+  // entityType, columnsConfig, onEdit will now be sourced from context or generated internally
+}
+
 const EntityList: React.FC<EntityListProps> = ({ className = '' }) => {
-  const navigate = useNavigate();
-  
-  // Get context data first
   const {
     selectedEntityType,
+    getEntityFields,
     entities,
     isLoading,
-    selectedEntities,
-    toggleEntitySelection,
-    selectAllEntities,
-    deselectAllEntities,
-    handleSort,
-    sortField,
-    sortDirection,
-    getSortedEntities,
-    showDeleteConfirm,
-    setShowDeleteConfirm,
-    handleDeleteEntity,
-    handleBulkDelete,
-    isDeleting,
+    error,
     activeFilters,
     handleApplyFilters,
     handleClearFilters,
     handleUpdateEntity,
     currentPage,
     setCurrentPage,
+    refetch,
+    deselectAllEntities,
+    handleExportToSheets,
+    sortField,
+    sortDirection,
+    selectedEntities,
+    totalItems,
     totalPages,
     pageSize,
     setPageSize,
-    totalItems,
-    refetch,
-    handleExportToSheets
+    toggleEntitySelection,
+    selectAllEntities,
+    handleSort,
+    showDeleteConfirm,
+    setShowDeleteConfirm,
+    handleDeleteEntity,
+    handleBulkDelete,
+    isDeleting,
   } = useSportsDatabase();
 
-  // State for edit entity modal
-  const [selectedEntity, setSelectedEntity] = useState<BaseEntity | null>(null);
-  const [isEditModalVisible, setIsEditModalVisible] = useState(false);
-  const [isBulkEditModalVisible, setIsBulkEditModalVisible] = useState(false);
+  const navigate = useNavigate();
 
-  // Generate initial column order based on entity data
+  const generatedColumnsArray = useMemo(() => {
+    if (!selectedEntityType) return [];
+    const fields = getEntityFields(selectedEntityType);
+    if (!fields) return [];
+    return fields.map(field => ({
+      key: field.fieldName,
+      label: field.name || field.fieldName,
+      type: field.type,
+      isSortable: true,
+    }));
+  }, [selectedEntityType, getEntityFields]);
+  
+  const generatedColumnsConfigMap = useMemo(() => {
+    const map: Record<string, ColumnConfig> = {};
+    generatedColumnsArray.forEach(col => {
+      map[col.key] = col;
+    });
+    return map;
+  }, [generatedColumnsArray]);
+
+  const { 
+    visibleColumns, 
+    setVisibleColumns 
+  } = useColumnVisibility(
+    selectedEntityType, 
+    generatedColumnsArray 
+  );
+
+  const [searchInputValue, setSearchInputValue] = useState('');
+  const [isEditModalVisible, setIsEditModalVisible] = useState(false);
+  const [editingEntity, setEditingEntity] = useState<any | null>(null);
+
+  // useEntityExport Hook
+  const {
+    showExportDialog: isExportDialogOpen, // Rename for clarity if used directly as prop
+    setShowExportDialog: setIsExportDialogOpen,
+    exportFileName,
+    setExportFileName,
+    // exportType, // Manage within ExportDialog or pass if needed
+    // setExportType,
+    // includeRelationships, // Manage within ExportDialog or pass if needed
+    // setIncludeRelationships,
+    selectedFolderName,
+    // setSelectedFolderName, // Managed by hook's handleFolderSelection
+    openExportDialog: triggerOpenExportDialog, // Rename to avoid conflict if EntityListHeader also has openExportDialog
+    handleCsvExport: actualCsvExportHandler, // Rename to avoid conflict
+    handleSheetsExport: actualSheetsExportHandler, // Rename to avoid conflict
+    handleFolderSelection: actualFolderSelectionHandler // Rename to avoid conflict
+  } = useEntityExport({ selectedEntityType, handleExportToSheets });
+
+  // Inline Edit Hook (Corrected call and destructuring)
+  const {
+    editingId,
+    editValue,
+    setEditValue, // Provided by hook
+    editingNicknameId,
+    nicknameEditValue,
+    setNicknameEditValue, // Provided by hook
+    startEdit,
+    cancelEdit,
+    saveEdit,
+    handleKeyDown,
+    startNicknameEdit,
+    cancelNicknameEdit,
+    saveNicknameEdit,
+    handleNicknameKeyDown
+  } = useInlineEdit({ selectedEntityType, handleUpdateEntity });
+
   const getInitialColumnOrder = () => {
     if (!Array.isArray(entities) || entities.length === 0) return [];
-    
-    // Get fields directly from the data
     const availableFields = Object.keys(entities[0]);
-    
-    // Set up default column order
     let coreFields = ['id', 'name', 'created_at', 'updated_at'];
-    
-    // Special handling for broadcast rights
     if (selectedEntityType === 'broadcast') {
       coreFields = ['broadcast_company_id', 'entity_id', 'division_conference_id', 'entity_type', 'territory', 'league_name', 'id', 'created_at', 'updated_at'];
     }
-    
-    // For production services, prioritize production_company_name, entity_name and entity_type
     if (selectedEntityType === 'production') {
       coreFields = ['production_company_name', 'entity_name', 'entity_type', 'service_type', 'id', 'created_at', 'updated_at'];
     }
-    
-    // Filter available fields to remove 'name' for broadcast and production entities
     let filteredFields = [...availableFields];
     if (selectedEntityType === 'broadcast' || selectedEntityType === 'production') {
       const nameIndex = filteredFields.indexOf('name');
-      if (nameIndex !== -1) {
-        filteredFields.splice(nameIndex, 1);
+      if (nameIndex !== -1) filteredFields.splice(nameIndex, 1);
       }
-    }
-    
-    return [
-      // Core fields first
-      ...coreFields.filter(f => filteredFields.includes(f)),
-      // Then all remaining fields
-      ...filteredFields.filter(f => !coreFields.includes(f))
-    ];
+    return [...coreFields.filter(f => filteredFields.includes(f)), ...filteredFields.filter(f => !coreFields.includes(f))];
   };
   
-  // Generate entity fingerprint for dependency tracking
   const entitiesFingerprint = useMemo(() => 
     entities && entities.length > 0 ? fingerprint(entities[0], { depth: 1 }) : 'empty',
     [entities]
   );
   
-  // Generate a memo of field order to prevent recalculation on every render
   const initialColumnOrder = useMemo(
     () => getInitialColumnOrder(), 
     [entitiesFingerprint, selectedEntityType]
   );
   
-  // Initialize useDragAndDrop for column reordering with localStorage persistence
   const {
     reorderedItems: columnOrder,
     draggedItem,
@@ -136,173 +193,136 @@ const EntityList: React.FC<EntityListProps> = ({ className = '' }) => {
     handleDragEnd: handleColumnDragEnd
   } = useDragAndDrop<string>({
     items: initialColumnOrder,
-    // Always include entity type in the storage key for persistence between navigation
     storageKey: selectedEntityType ? `entityList_${selectedEntityType}_columnOrder` : undefined
   });
   
-  // Track scroll position for preserving it when changing pages
   const scrollPositionRef = useRef<number>(0);
-  
-  // Remember the scroll position before any state updates
   useEffect(() => {
-    const handleScroll = () => {
-      scrollPositionRef.current = window.scrollY;
-    };
-    
+    const handleScroll = () => { scrollPositionRef.current = window.scrollY; };
     window.addEventListener('scroll', handleScroll);
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
-  // Initialize column visibility hook
-  const {
-    visibleColumns,
-    showColumnSelector,
-    setShowColumnSelector,
-    showFullUuids,
-    setShowFullUuids,
-    toggleColumnVisibility,
-    showAllColumns
-  } = useColumnVisibility(selectedEntityType, entities);
+  const originalHandleSearchSelect = useCallback((query: string) => {
+    if (!query || query.length === 0) {
+      const otherFilters = (activeFilters || []).filter(f => 
+        !(f.field.startsWith('search_columns:') && f.operator === 'contains') &&
+        !(f.field === 'name' && f.operator === 'contains')
+      );
+      handleApplyFilters(otherFilters);
+      setSearchInputValue('');
+      return;
+    }
+    setSearchInputValue(query);
+    
+    console.log('[SearchDebug] Query:', query);
+    console.log('[SearchDebug] columnOrder:', columnOrder);
+    console.log('[SearchDebug] visibleColumns:', visibleColumns);
+    console.log('[SearchDebug] generatedColumnsConfigMap:', generatedColumnsConfigMap);
 
-  // Initialize inline editing hook
-  const inlineEditHook = useInlineEdit({
-    selectedEntityType,
-    handleUpdateEntity
-  });
+    if (query.length > 0 && columnOrder) {
+      const searchableVisibleColumns = columnOrder.filter(colId =>
+        visibleColumns[colId] &&
+        generatedColumnsConfigMap[colId] &&
+        (generatedColumnsConfigMap[colId].type === 'string' || generatedColumnsConfigMap[colId].type === 'text') &&
+        colId !== 'id' && !colId.endsWith('_id') &&
+        colId !== 'created_at' && colId !== 'updated_at' && colId !== 'deleted_at'
+      );
 
-  // Initialize export hook
-  const exportHook = useEntityExport({
-    selectedEntityType,
-    handleExportToSheets
-  });
+      console.log('[SearchDebug] searchableVisibleColumns:', searchableVisibleColumns);
 
-  // Edit click handler
-  const handleEditClick = (entity: BaseEntity) => {
-    setSelectedEntity(entity);
+      let newSearchFilter: FilterConfig | null = null;
+      if (searchableVisibleColumns.length > 0) {
+        newSearchFilter = {
+          field: `search_columns:${searchableVisibleColumns.join(',')}`,
+          operator: 'contains',
+          value: query
+        };
+      }
+      console.log('[SearchDebug] newSearchFilter:', newSearchFilter);
+
+      const otherFilters = (activeFilters || []).filter(f => 
+        !(f.field.startsWith('search_columns:') && f.operator === 'contains') &&
+        !(f.field === 'name' && f.operator === 'contains')
+      );
+      const filtersToApply = newSearchFilter ? [...otherFilters, newSearchFilter] : otherFilters;
+      handleApplyFilters(filtersToApply);
+      setCurrentPage(1);
+    }
+  }, [columnOrder, visibleColumns, generatedColumnsConfigMap, activeFilters, handleApplyFilters, setCurrentPage, selectedEntityType]);
+
+  const debouncedSearch = useMemo(() => debounce(originalHandleSearchSelect, 300), [originalHandleSearchSelect]);
+
+  const handleSearchInputChange = (query: string) => {
+    setSearchInputValue(query);
+    debouncedSearch(query);
+  };
+  
+  const onEdit = (entity: any) => {
+    setEditingEntity(entity);
     setIsEditModalVisible(true);
   };
 
-  // Add state for search query to highlight matching rows and control the search input
-  const [searchQuery, setSearchQuery] = useState<string>('');
-  const [searchInputValue, setSearchInputValue] = useState<string>('');
-  const [clientFilteredCount, setClientFilteredCount] = useState<number | null>(null);
-  
-  // Effect to reset search input value when filters are cleared externally
-  useEffect(() => {
-    if ((!activeFilters || activeFilters.length === 0) && searchInputValue) {
-      setSearchInputValue('');
-      setSearchQuery('');
-      setClientFilteredCount(null);
-    }
-  }, [activeFilters, searchInputValue]);
-  
-  // Effect to reset client filtered count when search query is cleared
-  useEffect(() => {
-    if (!searchQuery || searchQuery.length < 3) {
-      setClientFilteredCount(null);
-    }
-  }, [searchQuery]);
-  
-  // Reverted Search handler
-  const handleSearchSelect = (query: string) => {
-    if (!query || query.length === 0) {
-      setSearchQuery('');
-      setSearchInputValue('');
-      handleClearFilters();
-      return;
-    }
-    
-    setSearchQuery(query.toLowerCase());
-    setSearchInputValue(query);
-    
-    if (query.length >= 3) {
-      // Get visible, searchable columns
-      const searchableVisibleColumns = columnOrder.filter(colName => 
-        visibleColumns[colName] &&
-        colName !== 'id' &&
-        !colName.endsWith('_id') &&
-        colName !== 'created_at' &&
-        colName !== 'updated_at' &&
-        colName !== 'deleted_at'
-      );
+  const [selectedEntity, setSelectedEntity] = useState<BaseEntity | null>(null);
+  const [isBulkEditModalVisible, setIsBulkEditModalVisible] = useState(false);
 
-      if (searchableVisibleColumns.length > 0) {
-        const searchFilters: FilterConfig[] = [
-          {
-            field: `search_columns:${searchableVisibleColumns.join(',')}`,
-            operator: 'contains',
-            value: query
-          }
-        ];
-        setCurrentPage(1);
-        handleApplyFilters(searchFilters);
-      } else {
-        // If no searchable columns are visible, clear existing search/filters.
-        // This prevents sending an empty "search_columns:" filter.
-        if (activeFilters && activeFilters.length > 0) {
-           handleClearFilters();
-        }
-      }
-    } else {
-      if (activeFilters && activeFilters.length > 0) {
-        handleClearFilters();
-      }
-    }
-  };
-
-  const handleEditModalClose = () => {
+  const handleEditModalClose = useCallback(() => {
     setSelectedEntity(null);
     setIsEditModalVisible(false);
-  };
+  }, []);
 
-  const handleEntityUpdate = (updatedEntity: Entity) => {
+  const handleEntityUpdate = useCallback((updatedEntity: Entity) => {
     const { id, created_at, updated_at, ...updates } = updatedEntity;
     handleUpdateEntity(id, updates as Record<string, unknown>);
+    setSelectedEntity(null);
     setIsEditModalVisible(false);
-  };
+  }, [handleUpdateEntity]);
+  
+  const handleBulkEditModalCancel = useCallback(() => { setIsBulkEditModalVisible(false) }, []);
+  const handleBulkEditModalSuccess = useCallback(() => {
+    setIsBulkEditModalVisible(false);
+    refetch(); 
+    deselectAllEntities(); 
+  }, [refetch, deselectAllEntities]);
 
-  // Memoize sort state for dependency tracking
   const sortStateFingerprint = useMemo(() => 
     fingerprint({ field: sortField, direction: sortDirection }),
     [sortField, sortDirection]
   );
-  
-  // Memoize selected entities state for dependency tracking
   const selectedEntitiesFingerprint = useMemo(() => 
     fingerprint(selectedEntities, { depth: 1 }),
     [selectedEntities]
   );
-
-  // Use server-side sorting exclusively
-  // This ensures consistent sorting behavior across pages
   const filteredEntities = useMemo(() => {
-    // NOTE: Relationship fields (*_name) might not sort correctly on the backend
-    // This is a limitation in the backend implementation that should be fixed
-    console.log(`Using server-sorted data for ${selectedEntityType}, page ${currentPage}, sort: ${sortField} ${sortDirection}`);
-    
-    // Rely entirely on the server's sorting
     return entities as BaseEntity[];
-  }, [entities, selectedEntityType, currentPage, sortField, sortDirection]);
-  
-  const hasActiveFilters = activeFilters && activeFilters.length > 0;
+  }, [entities]);
   const selectedCount = useMemo(
     () => Object.values(selectedEntities).filter(Boolean).length,
     [selectedEntitiesFingerprint]
   );
 
-  // Check if we have no entities but should still show the interface (e.g., when search returns no results)
-  // This logic was added to fix search bar visibility and can remain, as it's generally useful.
   const hasNoEntities = !entities || entities.length === 0;
-  const shouldShowEmptyState = hasNoEntities && (!hasActiveFilters && !searchInputValue);
+  const hasActiveSearchOrFilters = (activeFilters && activeFilters.length > 0) || (searchInputValue && searchInputValue.length > 0);
+  const shouldShowEmptyState = hasNoEntities && !hasActiveSearchOrFilters;
 
-  // If we should show the empty state (no filters, no search, no entities), show simplified view
-  // This logic can also remain as it pertains to display, not filter creation.
+  const handleShowAllColumns = useCallback(() => {
+    const allVisible = Object.fromEntries(generatedColumnsArray.map(col => [col.key, true]));
+    setVisibleColumns(allVisible);
+  }, [generatedColumnsArray, setVisibleColumns]);
+
+  if (isLoading) {
+    return (
+      <div className={`flex justify-center items-center h-64 ${className}`}>
+        <p>Loading...</p>
+      </div>
+    );
+  }
+
   if (shouldShowEmptyState) {
     return (
       <div className={`flex justify-center items-center h-64 border rounded-lg bg-gray-50 ${className}`}>
         <div className="text-center text-gray-500">
           <p>No {selectedEntityType} entities found</p>
-          <p className="text-sm mt-2">Try selecting a different entity type or adding new entities</p>
         </div>
       </div>
     );
@@ -310,30 +330,33 @@ const EntityList: React.FC<EntityListProps> = ({ className = '' }) => {
 
   return (
     <div className={`bg-white rounded-lg shadow ${className}`}>
-      {/* Header with search and export buttons - always show this */}
       <EntityListHeader
         selectedEntityType={selectedEntityType}
-        showColumnSelector={showColumnSelector}
-        setShowColumnSelector={setShowColumnSelector}
-        showFullUuids={showFullUuids}
-        setShowFullUuids={setShowFullUuids}
-        openExportDialog={exportHook.openExportDialog}
-        onSearch={handleSearchSelect}
+        showColumnSelector={Object.keys(visibleColumns).length > 0}
+        setShowColumnSelector={(show) => {
+          if (!show) {
+            setVisibleColumns({});
+          }
+        }}
+        showFullUuids={false}
+        setShowFullUuids={(show) => {}}
+        openExportDialog={triggerOpenExportDialog}
+        onSearch={handleSearchInputChange}
         searchValue={searchInputValue}
       />
       
-      {/* Column selector dropdown */}
-      {showColumnSelector && (
+      {Object.keys(visibleColumns).length > 0 && (
         <ColumnSelector
           entities={entities}
           visibleColumns={visibleColumns}
-          toggleColumnVisibility={toggleColumnVisibility}
-          showAllColumns={showAllColumns}
+          toggleColumnVisibility={(colId) => {
+            setVisibleColumns(prev => ({ ...prev, [colId]: !prev[colId] }));
+          }}
+          showAllColumns={handleShowAllColumns}
           selectedEntityType={selectedEntityType}
         />
       )}
 
-      {/* Bulk actions bar when items are selected */}
       <BulkActionBar
         selectedCount={selectedCount}
         deselectAllEntities={deselectAllEntities}
@@ -342,26 +365,20 @@ const EntityList: React.FC<EntityListProps> = ({ className = '' }) => {
         isDeleting={isDeleting}
       />
 
-      {/* Filter status */}
-      {hasActiveFilters && (
+      {activeFilters && activeFilters.length > 0 && (
         <div className="bg-blue-50 p-3 border-b border-blue-100">
           <p className="text-blue-700 text-sm">
-            {clientFilteredCount !== null && searchQuery && searchQuery.length >= 3 ? (
-              <>Filters applied: Showing {clientFilteredCount} of {totalItems} {selectedEntityType}(s) matching your filters and search query "<span className="font-semibold">{searchQuery}</span>".</>
-            ) : (
-              <>Filters applied: Showing {totalItems} {selectedEntityType}(s) matching your filters.</>
-            )}
+            {totalItems} {selectedEntityType}(s) matching your filters.
           </p>
         </div>
       )}
       
-      {/* Data table */}
       <EntityTable
         entities={filteredEntities}
         columnOrder={columnOrder}
         visibleColumns={visibleColumns}
         selectedEntityType={selectedEntityType}
-        showFullUuids={showFullUuids}
+        showFullUuids={false}
         selectedEntities={selectedEntities}
         toggleEntitySelection={toggleEntitySelection}
         selectAllEntities={selectAllEntities}
@@ -369,26 +386,35 @@ const EntityList: React.FC<EntityListProps> = ({ className = '' }) => {
         handleSort={handleSort}
         sortField={sortField}
         sortDirection={sortDirection}
-        handleEditClick={handleEditClick}
+        handleEditClick={onEdit}
         showDeleteConfirm={showDeleteConfirm}
         setShowDeleteConfirm={setShowDeleteConfirm}
         handleDeleteEntity={handleDeleteEntity}
         handleView={(entityId) => navigate(`/sports/${selectedEntityType}/${entityId}`)}
-        searchQuery={searchQuery} // Pass the search query for highlighting
-        isLoading={isLoading} // Pass loading state to show loading overlay
-        onFilteredCountChange={setClientFilteredCount} // Report back filtered count
-        // Column drag and drop props
+        searchQuery={searchInputValue}
+        isLoading={isLoading}
         draggedHeader={draggedItem}
         dragOverHeader={dragOverItem}
         handleColumnDragStart={handleColumnDragStart}
         handleColumnDragOver={handleColumnDragOver}
         handleColumnDrop={handleColumnDrop}
         handleColumnDragEnd={handleColumnDragEnd}
-        // Inline editing props
-        {...inlineEditHook}
+        editingId={editingId}
+        editValue={editValue}
+        setEditValue={setEditValue}
+        startEdit={startEdit}
+        saveEdit={saveEdit}
+        cancelEdit={cancelEdit}
+        handleKeyDown={handleKeyDown}
+        editingNicknameId={editingNicknameId}
+        nicknameEditValue={nicknameEditValue}
+        setNicknameEditValue={setNicknameEditValue}
+        startNicknameEdit={startNicknameEdit}
+        saveNicknameEdit={saveNicknameEdit}
+        cancelNicknameEdit={cancelNicknameEdit}
+        handleNicknameKeyDown={handleNicknameKeyDown}
       />
       
-      {/* Pagination Controls - with all props explicitly passed */}
       <Pagination 
         currentPage={currentPage}
         setCurrentPage={setCurrentPage}
@@ -397,11 +423,10 @@ const EntityList: React.FC<EntityListProps> = ({ className = '' }) => {
         setPageSize={setPageSize}
         totalItems={totalItems}
         isLoading={isLoading}
-        filteredCount={clientFilteredCount}
-        searchQuery={searchQuery}
+        filteredCount={null}
+        searchQuery={searchInputValue}
       />
 
-      {/* Entity Edit Modal */}
       <Modal
         title="Entity Edit"
         open={isEditModalVisible}
@@ -419,32 +444,26 @@ const EntityList: React.FC<EntityListProps> = ({ className = '' }) => {
         )}
       </Modal>
 
-      {/* Bulk Edit Modal */}
       <BulkEditModal 
         open={isBulkEditModalVisible}
-        onCancel={() => setIsBulkEditModalVisible(false)}
+        onCancel={handleBulkEditModalCancel}
         entityType={selectedEntityType}
         selectedIds={Object.keys(selectedEntities).filter(id => selectedEntities[id])}
-        onSuccess={() => {
-          setIsBulkEditModalVisible(false);
-          refetch();
-          deselectAllEntities();
-        }}
+        onSuccess={handleBulkEditModalSuccess}
       />
       
-      {/* Export Dialog */}
       <ExportDialog
-        showExportDialog={exportHook.showExportDialog}
-        setShowExportDialog={exportHook.setShowExportDialog}
-        exportFileName={exportHook.exportFileName}
-        setExportFileName={exportHook.setExportFileName}
-        selectedFolderName={exportHook.selectedFolderName}
-        handleFolderSelection={exportHook.handleFolderSelection}
-        handleCsvExport={exportHook.handleCsvExport}
-        handleSheetsExport={exportHook.handleSheetsExport}
+        showExportDialog={isExportDialogOpen}
+        setShowExportDialog={setIsExportDialogOpen}
+        exportFileName={exportFileName}
+        setExportFileName={setExportFileName}
+        selectedFolderName={selectedFolderName}
+        handleFolderSelection={actualFolderSelectionHandler}
+        handleCsvExport={actualCsvExportHandler}
+        handleSheetsExport={actualSheetsExportHandler}
         entities={entities}
         visibleColumns={columnOrder.filter(col => 
-          visibleColumns[col] !== false && entities[0]?.hasOwnProperty(col)
+          visibleColumns[col] !== false && (entities.length > 0 ? entities[0].hasOwnProperty(col) : true)
         )}
       />
     </div>

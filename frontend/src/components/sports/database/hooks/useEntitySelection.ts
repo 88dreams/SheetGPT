@@ -3,10 +3,12 @@ import { useState, useCallback, useEffect } from 'react';
 export function useEntitySelection(entities: Record<string, unknown>[]) {
   const [selectedEntities, setSelectedEntities] = useState<Record<string, boolean>>({});
 
-  // Reset selections when entities change
+  // Reset selections when entities change -- REMOVING THIS EFFECT as it likely causes a loop
+  /*
   useEffect(() => {
     setSelectedEntities({});
   }, [entities]);
+  */
 
   // Toggle selection of a single entity
   const toggleEntitySelection = useCallback((entityId: string) => {

@@ -220,7 +220,6 @@ export const SportsDatabaseProvider: React.FC<SportsDatabaseProviderProps> = ({ 
   // Set up filtering state and functions
   const {
     activeFilters,
-    setActiveFilters,
     handleApplyFilters,
     handleClearFilters
   } = useFiltering(selectedEntityType);
@@ -266,10 +265,7 @@ export const SportsDatabaseProvider: React.FC<SportsDatabaseProviderProps> = ({ 
     pageSize,
     sortField,
     sortDirection,
-    JSON.stringify(activeFilters),
-    // Add timestamp to force refetching for all entity types
-    // This ensures consistent behavior across all entities
-    Date.now()
+    JSON.stringify(activeFilters)
   ], [selectedEntityType, currentPage, pageSize, sortField, sortDirection, activeFilters]);
   
   // Add debugging output for query key changes that highlights sorting parameters

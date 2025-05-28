@@ -353,7 +353,7 @@ class SportsService:
         sort_field: Optional[str] = None,
         sort_direction: Optional[str] = "asc",
         filters: Optional[List[Dict[str, Any]]] = None,
-        include_related: bool = True  # New parameter to control including related names
+        include_related: bool = True
     ) -> Tuple[List[Dict[str, Any]], int]:
         logger.debug(f"Service: Getting entities for {entity_type} with page={page}, page_size={page_size}, sort_field={sort_field}, sort_direction={sort_direction}, filters={filters}, include_related={include_related}")
         
@@ -364,7 +364,6 @@ class SportsService:
                 raise ValueError(f"Invalid entity type: {entity_type}")
 
             query = select(model_class)
-            # Initial total_query, will be refined if filters are present
             total_query = select(func.count()).select_from(model_class) 
 
             if filters:
@@ -413,46 +412,137 @@ class SportsService:
                     else:
                         logger.warning(f"Field '{field}' not found on model or operator '{operator}' not supported for it.")
                 
-                # After all filters are applied, construct the total_query based on the filtered query
                 filtered_subquery = query.distinct().subquery()
                 total_query = select(func.count()).select_from(filtered_subquery)
 
-            # Sorting
-            if sort_field and hasattr(model_class, sort_field):
+            # --- Start of new sorting logic ---
+            relationship_sort_config = None
+            if sort_field: # Only try relationship sort if sort_field is provided
+                # Use sort_field (which is the 'sort_by' from API) for get_relationship_sort_config
+                relationship_sort_config = await self.get_relationship_sort_config(entity_type, sort_field) 
+            
+            logger.info(f"Sorting {entity_type} by {sort_field} ({sort_direction}) - Relationship sort config: {relationship_sort_config}")
+
+            is_polymorphic_sort_on_resolved_field = False
+
+            if relationship_sort_config and not relationship_sort_config.get("special_case"):
+                # DB JOIN SORT for non-polymorphic relations
+                join_model = relationship_sort_config["join_model"]
+                join_field_name = relationship_sort_config["join_field"] 
+                
+                if hasattr(model_class, join_field_name):
+                    join_on_main_model_attr = getattr(model_class, join_field_name)
+                    sort_on_related_model_field_name = relationship_sort_config["sort_field"]
+
+                    if hasattr(join_model, sort_on_related_model_field_name):
+                        sort_on_related_attr = getattr(join_model, sort_on_related_model_field_name)
+                        
+                        logger.info(f"Processing relationship sort with join_model={join_model.__name__}, join_field={join_field_name}, sort_on_related_attr={sort_on_related_model_field_name}")
+                        query = query.outerjoin(join_model, join_on_main_model_attr == join_model.id)
+                        
+                        if sort_direction.lower() == "desc":
+                            query = query.order_by(desc(sort_on_related_attr).nulls_last())
+                        else:
+                            query = query.order_by(asc(sort_on_related_attr).nulls_last())
+                    else: 
+                        logger.warning(f"Sort field '{sort_on_related_model_field_name}' not found on join model '{join_model.__name__}'. Defaulting to ID sort for {entity_type}.")
+                        query = query.order_by(asc(model_class.id))
+                else: 
+                    logger.warning(f"Join field '{join_field_name}' not found on model '{model_class.__name__}'. Defaulting to ID sort for {entity_type}.")
+                    query = query.order_by(asc(model_class.id))
+
+            elif relationship_sort_config and relationship_sort_config.get("special_case") == "polymorphic":
+                logger.info(f"Polymorphic sort detected for {entity_type} by {sort_field}. DB sort will be on direct attribute if possible, or ID. In-memory sort may apply after name resolution.")
+                if not (sort_field and hasattr(model_class, sort_field)):
+                    is_polymorphic_sort_on_resolved_field = True
+                
+                if sort_field and hasattr(model_class, sort_field):
+                    sort_attr = getattr(model_class, sort_field)
+                    if sort_direction.lower() == "desc":
+                        query = query.order_by(desc(sort_attr))
+                    else:
+                        query = query.order_by(asc(sort_attr))
+                else: 
+                    query = query.order_by(asc(model_class.id))
+
+            elif sort_field and hasattr(model_class, sort_field):
+                logger.info(f"Processing direct attribute sort for {entity_type} by {sort_field}")
                 sort_attr = getattr(model_class, sort_field)
                 if sort_direction.lower() == "desc":
                     query = query.order_by(desc(sort_attr))
                 else:
                     query = query.order_by(asc(sort_attr))
-            else: # Default sort if field not found or not provided
+            elif sort_field:
+                 logger.warning(f"Sort field '{sort_field}' not found as direct attribute or configured relationship for {entity_type}. Defaulting to ID sort.")
+                 query = query.order_by(asc(model_class.id))
+            else: 
+                logger.info(f"No sort_field provided for {entity_type}, defaulting to ID sort.")
                 query = query.order_by(asc(model_class.id))
+            # --- End of new sorting logic ---
 
+            # Conditional fetching and pagination based on sorting type
+            entities_with_related_names: List[Dict[str, Any]]
 
-            # Add pagination
-            query = query.offset((page - 1) * page_size).limit(page_size)
+            if is_polymorphic_sort_on_resolved_field and sort_field:
+                logger.info(f"Polymorphic sort for '{sort_field}' on {entity_type}: fetching all matching filtered entities for in-memory sort.")
+                
+                # The query already has filters and basic DB sort from the logic above
+                all_entities_result = await session.execute(query) # No DB pagination here
+                all_entities_list = all_entities_result.scalars().all()
+                
+                logger.info(f"Fetched {len(all_entities_list)} entities for polymorphic in-memory sort.")
+
+                all_entities_dicts = [self._model_to_dict(entity) for entity in all_entities_list]
+
+                resolved_all_entities = all_entities_dicts # Initialize
+                if include_related:
+                    try:
+                        resolved_all_entities = await EntityNameResolver.get_entities_with_related_names(session, entity_type, all_entities_dicts)
+                    except Exception as e:
+                        logger.error(f"Error in EntityNameResolver for polymorphic sort processing: {e}", exc_info=True)
+                        # Fallback to non-resolved dicts if resolver fails
+                
+                # Sort the entire resolved list
+                logger.info(f"Performing in-memory sort on {len(resolved_all_entities)} items for polymorphic field '{sort_field}'")
+                def get_sort_key_for_resolved(item: Dict[str, Any]): 
+                    value = item.get(sort_field) 
+                    if value is None: return "" 
+                    return str(value).lower()
+
+                resolved_all_entities.sort(
+                    key=get_sort_key_for_resolved,
+                    reverse=(sort_direction.lower() == "desc")
+                )
+                
+                # Manually paginate the fully sorted in-memory list
+                start_index = (page - 1) * page_size
+                end_index = start_index + page_size
+                entities_with_related_names = resolved_all_entities[start_index:end_index]
             
-            # Execute query
-            result = await session.execute(query)
-            entities = result.scalars().all()
+            else: # Standard path: DB sort (direct/joinable) or basic ID sort, then DB pagination
+                if not (relationship_sort_config and not relationship_sort_config.get("special_case")):
+                     # Log if we are here not because of a successful DB join sort but e.g. direct or ID sort
+                     logger.info(f"Applying DB pagination for {entity_type} with current sort: {sort_field if sort_field else 'ID'}")
+                
+                query = query.offset((page - 1) * page_size).limit(page_size)
+                result = await session.execute(query)
+                entities = result.scalars().all()
+                entities_dicts = [self._model_to_dict(entity) for entity in entities]
+
+                entities_with_related_names = entities_dicts # Initialize
+                if include_related:
+                    try:
+                        entities_with_related_names = await EntityNameResolver.get_entities_with_related_names(session, entity_type, entities_dicts)
+                    except Exception as e:
+                        logger.error(f"Error in EntityNameResolver for {entity_type}: {e}", exc_info=True)
+                        # Fallback to non-resolved dicts
             
-            # Convert entities to dicts
-            entities_dicts = [self._model_to_dict(entity) for entity in entities]
-
-            if include_related:
-                try:
-                    entities_with_related_names = await EntityNameResolver.get_entities_with_related_names(session, entity_type, entities_dicts)
-                except Exception as e:
-                    logger.error(f"Error in EntityNameResolver for {entity_type}: {e}", exc_info=True)
-                    entities_with_related_names = entities_dicts # Fallback
-            else:
-                entities_with_related_names = entities_dicts
-
-            # Calculate total count
-            total_count_result = await session.execute(total_query) # Use the refined total_query
+            # total_count is from total_query which is based on filters only
+            total_count_result = await session.execute(total_query)
             total_count = total_count_result.scalar_one_or_none()
             if total_count is None: total_count = 0
             
-            logger.info(f"Calculated total_count: {total_count} for entity_type='{entity_type}' with given filters.")
+            logger.info(f"Calculated total_count: {total_count} for entity_type='{entity_type}' with given filters. Returning {len(entities_with_related_names)} items.")
             logger.debug(f"Total count SQL: {str(total_query.compile(compile_kwargs={'literal_binds': True}))}")
 
             return entities_with_related_names, total_count

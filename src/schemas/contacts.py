@@ -133,3 +133,10 @@ class BulkUpdateSpecificContactsTagRequest(BaseModel):
 
 class ContactFullResponse(ContactResponse):
     brand_associations: List[ContactBrandAssociationResponse] = []
+
+# Schema for single contact import via Save and Next
+class SingleContactImportRequest(BaseModel):
+    contact_data: Dict[str, Optional[str]]
+    import_source_tag: Optional[str] = None
+    auto_match_brands: bool = True
+    match_threshold: float = Field(0.6, ge=0.0, le=1.0)

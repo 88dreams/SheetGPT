@@ -986,6 +986,152 @@ class ContactsService:
 
         return stats
 
+    async def process_single_contact(
+        self,
+        user_id: UUID,
+        contact_payload: Dict[str, Optional[str]], # This is the contact_data from SingleContactImportRequest
+        auto_match_brands: bool = True,
+        match_threshold: float = 0.6,
+        import_source_tag: Optional[str] = None
+    ) -> Contact: # Return the created or updated contact object
+        """
+        Processes and saves a single contact record, with brand matching.
+        Similar to a single iteration of import_custom_csv.
+        """
+        contact_for_row: Optional[Contact] = None
+        
+        # Extract data using known contact field keys (as mapped by frontend)
+        first_name = contact_payload.get("first_name", "").strip()
+        last_name = contact_payload.get("last_name", "").strip()
+        email = contact_payload.get("email", "").strip()
+        company = contact_payload.get("company", "").strip()
+        position = contact_payload.get("position", "").strip()
+        linkedin_url = contact_payload.get("linkedin_url", "").strip()
+        connected_on_str = contact_payload.get("connected_on", "").strip()
+        notes = contact_payload.get("notes") # Notes are not stripped
+
+        if not first_name or not last_name:
+            raise ValidationError("Missing required fields (first_name and/or last_name) for single contact processing.")
+
+        connected_on_date = None
+        if connected_on_str:
+            for fmt in ("%d-%b-%Y", "%m/%d/%Y", "%Y-%m-%d", "%b %d, %Y", "%B %d, %Y", "%d %b %Y", "%d %B %Y", "%m-%d-%Y", "%Y/%m/%d"):
+                try:
+                    connected_on_date = datetime.strptime(connected_on_str, fmt).date()
+                    break
+                except ValueError:
+                    continue
+            if connected_on_date is None:
+                # For single record, this might be a hard error or handled by frontend validation
+                # Alternatively, log a warning and proceed with None date.
+                print(f"Warning: Invalid date format for connected_on: {connected_on_str} for contact {first_name} {last_name}")
+        
+        validated_email_str: Optional[str] = None
+        if email:
+            try:
+                validated_email_str = str(EmailStr(email)) # Validate and convert
+            except ValueError:
+                print(f"Warning: Invalid email format: {email} for contact {first_name} {last_name}")
+                # Email will not be used for query or update if invalid
+
+        query = select(Contact).where(
+            and_(
+                Contact.user_id == user_id,
+                func.lower(Contact.first_name) == func.lower(first_name),
+                func.lower(Contact.last_name) == func.lower(last_name)
+            )
+        )
+        if validated_email_str: 
+            query = query.where(func.lower(Contact.email) == func.lower(validated_email_str))
+
+        result = await self.db.execute(query)
+        existing_contact = result.scalars().first()
+        
+        updated_an_existing_contact = False
+        if existing_contact:
+            contact_for_row = existing_contact
+            # Update logic (similar to import_custom_csv)
+            if company and (not contact_for_row.company or contact_for_row.company != company):
+                contact_for_row.company = company; updated_an_existing_contact = True
+            if position and (not contact_for_row.position or contact_for_row.position != position):
+                contact_for_row.position = position; updated_an_existing_contact = True
+            if linkedin_url and (not contact_for_row.linkedin_url or contact_for_row.linkedin_url != linkedin_url):
+                contact_for_row.linkedin_url = linkedin_url; updated_an_existing_contact = True
+            if connected_on_date and (not contact_for_row.connected_on or contact_for_row.connected_on != connected_on_date):
+                contact_for_row.connected_on = connected_on_date; updated_an_existing_contact = True
+            if validated_email_str and (not contact_for_row.email or contact_for_row.email != validated_email_str):
+                contact_for_row.email = validated_email_str; updated_an_existing_contact = True
+            if notes and (not contact_for_row.notes or contact_for_row.notes != notes):
+                contact_for_row.notes = notes; updated_an_existing_contact = True
+            if import_source_tag and (not contact_for_row.import_source_tag or contact_for_row.import_source_tag != import_source_tag):
+                contact_for_row.import_source_tag = import_source_tag; updated_an_existing_contact = True
+            
+            if updated_an_existing_contact:
+                contact_for_row.updated_at = datetime.utcnow()
+        else: # Create new contact
+            contact_data_for_create = {
+                "user_id": user_id,
+                "first_name": first_name,
+                "last_name": last_name,
+                "email": validated_email_str, # Already validated or None
+                "company": company if company else None,
+                "position": position if position else None,
+                "linkedin_url": linkedin_url if linkedin_url else None,
+                "connected_on": connected_on_date,
+                "import_source_tag": import_source_tag,
+                "notes": notes
+            }
+            contact_for_row = Contact(**contact_data_for_create)
+            self.db.add(contact_for_row)
+            await self.db.flush() 
+
+        if not contact_for_row or not contact_for_row.id:
+            # This should not happen if flush() was successful for a new contact
+            raise Exception("Contact object not available after create/update attempt")
+
+        if auto_match_brands and company:
+            matched_brands_info = await self._find_brand_associations(company, match_threshold)
+            
+            # Simplified primary logic: first new association is primary for this contact in this save.
+            # More robust logic might consider existing primary or confidence scores.
+            # Query existing associations for this contact_for_row.id before deciding on primary.
+            existing_contact_associations_query = select(ContactBrandAssociation).where(ContactBrandAssociation.contact_id == contact_for_row.id)
+            existing_associations_result = await self.db.execute(existing_contact_associations_query)
+            contact_has_existing_primary = any(assoc.is_primary for assoc in existing_associations_result.scalars().all())
+
+            for i, brand_match_info in enumerate(matched_brands_info):
+                brand_id = brand_match_info["id"]
+                confidence = brand_match_info["confidence"]
+                
+                assoc_query = select(ContactBrandAssociation).where(
+                    and_(
+                        ContactBrandAssociation.contact_id == contact_for_row.id,
+                        ContactBrandAssociation.brand_id == brand_id
+                    )
+                )
+                assoc_result = await self.db.execute(assoc_query)
+                existing_db_assoc = assoc_result.scalars().first()
+                
+                if not existing_db_assoc:
+                    make_primary = not contact_has_existing_primary and i == 0 # Only make primary if no existing primary and it's the first new match
+                    
+                    new_association = ContactBrandAssociation(
+                        contact_id=contact_for_row.id,
+                        brand_id=brand_id,
+                        confidence_score=confidence,
+                        association_type="employed_at",
+                        is_current=True,
+                        is_primary=make_primary 
+                    )
+                    self.db.add(new_association)
+                    if make_primary:
+                        contact_has_existing_primary = True # Set flag after assigning first primary
+        
+        await self.db.commit()
+        await self.db.refresh(contact_for_row)
+        # Eagerly load associations for the response as frontend might expect it
+        return await self.get_contact(user_id, contact_for_row.id) 
+
     async def rematch_contacts_with_brands(
         self, 
         user_id: UUID, 

@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Query, Request, Form
 from sqlalchemy.ext.asyncio import AsyncSession
-from starlette.status import HTTP_201_CREATED, HTTP_400_BAD_REQUEST, HTTP_200_OK
+from starlette.status import HTTP_201_CREATED, HTTP_400_BAD_REQUEST, HTTP_200_OK, HTTP_404_NOT_FOUND, HTTP_409_CONFLICT
 from typing import List, Optional, Dict, Any
 from uuid import UUID
 import csv
@@ -19,6 +19,7 @@ from src.schemas.contacts import (
     ContactBrandAssociationResponse,
     ContactImportStats,
     ContactImportRequest,
+    SingleContactImportRequest,
     ContactListParams,
     ContactCSVImport,
     ContactCSVRow,
@@ -646,3 +647,34 @@ async def import_custom_csv_endpoint(
             status_code=HTTP_400_BAD_REQUEST, # Or 500 for true internal errors
             detail=f"Error importing contacts via custom CSV: An unexpected error occurred. Check logs."
         )
+
+@router.post("/import_single", response_model=ContactWithBrandsResponse, status_code=HTTP_201_CREATED)
+async def import_single_contact(
+    request_data: SingleContactImportRequest,
+    current_user: Dict = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """Imports or updates a single contact record with brand matching."""
+    user_id = UUID(current_user["id"])
+    service = ContactsService(db)
+    try:
+        contact = await service.process_single_contact(
+            user_id=user_id,
+            contact_payload=request_data.contact_data,
+            auto_match_brands=request_data.auto_match_brands,
+            match_threshold=request_data.match_threshold,
+            import_source_tag=request_data.import_source_tag
+        )
+        # To return ContactWithBrandsResponse, we need to ensure associations are loaded.
+        # The service.process_single_contact now returns the result of get_contact which loads associations.
+        return contact 
+    except ValidationError as e:
+        raise HTTPException(status_code=HTTP_400_BAD_REQUEST, detail=str(e))
+    except EntityNotFoundError as e: # Should not happen if creating, but possible if logic changes
+        raise HTTPException(status_code=HTTP_404_NOT_FOUND, detail=str(e))
+    except DuplicateEntityError as e: # Should be handled by update logic, but good to catch
+        raise HTTPException(status_code=HTTP_409_CONFLICT, detail=str(e))
+    except Exception as e:
+        # Log the exception for debugging
+        print(f"Unexpected error during single contact import: {str(e)}") # TODO: Replace with proper logging
+        raise HTTPException(status_code=HTTP_500_INTERNAL_SERVER_ERROR, detail="An unexpected error occurred during single contact import.")

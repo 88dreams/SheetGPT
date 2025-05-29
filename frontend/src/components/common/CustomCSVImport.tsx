@@ -53,6 +53,14 @@ const CONTACT_MODEL_FIELDS_CONFIG: Omit<TargetContactField, 'mappedSourceHeader'
   { label: 'Notes', id: 'notes', required: false },
 ];
 
+// Interface for the expected response when a single contact is processed
+interface ContactResponse { // Define a basic structure for the response
+  id: string; // Assuming UUID is string on frontend
+  first_name: string;
+  last_name: string;
+  // Add other fields if needed from backend's ContactResponse
+}
+
 const CustomCSVImport: React.FC<CustomCSVImportProps> = ({ onImportComplete, initialFile }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const apiClient = useApiClient();
@@ -285,14 +293,14 @@ const CustomCSVImport: React.FC<CustomCSVImportProps> = ({ onImportComplete, ini
     CONTACT_MODEL_FIELDS_CONFIG.forEach(modelField => {
       if (modelField.required) {
         const mappedSourceKey = Object.keys(finalMappings).find(key => finalMappings[key] === modelField.id);
-        if (!mappedSourceKey || !currentSourceRecordValues[mappedSourceKey]) {
+        if (!mappedSourceKey || !currentSourceRecordValues[mappedSourceKey]?.trim()) { 
           requiredFieldsMet = false;
           missingRequiredDatabaseFields.push(modelField.label);
         }
       }
     });
     if (!requiredFieldsMet) {
-      showNotification('error', `For current record, ensure mapped values exist for required fields: ${missingRequiredDatabaseFields.join(', ')}.`);
+      showNotification('error', `For current record, please ensure mapped values exist for required fields: ${missingRequiredDatabaseFields.join(', ')}.`);
       return;
     }
     const recordToSave: Record<string, any> = {};
@@ -300,13 +308,38 @@ const CustomCSVImport: React.FC<CustomCSVImportProps> = ({ onImportComplete, ini
       const targetFieldId = finalMappings[sourceHeader];
       recordToSave[targetFieldId] = currentSourceRecordValues[sourceHeader];
     }
-    console.log('(Simulated) Saving record:', recordToSave);
-    showNotification('success', `Record ${currentRecordIndex + 1} data prepared (simulated). Next record shown.`);
-    goToNextRecord();
-  }, [file, currentRecordIndex, currentSourceRecordValues, targetContactFields, showNotification, goToNextRecord]);
+
+    setLoading(true);
+    try {
+      const payload = {
+        contact_data: recordToSave,
+        import_source_tag: importSourceTag || null,
+        auto_match_brands: autoMatchBrands,
+        match_threshold: matchThreshold
+      };
+      console.log('Sending single record to API:', payload);
+      const response = await apiClient.post<ContactResponse>('/api/v1/contacts/import_single', payload, { requiresAuth: true });
+      
+      showNotification('success', `Record ${currentRecordIndex + 1} (${response.data.first_name} ${response.data.last_name}) processed successfully.`);
+      goToNextRecord();
+
+    } catch (error: any) {
+      console.error('Error saving single record:', error);
+      const message = error.response?.data?.detail || error.message || 'Failed to process record.';
+      showNotification('error', `Error for record ${currentRecordIndex !== null ? currentRecordIndex + 1 : 'N/A'}: ${message}`);
+
+    } finally {
+      setLoading(false);
+    }
+  }, [
+    file, currentRecordIndex, currentSourceRecordValues, targetContactFields, 
+    importSourceTag, autoMatchBrands, matchThreshold, 
+    apiClient, showNotification, goToNextRecord, setLoading
+  ]);
   
   const triggerFileSelect = () => fileInputRef.current?.click();
 
+  // Component for individual source CSV column items (Draggable)
   interface SourceColumnItemProps { headerName: string; currentValue?: string; }
   const SourceColumnItem: React.FC<SourceColumnItemProps> = ({ headerName, currentValue }) => {
     const [{ isDragging }, drag] = useDrag((() => ({
@@ -315,7 +348,7 @@ const CustomCSVImport: React.FC<CustomCSVImportProps> = ({ onImportComplete, ini
       collect: (monitor: DragSourceMonitor) => ({ isDragging: !!monitor.isDragging() }),
     })) as any);
     return (
-      <div ref={drag} className={`p-2 border rounded cursor-move bg-white hover:bg-gray-50 border-gray-300 my-1 ${isDragging ? 'opacity-50 ring-2 ring-indigo-500' : ''}`}>
+      <div ref={drag} className={`p-2 border rounded cursor-move bg-white hover:bg-gray-50 border-gray-300 ${isDragging ? 'opacity-50 ring-2 ring-indigo-500' : ''}`}>
         <div className="grid grid-cols-2 gap-x-2 items-center">
           <span className="text-gray-700 font-medium truncate" title={headerName}>{headerName}</span>
           <span className={`text-sm text-gray-600 truncate ${currentValue ? '' : 'italic'}`} title={currentValue || '-'}>
@@ -326,6 +359,7 @@ const CustomCSVImport: React.FC<CustomCSVImportProps> = ({ onImportComplete, ini
     );
   };
 
+  // Component for individual target contact fields (Droppable)
   interface TargetFieldItemProps { 
     field: TargetContactField; 
     onDropHeader: (targetFieldId: string, sourceHeaderId: string) => void; 
@@ -393,19 +427,8 @@ const CustomCSVImport: React.FC<CustomCSVImportProps> = ({ onImportComplete, ini
   return (
     <DndProvider backend={HTML5Backend}>
       <div className="pt-2 pb-4 px-4 md:pt-2 md:pb-6 md:px-6 bg-white rounded-lg shadow-md">
-        <div className="flex flex-wrap items-center justify-between mb-4 gap-y-2">
-          <h2 className="text-xl font-semibold text-gray-800 mr-auto pr-4">Map CSV Fields</h2>
-          {file && (
-            <div className="flex flex-wrap items-center space-x-3">
-              <span className="font-medium text-gray-700 hidden md:inline">Selected: {fileName}</span>
-              {csvSourceHeaders.length > 0 && (
-                <div className="flex items-center">
-                  <label className="text-sm font-medium text-gray-700 mr-2 whitespace-nowrap" htmlFor="brandMatchThresholdHeader">Brand Match:</label>
-                  <InputNumber id="brandMatchThresholdHeader" min={0.1} max={1.0} step={0.1} value={matchThreshold} onChange={(value) => setMatchThreshold(value || 0.6)} style={{ width: 70 }} disabled={!autoMatchBrands} />
-                </div>
-              )}
-            </div>
-          )}
+        <div className="flex items-center justify-between mb-4 gap-y-2">
+          <h2 className="text-xl font-semibold text-gray-800">Map CSV Fields</h2>
         </div>
 
         <input type="file" accept=".csv" onChange={handleFileSelect} className="hidden" ref={fileInputRef} />
@@ -422,7 +445,18 @@ const CustomCSVImport: React.FC<CustomCSVImportProps> = ({ onImportComplete, ini
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4 mb-4">
                   <div className="p-3 border rounded-md bg-gray-50/70 min-h-[200px] flex flex-col">
                     <div className="flex items-center justify-between mb-2">
-                      <h3 className="text-base font-semibold text-gray-700">Source Fields</h3>
+                      <div className="flex items-baseline space-x-2">
+                        <h3 className="text-base font-semibold text-gray-700">Source Fields</h3>
+                        {file && (
+                          <span 
+                            className="font-medium text-gray-500 text-xs truncate" 
+                            title={fileName} 
+                            style={{maxWidth: '150px'}}
+                          >
+                            ({fileName})
+                          </span>
+                        )}
+                      </div>
                       {csvSourceHeaders.length > 0 && totalRecords > 0 && (
                         <div className="flex items-center space-x-2">
                           <Button onClick={goToPreviousRecord} disabled={currentRecordIndex === 0} size="small" icon={<FaChevronLeft />} />
@@ -470,7 +504,7 @@ const CustomCSVImport: React.FC<CustomCSVImportProps> = ({ onImportComplete, ini
                             </Button>
                         </div>
                     </div>
-                    <div className="overflow-y-auto space-y-2 pr-1 flex-grow">
+                    <div className="overflow-y-auto space-y-1 pr-1 flex-grow">
                       {targetContactFields.map(targetField => (
                         <TargetFieldItem 
                           key={targetField.id} 
@@ -485,17 +519,43 @@ const CustomCSVImport: React.FC<CustomCSVImportProps> = ({ onImportComplete, ini
                 </div>
                 
                 <div className="pt-4 border-t">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 md:gap-x-6 gap-y-4 mb-4">
                         <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Import Source Tag (Optional)</label>
-                        <Input value={importSourceTag} onChange={(e) => setImportSourceTag(e.target.value)} placeholder="e.g., Conference Leads Q2" />
+                          <label className="block text-sm font-medium text-gray-700 mb-1" htmlFor="importSourceTagInput">Import Source Tag (Optional)</label>
+                          <Input 
+                            id="importSourceTagInput"
+                            value={importSourceTag} 
+                            onChange={(e) => setImportSourceTag(e.target.value)} 
+                            placeholder="e.g., Conference Leads Q2" 
+                          />
                         </div>
                         
-                        <div className="md:col-span-2 flex items-center">
-                            <Checkbox checked={autoMatchBrands} onChange={(e) => setAutoMatchBrands(e.target.checked)} className="mr-2" id="autoMatchBrandsCheckbox" />
-                            <label className="text-sm text-gray-700" htmlFor="autoMatchBrandsCheckbox">
-                                Automatically match Companies to Brands in database
-                            </label>
+                        <div className="flex items-baseline justify-between"> 
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1" htmlFor="brandMatchThresholdOptions">Brand Match Threshold</label>
+                            <InputNumber
+                              id="brandMatchThresholdOptions"
+                              min={0.1}
+                              max={1.0}
+                              step={0.1}
+                              value={matchThreshold}
+                              onChange={(value) => setMatchThreshold(value || 0.6)}
+                              style={{ width: 80 }} 
+                              disabled={!autoMatchBrands}
+                            />
+                          </div>
+
+                          <div className="flex items-center whitespace-nowrap"> 
+                              <Checkbox 
+                                checked={autoMatchBrands} 
+                                onChange={(e) => setAutoMatchBrands(e.target.checked)} 
+                                className="mr-2" 
+                                id="autoMatchBrandsCheckbox" 
+                              />
+                              <label className="text-sm text-gray-700" htmlFor="autoMatchBrandsCheckbox">
+                                  Match Companies to Brands
+                              </label>
+                          </div>
                         </div>
                     </div>
                 </div>

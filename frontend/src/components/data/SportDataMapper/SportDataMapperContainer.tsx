@@ -248,7 +248,8 @@ const SportDataMapperContainer: React.FC<SportDataMapperProps> = ({ isOpen, onCl
       selectedEntityType,
       currentMappings,
       currentRecordIndex !== null ? dataToImport[currentRecordIndex] : undefined,
-      isUpdateMode
+      isUpdateMode,
+      sourceFields
     );
     
     if (success) {
@@ -257,7 +258,7 @@ const SportDataMapperContainer: React.FC<SportDataMapperProps> = ({ isOpen, onCl
       }
       const navigated = hookGoToNextRecord();
     }
-  }, [selectedEntityType, getCurrentMappings, currentRecordIndex, dataToImport, isUpdateMode, saveToDatabase, hookGoToNextRecord]);
+  }, [selectedEntityType, getCurrentMappings, currentRecordIndex, dataToImport, isUpdateMode, saveToDatabase, hookGoToNextRecord, sourceFields]);
   
   // Effect to react to batch import completion via importResults state
   useEffect(() => {
@@ -279,10 +280,10 @@ const SportDataMapperContainer: React.FC<SportDataMapperProps> = ({ isOpen, onCl
     const mappings = getCurrentMappings();
     
     // Call batchImport, results will be set in the importResults state by the hook
-    await batchImport(selectedEntityType, mappings, includedRecords, isUpdateMode);
+    await batchImport(selectedEntityType, mappings, includedRecords, isUpdateMode, sourceFields);
     // No need to handle resultsFromHook here, the useEffect above will react to importResults state change.
 
-  }, [selectedEntityType, getIncludedRecords, getCurrentMappings, isUpdateMode, batchImport]);
+  }, [selectedEntityType, getIncludedRecords, getCurrentMappings, isUpdateMode, batchImport, sourceFields]);
   
   // Memoize the component state for props to avoid unnecessary renders
   const entityViewProps = useMemo(() => ({

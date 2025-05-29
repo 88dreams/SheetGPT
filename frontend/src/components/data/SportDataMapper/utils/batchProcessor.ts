@@ -121,15 +121,16 @@ export const processEntityRecord = async (
   entityType: EntityType,
   mappings: Record<string, string>,
   isUpdateMode: boolean,
-  maxRetries: number = 2  // Reduced default retries since we have better handling
+  sourceFields?: string[],
+  maxRetries: number = 2
 ): Promise<{ success: boolean; newBroadcastCompany?: { name: string; id: string }; error?: string; isDuplicate?: boolean }> => {
   let retries = maxRetries;
   let lastError: Error | null = null;
   
   while (retries > 0) {
     try {
-      // Transform and map data
-      const mappedData = transformMappedData(mappings, record);
+      // Transform and map data, passing sourceFields (headerRow)
+      const mappedData = transformMappedData(mappings, record, sourceFields);
       
       // Determine effective update mode
       const effectiveUpdateMode = isUpdateMode || Object.keys(mappings).length === 1;

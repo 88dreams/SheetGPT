@@ -189,6 +189,7 @@ class QueryService:
 
     async def translate_natural_language_to_sql(self, nl_query: str) -> str:
         """Converts natural language to SQL, then validates the result."""
+        logger.info(f"[QS_TRANSLATE_NLQ_TO_SQL] Received nl_query: '{nl_query}'")
         schema_info = await self._get_schema_info()
         
         # Build specialized_guidance (ensure this logic is sound)
@@ -228,16 +229,20 @@ class QueryService:
         is_valid, corrected_sql, explanation = await self.ai_processor.validate_and_correct_sql(generated_sql)
         
         if not is_valid:
-            logger.warning(f"AI-generated SQL had validation issues: {explanation}. Using corrected version: {corrected_sql}")
-            # Return the corrected version if validation failed
+            logger.warning(f"AI-generated SQL validation failed. Explanation: {explanation}. Corrected SQL (if any): {corrected_sql}")
+            if "AI Validation service error" in explanation:
+                # If the validation service itself had an error, we can't trust the output.
+                raise ValueError(f"NLQ to SQL translation failed: AI validation service encountered an error. Details: {explanation}")
+            # If it's a genuine validation issue found by the AI (not a service error), proceed with the corrected SQL.
             return corrected_sql 
         
-        # Return the original generated SQL if it was valid
-        return generated_sql
+        # Return the original generated SQL if it was valid and no corrections were needed by the AI validator,
+        # or the corrected_sql if the AI validator provided one and is_valid was true (which shouldn't happen with current validator logic, but defensive)
+        return corrected_sql # The validator returns original SQL if valid, or corrected if it made changes and deemed it valid post-correction.
 
     async def execute_natural_language_query(self, nl_query: str) -> Tuple[List[Dict[str, Any]], str]:
         """Processes an NLQ: translates+validates, then executes."""
-        logger.info(f"Executing NLQ: {nl_query[:100]}...")
+        logger.info(f"[QS_EXECUTE_NLQ] Received nl_query: '{nl_query}'")
         sql_to_execute = ""
         
         # Temporarily disable template usage to test LLM with full schema context

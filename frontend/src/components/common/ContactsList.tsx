@@ -883,14 +883,16 @@ const ContactsList: React.FC<ContactsListProps> = ({ brandId, onContactSelect })
                           px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider
                           cursor-pointer
                           relative border-r border-gray-200 hover:bg-gray-100 group
-                          ${dragOverItem === column ? 'bg-blue-50' : ''}
+                          ${
+                            dragOverItem === column ? 'bg-blue-50' : ''
+                          }
                         `}
                         onClick={() => column === 'select' ? {} : handleSortChange(sortField)}
                         draggable={column !== 'select'}
-                        onDragStart={(e) => column !== 'select' && handleDragStart(e, column)}
-                        onDragOver={(e) => column !== 'select' && handleDragOver(e, column)}
-                        onDrop={(e) => column !== 'select' && handleDrop(e, column)}
-                        onDragEnd={column !== 'select' && handleDragEnd}
+                        onDragStart={column !== 'select' ? (e) => handleDragStart(e, column) : undefined}
+                        onDragOver={column !== 'select' ? (e) => handleDragOver(e, column) : undefined}
+                        onDrop={column !== 'select' ? (e) => handleDrop(e, column) : undefined}
+                        onDragEnd={column !== 'select' ? handleDragEnd : undefined}
                       >
                         {column === 'select' ? (
                           <div className="flex items-center justify-center">

@@ -738,6 +738,254 @@ class ContactsService:
             
         return normalized
     
+    def _map_csv_row_to_contact_fields(self, row: Dict[str, str], user_column_mapping: Dict[str, str]) -> Dict[str, str]:
+        """
+        Maps a CSV row to standard contact field keys using a user-defined mapping.
+        """
+        mapped_row = {}
+        for original_header, contact_field_key in user_column_mapping.items():
+            value = row.get(original_header)
+            if value is not None: # Keep empty strings if user mapped them, stripping happens later or if needed
+                # Special handling for notes, don't strip, allow multi-line
+                if contact_field_key == "notes":
+                    mapped_row[contact_field_key] = value
+                else:
+                    # For other fields, strip whitespace.
+                    # The schema validation (e.g. EmailStr) will handle format checks.
+                    stripped_value = value.strip()
+                    if stripped_value: # Only add if not empty after stripping, unless it's notes
+                        mapped_row[contact_field_key] = stripped_value
+                    # If you want to allow explicitly empty strings for mapped fields (that are not notes):
+                    # elif contact_field_key != "notes": 
+                    # mapped_row[contact_field_key] = ""
+            # If original_header is not in row, row.get(original_header) is None, so it's skipped
+            # which is desired: no data for that mapped field from this row.
+        return mapped_row
+
+    async def import_custom_csv(
+        self,
+        user_id: UUID,
+        csv_data: List[Dict[str, str]],
+        user_column_mapping: Dict[str, str],
+        auto_match_brands: bool = True,
+        match_threshold: float = 0.6,
+        import_source_tag: Optional[str] = None
+    ) -> Dict[str, Any]:
+        """
+        Import contacts from a custom CSV file using user-defined column mappings.
+        """
+        stats = {
+            "total_contacts_in_file": len(csv_data),
+            "processed_rows": 0,
+            "imported_contacts": 0,
+            "updated_contacts": 0,
+            "matched_brands_associated": 0, # More descriptive name
+            "import_errors": []
+        }
+
+        processed_associations = set() # Track (contact_id, brand_id) to avoid duplicates in this run
+
+        for i, original_row in enumerate(csv_data):
+            stats["processed_rows"] += 1
+            contact_for_row = None # Ensure contact is defined for brand association logic
+            try:
+                mapped_row = self._map_csv_row_to_contact_fields(original_row, user_column_mapping)
+
+                # Extract data using mapped keys
+                first_name = mapped_row.get("first_name", "").strip()
+                last_name = mapped_row.get("last_name", "").strip()
+                email = mapped_row.get("email", "").strip()
+                company = mapped_row.get("company", "").strip()
+                position = mapped_row.get("position", "").strip()
+                # profile_url from CSV maps to linkedin_url in our model
+                linkedin_url = mapped_row.get("linkedin_url", "").strip() 
+                connected_on_str = mapped_row.get("connected_on", "").strip()
+                notes = mapped_row.get("notes") # Notes are not stripped in mapping function
+
+                # Validate required fields
+                if not first_name or not last_name:
+                    stats["import_errors"].append({
+                        "row_number": i + 1,
+                        "original_row": original_row,
+                        "error": "Missing required fields (first_name and/or last_name) after mapping."
+                    })
+                    continue
+
+                # Parse connected_on date if present
+                connected_on_date = None
+                if connected_on_str:
+                    # Reuse date parsing logic from import_linkedin_csv or a shared helper
+                    # For now, direct implementation:
+                    for fmt in ("%d-%b-%Y", "%m/%d/%Y", "%Y-%m-%d", "%b %d, %Y", "%B %d, %Y", "%d %b %Y", "%d %B %Y", "%m-%d-%Y", "%Y/%m/%d"):
+                        try:
+                            connected_on_date = datetime.strptime(connected_on_str, fmt).date()
+                            break
+                        except ValueError:
+                            continue
+                    if connected_on_date is None:
+                        stats["import_errors"].append({
+                            "row_number": i + 1,
+                            "original_row": original_row,
+                            "field": "connected_on",
+                            "value": connected_on_str,
+                            "error": "Invalid date format for connected_on."
+                        })
+                        # Decide if this is a hard error or just a warning
+                        # For now, let's treat it as a warning and proceed with None date
+
+                # Check for existing contact (same logic as import_linkedin_csv)
+                query = select(Contact).where(
+                    and_(
+                        Contact.user_id == user_id,
+                        func.lower(Contact.first_name) == func.lower(first_name),
+                        func.lower(Contact.last_name) == func.lower(last_name)
+                    )
+                )
+                if email: # Only include email in check if provided and valid
+                    try:
+                        # Validate email format before using in query
+                        validated_email = EmailStr(email) # Pydantic EmailStr for validation
+                        query = query.where(func.lower(Contact.email) == func.lower(validated_email))
+                    except ValueError: # Pydantic validation error
+                        stats["import_errors"].append({
+                            "row_number": i + 1,
+                            "original_row": original_row,
+                            "field": "email",
+                            "value": email,
+                            "error": "Invalid email format. Contact will be processed without email check/update."
+                        })
+                        # Do not use invalid email in query
+                        pass # Email won't be used in query or for update if invalid
+
+                result = await self.db.execute(query)
+                existing_contact = result.scalars().first()
+
+                updated_an_existing_contact = False
+                if existing_contact:
+                    contact_for_row = existing_contact
+                    # Update existing contact (only if new data is provided and field is currently empty or different)
+                    # More granular update logic can be added if needed (e.g., always overwrite)
+                    if company and (not contact_for_row.company or contact_for_row.company != company) :
+                        contact_for_row.company = company
+                        updated_an_existing_contact = True
+                    if position and (not contact_for_row.position or contact_for_row.position != position):
+                        contact_for_row.position = position
+                        updated_an_existing_contact = True
+                    if linkedin_url and (not contact_for_row.linkedin_url or contact_for_row.linkedin_url != linkedin_url):
+                        contact_for_row.linkedin_url = linkedin_url
+                        updated_an_existing_contact = True
+                    if connected_on_date and (not contact_for_row.connected_on or contact_for_row.connected_on != connected_on_date):
+                        contact_for_row.connected_on = connected_on_date
+                        updated_an_existing_contact = True
+                    if email: # only update email if it's valid
+                        try:
+                            validated_email = EmailStr(email)
+                            if (not contact_for_row.email or contact_for_row.email != validated_email):
+                                contact_for_row.email = validated_email
+                                updated_an_existing_contact = True
+                        except ValueError:
+                             pass # Skip updating email if invalid
+                    if notes and (not contact_for_row.notes or contact_for_row.notes != notes): # notes are not stripped
+                        contact_for_row.notes = notes
+                        updated_an_existing_contact = True
+                    
+                    if import_source_tag and (not contact_for_row.import_source_tag or contact_for_row.import_source_tag != import_source_tag):
+                        contact_for_row.import_source_tag = import_source_tag
+                        updated_an_existing_contact = True
+                    
+                    if updated_an_existing_contact:
+                        contact_for_row.updated_at = datetime.utcnow()
+                        stats["updated_contacts"] += 1
+                    
+                else: # Create new contact
+                    contact_data_for_create = {
+                        "user_id": user_id,
+                        "first_name": first_name,
+                        "last_name": last_name,
+                        "company": company if company else None,
+                        "position": position if position else None,
+                        "linkedin_url": linkedin_url if linkedin_url else None,
+                        "connected_on": connected_on_date,
+                        "import_source_tag": import_source_tag,
+                        "notes": notes # notes can be None
+                    }
+                    if email:
+                        try:
+                            contact_data_for_create["email"] = EmailStr(email)
+                        except ValueError:
+                            # error already logged, email won't be added
+                            pass
+                    
+                    contact_for_row = Contact(**contact_data_for_create)
+                    self.db.add(contact_for_row)
+                    await self.db.flush()  # Generate ID without committing yet
+                    stats["imported_contacts"] += 1
+                
+                # Auto-match brands if requested, company is provided, and we have a contact object
+                if auto_match_brands and company and contact_for_row and contact_for_row.id:
+                    matched_brands_info = await self._find_brand_associations(company, match_threshold)
+                    
+                    is_first_association_for_contact_in_run = True
+                    for brand_match_info in matched_brands_info:
+                        brand_id = brand_match_info["id"]
+                        confidence = brand_match_info["confidence"]
+                        
+                        assoc_key = (contact_for_row.id, brand_id)
+                        if assoc_key in processed_associations:
+                            continue 
+
+                        # Check for existing association in DB
+                        assoc_query = select(ContactBrandAssociation).where(
+                            and_(
+                                ContactBrandAssociation.contact_id == contact_for_row.id,
+                                ContactBrandAssociation.brand_id == brand_id
+                            )
+                        )
+                        assoc_result = await self.db.execute(assoc_query)
+                        existing_db_assoc = assoc_result.scalars().first()
+                        
+                        if not existing_db_assoc:
+                            # For custom CSV, make the first new association primary for this contact during this import.
+                            # More sophisticated primary logic could be based on confidence or brand type.
+                            make_primary = is_first_association_for_contact_in_run
+
+                            new_association = ContactBrandAssociation(
+                                contact_id=contact_for_row.id,
+                                brand_id=brand_id,
+                                confidence_score=confidence,
+                                association_type="employed_at", # Default
+                                is_current=True,
+                                is_primary=make_primary 
+                            )
+                            self.db.add(new_association)
+                            stats["matched_brands_associated"] += 1
+                            processed_associations.add(assoc_key)
+                            is_first_association_for_contact_in_run = False 
+                        # else:  # Existing association found, maybe update confidence? For now, do nothing.
+                        #    pass
+            
+            except ValidationError as ve: # Catch Pydantic validation errors if schemas were used here
+                stats["import_errors"].append({
+                    "row_number": i + 1,
+                    "original_row": original_row,
+                    "error": f"Validation error: {str(ve)}"
+                })
+            except Exception as e:
+                stats["import_errors"].append({
+                    "row_number": i + 1,
+                    "original_row": original_row,
+                    "error": f"Unexpected error processing row: {str(e)}"
+                })
+        
+        # Commit all changes for the batch
+        try:
+            await self.db.commit()
+        except Exception as commit_error:
+            await self.db.rollback()
+            stats["import_errors"].append({"row_number": "N/A", "original_row": "COMMIT_FAILED", "error": str(commit_error)})
+
+        return stats
+
     async def rematch_contacts_with_brands(
         self, 
         user_id: UUID, 

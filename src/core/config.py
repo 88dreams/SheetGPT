@@ -58,6 +58,7 @@ class Settings:
     # API keys - get directly from environment
     OPENAI_API_KEY: Optional[str] = os.getenv("OPENAI_API_KEY")
     ANTHROPIC_API_KEY: Optional[str] = os.getenv("ANTHROPIC_API_KEY")
+    ANTHROPIC_REQUEST_TIMEOUT: int = int(os.getenv("ANTHROPIC_REQUEST_TIMEOUT", "28")) # Default to 28 seconds
     
     # Google Sheets
     GOOGLE_SHEETS_CREDENTIALS: Optional[str] = os.getenv("GOOGLE_SHEETS_CREDENTIALS")

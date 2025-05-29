@@ -7,60 +7,78 @@ import sportsDatabaseService, { EntityType as DbEntityType } from '../../../../s
 const extractInitialMappedFields = (
   mappings: Record<string, string>,
   sourceRecord: Record<string, any> | any[],
+  headerRow?: string[] // Optional: the actual header row for array data
   // entityTypeHint?: EntityType // Optional: might be used for smarter extraction if needed later
 ): Record<string, any> => {
   const initialMappedFields: Record<string, any> = {};
   const isArrayData = Array.isArray(sourceRecord);
 
-  console.log('Extracting initial mapped fields:', { 
-    numMappings: Object.keys(mappings).length, 
-    isArrayData 
+  console.log('Extracting initial mapped fields:', {
+    numMappings: Object.keys(mappings).length,
+    isArrayData,
+    hasHeaderRow: !!headerRow,
   });
 
   if (isArrayData && Array.isArray(sourceRecord)) {
-    // Logic from transformMappedData for array sources
-    Object.entries(mappings).forEach(([dbField, sourceFieldIndexStr]) => {
-      // Ensure sourceFieldIndexStr is treated as a potential index first
-      if (!isNaN(Number(sourceFieldIndexStr))) {
-        const index = Number(sourceFieldIndexStr);
+    Object.entries(mappings).forEach(([dbField, sourceFieldIdentifier]) => {
+      let valueFound = false;
+      // Priority 1: If headerRow is provided and sourceFieldIdentifier is a string, use headerRow to find index
+      if (headerRow && typeof sourceFieldIdentifier === 'string' && isNaN(Number(sourceFieldIdentifier))) {
+        const index = headerRow.indexOf(sourceFieldIdentifier);
+        if (index !== -1 && index < sourceRecord.length) {
+          initialMappedFields[dbField] = sourceRecord[index];
+          console.log(`Mapped ${dbField} = ${initialMappedFields[dbField]} from array index ${index} (via header: "${sourceFieldIdentifier}")`);
+          valueFound = true;
+        } else if (index === -1) {
+          console.warn(`Header "${sourceFieldIdentifier}" for ${dbField} not found in provided headerRow.`);
+        } else {
+          console.warn(`Index ${index} (from header "${sourceFieldIdentifier}") for ${dbField} out of bounds for sourceRecord of length ${sourceRecord.length}`);
+        }
+      }
+
+      // Priority 2: If sourceFieldIdentifier is a numeric string (explicit index)
+      if (!valueFound && !isNaN(Number(sourceFieldIdentifier))) {
+        const index = Number(sourceFieldIdentifier);
         if (index >= 0 && index < sourceRecord.length) {
           initialMappedFields[dbField] = sourceRecord[index];
-          console.log(`Mapped ${dbField} = ${initialMappedFields[dbField]} from array index ${index}`);
+          console.log(`Mapped ${dbField} = ${initialMappedFields[dbField]} from explicit array index ${index}`);
+          valueFound = true;
         } else {
-          console.warn(`Index ${index} for ${dbField} out of bounds for sourceRecord of length ${sourceRecord.length}`);
+          console.warn(`Explicit index ${index} for ${dbField} out of bounds for sourceRecord of length ${sourceRecord.length}`);
         }
-      } else {
-        // Fallback: if sourceFieldIndexStr is not a number, it might be a header name in a flat key-value array
-        // This logic was present in the original transformMappedData for arrays
-        // e.g. ["Header1", "Value1", "Header2", "Value2"]
-        // We assume the mapping `sourceFieldIndexStr` refers to the header name.
-        let found = false;
-        for (let i = 0; i < sourceRecord.length - 1; i++) {
-          if (String(sourceRecord[i]).trim().toLowerCase() === String(sourceFieldIndexStr).trim().toLowerCase()) {
+      }
+
+      // Fallback to original key-value pair search in array (if no headerRow or header-based lookup failed)
+      // This handles cases like ["Header1", "Value1", "Header2", "Value2"]
+      if (!valueFound && typeof sourceFieldIdentifier === 'string') { // Ensure it's a string for this fallback
+        for (let i = 0; i < sourceRecord.length - 1; i += 2) { // Iterate by 2 for key-value pairs
+          if (String(sourceRecord[i]).trim().toLowerCase() === sourceFieldIdentifier.trim().toLowerCase()) {
             initialMappedFields[dbField] = sourceRecord[i + 1];
-            console.log(`Mapped ${dbField} = ${initialMappedFields[dbField]} from array key-value pair (key: ${sourceFieldIndexStr})`);
-            found = true;
+            console.log(`Mapped ${dbField} = ${initialMappedFields[dbField]} from array key-value pair (key: ${sourceFieldIdentifier})`);
+            valueFound = true;
             break;
           }
         }
-        // Additional hardcoded fallbacks from original array processing loop if not found by key-value
-        if (!found) {
-            // This is a simplified version of the original complex fallbacks.
-            // Consider if these specific fallbacks are still desired or if robust mapping is preferred.
-            if ((sourceFieldIndexStr === 'Name of company' || sourceFieldIndexStr === 'Company Name') && sourceRecord[0] !== undefined) {
-                initialMappedFields[dbField] = sourceRecord[0];
-                console.log(`Fallback mapped ${dbField} = ${initialMappedFields[dbField]} from sourceRecord[0] for key ${sourceFieldIndexStr}`);
-            } else if ((sourceFieldIndexStr === 'Broadcast Client' || sourceFieldIndexStr === 'League Name') && sourceRecord[1] !== undefined) {
-                initialMappedFields[dbField] = sourceRecord[1];
-                console.log(`Fallback mapped ${dbField} = ${initialMappedFields[dbField]} from sourceRecord[1] for key ${sourceFieldIndexStr}`);
-            } 
-            // Add other specific fallbacks if necessary, or remove if direct mapping is enforced.
-            // else if (sourceFieldIndexStr === 'Sport' && ...)
-            // else if (sourceFieldIndexStr === 'Broadcast Territory' && ...)
-            else {
-                console.warn(`Could not map ${dbField} from array source using index/key: ${sourceFieldIndexStr}`);
-            }
+      }
+      
+      // Fallback to original hardcoded fallbacks (if still not found)
+      if (!valueFound && typeof sourceFieldIdentifier === 'string') {
+         // This is a simplified version of the original complex fallbacks.
+         // Consider if these specific fallbacks are still desired or if robust mapping is preferred.
+        if ((sourceFieldIdentifier === 'Name of company' || sourceFieldIdentifier === 'Company Name') && sourceRecord[0] !== undefined) {
+            initialMappedFields[dbField] = sourceRecord[0];
+            console.log(`Fallback mapped ${dbField} = ${initialMappedFields[dbField]} from sourceRecord[0] for key ${sourceFieldIdentifier}`);
+            valueFound = true;
+        } else if ((sourceFieldIdentifier === 'Broadcast Client' || sourceFieldIdentifier === 'League Name') && sourceRecord[1] !== undefined) {
+            initialMappedFields[dbField] = sourceRecord[1];
+            console.log(`Fallback mapped ${dbField} = ${initialMappedFields[dbField]} from sourceRecord[1] for key ${sourceFieldIdentifier}`);
+            valueFound = true;
         }
+        // Add other specific fallbacks if necessary, or remove if direct mapping is enforced.
+      }
+
+      if (!valueFound) {
+        console.warn(`Could not map ${dbField} from array source using identifier: ${sourceFieldIdentifier}`);
       }
     });
   } else if (!isArrayData && typeof sourceRecord === 'object' && sourceRecord !== null) {
@@ -299,16 +317,18 @@ const enhanceDataForEntityType = (
 
 export const transformMappedData = (
   mappings: Record<string, string>,
-  sourceRecord: Record<string, any> | any[]
+  sourceRecord: Record<string, any> | any[],
+  headerRow?: string[] // Optional: the actual header row for array data
 ): Record<string, any> => {
   
   console.log('Transforming mapped data (Orchestrator V3):', {
     mappingsCount: Object.keys(mappings).length,
     isArrayData: Array.isArray(sourceRecord),
-    sourceRecordSample: JSON.stringify(sourceRecord).substring(0, 100) + '...'
+    sourceRecordSample: JSON.stringify(sourceRecord).substring(0, 100) + '...',
+    hasHeaderRow: !!headerRow,
   });
 
-  const initialMappedData = extractInitialMappedFields(mappings, sourceRecord);
+  const initialMappedData = extractInitialMappedFields(mappings, sourceRecord, headerRow);
   const sourceRecordIsArray = Array.isArray(sourceRecord);
 
   const entityType = detectEntityType(initialMappedData, mappings, sourceRecordIsArray);

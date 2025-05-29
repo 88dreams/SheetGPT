@@ -4,8 +4,16 @@ FROM node:18-bullseye
 # Set working directory to match the mount point subdir
 WORKDIR /app
 
-# Yarn is likely pre-installed or installed in a base layer, remove explicit install
-# RUN npm install -g yarn
+# Ensure corepack is enabled (for managing yarn version if needed)
+# and yarn is available. Yarn is usually bundled with Node 18 images.
+# This step also ensures that yarn's shims are in the path.
+RUN corepack enable && corepack prepare yarn@stable --activate
+
+# The Node base image should already set this, but to be explicit:
+# Add Node's global bin directory and Yarn's shims to PATH
+# /usr/local/bin is standard for Node global binaries.
+# Corepack shims are also typically placed where they are found.
+ENV PATH /usr/local/bin:${PATH}
 
 # Copy package files
 COPY package.json yarn.lock* ./

@@ -1,7 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { FaLinkedin, FaFileUpload, FaAddressBook, FaTags } from 'react-icons/fa';
-import { Modal, Input, Select, Form } from 'antd';
-import LinkedInCSVImport from '../components/common/LinkedInCSVImport';
+import { Modal, Input, Select, Form, Button } from 'antd';
+// import LinkedInCSVImport from '../components/common/LinkedInCSVImport'; // Old import
+import CustomCSVImport from '../components/common/CustomCSVImport'; // New import
 import ContactsList from '../components/common/ContactsList';
 import ContactDetail from '../components/common/ContactDetail';
 import PageContainer from '../components/common/PageContainer';
@@ -24,12 +25,17 @@ interface Contact {
 }
 
 interface ImportStats {
-  total_contacts: number;
+  total_contacts_in_file: number;
+  processed_rows: number;
   imported_contacts: number;
-  matched_brands: number;
+  updated_contacts: number;
+  matched_brands_associated: number;
   import_errors: Array<{
-    row: Record<string, string>;
+    row_number?: number | string;
+    original_row?: Record<string, string>;
     error: string;
+    field?: string;
+    value?: string;
   }>;
 }
 
@@ -41,6 +47,9 @@ const ContactsPage: React.FC = () => {
   const [bulkTagForm] = Form.useForm();
   const apiClient = useApiClient();
   const { showNotification } = useNotification();
+  
+  const [selectedFileForImport, setSelectedFileForImport] = useState<File | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   
   // Add event listener for empty state "Import Contacts" button
   useEffect(() => {
@@ -56,10 +65,9 @@ const ContactsPage: React.FC = () => {
   }, []);
 
   const handleImportComplete = (stats: ImportStats) => {
-    // Refresh the contacts list
     setRefreshKey(prev => prev + 1);
-    // Switch to list view after importing
     setView('list');
+    setSelectedFileForImport(null);
   };
 
   const handleContactSelect = (contact: Contact) => {
@@ -70,20 +78,30 @@ const ContactsPage: React.FC = () => {
   const handleBackToList = () => {
     setSelectedContactId(null);
     setView('list');
-    // Refresh the list in case details were updated
     setRefreshKey(prev => prev + 1);
   };
 
   const handleDeleteContact = () => {
     setSelectedContactId(null);
     setView('list');
-    // Refresh the list
     setRefreshKey(prev => prev + 1);
   };
 
   const handleContactUpdate = () => {
-    // No need to navigate, just refresh the list for when they go back
     setRefreshKey(prev => prev + 1);
+  };
+
+  const handleFileSelectedForImportLogic = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      setSelectedFileForImport(file);
+      setView('import');
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+    } else {
+      setSelectedFileForImport(null);
+    }
   };
 
   const showBulkTagModal = () => {
@@ -112,39 +130,42 @@ const ContactsPage: React.FC = () => {
 
   return (
     <PageContainer title="Contacts Management">
+      <input
+        type="file"
+        accept=".csv"
+        ref={fileInputRef}
+        onChange={handleFileSelectedForImportLogic}
+        style={{ display: 'none' }}
+      />
+
       <PageHeader 
         title="Contacts" 
         actions={
           <div className="flex space-x-2">
-            <button
+            <Button
               onClick={() => setView('list')}
-              className={`px-4 py-2 rounded-md flex items-center ${
-                view === 'list' 
-                  ? 'bg-blue-600 text-white' 
-                  : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
-              }`}
+              type={view === 'list' ? 'primary' : 'default'}
+              icon={<FaAddressBook className="mr-1" />}
+              style={{ display: 'inline-flex', alignItems: 'center', flexDirection: 'row' }}
             >
-              <FaAddressBook className="mr-2" />
               View Contacts
-            </button>
-            <button
-              onClick={() => setView('import')}
-              className={`px-4 py-2 rounded-md flex items-center ${
-                view === 'import' 
-                  ? 'bg-blue-600 text-white' 
-                  : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
-              }`}
+            </Button>
+            <Button
+              onClick={() => fileInputRef.current?.click()}
+              type={(view === 'import' && selectedFileForImport) ? 'primary' : 'default'}
+              icon={<FaFileUpload className="mr-1" />}
+              style={{ display: 'inline-flex', alignItems: 'center', flexDirection: 'row' }}
             >
-              <FaFileUpload className="mr-2" />
               Import CSV
-            </button>
-            <button
+            </Button>
+            <Button
               onClick={showBulkTagModal}
-              className={`px-4 py-2 rounded-md flex items-center bg-purple-600 text-white hover:bg-purple-700`}
+              icon={<FaTags className="mr-1" />}
+              className={`px-4 py-2 flex items-center bg-purple-600 text-white hover:bg-purple-700 rounded-md`}
+              style={{ display: 'inline-flex', alignItems: 'center', flexDirection: 'row' }}
             >
-              <FaTags className="mr-2" />
               Bulk Update Tags
-            </button>
+            </Button>
           </div>
         }
       />
@@ -157,8 +178,18 @@ const ContactsPage: React.FC = () => {
           />
         )}
         
-        {view === 'import' && (
-          <LinkedInCSVImport onImportComplete={handleImportComplete} />
+        {view === 'import' && selectedFileForImport && (
+          <CustomCSVImport 
+            initialFile={selectedFileForImport} 
+            onImportComplete={handleImportComplete} 
+          />
+        )}
+        
+        {view === 'import' && !selectedFileForImport && (
+          <div className="text-center py-8">
+            <p className="text-gray-500 italic text-lg">CSV import cancelled or no file selected.</p>
+            <p className="mt-2 text-gray-400">Click "Import CSV" again to choose a file.</p>
+          </div>
         )}
         
         {view === 'detail' && selectedContactId && (

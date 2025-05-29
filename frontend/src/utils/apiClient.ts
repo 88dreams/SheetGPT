@@ -43,7 +43,7 @@ console.log('API configuration:', {
 const apiClient = axios.create({
     baseURL: `${API_URL}${API_PREFIX}`,
     withCredentials: true,
-    timeout: 15000,
+    timeout: 30000,
     headers: {
         'Content-Type': 'application/json',
         'Accept': 'application/json'
@@ -298,7 +298,7 @@ export async function request<T>(endpoint: string, options: RequestOptions = {})
     });
     
     // Apply custom timeout if specified
-    const timeout = options.timeout || 15000; // Default is 15 seconds
+    const timeout = options.timeout || 30000; // Default is 30 seconds, increased from 15000
     
     const response = await apiClient.request({
       url: endpoint,

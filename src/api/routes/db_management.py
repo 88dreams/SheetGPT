@@ -354,6 +354,7 @@ async def execute_database_query(
     - Natural language to SQL conversion
     - CSV and Google Sheets export of results
     """
+    logger.info(f"[DB_MGMT_ROUTE] Received query_data: {query_data}")
     # Instantiate the new services
     ai_processor = AnthropicAIProcessor(anthropic_service)
     query_service = QueryService(db, ai_processor)

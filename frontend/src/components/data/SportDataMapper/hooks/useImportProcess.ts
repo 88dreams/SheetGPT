@@ -32,7 +32,8 @@ export default function useImportProcess() {
     entityType: EntityType,
     mappedData: Record<string, string>,
     currentRecord: Record<string, any>,
-    isUpdateMode: boolean = false
+    isUpdateMode: boolean = false,
+    sourceFields?: string[]
   ): Promise<boolean> => {
     // Validate input
     if (!entityType || Object.keys(mappedData).length === 0) {
@@ -49,7 +50,7 @@ export default function useImportProcess() {
     
     try {
       // Transform the mappings to data
-      const transformedData = transformMappedData(mappedData, currentRecord);
+      const transformedData = transformMappedData(mappedData, currentRecord, sourceFields);
       console.log('Transformed Data:', transformedData);
       
       // Check if transformed data is empty or missing required fields
@@ -381,7 +382,8 @@ export default function useImportProcess() {
     entityType: EntityType,
     mappings: Record<string, string>,
     recordsToImport: any[],
-    isUpdateMode: boolean = false
+    isUpdateMode: boolean = false,
+    sourceFields?: string[]
   ) => {
     // Validate input
     if (!entityType || Object.keys(mappings).length === 0) {
@@ -420,7 +422,8 @@ export default function useImportProcess() {
       // Enhanced record processor that tracks error types
       const processRecord = async (record: any) => {
         try {
-          return await processEntityRecord(record, entityType, mappings, isUpdateMode);
+          // Pass sourceFields to processEntityRecord, which will pass it to transformMappedData
+          return await processEntityRecord(record, entityType, mappings, isUpdateMode, sourceFields);
         } catch (error) {
           // Analyze the error type for better reporting
           const errorMessage = error.message || '';
@@ -483,7 +486,7 @@ export default function useImportProcess() {
             ? ` and ${newCompaniesCount - 3} more` 
             : '';
             
-          detailMessage += `Also created ${newCompaniesCount} new broadcast ${newCompaniesCount === 1 ? 'company' : 'companies'}: ${companiesList}${additionalText}.`;
+          detailMessage += newCompaniesCount > 0 ? `Also created ${newCompaniesCount} new broadcast ${newCompaniesCount === 1 ? 'company' : 'companies'}: ${companiesList}${additionalText}.` : '';
           
           showNotification(
             'success', 

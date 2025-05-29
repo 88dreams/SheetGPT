@@ -54,6 +54,7 @@ class AnthropicAIProcessor(AIQueryProcessor):
     async def generate_sql_from_text(
         self, natural_language_query: str, schema_info: str, specialized_guidance: str
     ) -> str:
+        logger.info(f"[AI_PROCESSOR_GENERATE_SQL] Received natural_language_query: '{natural_language_query}'")
         prompt = f"""You are an expert SQL developer specializing in sports broadcasting databases. Convert the following natural language query to a PostgreSQL SQL query.
 
 Database Schema:
@@ -76,6 +77,7 @@ Rules:
    - Handle NULL values properly with COALESCE or IS NULL checks
    - For broadcast rights, check for the right entity_type and division_conference_id
    - Use CASE statements for conditional column display when needed
+7. When the user\'s query includes a specific string value intended for filtering a column (e.g., a name, a type, a status like \'In-House Production\'), use that exact string value from the user\'s query in the SQL comparison (e.g., in `LOWER(column) = LOWER(\'User Provided Value\')`). Preserve punctuation like hyphens from the user\'s value.
 
 SQL Query:"""
 
@@ -154,5 +156,7 @@ Response format:
                     return False, sql_query, explanation
 
         except Exception as e:
-            logger.error(f"Error in AnthropicAIProcessor.validate_and_correct_sql: {str(e)}")
-            return True, sql_query, f"AI Validation service error: {str(e)}" 
+            logger.error(f"Error during AI SQL validation: {str(e)}", exc_info=True)
+            # If any exception occurs during validation, it's not valid.
+            # Return False, the original query (as it wasn't corrected), and the error message.
+            return False, sql_query, f"AI Validation service error: {str(e)}" 

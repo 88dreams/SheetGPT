@@ -1,4 +1,9 @@
 {
+  "name": "sheetgpt-monorepo",
+  "private": true,
+  "workspaces": [
+    "frontend"
+  ],
   "devDependencies": {
     "@types/react-virtualized-auto-sizer": "^1.0.4"
   }

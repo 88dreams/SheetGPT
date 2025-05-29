@@ -148,5 +148,24 @@ DATABASE SCHEMA:
     *   `updated_at` (TIMESTAMP): Timestamp of last update.
     *   `deleted_at` (TIMESTAMP, NULLABLE): Timestamp if soft-deleted.
 
+**Table: `production_services`**
+*   Description: Details specific production services associated with an entity (like a League, Team, or Game) and handled by a production company (which is a Brand). This table links sports entities to the brands that provide production services for them, over a defined period.
+*   Columns:
+    *   `id` (UUID, PK): Unique identifier for the production service record.
+    *   `entity_id` (UUID): The ID of the entity these services pertain to. This is a polymorphic foreign key (e.g., could be a league_id, team_id).
+    *   `entity_type` (VARCHAR(50)): The type of the entity that `entity_id` refers to. *Crucial for interpreting `entity_id`. Examples: "League", "Team", "Game".*
+    *   `production_company_id` (UUID, FK -> `brands.id`): The ID of the company (from the `brands` table) that provides these production services.
+    *   `service_type` (VARCHAR(100)): The specific type or nature of the production service being provided. *Examples: "In House Production", "Broadcast Services", "Post-Production", "Live Event Coverage". This is the column to use when filtering by the kind of production, like "In House".*
+    *   `start_date` (DATE): The date when the production service agreement starts.
+    *   `end_date` (DATE): The date when the production service agreement ends.
+    *   `secondary_brand_id` (UUID, FK -> `brands.id`, NULLABLE): An optional secondary brand associated with this production service (e.g., a co-producer or a specific division of the main production company).
+    *   `created_at` (TIMESTAMP): Timestamp of creation.
+    *   `updated_at` (TIMESTAMP): Timestamp of last update.
+    *   `deleted_at` (TIMESTAMP, NULLABLE): Timestamp if soft-deleted. *Queries should generally filter using `WHERE production_services.deleted_at IS NULL`.*
+*   Relationships:
+    *   `production_company_id` links to `brands.id`.
+    *   `secondary_brand_id` (if present) links to `brands.id`.
+    *   `entity_id` refers to an ID in another table, determined by the `entity_type` column.
+
 ---
 *This schema description provides context for commonly queried tables. Other tables like `games`, `players`, `production_services`, `game_broadcasts`, `contacts`, etc., also exist and follow similar patterns with IDs, names, and timestamp/deletion fields. If a query involves these, make logical joins based on foreign key relationships implied by `_id` column names.* 

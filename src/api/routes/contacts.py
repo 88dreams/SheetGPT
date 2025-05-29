@@ -7,6 +7,7 @@ import csv
 import io
 import codecs
 from pydantic import BaseModel, Field
+import json
 
 from src.services.contacts_service import ContactsService
 from src.schemas.contacts import (
@@ -515,3 +516,133 @@ async def bulk_update_specific_tags(
         # Log the exception for debugging
         print(f"Error in bulk_update_specific_tags: {str(e)}") # Replace with proper logging if available
         raise HTTPException(status_code=HTTP_500_INTERNAL_SERVER_ERROR, detail="An unexpected error occurred while updating contact tags.")
+
+@router.post("/import/custom_csv", response_model=ContactImportStats)
+async def import_custom_csv_endpoint(
+    file: UploadFile = File(...),
+    column_mapping_json: str = Form(...),
+    auto_match_brands: bool = Query(True),
+    match_threshold: float = Query(0.6, ge=0.0, le=1.0),
+    import_source_tag: Optional[str] = Form(None),
+    current_user: Dict = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    user_id = UUID(current_user["id"])
+    import logging
+    logger = logging.getLogger("sheetgpt.api.contacts") # More specific logger
+
+    try:
+        logger.info(f"Custom CSV import started: file={file.filename}, size={file.size}, tag={import_source_tag}")
+
+        # Parse column mapping from JSON string
+        try:
+            user_column_mapping = json.loads(column_mapping_json)
+            if not isinstance(user_column_mapping, dict):
+                raise ValueError("Column mapping must be a JSON object (dictionary).")
+            logger.info(f"User column mapping: {user_column_mapping}")
+        except json.JSONDecodeError as e:
+            logger.error(f"Invalid JSON for column mapping: {column_mapping_json}, error: {e}")
+            raise HTTPException(
+                status_code=HTTP_400_BAD_REQUEST,
+                detail=f"Invalid JSON format for column_mapping: {str(e)}"
+            )
+        except ValueError as e: # Catches non-dict mapping
+            logger.error(f"Invalid column mapping structure: {column_mapping_json}, error: {e}")
+            raise HTTPException(
+                status_code=HTTP_400_BAD_REQUEST,
+                detail=str(e)
+            )
+
+        content = await file.read()
+        logger.info(f"Read {len(content)} bytes from custom CSV file")
+
+        if len(content) == 0:
+            logger.error("Empty file received for custom CSV import")
+            raise HTTPException(
+                status_code=HTTP_400_BAD_REQUEST,
+                detail="Empty file received. Please upload a valid CSV file."
+            )
+
+        # Decode content (similar to linkedin import)
+        try:
+            # Try utf-8-sig first to handle BOM
+            content_str = content.decode('utf-8-sig')
+            logger.info("Custom CSV file decoded using utf-8-sig")
+        except UnicodeDecodeError:
+            try:
+                content_str = content.decode('utf-8')
+                logger.info("Custom CSV file decoded using utf-8")
+            except UnicodeDecodeError:
+                content_str = content.decode('latin-1') # Fallback
+                logger.info("Custom CSV file decoded using latin-1")
+        
+        # Parse CSV content into list of dictionaries
+        csv_data = []
+        try:
+            reader = csv.DictReader(io.StringIO(content_str))
+            headers = reader.fieldnames
+            if not headers:
+                 logger.error("CSV file has no headers or is empty after decoding.")
+                 raise HTTPException(
+                    status_code=HTTP_400_BAD_REQUEST,
+                    detail="CSV file has no headers or is empty. Ensure it's a valid CSV with a header row."
+                )
+            logger.info(f"Custom CSV headers: {headers}")
+            
+            # Validate that all headers in user_column_mapping exist in the CSV
+            for user_header in user_column_mapping.keys():
+                if user_header not in headers:
+                    logger.error(f"Mapped header '{user_header}' not found in CSV file headers: {headers}")
+                    raise HTTPException(
+                        status_code=HTTP_400_BAD_REQUEST,
+                        detail=f"Mapped header '{user_header}' not found in CSV. Available headers: {headers}"
+                    )
+
+            for row in reader:
+                csv_data.append(row)
+            
+            logger.info(f"Parsed {len(csv_data)} data rows from custom CSV")
+            if not csv_data:
+                # This case might be okay if the file only had a header row, 
+                # but usually means an issue or an empty data file.
+                logger.warning("Custom CSV file contained no data rows after header.")
+                # Depending on requirements, you might allow empty data files or raise error:
+                # raise HTTPException(
+                #     status_code=HTTP_400_BAD_REQUEST,
+                #     detail="CSV file contains no data rows after the header."
+                # )
+
+        except csv.Error as e:
+            logger.error(f"Invalid CSV format for custom import: {str(e)}", exc_info=True)
+            raise HTTPException(
+                status_code=HTTP_400_BAD_REQUEST,
+                detail=f"Invalid CSV format: {str(e)}. Please check the file."
+            )
+        except Exception as e: # Catch other parsing related errors
+            logger.error(f"Error parsing CSV content: {str(e)}", exc_info=True)
+            raise HTTPException(
+                status_code=HTTP_400_BAD_REQUEST,
+                detail=f"Error parsing CSV content: {str(e)}"
+            )
+
+        service = ContactsService(db)
+        stats = await service.import_custom_csv(
+            user_id=user_id,
+            csv_data=csv_data,
+            user_column_mapping=user_column_mapping,
+            auto_match_brands=auto_match_brands,
+            match_threshold=match_threshold,
+            import_source_tag=import_source_tag
+        )
+        
+        logger.info(f"Custom CSV import finished. Stats: {stats}")
+        return stats
+
+    except HTTPException: # Re-raise HTTPExceptions directly
+        raise
+    except Exception as e:
+        logger.error(f"Unhandled error during custom CSV import: {str(e)}", exc_info=True)
+        raise HTTPException(
+            status_code=HTTP_400_BAD_REQUEST, # Or 500 for true internal errors
+            detail=f"Error importing contacts via custom CSV: An unexpected error occurred. Check logs."
+        )

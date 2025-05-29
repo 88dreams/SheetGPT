@@ -19,13 +19,15 @@ class AnthropicService:
     DEFAULT_MODEL = "claude-3-7-sonnet-20250219"
     DEFAULT_MAX_TOKENS = 15000
     DEFAULT_TEMPERATURE = 0.7
+    # DEFAULT_REQUEST_TIMEOUT = 28 # Default timeout in seconds for non-streaming requests
     
     def __init__(
         self, 
         api_key: Optional[str] = None, 
         model: Optional[str] = None,
         default_max_tokens: int = DEFAULT_MAX_TOKENS,
-        default_temperature: float = DEFAULT_TEMPERATURE
+        default_temperature: float = DEFAULT_TEMPERATURE,
+        # request_timeout: int = DEFAULT_REQUEST_TIMEOUT
     ):
         """
         Initialize the Anthropic service
@@ -40,6 +42,7 @@ class AnthropicService:
         self.model = model or self.DEFAULT_MODEL
         self.default_max_tokens = default_max_tokens
         self.default_temperature = default_temperature
+        self.request_timeout = settings.ANTHROPIC_REQUEST_TIMEOUT # Get from settings
         
         # Initialize clients
         self._init_clients()
@@ -47,9 +50,17 @@ class AnthropicService:
     def _init_clients(self) -> None:
         """Initialize API clients"""
         try:
-            self.client = anthropic.Client(api_key=self.api_key)
-            self.async_client = httpx.AsyncClient()
-            logger.info(f"Initialized Anthropic client with model: {self.model}")
+            # Pass timeout to the client constructor if possible, or use it per-request.
+            # For anthropic.Client, timeout is typically passed per-request.
+            self.client = anthropic.Client(
+                api_key=self.api_key,
+                # It's common for clients to also accept a default timeout here
+                # timeout=httpx.Timeout(self.request_timeout, connect=5.0)
+            )
+            self.async_client = httpx.AsyncClient(
+                # timeout=httpx.Timeout(self.request_timeout, connect=5.0) # For async client if used directly
+            )
+            logger.info(f"Initialized Anthropic client with model: {self.model} and request_timeout: {self.request_timeout}s")
         except Exception as e:
             logger.error(f"Failed to initialize Anthropic client: {str(e)}")
             raise AnthropicServiceError(f"Client initialization failed: {str(e)}")
@@ -166,7 +177,7 @@ Here's the code to review:
             )
             params["stream"] = True
             
-            message = await self.client.messages.create(**params)
+            message = await self.client.messages.create(**params, timeout=self.request_timeout)
             
             async for text_chunk in self._handle_stream(message):
                 yield text_chunk
@@ -208,7 +219,7 @@ Here's the code to review:
                 temperature=temperature
             )
             
-            message = self.client.messages.create(**params)
+            message = self.client.messages.create(**params, timeout=self.request_timeout)
             
             # Extract and return the text content
             if message.content and len(message.content) > 0:

@@ -7,7 +7,9 @@ services:
     ports:
       - "5173:5173"
     volumes:
+      # Mount your local frontend source code into the /app/frontend directory in the container
       - ./frontend:/app/frontend
+      # Preserve the root node_modules installed during the build
       - /app/node_modules
     environment:
       # NOTE: Keep backend:8000 here - it will be transformed in apiClient.ts for browser access

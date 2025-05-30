@@ -7,7 +7,7 @@ services:
     ports:
       - "5173:5173"
     volumes:
-      - ./frontend:/app
+      - ./frontend:/app/frontend
       - /app/node_modules
     environment:
       # NOTE: Keep backend:8000 here - it will be transformed in apiClient.ts for browser access

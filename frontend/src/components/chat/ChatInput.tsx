@@ -4,9 +4,10 @@ import StructuredFormatModal from './StructuredFormatModal'
 import { TableCellsIcon, DocumentTextIcon, XMarkIcon, ArrowsUpDownIcon } from '@heroicons/react/24/outline'
 import Papa from 'papaparse'
 import { FileAttachment } from '../../types/chat'
+import { Select } from 'antd'
 
 interface ChatInputProps {
-  onSend: (message: string, structuredFormat?: Record<string, any>, fileAttachment?: FileAttachment) => void
+  onSend: (message: string, structuredFormat?: Record<string, any>, fileAttachment?: FileAttachment, selectedLlm?: string) => void
   disabled?: boolean
 }
 
@@ -30,6 +31,16 @@ const ChatInput: React.FC<ChatInputProps> = ({ onSend, disabled = false }) => {
   const resizeStartRef = useRef({ y: 0, height: 0 })
   const isResizingRef = useRef(false)
 
+  // State for LLM selection
+  const [selectedLlm, setSelectedLlm] = useState<string>('claude_default')
+  
+  // Updated LLM Options
+  const llmOptions = [
+    { value: 'claude_default', label: 'Claude (Sonnet 4)' },
+    { value: 'chatgpt_3_5_turbo', label: 'ChatGPT (3.5 Turbo)' },
+    { value: 'chatgpt_4o', label: 'ChatGPT (GPT-4o)' },
+  ]
+
   const handleSubmit = () => {
     if ((message.trim() || fileContent) && !disabled) {
       // If file content exists, use that as the message or prepend to existing message
@@ -45,7 +56,7 @@ const ChatInput: React.FC<ChatInputProps> = ({ onSend, disabled = false }) => {
         size: new Blob([fileContent]).size
       } as FileAttachment : undefined
       
-      onSend(finalMessage, activeFormat || undefined, fileAttachment)
+      onSend(finalMessage, activeFormat || undefined, fileAttachment, selectedLlm)
       setMessage('')
       setFileContent(null)
       setFileName(null)
@@ -263,7 +274,7 @@ const ChatInput: React.FC<ChatInputProps> = ({ onSend, disabled = false }) => {
           </div>
         )}
         
-        <div className="flex space-x-2">
+        <div className="flex space-x-2 items-center">
           <div className="flex space-x-2">
             <button
               onClick={() => setIsFormatModalOpen(true)}
@@ -282,6 +293,17 @@ const ChatInput: React.FC<ChatInputProps> = ({ onSend, disabled = false }) => {
             >
               <DocumentTextIcon className="h-5 w-5" />
             </button>
+            
+            {/* LLM Selector Dropdown */}
+            <Select
+              value={selectedLlm}
+              onChange={(value) => setSelectedLlm(value)}
+              options={llmOptions}
+              disabled={disabled}
+              size="middle"
+              style={{ width: 180 }}
+              className="h-full"
+            />
             
             <input
               type="file"

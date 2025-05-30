@@ -23,6 +23,7 @@ class MessageBase(BaseModel):
 class MessageCreate(MessageBase):
     """Schema for creating a new message."""
     structured_format: Optional[Dict] = None
+    selected_llm: Optional[str] = None
 
 class MessageResponse(MessageBase):
     """Schema for message responses."""

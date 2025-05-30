@@ -86,7 +86,7 @@ async def create_message(
     current_user_id: UUID = Depends(get_current_user_id),
     db: AsyncSession = Depends(get_db)
 ):
-    """Send a message and get a streaming response from ChatGPT."""
+    print(f"--- Entered create_message for conversation {conversation_id}, user {current_user_id} ---")
     chat_service = ChatService(db)
     try:
         # Get conversation and verify ownership
@@ -104,6 +104,7 @@ async def create_message(
 
         # Create async generator for streaming response
         async def event_generator():
+            print(f"--- event_generator started for conversation {conversation_id} ---")
             import asyncio
             search_detected = False
             
@@ -113,14 +114,15 @@ async def create_message(
                 is_complete = False
                 
                 # Log the request message details
-                print(f"Processing message from user: {message.content[:100]}...")
+                print(f"Processing message from user: {message.content[:100]}... with LLM: {message.selected_llm}")
                 print(f"Structured format requested: {message.structured_format is not None}")
                 
                 # Process the streaming response
                 async for chunk in chat_service.get_chat_response(
                     conversation_id=conversation_id,
                     user_message=message.content,
-                    structured_format=message.structured_format
+                    structured_format=message.structured_format,
+                    selected_llm=message.selected_llm
                 ):
                     # Detect search activity
                     if "[SEARCH]" in chunk:
@@ -171,9 +173,19 @@ async def create_message(
             media_type="text/event-stream"
         )
     except ValueError as e:
+        print(f"ValueError in create_message (likely conversation not found or auth issue): {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=str(e)
+        )
+    except HTTPException as he:
+        print(f"HTTPException during pre-stream setup: {str(he.detail)}")
+        raise he
+    except Exception as e:
+        print(f"Unexpected error in create_message before streaming: {str(e)}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Server error before initiating chat stream: {str(e)}"
         )
 
 @router.patch("/conversations/{conversation_id}", response_model=ConversationResponse)

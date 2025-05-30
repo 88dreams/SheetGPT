@@ -108,9 +108,11 @@ class ContactImportRequest(BaseModel):
     match_threshold: float = 0.6
 
 class ContactImportStats(BaseModel):
-    total_contacts: int
+    total_contacts_in_file: int
+    processed_rows: int
     imported_contacts: int
-    matched_brands: int
+    updated_contacts: int
+    matched_brands_associated: int
     import_errors: List[Dict[str, Any]] = []
     
 class ContactListParams(BaseModel):

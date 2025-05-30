@@ -6,6 +6,7 @@ interface SendMessageParams {
   content: string;
   structuredFormat?: Record<string, any>;
   fileAttachment?: FileAttachment;
+  selectedLlm?: string;
 }
 
 interface UseSendMessageOptions {
@@ -22,7 +23,7 @@ export function useSendMessage({
   const queryClient = useQueryClient();
   
   const sendMessageMutation = useMutation({
-    mutationFn: async ({ content, structuredFormat, fileAttachment }: SendMessageParams) => {
+    mutationFn: async ({ content, structuredFormat, fileAttachment, selectedLlm }: SendMessageParams) => {
       if (!conversationId) throw new Error('No conversation selected');
       
       console.log('Sending message:', {
@@ -30,6 +31,7 @@ export function useSendMessage({
         content,
         hasStructuredFormat: !!structuredFormat,
         hasFileAttachment: !!fileAttachment,
+        selectedLlm,
         timestamp: new Date().toISOString()
       });
       
@@ -83,7 +85,8 @@ export function useSendMessage({
               });
             });
           },
-          fileAttachment
+          fileAttachment,
+          selectedLlm
         );
         
         // We'll skip the automatic refetch after streaming is complete
@@ -112,8 +115,8 @@ export function useSendMessage({
     },
   });
 
-  const sendMessage = async (content: string, structuredFormat?: Record<string, any>, fileAttachment?: FileAttachment) => {
-    return sendMessageMutation.mutateAsync({ content, structuredFormat, fileAttachment });
+  const sendMessage = async (content: string, structuredFormat?: Record<string, any>, fileAttachment?: FileAttachment, selectedLlm?: string) => {
+    return sendMessageMutation.mutateAsync({ content, structuredFormat, fileAttachment, selectedLlm });
   };
 
   return {

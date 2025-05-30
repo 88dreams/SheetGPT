@@ -29,9 +29,9 @@ interface CustomCSVImportProps {
 
 const ItemTypes = { CSV_HEADER: 'csvHeader' } as const;
 
-interface DraggableItem { 
-  id: string; 
-  name: string; 
+interface DraggableItem {
+  id: string;
+  name: string;
   type: string; // Ensure type is part of DraggableItem if used in item: { type: ... }
 }
 
@@ -173,32 +173,32 @@ const CustomCSVImport: React.FC<CustomCSVImportProps> = ({ onImportComplete, ini
     };
     reader.readAsText(selectedFile);
   }, [resetState, showNotification]);
-
+  
   useEffect(() => {
     if (csvSourceHeaders.length > 0 && sourceDataRows.length > 0) {
-      const newTargetFields = CONTACT_MODEL_FIELDS_CONFIG.map(targetField => {
-        const lowerTargetLabel = targetField.label.toLowerCase().replace(/\s+/g, '').replace(/\(date\)/g, '');
-        const lowerTargetId = targetField.id.toLowerCase().replace(/\s+/g, '');
-        let autoMappedSourceHeader: string | null = null;
-        const matchingCsvHeader = csvSourceHeaders.find(csvHeader => {
-          if (!csvHeader) return false;
-          const lowerCsvHeader = csvHeader.toLowerCase().replace(/\s+/g, '');
+        const newTargetFields = CONTACT_MODEL_FIELDS_CONFIG.map(targetField => {
+            const lowerTargetLabel = targetField.label.toLowerCase().replace(/\s+/g, '').replace(/\(date\)/g, '');
+            const lowerTargetId = targetField.id.toLowerCase().replace(/\s+/g, '');
+            let autoMappedSourceHeader: string | null = null;
+            const matchingCsvHeader = csvSourceHeaders.find(csvHeader => {
+                if (!csvHeader) return false;
+                const lowerCsvHeader = csvHeader.toLowerCase().replace(/\s+/g, '');
           return lowerCsvHeader.includes(lowerTargetLabel) || lowerCsvHeader.includes(lowerTargetId) || lowerTargetLabel.includes(lowerCsvHeader);
-        });
+            });
         if (matchingCsvHeader) { autoMappedSourceHeader = matchingCsvHeader; }
-        return { ...targetField, mappedSourceHeader: autoMappedSourceHeader };
-      });
-      const usedCsvHeaders = new Set<string>();
-      const finalTargetFields = newTargetFields.map(field => {
-        if (field.mappedSourceHeader && usedCsvHeaders.has(field.mappedSourceHeader)) {
-          return { ...field, mappedSourceHeader: null };
-        }
+            return { ...targetField, mappedSourceHeader: autoMappedSourceHeader };
+        });
+        const usedCsvHeaders = new Set<string>();
+        const finalTargetFields = newTargetFields.map(field => {
+            if (field.mappedSourceHeader && usedCsvHeaders.has(field.mappedSourceHeader)) {
+                return { ...field, mappedSourceHeader: null };
+            }
         if (field.mappedSourceHeader) { usedCsvHeaders.add(field.mappedSourceHeader); }
-        return field;
-      });
-      setTargetContactFields(finalTargetFields);
+            return field;
+        });
+        setTargetContactFields(finalTargetFields);
     } else {
-      resetAllMappings();
+        resetAllMappings();
     }
   }, [csvSourceHeaders, resetAllMappings, sourceDataRows]);
 
@@ -224,7 +224,7 @@ const CustomCSVImport: React.FC<CustomCSVImportProps> = ({ onImportComplete, ini
   const handleUnmapTargetField = useCallback((targetFieldId: string) => {
     setTargetContactFields(prevFields => prevFields.map(field => field.id === targetFieldId ? { ...field, mappedSourceHeader: null } : field));
   }, []);
-  
+
   const unmappedCsvHeaders = csvSourceHeaders.filter(header => !targetContactFields.some(field => field.mappedSourceHeader === header));
 
   const goToNextRecord = useCallback(() => {
@@ -250,10 +250,10 @@ const CustomCSVImport: React.FC<CustomCSVImportProps> = ({ onImportComplete, ini
     const finalMappings: Record<string, string> = {};
     let requiredFieldsMet = true;
     CONTACT_MODEL_FIELDS_CONFIG.forEach(modelField => {
-      if (modelField.required) {
-        const foundMapping = targetContactFields.find(tf => tf.id === modelField.id && tf.mappedSourceHeader);
+        if (modelField.required) {
+            const foundMapping = targetContactFields.find(tf => tf.id === modelField.id && tf.mappedSourceHeader);
         if (!foundMapping) { requiredFieldsMet = false; }
-      }
+        }
     });
     if (!requiredFieldsMet) { showNotification('error', `Map required fields: ${CONTACT_MODEL_FIELDS_CONFIG.filter(f=>f.required).map(f=>f.label).join(', ')}.`); return; }
     targetContactFields.forEach(field => { if (field.mappedSourceHeader) { finalMappings[field.mappedSourceHeader] = field.id; } });
@@ -338,7 +338,7 @@ const CustomCSVImport: React.FC<CustomCSVImportProps> = ({ onImportComplete, ini
   ]);
   
   const triggerFileSelect = () => fileInputRef.current?.click();
-
+  
   // Component for individual source CSV column items (Draggable)
   interface SourceColumnItemProps { headerName: string; currentValue?: string; }
   const SourceColumnItem: React.FC<SourceColumnItemProps> = ({ headerName, currentValue }) => {
@@ -421,7 +421,7 @@ const CustomCSVImport: React.FC<CustomCSVImportProps> = ({ onImportComplete, ini
           <div className="text-sm text-gray-400 italic">Not mapped</div>
         )}
       </div>
-    );
+  );
   };
 
   return (
@@ -431,7 +431,7 @@ const CustomCSVImport: React.FC<CustomCSVImportProps> = ({ onImportComplete, ini
           <h2 className="text-xl font-semibold text-gray-800">Map CSV Fields</h2>
         </div>
 
-        <input type="file" accept=".csv" onChange={handleFileSelect} className="hidden" ref={fileInputRef} />
+          <input type="file" accept=".csv" onChange={handleFileSelect} className="hidden" ref={fileInputRef} />
 
         {!file ? (
           <div className="mb-4 text-center py-8">
@@ -447,7 +447,7 @@ const CustomCSVImport: React.FC<CustomCSVImportProps> = ({ onImportComplete, ini
                     <div className="flex items-center justify-between mb-2">
                       <div className="flex items-baseline space-x-2">
                         <h3 className="text-base font-semibold text-gray-700">Source Fields</h3>
-                        {file && (
+          {file && (
                           <span 
                             className="font-medium text-gray-500 text-xs truncate" 
                             title={fileName} 
@@ -466,7 +466,7 @@ const CustomCSVImport: React.FC<CustomCSVImportProps> = ({ onImportComplete, ini
                           <Button onClick={goToNextRecord} disabled={currentRecordIndex === null || currentRecordIndex >= totalRecords - 1} size="small" icon={<FaChevronRight />} />
                         </div>
                       )}
-                    </div>
+        </div>
                     <div className="max-h-[340px] overflow-y-auto space-y-1 pr-1 flex-grow">
                       {csvSourceHeaders.length > 0 ? (
                           csvSourceHeaders.map(header => (
@@ -475,12 +475,12 @@ const CustomCSVImport: React.FC<CustomCSVImportProps> = ({ onImportComplete, ini
                                 headerName={header} 
                                 currentValue={currentSourceRecordValues ? currentSourceRecordValues[header] : undefined}
                               />
-                          ))
-                      ) : (
+                    ))
+                ) : (
                           <p className="text-sm text-gray-500 italic p-2">No CSV columns found in the file.</p> 
-                      )}
-                    </div>
-                  </div>
+                )}
+              </div>
+            </div>
 
                   <div className="p-3 border rounded-md bg-gray-50/70 min-h-[200px] flex flex-col">
                     <div className="flex items-center justify-between mb-2">
@@ -506,55 +506,55 @@ const CustomCSVImport: React.FC<CustomCSVImportProps> = ({ onImportComplete, ini
                     </div>
                     <div className="overflow-y-auto space-y-1 pr-1 flex-grow">
                       {targetContactFields.map(targetField => (
-                        <TargetFieldItem 
+                  <TargetFieldItem 
                           key={targetField.id} 
                           field={targetField} 
-                          onDropHeader={handleDropHeaderOnField} 
-                          onUnmapTarget={handleUnmapTargetField}
+                    onDropHeader={handleDropHeaderOnField} 
+                    onUnmapTarget={handleUnmapTargetField}
                           currentSourceRecordValues={currentSourceRecordValues}
-                        />
-                      ))}
-                    </div>
-                  </div>
-                </div>
-                
-                <div className="pt-4 border-t">
+                  />
+                ))}
+              </div>
+            </div>
+          </div>
+
+            <div className="pt-4 border-t">
                     <div className="grid grid-cols-1 md:grid-cols-2 md:gap-x-6 gap-y-4 mb-4">
-                        <div>
+                    <div>
                           <label className="block text-sm font-medium text-gray-700 mb-1" htmlFor="importSourceTagInput">Import Source Tag (Optional)</label>
-                          <Input 
+                    <Input
                             id="importSourceTagInput"
-                            value={importSourceTag} 
-                            onChange={(e) => setImportSourceTag(e.target.value)} 
-                            placeholder="e.g., Conference Leads Q2" 
-                          />
-                        </div>
+                        value={importSourceTag}
+                        onChange={(e) => setImportSourceTag(e.target.value)}
+                        placeholder="e.g., Conference Leads Q2"
+                    />
+                    </div>
                         
                         <div className="flex items-baseline justify-between"> 
-                          <div>
+                    <div>
                             <label className="block text-sm font-medium text-gray-700 mb-1" htmlFor="brandMatchThresholdOptions">Brand Match Threshold</label>
-                            <InputNumber
+                    <InputNumber
                               id="brandMatchThresholdOptions"
-                              min={0.1}
-                              max={1.0}
-                              step={0.1}
-                              value={matchThreshold}
-                              onChange={(value) => setMatchThreshold(value || 0.6)}
+                        min={0.1}
+                        max={1.0}
+                        step={0.1}
+                        value={matchThreshold}
+                        onChange={(value) => setMatchThreshold(value || 0.6)}
                               style={{ width: 80 }} 
-                              disabled={!autoMatchBrands}
-                            />
-                          </div>
+                        disabled={!autoMatchBrands}
+                        />
+                    </div>
 
                           <div className="flex items-center whitespace-nowrap"> 
-                              <Checkbox 
-                                checked={autoMatchBrands} 
-                                onChange={(e) => setAutoMatchBrands(e.target.checked)} 
-                                className="mr-2" 
+                        <Checkbox
+                            checked={autoMatchBrands}
+                            onChange={(e) => setAutoMatchBrands(e.target.checked)}
+                            className="mr-2"
                                 id="autoMatchBrandsCheckbox" 
-                              />
-                              <label className="text-sm text-gray-700" htmlFor="autoMatchBrandsCheckbox">
+                        />
+                        <label className="text-sm text-gray-700" htmlFor="autoMatchBrandsCheckbox">
                                   Match Companies to Brands
-                              </label>
+                        </label>
                           </div>
                         </div>
                     </div>
@@ -562,7 +562,7 @@ const CustomCSVImport: React.FC<CustomCSVImportProps> = ({ onImportComplete, ini
               </>
             ) : (
               loading && !parsingError && <div className="text-center py-4">Loading and parsing CSV headers...</div>
-            )}
+        )}
           </>
         )}
         {importResults && (

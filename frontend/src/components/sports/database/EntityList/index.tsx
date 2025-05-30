@@ -87,6 +87,9 @@ const EntityList: React.FC<EntityListProps> = ({ className = '' }) => {
 
   const navigate = useNavigate();
 
+  // Add state for column selector panel visibility
+  const [isColumnSelectorPanelVisible, setIsColumnSelectorPanelVisible] = useState<boolean>(false);
+
   const generatedColumnsArray = useMemo(() => {
     if (!selectedEntityType) return [];
     const fields = getEntityFields(selectedEntityType);
@@ -332,12 +335,8 @@ const EntityList: React.FC<EntityListProps> = ({ className = '' }) => {
     <div className={`bg-white rounded-lg shadow ${className}`}>
       <EntityListHeader
         selectedEntityType={selectedEntityType}
-        showColumnSelector={Object.keys(visibleColumns).length > 0}
-        setShowColumnSelector={(show) => {
-          if (!show) {
-            setVisibleColumns({});
-          }
-        }}
+        showColumnSelector={isColumnSelectorPanelVisible}
+        setShowColumnSelector={setIsColumnSelectorPanelVisible}
         showFullUuids={false}
         setShowFullUuids={(show) => {}}
         openExportDialog={triggerOpenExportDialog}
@@ -345,7 +344,7 @@ const EntityList: React.FC<EntityListProps> = ({ className = '' }) => {
         searchValue={searchInputValue}
       />
       
-      {Object.keys(visibleColumns).length > 0 && (
+      {isColumnSelectorPanelVisible && (
         <ColumnSelector
           entities={entities}
           visibleColumns={visibleColumns}

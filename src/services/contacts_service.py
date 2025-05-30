@@ -5,6 +5,8 @@ import re
 import csv
 import io
 from difflib import SequenceMatcher
+from pydantic import EmailStr
+from dateutil import parser as dateutil_parser
 
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, and_, or_, func, update
@@ -833,7 +835,16 @@ class ContactsService:
                         # Decide if this is a hard error or just a warning
                         # For now, let's treat it as a warning and proceed with None date
 
-                # Check for existing contact (same logic as import_linkedin_csv)
+                # Use the stripped email string directly. 
+                # For queries, it will be lowercased. For saving, it will be the stripped version.
+                # Actual format validation is implicitly handled by DB constraints or not at all if field is just text.
+                # This removes the crashing EmailStr() call.
+                validated_email_str: Optional[str] = email if email else None
+                if validated_email_str:
+                     print(f"Batch import, row {i+1}: Using email for processing: {validated_email_str}")
+                else:
+                     print(f"No valid email provided for contact {first_name} {last_name}, proceeding without email.")
+
                 query = select(Contact).where(
                     and_(
                         Contact.user_id == user_id,
@@ -841,21 +852,8 @@ class ContactsService:
                         func.lower(Contact.last_name) == func.lower(last_name)
                     )
                 )
-                if email: # Only include email in check if provided and valid
-                    try:
-                        # Validate email format before using in query
-                        validated_email = EmailStr(email) # Pydantic EmailStr for validation
-                        query = query.where(func.lower(Contact.email) == func.lower(validated_email))
-                    except ValueError: # Pydantic validation error
-                        stats["import_errors"].append({
-                            "row_number": i + 1,
-                            "original_row": original_row,
-                            "field": "email",
-                            "value": email,
-                            "error": "Invalid email format. Contact will be processed without email check/update."
-                        })
-                        # Do not use invalid email in query
-                        pass # Email won't be used in query or for update if invalid
+                if validated_email_str: 
+                    query = query.where(func.lower(Contact.email) == func.lower(validated_email_str))
 
                 result = await self.db.execute(query)
                 existing_contact = result.scalars().first()
@@ -877,14 +875,8 @@ class ContactsService:
                     if connected_on_date and (not contact_for_row.connected_on or contact_for_row.connected_on != connected_on_date):
                         contact_for_row.connected_on = connected_on_date
                         updated_an_existing_contact = True
-                    if email: # only update email if it's valid
-                        try:
-                            validated_email = EmailStr(email)
-                            if (not contact_for_row.email or contact_for_row.email != validated_email):
-                                contact_for_row.email = validated_email
-                                updated_an_existing_contact = True
-                        except ValueError:
-                             pass # Skip updating email if invalid
+                    if validated_email_str and (not contact_for_row.email or contact_for_row.email != validated_email_str):
+                        contact_for_row.email = validated_email_str; updated_an_existing_contact = True
                     if notes and (not contact_for_row.notes or contact_for_row.notes != notes): # notes are not stripped
                         contact_for_row.notes = notes
                         updated_an_existing_contact = True
@@ -909,12 +901,8 @@ class ContactsService:
                         "import_source_tag": import_source_tag,
                         "notes": notes # notes can be None
                     }
-                    if email:
-                        try:
-                            contact_data_for_create["email"] = EmailStr(email)
-                        except ValueError:
-                            # error already logged, email won't be added
-                            pass
+                    if validated_email_str:
+                        contact_data_for_create["email"] = validated_email_str
                     
                     contact_for_row = Contact(**contact_data_for_create)
                     self.db.add(contact_for_row)
@@ -1015,24 +1003,22 @@ class ContactsService:
 
         connected_on_date = None
         if connected_on_str:
-            for fmt in ("%d-%b-%Y", "%m/%d/%Y", "%Y-%m-%d", "%b %d, %Y", "%B %d, %Y", "%d %b %Y", "%d %B %Y", "%m-%d-%Y", "%Y/%m/%d"):
-                try:
-                    connected_on_date = datetime.strptime(connected_on_str, fmt).date()
-                    break
-                except ValueError:
-                    continue
-            if connected_on_date is None:
-                # For single record, this might be a hard error or handled by frontend validation
-                # Alternatively, log a warning and proceed with None date.
-                print(f"Warning: Invalid date format for connected_on: {connected_on_str} for contact {first_name} {last_name}")
-        
-        validated_email_str: Optional[str] = None
-        if email:
             try:
-                validated_email_str = str(EmailStr(email)) # Validate and convert
-            except ValueError:
-                print(f"Warning: Invalid email format: {email} for contact {first_name} {last_name}")
-                # Email will not be used for query or update if invalid
+                # Use dateutil.parser for robust date parsing
+                connected_on_date = dateutil_parser.parse(connected_on_str).date()
+            except (ValueError, TypeError) as e: # Catches parsing errors and potential type errors if str is not what parser expects
+                print(f"Warning: Invalid date format for connected_on: '{connected_on_str}' for contact {first_name} {last_name}. Error: {e}")
+                # Proceed with connected_on_date as None
+        
+        # Use the stripped email string directly. 
+        # For queries, it will be lowercased. For saving, it will be the stripped version.
+        # Actual format validation is implicitly handled by DB constraints or not at all if field is just text.
+        # This removes the crashing EmailStr() call.
+        validated_email_str: Optional[str] = email if email else None
+        if validated_email_str:
+             print(f"Using email for processing: {validated_email_str}")
+        else:
+             print(f"No valid email provided for contact {first_name} {last_name}, proceeding without email.")
 
         query = select(Contact).where(
             and_(

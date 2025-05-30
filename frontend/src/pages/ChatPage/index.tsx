@@ -141,8 +141,8 @@ const ChatPage: React.FC = () => {
     }
   }, [conversationsError, messagesError, showNotification]);
 
-  const handleSendMessage = async (content: string, structuredFormat?: Record<string, any>, fileAttachment?: FileAttachment) => {
-    await sendMessage(content, structuredFormat, fileAttachment);
+  const handleSendMessage = async (content: string, structuredFormat?: Record<string, any>, fileAttachment?: FileAttachment, selectedLlm?: string) => {
+    await sendMessage(content, structuredFormat, fileAttachment, selectedLlm);
   };
 
   const handleRepeatMessage = async (content: string) => {

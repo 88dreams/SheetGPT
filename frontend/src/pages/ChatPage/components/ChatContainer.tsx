@@ -12,7 +12,7 @@ interface ChatContainerProps {
   isLoading: boolean;
   error: Error | null;
   isLoadingSend: boolean;
-  onSendMessage: (content: string, structuredFormat?: Record<string, any>, fileAttachment?: FileAttachment) => Promise<void>;
+  onSendMessage: (content: string, structuredFormat?: Record<string, any>, fileAttachment?: FileAttachment, selectedLlm?: string) => Promise<void>;
   onRepeatMessage: (content: string) => Promise<void>;
 }
 

@@ -105,7 +105,8 @@ export const chatService = {
       content: string;
       type: 'csv' | 'text' | 'json' | 'markdown';
       size: number;
-    }
+    },
+    selectedLlm?: string
   ): Promise<Message> => {
     const token = getToken()
     if (!token) throw new Error('No authentication token')
@@ -114,7 +115,7 @@ export const chatService = {
     // For the API endpoint, we need to ensure it always points to {baseUrl}/api/v1/chat/...
     // This endpoint is under the chat router which is mounted under "/api/v1/chat" 
     const url = `${API_URL}${API_PREFIX}/chat/conversations/${conversationId}/messages`;
-    console.log('Sending message to URL:', url);
+    console.log('Sending message to URL:', url, 'with LLM:', selectedLlm);
     
     try {
       const response = await fetch(url, {
@@ -127,7 +128,8 @@ export const chatService = {
           content,
           role: 'user',
           structured_format: structuredFormat,
-          metadata: fileAttachment ? { fileAttachment } : undefined
+          metadata: fileAttachment ? { fileAttachment } : undefined,
+          selected_llm: selectedLlm
         })
       });
       

@@ -96,8 +96,8 @@ const ContactsList: React.FC<ContactsListProps> = ({ brandId, onContactSelect })
     select: { width: 60, display: 'Select', sortField: null },
     name: { width: 250, display: 'Name', sortField: 'last_name' },
     email: { width: 200, display: 'Email' },
-    company: { width: 200, display: 'Company' },
-    position: { width: 200, display: 'Position' },
+    company: { width: 100, display: 'Company' },
+    position: { width: 100, display: 'Position' },
     connected_on: { width: 150, display: 'Connected On' },
     import_source_tag: { width: 180, display: 'Import Tag', sortField: 'import_source_tag' },
     brand_count: { width: 200, display: 'Matched Brands', sortField: 'brand_name' }
@@ -152,14 +152,14 @@ const ContactsList: React.FC<ContactsListProps> = ({ brandId, onContactSelect })
   
   // Initial column order
   const initialColumnOrder = [
-    'select',
-    'name',
-    'email',
-    'company',
-    'position',
-    'connected_on',
-    'import_source_tag',
-    'brand_count'
+    'select',           // Checkbox column
+    'name',             // Name
+    'brand_count',      // Matched Brands
+    'company',          // Company
+    'position',         // Position
+    'email',            // Email
+    'import_source_tag',// Import Tag
+    'connected_on'      // Connected On
   ];
 
   // Column drag and drop
@@ -954,31 +954,26 @@ const ContactsList: React.FC<ContactsListProps> = ({ brandId, onContactSelect })
                         switch (columnKey) {
                           case 'name':
                             cellContent = (
-                              <div className="flex items-center">
-                                <div className="flex-shrink-0 h-10 w-10 bg-gray-200 rounded-full flex items-center justify-center">
-                                  <FaUser className="text-gray-500" />
-                                </div>
-                                <div className="ml-4">
-                                  <div className="text-sm font-medium text-gray-900">
+                              <div> 
+                                <div className="text-sm font-medium text-gray-900 truncate" title={`${contact.first_name} ${contact.last_name}`}>
                                     {contact.first_name} {contact.last_name}
                                   </div>
                                   {contact.email && visibleColumns.email === false && (
                                     <div className="flex text-xs text-gray-500 mt-1">
                                       <div className="flex items-center mr-3" title={contact.email}>
-                                        <FaEnvelope className="mr-1" />
+                                      <FaEnvelope className="mr-1 flex-shrink-0" />
                                         <span className="truncate max-w-xs">{contact.email}</span>
                                       </div>
                                     </div>
                                   )}
-                                </div>
                               </div>
                             );
                             break;
                           case 'email':
                             cellContent = contact.email ? (
                               <div className="flex items-center text-sm text-gray-900">
-                                <FaEnvelope className="mr-1 text-gray-400" />
-                                <a href={`mailto:${contact.email}`} className="text-blue-600 hover:text-blue-800" onClick={(e) => e.stopPropagation()}>
+                                <FaEnvelope className="mr-1 text-gray-400 flex-shrink-0" />
+                                <a href={`mailto:${contact.email}`} className="text-blue-600 hover:text-blue-800 truncate" title={contact.email} onClick={(e) => e.stopPropagation()}>
                                   {contact.email}
                                 </a>
                               </div>
@@ -989,8 +984,8 @@ const ContactsList: React.FC<ContactsListProps> = ({ brandId, onContactSelect })
                           case 'company':
                             cellContent = contact.company ? (
                               <div className="flex items-center text-sm text-gray-900">
-                                <FaBuilding className="mr-1 text-gray-400" />
-                                {contact.company}
+                                <FaBuilding className="mr-1 text-gray-400 flex-shrink-0" />
+                                <span className="truncate" title={contact.company}>{contact.company}</span>
                               </div>
                             ) : (
                               <span className="text-gray-400 text-sm">-</span>
@@ -998,7 +993,7 @@ const ContactsList: React.FC<ContactsListProps> = ({ brandId, onContactSelect })
                             break;
                           case 'position':
                             cellContent = contact.position ? (
-                              <span className="text-sm text-gray-900">{contact.position}</span>
+                              <span className="text-sm text-gray-900 truncate" title={contact.position}>{contact.position}</span>
                             ) : (
                               <span className="text-gray-400 text-sm">-</span>
                             );
@@ -1048,7 +1043,7 @@ const ContactsList: React.FC<ContactsListProps> = ({ brandId, onContactSelect })
                       }
 
                       return (
-                        <td key={columnKey} className="px-3 py-3 whitespace-nowrap border-r border-gray-200">
+                        <td key={columnKey} className="px-3 py-2 whitespace-nowrap border-r border-gray-200">
                           {cellContent}
                         </td>
                       );

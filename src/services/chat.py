@@ -18,8 +18,40 @@ settings = get_settings()
 class ChatService:
     def __init__(self, db: AsyncSession):
         self.db = db
-        self.client = anthropic.AsyncClient(api_key=settings.ANTHROPIC_API_KEY)
-        self.model = "claude-3-7-sonnet-20250219"  # Using Claude 3.7 Sonnet
+        self.anthropic_client = anthropic.AsyncClient(api_key=settings.ANTHROPIC_API_KEY)
+        # Define a mapping for Claude aliases to actual model IDs
+        self.claude_models = {
+            "claude_default": "claude-sonnet-4-20250514", # Your specified Sonnet 4 model
+            "claude_sonnet_3": "claude-3-sonnet-20240229",
+            "claude_opus_3": "claude-3-opus-20240229",
+            "claude_haiku_3": "claude-3-haiku-20240307",
+        }
+        self.default_anthropic_model_name = self.claude_models["claude_default"] # Set default from map
+        
+        self.openai_client = None
+        if settings.OPENAI_API_KEY:
+            try:
+                import openai
+                self.openai_client = openai.AsyncOpenAI(api_key=settings.OPENAI_API_KEY)
+                # Define a mapping for OpenAI aliases to actual model IDs
+                self.openai_models = {
+                    "chatgpt_3_5_turbo": "gpt-3.5-turbo",
+                    "chatgpt_4_turbo": "gpt-4-turbo-preview", # Or your preferred gpt-4 turbo alias
+                    "chatgpt_4o": "gpt-4o",
+                }
+                self.default_openai_model_name = self.openai_models["chatgpt_3_5_turbo"]
+            except ImportError:
+                self.logger.warning("OpenAI library not installed, ChatGPT functionality will be unavailable.")
+                self.openai_models = {}
+                self.default_openai_model_name = "gpt-3.5-turbo" # Fallback even if client fails
+            except Exception as e:
+                self.logger.error(f"Failed to initialize OpenAI client: {e}")
+                self.openai_models = {}
+                self.default_openai_model_name = "gpt-3.5-turbo"
+        else:
+            self.openai_models = {}
+            self.default_openai_model_name = "gpt-3.5-turbo"
+
         self.logger = chat_logger
 
     async def perform_search(self, query: str) -> str:
@@ -204,21 +236,79 @@ class ChatService:
         self,
         conversation_id: UUID,
         user_message: str,
-        structured_format: Optional[Dict] = None
+        structured_format: Optional[Dict] = None,
+        selected_llm: Optional[str] = None
     ):
-        """Get streaming response from Claude."""
+        """Get streaming response from the selected LLM."""
         try:
             self.logger.info(f"\n=== New Chat Request ===")
             self.logger.info(f"User message: {user_message}")
             self.logger.info(f"Structured format requested: {structured_format is not None}")
+            self.logger.info(f"Selected LLM (parameter name now selected_llm): {selected_llm}")
             
-            # Add user message to conversation
             await self.add_message(conversation_id, "user", user_message)
-            
-            # Get conversation history
             messages = await self.get_conversation_messages(conversation_id)
-            
-            # Create system prompt for Claude
+            recent_messages = messages[-15:]
+
+            # Determine provider and actual model name from alias
+            llm_provider = "claude" # Default provider
+            actual_model_name = self.default_anthropic_model_name
+
+            if selected_llm:
+                if selected_llm.startswith("chatgpt_"):
+                    llm_provider = "chatgpt"
+                    actual_model_name = self.openai_models.get(selected_llm, self.default_openai_model_name)
+                elif selected_llm.startswith("claude_"):
+                    llm_provider = "claude"
+                    actual_model_name = self.claude_models.get(selected_llm, self.default_anthropic_model_name)
+                # If alias doesn't match known prefixes, it defaults to Claude with its default model
+
+            self.logger.info(f"LLM provider: {llm_provider}, Model: {actual_model_name}")
+
+            if llm_provider == 'chatgpt':
+                if not self.openai_client:
+                    self.logger.error("OpenAI client not available for ChatGPT request.")
+                    yield "[ERROR] OpenAI client not configured or library not installed.\n"
+                    yield "[STREAM_END]\n"; yield "__STREAM_COMPLETE__"; return
+
+                self.logger.info(f"Processing with ChatGPT (OpenAI model: {actual_model_name})")
+                openai_system_prompt = "You are a helpful assistant."
+                if structured_format:
+                    openai_system_prompt += f" You need to provide structured data in this JSON format: {json.dumps(structured_format)}"
+                
+                openai_messages = []
+                if openai_system_prompt:
+                    openai_messages.append({"role": "system", "content": openai_system_prompt})
+                for msg in recent_messages:
+                    if msg.role in ["user", "assistant"]:
+                        openai_messages.append({"role": msg.role, "content": msg.content})
+                
+                try:
+                    stream = await self.openai_client.chat.completions.create(
+                        model=actual_model_name,
+                        messages=openai_messages,
+                        stream=True,
+                        temperature=0.5,
+                    )
+                    full_openai_response = ""
+                    async for chunk in stream:
+                        if (chunk.choices and 
+                            len(chunk.choices) > 0 and 
+                            chunk.choices[0].delta and 
+                            chunk.choices[0].delta.content):
+                            content_piece = chunk.choices[0].delta.content
+                            full_openai_response += content_piece
+                            yield content_piece
+                    await self.add_message(conversation_id, "assistant", full_openai_response)
+                    self.logger.info("ChatGPT stream complete.")
+
+                except Exception as e:
+                    self.logger.error(f"Error during OpenAI API call: {e}")
+                    yield f"[ERROR] OpenAI API call failed: {str(e)}\n"
+                
+                yield "[STREAM_END]\n"; yield "__STREAM_COMPLETE__"; return
+
+            self.logger.info(f"Processing with Claude (Anthropic model: {actual_model_name})")
             system_prompt = """You are a researcher for sports, and esports-related data and metadata.
                 1. Use [SEARCH]query[/SEARCH] tags for web searches
                 2. Wait for search results before continuing
@@ -231,137 +321,76 @@ class ChatService:
                 3. Provide structured data in JSON format
                 4. Ensure all required fields are included
                 5. Format numbers and dates consistently"""
-            
-            # Add format instructions if needed
             if structured_format:
                 system_prompt += f"""\n\nThis request requires structured data output.
                     After your natural language response, you MUST:
                     1. Add a line containing only '---DATA---'
                     2. Then provide data in this exact format: {json.dumps(structured_format)}
                     3. Ensure all required fields are present and properly formatted"""
+            self.logger.info(f"System instructions (Claude): {system_prompt}")
             
-            # Log the system prompt
-            self.logger.info(f"System instructions: {system_prompt}")
-            
-            # Convert messages to Claude format (user/assistant alternating)
             anthropic_messages = []
-            
-            # Claude's API expects a simpler format than OpenAI
-            # We'll take the most recent messages (up to 15)
-            recent_messages = messages[-15:]
-            
             for msg in recent_messages:
                 if msg.role in ["user", "assistant"]:
-                    anthropic_messages.append({
-                        "role": msg.role, 
-                        "content": msg.content
-                    })
+                    anthropic_messages.append({"role": msg.role, "content": msg.content})
             
-            # Initialize response
-            full_response = ""
-            buffer = ""
-            
-            # Log the exact messages we're sending to the API
             self.logger.info(f"Sending request to Claude API with {len(anthropic_messages)} messages")
-            if anthropic_messages:
-                self.logger.info(f"Last message: {anthropic_messages[-1]['content'][:100]}...")
+            if anthropic_messages: self.logger.info(f"Last message (Claude): {anthropic_messages[-1]['content'][:100]}...")
             
-            # Start streaming response
-            self.logger.info("Starting response stream with Claude")
             yield "[RESPONSE_START]\n"
             
-            # Create a message with Claude
-            message_stream = await self.client.messages.create(
-                model=self.model,
-                max_tokens=15000,  # Increased limit to handle large structured data responses
+            message_stream = await self.anthropic_client.messages.create(
+                model=actual_model_name,
+                max_tokens=15000, 
                 system=system_prompt,
                 messages=anthropic_messages,
                 temperature=0.3,
                 stream=True
             )
             
+            full_response = ""
+            buffer = ""
             async for chunk in message_stream:
                 if chunk.type == "content_block_delta" and chunk.delta.text:
                     content = chunk.delta.text
                     self.logger.debug(f"Received chunk from Claude: {len(content)} chars")
                     buffer += content
                     
-                    # Handle search requests
                     while '[SEARCH]' in buffer and '[/SEARCH]' in buffer:
                         start = buffer.find('[SEARCH]')
                         end = buffer.find('[/SEARCH]')
-                        
                         if start > -1 and end > start:
-                            self.logger.debug("Search tag detected")  # Debug log
-                            # Extract search parts
                             pre_search = buffer[:start]
                             search_query = buffer[start + 8:end].strip()
                             post_search = buffer[end + 9:]
-                            
-                            # Handle pre-search content
-                            if pre_search:
-                                self.logger.debug(f"Yielding pre-search content: {len(pre_search)} chars")  # Debug log
-                                full_response += pre_search
-                                yield pre_search
-                            
-                            self.logger.info(f"Starting search for: {search_query}")  # Debug log
-                            # Perform search
+                            if pre_search: full_response += pre_search; yield pre_search
+                            self.logger.info(f"Starting search for: {search_query}")
                             try:
                                 search_result = await self.perform_search(search_query)
-                                # Format search results with clear markers - more concise format
                                 result_block = f"\n=== Sources ===\n{search_result}\n================\n"
-                                self.logger.debug(f"Search completed, yielding {len(result_block)} chars")  # Debug log
-                                full_response += result_block
-                                yield result_block
-                                
-                                # Add a small delay to ensure frontend processes the results
+                                full_response += result_block; yield result_block
                                 await asyncio.sleep(0.5)
                             except Exception as e:
-                                error_msg = f"\nSearch failed: {str(e)}\n"
-                                self.logger.error(f"Search error: {str(e)}")  # Debug log
-                                full_response += error_msg
-                                yield error_msg
-                            
-                            # Continue with post-search content
+                                error_msg = f"\nSearch failed: {str(e)}\n"; full_response += error_msg; yield error_msg
                             buffer = post_search
-                            self.logger.info("Search processing complete")  # Debug log
-                        else:
-                            break
+                        else: break
                     
-                    # Process complete sentences
                     while '. ' in buffer:
                         idx = buffer.find('. ') + 2
-                        sentence = buffer[:idx]
-                        buffer = buffer[idx:]
-                        self.logger.debug(f"Yielding sentence: {len(sentence)} chars")  # Debug log
-                        full_response += sentence
-                        yield sentence
-                        # Small delay between sentences
+                        sentence = buffer[:idx]; buffer = buffer[idx:]
+                        full_response += sentence; yield sentence
                         await asyncio.sleep(0.1)
                     
-                    # Handle large chunks
                     if len(buffer) > 100:
-                        self.logger.debug(f"Yielding large chunk: {len(buffer)} chars")  # Debug log
-                        chunk_to_send = buffer
-                        full_response += chunk_to_send
-                        yield chunk_to_send
-                        buffer = ""
-                        # Small delay after large chunks
+                        chunk_to_send = buffer; full_response += chunk_to_send; yield chunk_to_send; buffer = ""
                         await asyncio.sleep(0.1)
             
-            # Handle remaining content
-            if buffer:
-                self.logger.debug(f"Yielding final buffer: {len(buffer)} chars")  # Debug log
-                full_response += buffer
-                yield buffer
-            
-            self.logger.info("Stream complete, saving response")  # Debug log
-            # Save response
+            if buffer: full_response += buffer; yield buffer
+            self.logger.info("Claude stream complete, saving response")
             await self.add_message(conversation_id, "assistant", full_response)
             
-            # Handle structured data if present
             if "---DATA---" in full_response:
-                self.logger.info("Processing structured data")  # Debug log
+                self.logger.info("Processing structured data")
                 try:
                     _, data_part = full_response.split("---DATA---")
                     data = json.loads(data_part.strip())
@@ -375,35 +404,30 @@ class ChatService:
                     )
                     self.db.add(structured_data)
                     await self.db.commit()
-                    self.logger.info("Structured data saved")  # Debug log
+                    self.logger.info("Structured data saved")
                     
                 except Exception as e:
                     error_msg = f"\nError processing structured data: {str(e)}\n"
-                    self.logger.error(f"Structured data error: {str(e)}")  # Debug log
+                    self.logger.error(f"Structured data error: {str(e)}")
                     yield error_msg
             
-            self.logger.info("Response complete - sending finalization marker")
-            # Send final phase marker and wait to ensure it's processed
-            yield "[PHASE:COMPLETE]\n"
-            await asyncio.sleep(0.5)
-            
-            # Send the stream end marker with a delay to ensure it's processed separately
-            self.logger.info("Sending final stream end marker")
-            yield "[STREAM_END]\n"
-            await asyncio.sleep(0.5)
-            
-            # Send the completion marker that the frontend is looking for
-            self.logger.info("Sending stream complete marker")
+            self.logger.info("Response complete - sending finalization marker (Claude)")
+            yield "[PHASE:COMPLETE]\n"; await asyncio.sleep(0.5)
+            self.logger.info("Sending final stream end marker (Claude)")
+            yield "[STREAM_END]\n"; await asyncio.sleep(0.5)
+            self.logger.info("Sending stream complete marker (Claude)")
             yield "__STREAM_COMPLETE__"
             
         except Exception as e:
-            self.logger.error(f"Error in chat response: {str(e)}")
+            self.logger.error(f"Error in chat response: {str(e)}", exc_info=True)
             await self.add_message(
                 conversation_id,
                 "assistant",
                 f"I apologize, but I encountered an error: {str(e)}"
             )
-            raise
+            yield f"[ERROR] {str(e)}\n"
+            yield "[STREAM_END]\n"
+            yield "__STREAM_COMPLETE__"
 
     async def update_conversation_title(
         self,

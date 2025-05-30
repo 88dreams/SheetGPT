@@ -228,6 +228,32 @@ async def download_database_backup_route(
         logger.error(f"Error downloading backup {backup_id}: {str(e)}", exc_info=True)
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Failed to download backup: {str(e)}")
 
+@router.post("/migrations/apply", response_model=Dict[str, Any])
+async def apply_database_migrations_route(
+    _: UUID = Depends(get_current_admin_user),
+    db: AsyncSession = Depends(get_db)
+) -> Dict[str, Any]:
+    """Apply database migrations using Alembic (upgrade head)."""
+    admin_service = DatabaseAdminService(db)
+    try:
+        result = await admin_service.run_migrations()
+        return result
+    except Exception as e:
+        logger.error(f"Error applying migrations via API: {str(e)}", exc_info=True)
+        # The service layer already logs details and updates maintenance status for failure.
+        # Here, we just translate to an HTTP response.
+        error_detail = f"Failed to apply migrations: {str(e)}"
+        # Check if it's an exception from the service with a more specific message
+        if hasattr(e, 'message') and isinstance(e.message, str):
+            error_detail = e.message 
+        elif hasattr(e, 'detail') and isinstance(e.detail, str): # For HTTPExceptions re-raised
+            error_detail = e.detail
+
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, 
+            detail=error_detail
+        )
+
 @router.get("/maintenance/status", response_model=Dict[str, Any])
 async def get_maintenance_status_route(
     _: UUID = Depends(get_current_admin_user),

@@ -36,6 +36,7 @@ from src.utils.errors import (
     EntityValidationError,
     DatabaseOperationError
 )
+from src.services.sports.league_service import LeagueService
 
 router = APIRouter()
 sports_service = SportsService()
@@ -135,6 +136,26 @@ async def get_leagues(
 ):
     """Get all leagues."""
     return await sports_service.get_leagues(db)
+
+@router.get("/distinct-sports", response_model=List[str])
+async def get_distinct_sports_route(
+    db: AsyncSession = Depends(get_db),
+    current_user: dict = Depends(get_current_user)
+):
+    """Get a list of distinct sport names from all leagues."""
+    league_service = LeagueService()
+    try:
+        sports = await league_service.get_distinct_sports(db)
+        return sports
+    except Exception as e:
+        # Log the exception for debugging
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.error(f"Error fetching distinct sports: {str(e)}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="An error occurred while fetching distinct sport names."
+        )
 
 # DivisionsConferences endpoints
 @router.get("/divisions-conferences", response_model=List[DivisionConferenceResponse])
@@ -572,7 +593,16 @@ async def get_players(
     current_user: Dict = Depends(get_current_user)
 ):
     """Get all players, optionally filtered by team."""
-    return await sports_service.get_players(db, team_id)
+    players_from_db = await sports_service.get_players(db, team_id)
+    response_players = []
+    for player in players_from_db:
+        player_data = player.__dict__ # Convert SQLAlchemy model to dict
+        if player.sponsor: # Check if sponsor relationship was loaded and exists
+            player_data['sponsor_name'] = player.sponsor.name
+        else:
+            player_data['sponsor_name'] = None
+        response_players.append(PlayerResponse.model_validate(player_data)) # Use model_validate for Pydantic v2
+    return response_players
 
 @router.post("/players", response_model=PlayerResponse, status_code=status.HTTP_201_CREATED)
 async def create_player(

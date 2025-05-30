@@ -13,7 +13,7 @@ ENV PATH /usr/local/bin:${PATH}
 
 # Copy root package.json and yarn.lock first
 # These define the workspace and all dependencies
-COPY package.json yarn.lock* ./ 
+COPY package.json yarn.lock* ./
 
 # Copy the frontend workspace files
 COPY frontend/ ./frontend/

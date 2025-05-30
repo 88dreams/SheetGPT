@@ -7,6 +7,8 @@ from datetime import datetime, date
 from uuid import UUID # Added for conversation methods
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
+import asyncio # Added for subprocess
+import subprocess # For Alembic
 
 # Assuming DatabaseCleanupService and DatabaseVacuumService will be refactored
 # into proper services or their paths correctly handled. For now, direct import from scripts.
@@ -21,6 +23,8 @@ except ImportError as e:
     DatabaseVacuumService = None  # Placeholder
 
 logger = logging.getLogger(__name__)
+
+BACKUP_STATUS_KEY = "maintenance_status"
 
 class DatabaseAdminService:
     """
@@ -44,114 +48,65 @@ class DatabaseAdminService:
             raise Exception(f"Cannot create backup directory: {str(e)}")
         
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        backup_file = backup_dir / f"backup_{timestamp}.sql"
+        backup_file_path = backup_dir / f"backup_{timestamp}.sql"
         
-        logger.info(f"Creating backup at: {backup_file}")
+        logger.info(f"Creating backup at: {backup_file_path}")
+        
+        # Construct the pg_dump command
+        # Using --column-inserts or --inserts makes the dump more verbose but can be more stable for cross-version restores or problematic data.
+        # --no-owner and --no-privileges can make it more portable if restoring to a different user/role setup.
+        # For simplicity and general re-importability, a plain format dump is often sufficient.
+        # We will use --clean to add DROP statements for a cleaner restore.
+        pg_dump_command = [
+            "pg_dump",
+            f"--dbname=postgresql://{db_user}:{db_pass}@{db_host}:{db_port}/{db_name}",
+            "--format=plain",  # Output plain SQL
+            "--clean",         # Add DROP commands before CREATE commands
+            "--no-owner",      # Do not output commands to set ownership of objects
+            "--no-privileges", # Do not output GRANT/REVOKE commands
+            f"--file={backup_file_path}"
+        ]
+        
         try:
-            tables_query = text("SELECT table_name FROM information_schema.tables WHERE table_schema = 'public' AND table_type = 'BASE TABLE' ORDER BY table_name")
-            result = await self.db.execute(tables_query)
-            tables = [r[0] for r in result.fetchall()]
-            
-            sql_content = [
-                "-- Database backup created by SheetGPT",
-                f"-- Timestamp: {datetime.now().isoformat()}",
-                "-- Tables: " + ", ".join(tables),
-                "",
-                "BEGIN;",
-                ""
-            ]
-            
-            for table in tables:
-                # Skip alembic_version table for data dump if it exists
-                if table == 'alembic_version':
-                    # We might still want its schema if a schema-only dump is intended
-                    # For now, let's get its schema but not data.
-                    # Or, if we want a full pg_dump like behavior, we might handle it differently.
-                    # For this script, focusing on application tables.
-                    pass # Handled by schema dump section potentially, or skip data.
+            # Set environment variables for pg_dump if password is not in DSN
+            env = os.environ.copy()
+            if db_pass: # pg_dump can use PGPASSWORD or a .pgpass file
+                 env["PGPASSWORD"] = db_pass
 
-                # Get CREATE TABLE statement (simplified, might not handle all constraints/types perfectly)
-                # This part of your script seems to be more for schema than data, let's assume it's okay for now
-                # or could be replaced by pg_dump for schema if needed.
-                # For data, we focus on the INSERTs.
-                schema_query = text(f"""
-                    SELECT 
-                        'CREATE TABLE ' || 
-                        quote_ident(table_schema) || '.' || quote_ident(table_name) || 
-                        '(' || 
-                        string_agg(
-                            quote_ident(column_name) || ' ' || udt_name || 
-                            CASE WHEN character_maximum_length IS NOT NULL THEN '(' || character_maximum_length || ')' ELSE '' END ||
-                            CASE WHEN is_nullable = 'NO' THEN ' NOT NULL' ELSE '' END,
-                            ', ' ORDER BY ordinal_position
-                        ) || 
-                        ');' AS create_statement
-                    FROM information_schema.columns
-                    WHERE table_schema = 'public' AND table_name = :table_name
-                    GROUP BY table_schema, table_name;
-                """)
-                schema_result = await self.db.execute(schema_query, {"table_name": table})
-                create_statement = schema_result.scalar_one_or_none()
+            process = await asyncio.create_subprocess_exec(
+                *pg_dump_command,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+                env=env
+            )
+            stdout, stderr = await process.communicate()
                 
-                if create_statement:
-                    sql_content.append(f"-- Schema for table {table}")
-                    sql_content.append(create_statement)
-                    sql_content.append("")
-                else:
-                    logger.warning(f"Could not retrieve CREATE TABLE statement for {table}")
-                    sql_content.append(f"-- Could not retrieve CREATE TABLE statement for {table}")
-                    sql_content.append("")
+            if process.returncode != 0:
+                error_message = stderr.decode().strip() if stderr else "Unknown pg_dump error"
+                logger.error(f"pg_dump failed with exit code {process.returncode}: {error_message}")
+                raise Exception(f"pg_dump failed: {error_message}")
 
-                # Data dump part
-                # Limit rows for safety/performance in this script; consider full dump for production backups
-                # The tables excluded here were for brevity in the original snippet, adjust as needed.
-                # if table not in ["messages", "structured_data"]: # Original exclusion
-                # For a more complete backup, you'd likely want all tables or a configurable exclude list.
-                # We will attempt to dump all tables for now, but be mindful of large tables.
-                
-                data_query = text(f"SELECT * FROM public.\"{table}\"") # Ensure schema.table quoting for safety
-                data_result = await self.db.execute(data_query)
-                rows = data_result.fetchall()
-                
-                if rows:
-                    column_names = [col[0] for col in data_result.cursor.description] # Get column names from cursor
-                    quoted_column_names = [f'\"{name}\"' for name in column_names] # Quote column names for SQL
-                    
-                    sql_content.append(f"-- Inserting data into {table}")
-                    for row_data in rows:
-                        current_values = []
-                        for value in row_data:
-                            if value is None:
-                                current_values.append('NULL')
-                            elif isinstance(value, bool):
-                                current_values.append('TRUE' if value else 'FALSE')
-                            elif isinstance(value, (int, float)):
-                                current_values.append(str(value))
-                            elif isinstance(value, (datetime, date)):
-                                current_values.append(f"'{value.isoformat()}'")
-                            elif isinstance(value, UUID):
-                                current_values.append(f"'{str(value)}'")
-                            elif isinstance(value, (dict, list)):
-                                json_str = json.dumps(value) 
-                                escaped_json_str = json_str.replace("'", "''") 
-                                current_values.append(f"'{escaped_json_str}'")
-                            elif isinstance(value, str):
-                                escaped_val = value.replace("'", "''").replace("\\", "\\\\") # Also escape backslashes for SQL
-                                current_values.append(f"'{escaped_val}'")
-                            else: 
-                                str_val = str(value)
-                                escaped_str_val = str_val.replace("'", "''").replace("\\", "\\\\")
-                                current_values.append(f"'{escaped_str_val}'")
-                        sql_content.append(f"INSERT INTO public.\"{table}\" ({', '.join(quoted_column_names)}) VALUES ({', '.join(current_values)});")
-                    sql_content.append("")
+            if stdout: # Should be empty if --file is used correctly
+                logger.info(f"pg_dump stdout: {stdout.decode().strip()}")
+            if stderr: # Might contain warnings even on success
+                logger.warning(f"pg_dump stderr: {stderr.decode().strip()}")
 
-            sql_content.append("COMMIT;")
-            with open(backup_file, "w", encoding='utf-8') as f: # Added encoding
-                f.write("\n".join(sql_content))
-            logger.info(f"Database backup completed successfully: {backup_file}")
-            return str(backup_file)
+            if not backup_file_path.exists() or backup_file_path.stat().st_size == 0:
+                raise Exception(f"Backup file {backup_file_path} was not created or is empty.")
+
+            logger.info(f"Database backup completed successfully: {backup_file_path}")
+            return str(backup_file_path)
+        except FileNotFoundError:
+            logger.error("pg_dump command not found. Ensure PostgreSQL client tools are installed and in PATH.")
+            raise Exception("pg_dump command not found. Please install PostgreSQL client tools.")
         except Exception as e:
-            logger.error(f"Error creating database backup: {str(e)}", exc_info=True)
+            logger.error(f"Error creating database backup with pg_dump: {str(e)}", exc_info=True)
+            # Attempt to remove partial backup file if it exists and is empty or an error occurred
+            if backup_file_path.exists() and backup_file_path.stat().st_size == 0:
+                try:
+                    backup_file_path.unlink()
+                except Exception as rm_err:
+                    logger.error(f"Could not remove partial backup file {backup_file_path}: {rm_err}")
             raise Exception(f"Backup failed: {str(e)}")
 
     def list_backups(self) -> List[Dict[str, Any]]:
@@ -227,6 +182,9 @@ class DatabaseAdminService:
             return {
                 "backup_exists": len(backups) > 0,
                 "last_backup_time": backups[0]["created_at"] if backups else None,
+                "migrations_completed": status.get("migrations_completed", False),
+                "migrations_time": status.get("migrations_time"),
+                "migrations_results": status.get("migrations_results"),
                 "dry_run_completed": status.get("dry_run_completed", False),
                 "dry_run_time": status.get("dry_run_time"),
                 "dry_run_results": status.get("dry_run_results"),
@@ -246,6 +204,14 @@ class DatabaseAdminService:
         current_status[f"{operation_key}_completed"] = True
         current_status[f"{operation_key}_time"] = datetime.now().isoformat()
         current_status[f"{operation_key}_results"] = results_data
+        
+        # Ensure boolean for completion status
+        if results_data.get("status") == "failure":
+             current_status[f"{operation_key}_completed"] = False
+        elif results_data.get("status") == "success":
+            current_status[f"{operation_key}_completed"] = True
+        # else, if 'status' is not present, keep True for backward compatibility or simple cases
+
         await self._update_maintenance_status_json(current_status)
         logger.info(f"Updated {operation_key} status in system_metadata")
 
@@ -367,3 +333,51 @@ class DatabaseAdminService:
         await self.db.execute(update_query, {"id": conversation_id})
         await self.db.commit()
         logger.info(f"Restored conversation {conversation_id}") 
+
+    async def run_migrations(self) -> Dict[str, Any]:
+        logger.info("Attempting to apply database migrations...")
+        try:
+            # Construct the path to alembic_wrapper.py relative to the current file
+            # This assumes database_admin_service.py is in src/services/
+            # and alembic_wrapper.py is in src/scripts/
+            current_dir = Path(__file__).parent
+            script_path = current_dir.parent / "scripts" / "alembic_wrapper.py"
+            
+            if not script_path.exists():
+                logger.error(f"Alembic wrapper script not found at {script_path}")
+                raise Exception(f"Alembic wrapper script not found at {script_path}")
+
+            command = ["python", str(script_path), "upgrade", "head"]
+            
+            logger.info(f"Executing migration command: {' '.join(command)}")
+
+            # Using asyncio.create_subprocess_exec for consistency with pg_dump
+            process = await asyncio.create_subprocess_exec(
+                *command,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+                cwd=current_dir.parent.parent # Run from project root (/app)
+            )
+            
+            stdout, stderr = await process.communicate()
+            
+            output = stdout.decode().strip() if stdout else ""
+            error_output = stderr.decode().strip() if stderr else ""
+
+            if process.returncode == 0:
+                logger.info(f"Migrations applied successfully. Output: {output}")
+                await self._update_specific_maintenance_status("migrations", {"status": "success", "output": output, "errors": error_output})
+                return {"success": True, "message": "Database migrations applied successfully.", "output": output, "errors": error_output}
+            else:
+                logger.error(f"Migration command failed with code {process.returncode}. Output: {output}. Errors: {error_output}")
+                await self._update_specific_maintenance_status("migrations", {"status": "failure", "output": output, "errors": error_output, "return_code": process.returncode})
+                raise Exception(f"Migration command failed: {error_output if error_output else output}")
+
+        except FileNotFoundError:
+            logger.error("Python interpreter or alembic_wrapper.py not found.")
+            await self._update_specific_maintenance_status("migrations", {"status": "failure", "errors": "Python interpreter or alembic_wrapper.py not found."})
+            raise Exception("Python interpreter or alembic_wrapper.py not found.")
+        except Exception as e:
+            logger.error(f"Error applying migrations: {str(e)}", exc_info=True)
+            await self._update_specific_maintenance_status("migrations", {"status": "failure", "errors": str(e)})
+            raise Exception(f"Failed to apply migrations: {str(e)}") 

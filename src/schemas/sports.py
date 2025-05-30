@@ -157,11 +157,13 @@ class TeamResponse(TeamBase):
 
 # Base schemas for Player
 class PlayerBase(BaseModel):
-    team_id: UUID
+    team_id: Optional[UUID] = None
     name: str
     position: str
     jersey_number: Optional[int] = None
     college: Optional[str] = None
+    sport: Optional[str] = None
+    sponsor_id: Optional[UUID] = None
 
 class PlayerCreate(PlayerBase):
     pass
@@ -172,11 +174,14 @@ class PlayerUpdate(BaseModel):
     position: Optional[str] = None
     jersey_number: Optional[int] = None
     college: Optional[str] = None
+    sport: Optional[str] = None
+    sponsor_id: Optional[UUID] = None
 
 class PlayerResponse(PlayerBase):
     id: UUID
     created_at: str
     updated_at: str
+    sponsor_name: Optional[str] = None
 
     class Config:
         from_attributes = True

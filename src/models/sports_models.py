@@ -283,9 +283,10 @@ class Player(TimestampedBase):
         primary_key=True,
         default=uuid4
     )
-    team_id: Mapped[UUID] = mapped_column(
+    team_id: Mapped[Optional[UUID]] = mapped_column(
         ForeignKey("teams.id"),
-        nullable=False
+        nullable=True,
+        index=True
     )
     name: Mapped[str] = mapped_column(
         String(100),
@@ -303,10 +304,25 @@ class Player(TimestampedBase):
         String(100),
         nullable=True
     )
+    sport: Mapped[Optional[str]] = mapped_column(
+        String(100),
+        nullable=True,
+        index=True
+    )
+    sponsor_id: Mapped[Optional[UUID]] = mapped_column(
+        SQLUUID,
+        ForeignKey("brands.id"),
+        nullable=True,
+        index=True
+    )
 
     # Relationships
-    team: Mapped["Team"] = relationship(
+    team: Mapped[Optional["Team"]] = relationship(
         back_populates="players"
+    )
+    sponsor: Mapped[Optional["Brand"]] = relationship(
+        "Brand",
+        foreign_keys=[sponsor_id]
     )
 
 

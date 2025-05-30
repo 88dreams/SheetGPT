@@ -18,6 +18,15 @@ class LeagueService(BaseEntityService[League]):
         super().__init__(League)
     
     @handle_database_errors
+    async def get_distinct_sports(self, db: AsyncSession) -> List[str]:
+        """Get a list of distinct sport names from all leagues, ordered alphabetically."""
+        stmt = select(League.sport).distinct().order_by(League.sport)
+        result = await db.execute(stmt)
+        sports = [row[0] for row in result.fetchall() if row[0] is not None]
+        logger.info(f"Retrieved {len(sports)} distinct sports.")
+        return sports
+    
+    @handle_database_errors
     async def get_leagues(self, db: AsyncSession, 
                          filters: Optional[Dict[str, Any]] = None,
                          page: int = 1, 

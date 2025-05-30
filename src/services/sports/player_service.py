@@ -4,8 +4,9 @@ from typing import List, Optional, Dict, Any
 from uuid import UUID
 import logging
 from sqlalchemy import select
+from sqlalchemy.orm import selectinload
 
-from src.models.sports_models import Player, Team
+from src.models.sports_models import Player, Team, Brand
 from src.schemas.sports import PlayerCreate, PlayerUpdate
 from src.services.sports.base_service import BaseEntityService
 from src.services.sports.validators import EntityValidator
@@ -19,12 +20,12 @@ class PlayerService(BaseEntityService[Player]):
         super().__init__(Player)
     
     async def get_players(self, db: AsyncSession, team_id: Optional[UUID] = None) -> List[Player]:
-        """Get all players, optionally filtered by team."""
-        query = select(Player)
+        """Get all players, optionally filtered by team, with sponsor eagerly loaded."""
+        query = select(Player).options(selectinload(Player.sponsor))
         if team_id:
             query = query.where(Player.team_id == team_id)
         result = await db.execute(query)
-        return result.scalars().all()
+        return result.scalars().unique().all()
     
     async def create_player(self, db: AsyncSession, player: PlayerCreate) -> Player:
         """Create a new player or update if it already exists."""

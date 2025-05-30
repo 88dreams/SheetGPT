@@ -272,9 +272,26 @@ class ChatService:
                     yield "[STREAM_END]\n"; yield "__STREAM_COMPLETE__"; return
 
                 self.logger.info(f"Processing with ChatGPT (OpenAI model: {actual_model_name})")
-                openai_system_prompt = "You are a helpful assistant."
+                
+                # Base system prompt for ChatGPT
+                openai_system_prompt_parts = [
+                    "You are a helpful assistant.",
+                    "When providing a natural language response followed by structured data, you MUST follow these rules:",
+                    "1. First, provide your natural language response.",
+                    "2. After the natural language response, add a line containing only '---DATA---' (three hyphens, DATA, three hyphens).",
+                    "3. After the '---DATA---' line, provide the structured data as a single JSON object.",
+                    "4. Ensure your entire response, including any text after the JSON data, is complete before the stream ends."
+                ]
+
                 if structured_format:
-                    openai_system_prompt += f" You need to provide structured data in this JSON format: {json.dumps(structured_format)}"
+                    openai_system_prompt_parts.extend([
+                        "This specific request requires structured data.",
+                        f"The JSON data MUST conform to the following structure: {json.dumps(structured_format)}",
+                        "Ensure all required fields from this structure are present in your JSON output."
+                    ])
+                
+                openai_system_prompt = "\n".join(openai_system_prompt_parts)
+                self.logger.info(f"OpenAI System Prompt: {openai_system_prompt}")
                 
                 openai_messages = []
                 if openai_system_prompt:

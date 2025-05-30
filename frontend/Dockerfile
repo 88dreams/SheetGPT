@@ -11,9 +11,8 @@ RUN corepack enable && corepack prepare yarn@stable --activate
 # Add Node's global bin directory and Yarn's shims to PATH
 ENV PATH /usr/local/bin:${PATH}
 
-# Copy root package.json and yarn.lock first
-# These define the workspace and all dependencies
-COPY package.json yarn.lock* ./
+# Copy root package.json, yarn.lock, and .dockerignore to ensure this layer's cache breaks
+COPY package.json yarn.lock* .dockerignore ./
 
 # Copy the frontend workspace files
 COPY frontend/ ./frontend/
@@ -24,9 +23,6 @@ RUN yarn install --frozen-lockfile
 
 # Explicitly remove Vite cache after installation (path relative to WORKDIR /app)
 RUN rm -rf frontend/node_modules/.vite
-
-# Copy project files (This was here before, might not be needed if all is in frontend/)
-# COPY . . # Commenting out, as specific copies above are preferred for clarity and cache layers.
 
 # Expose Vite dev server port
 EXPOSE 5173

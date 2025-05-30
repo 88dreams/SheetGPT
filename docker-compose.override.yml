@@ -2,8 +2,8 @@ services:
   # Frontend with proper volumes and environment
   frontend:
     build:
-      context: ./frontend
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: frontend/Dockerfile
     ports:
       - "5173:5173"
     volumes:

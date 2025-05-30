@@ -48,6 +48,7 @@ const Settings = () => {
   const [showCleanupConfirmation, setShowCleanupConfirmation] = useState(false);
   const [showVacuumConfirmation, setShowVacuumConfirmation] = useState(false);
   const [skipReindex, setSkipReindex] = useState(false);
+  const [isRunningMigrations, setIsRunningMigrations] = useState(false);
   
   // Track if a step was just completed
   const [stepJustCompleted, setStepJustCompleted] = useState<number | null>(null);
@@ -167,33 +168,35 @@ const Settings = () => {
       console.log('Maintenance status:', status);
       setMaintenanceStatus(status);
       
-      // Track completion status for logging purposes only
-      // This doesn't affect UI availability since all steps are now selectable
-      let completedStep = 0;
-      
-      if (status.backup_exists && status.dry_run_completed && status.cleanup_completed) {
-        completedStep = 3; // All steps completed up to Vacuum step
-      } else if (status.backup_exists && status.dry_run_completed) {
-        completedStep = 2; // Completed up to Cleanup step
-      } else if (status.backup_exists) {
-        completedStep = 1; // Completed Backup step
-      } else {
-        completedStep = 0; // No steps completed
-      }
-      
-      console.log('Completed steps up to:', completedStep);
-      
-      // For backward compatibility: still track active step for any component that might depend on it
-      // but this no longer controls button availability
-      if (completedStep >= activeStep) {
-        console.log('Updating active step to match completed step:', completedStep);
-        setActiveStep(completedStep);
-      }
+      // The concept of a linear "activeStep" might be less relevant if all steps are always actionable,
+      // but we can still determine a general progression for UI hints or warnings.
+      // Example: if migrations are done, maybe that implies backup was done too.
+      // For now, individual flags like status.migrations_completed are primary.
     } catch (error) {
       console.error('Error fetching maintenance status:', error);
       showNotification('error', 'Failed to load maintenance status');
     } finally {
       setIsLoadingMaintenanceStatus(false);
+    }
+  };
+  
+  const handleRunMigrations = async () => {
+    if (!user?.is_admin) return;
+    setShowStepWarning(null); // Close warning modal if open
+    setIsRunningMigrations(true);
+    try {
+      const result = await api.admin.applyMigrations();
+      showNotification('success', result.message || 'Database migrations applied successfully.');
+      if (result.output) console.log('Migrations output:', result.output);
+      if (result.errors) console.warn('Migrations errors/warnings:', result.errors);
+      setStepJustCompleted(1); // Assuming migrations is step 1 (0-indexed) after backup (step 0)
+    } catch (error) {
+      console.error('Error applying migrations:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error during migrations';
+      showNotification('error', `Migration failed: ${errorMessage}`);
+    } finally {
+      setIsRunningMigrations(false);
+      fetchMaintenanceStatus(); // Refresh status
     }
   };
   
@@ -507,21 +510,16 @@ const Settings = () => {
               </button>
             </h2>
             <p className="text-gray-600 mb-4">
-              Perform database maintenance tasks in a guided, step-by-step process. These operations help eliminate duplicate records,
-              repair data integrity issues, and optimize database performance.
+              Perform database maintenance tasks in a guided, step-by-step process. These operations help ensure schema integrity, 
+              eliminate duplicate records, repair data integrity issues, and optimize database performance.
             </p>
             
             {/* Maintenance Steps */}
-            <div className="mb-6 bg-gray-50 p-6 rounded-lg">
-              <h3 className="text-lg font-medium mb-4">Maintenance Workflow</h3>
-              
-              <div className="mb-8">
-                <div className="relative">
-                  {/* Step line */}
-                  <div className="absolute left-6 top-0 h-full w-1 bg-gray-200" aria-hidden="true"></div>
-                  
+            <div className="space-y-8">
                   {/* Step 1: Create Backup */}
                   <div className="relative pb-8">
+                {/* Vertical line for all but last */}
+                <div className="absolute top-4 left-6 -ml-px mt-0.5 h-full w-0.5 bg-gray-300" aria-hidden="true"></div>
                     <div className="relative flex items-start">
                       <div className="h-12 w-12 rounded-full flex items-center justify-center bg-blue-600 z-10">
                         {maintenanceStatus?.backup_exists ? (
@@ -554,10 +552,8 @@ const Settings = () => {
                           ) : (
                             <button
                               onClick={handleCreateBackup}
-                              disabled={isCreatingBackup || activeStep !== 0}
-                              className={`inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md shadow-sm text-white 
-                                ${activeStep === 0 ? 'bg-blue-600 hover:bg-blue-700' : 'bg-gray-400'} 
-                                focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500`}
+                          disabled={isCreatingBackup}
+                          className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
                             >
                               <FaSave className="mr-2" />
                               {isCreatingBackup ? 'Creating Backup...' : 'Create & Download Backup'}
@@ -568,251 +564,153 @@ const Settings = () => {
                     </div>
                   </div>
                   
-                  {/* Step 2: Run Cleanup in Dry Run Mode */}
+              {/* Step 2: Apply Migrations */}
                   <div className="relative pb-8">
+                <div className="absolute top-4 left-6 -ml-px mt-0.5 h-full w-0.5 bg-gray-300" aria-hidden="true"></div>
                     <div className="relative flex items-start">
                       <div className="h-12 w-12 rounded-full flex items-center justify-center bg-blue-600 z-10">
-                        {maintenanceStatus?.dry_run_completed ? (
+                    {maintenanceStatus?.migrations_completed ? (
                           <FaCheck className="text-white h-6 w-6" />
                         ) : (
                           <span className="text-white font-medium">2</span>
                         )}
                       </div>
                       <div className="ml-4 min-w-0 flex-1">
-                        <h4 className="text-base font-medium text-gray-900">Analyze Database (Dry Run)</h4>
+                    <h4 className="text-base font-medium text-gray-900">Apply Database Migrations</h4>
                         <p className="text-sm text-gray-500">
-                          Identify duplicate records and integrity issues without making changes.
+                      Ensure the database schema is up-to-date with the latest application version.
                         </p>
                         <div className="mt-2">
-                          {maintenanceStatus?.dry_run_completed ? (
-                            <div>
-                              <div className="text-green-600 flex items-center mb-2">
-                                <FaCheck className="mr-1" />
-                                <span>Analysis completed at {new Date(maintenanceStatus.dry_run_time).toLocaleString()}</span>
-                              </div>
-                              {dryRunResults && (
-                                <div className="mt-1 bg-gray-100 p-3 rounded text-sm">
-                                  <div className="font-medium">Findings:</div>
-                                  <ul className="list-disc pl-5 mt-1">
-                                    <li>{dryRunResults.duplicates_total || 0} duplicate records</li>
-                                    <li>{dryRunResults.missing_relationships || 0} missing relationships</li>
-                                    <li>{dryRunResults.name_standardizations || 0} non-standard entity names</li>
-                                    <li>{dryRunResults.constraints_needed || 0} missing constraints</li>
-                                  </ul>
-                                </div>
-                              )}
-                              <button
-                                onClick={handleRunDryRun}
-                                disabled={isRunningDryRun}
-                                className="mt-2 inline-flex items-center px-3 py-1 border border-gray-300 text-sm leading-4 font-medium rounded-md shadow-sm text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-                              >
-                                <FaSync className={`mr-1 h-3 w-3 ${isRunningDryRun ? 'animate-spin' : ''}`} />
-                                Analyze Again
-                              </button>
-                            </div>
-                          ) : (
                             <button
                               onClick={() => {
                                 if (!maintenanceStatus?.backup_exists) {
-                                  setShowStepWarning(1);
+                            setShowStepWarning(1); // Warning specific to running migrations without backup
                                 } else {
-                                  handleRunDryRun();
+                            handleRunMigrations();
                                 }
                               }}
-                              disabled={isRunningDryRun}
-                              className="inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                        disabled={isRunningMigrations || isCreatingBackup}
+                        className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:bg-gray-400"
                             >
-                              <FaSearch className="mr-2" />
-                              {isRunningDryRun ? 'Analyzing...' : 'Run Analysis'}
+                        <FaWrench className="mr-2" />
+                        {isRunningMigrations ? 'Applying Migrations...' : 'Apply Migrations'}
                             </button>
+                      {maintenanceStatus?.migrations_time && (
+                        <p className="text-xs text-gray-500 mt-1">
+                          Last run: {new Date(maintenanceStatus.migrations_time).toLocaleString()}.
+                          Status: {maintenanceStatus.migrations_results?.status || 'N/A'}.
+                          {maintenanceStatus.migrations_results?.output && <pre className="text-xs bg-gray-100 p-1 rounded mt-1 max-h-20 overflow-auto">{maintenanceStatus.migrations_results.output}</pre>}
+                          {maintenanceStatus.migrations_results?.errors && <pre className="text-xs bg-red-100 text-red-700 p-1 rounded mt-1 max-h-20 overflow-auto">{maintenanceStatus.migrations_results.errors}</pre>}
+                        </p>
                           )}
                         </div>
                       </div>
                     </div>
                   </div>
                   
-                  {/* Step 3: Run Actual Cleanup */}
+              {/* Step 3: Analyze Database (Dry Run) - formerly Step 2 */}
                   <div className="relative pb-8">
+                <div className="absolute top-4 left-6 -ml-px mt-0.5 h-full w-0.5 bg-gray-300" aria-hidden="true"></div>
                     <div className="relative flex items-start">
                       <div className="h-12 w-12 rounded-full flex items-center justify-center bg-blue-600 z-10">
-                        {maintenanceStatus?.cleanup_completed ? (
+                    {maintenanceStatus?.dry_run_completed ? (
                           <FaCheck className="text-white h-6 w-6" />
                         ) : (
                           <span className="text-white font-medium">3</span>
                         )}
                       </div>
                       <div className="ml-4 min-w-0 flex-1">
-                        <h4 className="text-base font-medium text-gray-900">Fix Duplicate Records</h4>
+                    <h4 className="text-base font-medium text-gray-900">Analyze Database (Dry Run)</h4>
                         <p className="text-sm text-gray-500">
-                          Remove duplicate records, repair entity relationships, and standardize names.
+                      Identify duplicate records and integrity issues without making changes.
                         </p>
                         <div className="mt-2">
-                          {maintenanceStatus?.cleanup_completed ? (
-                            <div>
-                              <div className="text-green-600 flex items-center mb-2">
-                                <FaCheck className="mr-1" />
-                                <span>Cleanup completed at {new Date(maintenanceStatus.cleanup_time).toLocaleString()}</span>
-                              </div>
-                              {maintenanceStatus.cleanup_results && (
-                                <div className="mt-1 bg-gray-100 p-3 rounded text-sm">
-                                  <div className="font-medium">Results:</div>
-                                  <ul className="list-disc pl-5 mt-1">
-                                    <li>{maintenanceStatus.cleanup_results.duplicates_removed || 0} duplicates removed</li>
-                                    <li>{maintenanceStatus.cleanup_results.relationships_fixed || 0} relationships repaired</li>
-                                    <li>{maintenanceStatus.cleanup_results.names_standardized || 0} names standardized</li>
-                                    <li>{maintenanceStatus.cleanup_results.constraints_added || 0} constraints added</li>
-                                  </ul>
-                                </div>
-                              )}
                               <button
                                 onClick={() => {
-                                  console.log('Run Cleanup Again button clicked');
-                                  // Reset the cleanup status immediately for visual feedback
-                                  setMaintenanceStatus(prevStatus => ({
-                                    ...prevStatus,
-                                    cleanup_completed: false,
-                                    cleanup_time: null,
-                                    cleanup_results: null
-                                  }));
-                                  // Show the confirmation dialog
-                                  setShowCleanupConfirmation(true);
-                                }}
-                                disabled={isRunningCleanup}
-                                className="mt-2 inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-                              >
-                                <FaBroom className="mr-1 h-4 w-4" />
-                                Run Cleanup Again
-                              </button>
-                            </div>
-                          ) : showCleanupConfirmation ? (
-                            <div className="bg-yellow-50 border border-yellow-200 rounded-md p-3">
-                              <div className="flex">
-                                <div className="flex-shrink-0">
-                                  <FaExclamationTriangle className="h-5 w-5 text-yellow-400" />
-                                </div>
-                                <div className="ml-3">
-                                  <h3 className="text-sm font-medium text-yellow-800">Confirm Database Cleanup</h3>
-                                  <div className="mt-2 text-sm text-yellow-700">
-                                    <p>This will fix data issues identified in the dry run. This process is safe but cannot be undone.</p>
-                                  </div>
-                                  <div className="mt-3 flex space-x-3">
-                                    <button
-                                      type="button"
-                                      onClick={handleRunCleanup}
-                                      disabled={isRunningCleanup}
-                                      className="inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-                                    >
-                                      {isRunningCleanup ? 'Running...' : 'Yes, Fix Issues'}
-                                    </button>
-                                    <button
-                                      type="button"
-                                      onClick={() => setShowCleanupConfirmation(false)}
-                                      className="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-                                    >
-                                      Cancel
-                                    </button>
-                                  </div>
-                                </div>
-                              </div>
-                            </div>
-                          ) : (
-                            <button
-                              onClick={() => {
-                                if (!maintenanceStatus?.backup_exists) {
-                                  setShowStepWarning(2);
-                                } else if (!maintenanceStatus?.dry_run_completed) {
-                                  setShowStepWarning(2);
+                          if (!maintenanceStatus?.backup_exists || !maintenanceStatus?.migrations_completed) {
+                            setShowStepWarning(2); // Warning for dry run without backup or migrations
                                 } else {
-                                  setShowCleanupConfirmation(true);
+                            handleRunDryRun();
                                 }
                               }}
-                              disabled={false}
-                              data-active-step={activeStep}
-                              className="inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                        disabled={isRunningDryRun || isCreatingBackup || isRunningMigrations}
+                        className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:bg-gray-400"
                             >
-                              <FaBroom className="mr-2" />
-                              Fix Issues
+                        <FaSearch className="mr-2" />
+                        {isRunningDryRun ? 'Analyzing...' : 'Run Dry Run Analysis'}
                             </button>
+                      {dryRunResults && (
+                        <div className="mt-2 p-2 bg-gray-100 rounded">
+                          <h5 className="text-sm font-semibold">Dry Run Results:</h5>
+                          <pre className="text-xs whitespace-pre-wrap">{JSON.stringify(dryRunResults, null, 2)}</pre>
+                        </div>
+                      )}
+                       {maintenanceStatus?.dry_run_time && (
+                        <p className="text-xs text-gray-500 mt-1">
+                          Last run: {new Date(maintenanceStatus.dry_run_time).toLocaleString()}.
+                          Status: {maintenanceStatus.dry_run_results?.status || (maintenanceStatus.dry_run_completed ? 'Completed' : 'N/A')}.
+                        </p>
                           )}
                         </div>
                       </div>
                     </div>
                   </div>
                   
-                  {/* Step 4: Run Vacuum */}
-                  <div className="relative">
+              {/* Step 4: Fix Duplicate Records - formerly Step 3 */}
+              <div className="relative pb-8">
+                <div className="absolute top-4 left-6 -ml-px mt-0.5 h-full w-0.5 bg-gray-300" aria-hidden="true"></div>
                     <div className="relative flex items-start">
                       <div className="h-12 w-12 rounded-full flex items-center justify-center bg-blue-600 z-10">
-                        {maintenanceStatus?.vacuum_completed ? (
+                    {maintenanceStatus?.cleanup_completed ? (
                           <FaCheck className="text-white h-6 w-6" />
                         ) : (
                           <span className="text-white font-medium">4</span>
                         )}
                       </div>
                       <div className="ml-4 min-w-0 flex-1">
-                        <h4 className="text-base font-medium text-gray-900">Optimize Database</h4>
+                    <h4 className="text-base font-medium text-gray-900">Fix Duplicate Records & Integrity Issues</h4>
                         <p className="text-sm text-gray-500">
-                          Optimize database storage and performance with VACUUM and REINDEX.
+                      Remove duplicate records, repair entity relationships, and standardize names.
                         </p>
                         <div className="mt-2">
-                          {maintenanceStatus?.vacuum_completed ? (
-                            <div>
-                              <div className="text-green-600 flex items-center">
-                                <FaCheck className="mr-1" />
-                                <span>Optimization completed at {new Date(maintenanceStatus.vacuum_time).toLocaleString()}</span>
-                              </div>
-                              {maintenanceStatus.vacuum_results && (
-                                <div className="mt-1 bg-gray-100 p-3 rounded text-sm">
-                                  <div className="font-medium">Results:</div>
-                                  <ul className="list-disc pl-5 mt-1">
-                                    <li>{(maintenanceStatus.vacuum_results.space_reclaimed_mb || 0).toFixed(2)} MB space reclaimed</li>
-                                    <li>Database size reduced by {(maintenanceStatus.vacuum_results.percent_reduction || 0).toFixed(1)}%</li>
-                                    <li>Operation completed in {(maintenanceStatus.vacuum_results.duration_seconds || 0).toFixed(1)} seconds</li>
-                                  </ul>
-                                </div>
-                              )}
+                      {!showCleanupConfirmation ? (
                               <button
-                                onClick={() => setShowVacuumConfirmation(true)}
-                                className="mt-2 inline-flex items-center px-3 py-1 border border-gray-300 text-sm leading-4 font-medium rounded-md shadow-sm text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                          onClick={() => {
+                            if (!maintenanceStatus?.backup_exists || !maintenanceStatus?.migrations_completed || !maintenanceStatus?.dry_run_completed) {
+                              setShowStepWarning(3); // Warning for cleanup without prior steps
+                            } else {
+                              setShowCleanupConfirmation(true);
+                            }
+                          }}
+                          disabled={isRunningCleanup || isCreatingBackup || isRunningMigrations || isRunningDryRun}
+                          className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-orange-600 hover:bg-orange-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-500 disabled:bg-gray-400"
                               >
-                                <FaMagic className="mr-1 h-3 w-3" />
-                                Run Again
+                          <FaMagic className="mr-2" />
+                          Run Data Cleanup
                               </button>
-                            </div>
-                          ) : showVacuumConfirmation ? (
+                      ) : (
                             <div className="bg-yellow-50 border border-yellow-200 rounded-md p-3">
                               <div className="flex">
                                 <div className="flex-shrink-0">
                                   <FaExclamationTriangle className="h-5 w-5 text-yellow-400" />
                                 </div>
                                 <div className="ml-3">
-                                  <h3 className="text-sm font-medium text-yellow-800">Confirm Database Optimization</h3>
+                              <h3 className="text-sm font-medium text-yellow-800">Confirm Database Cleanup</h3>
                                   <div className="mt-2 text-sm text-yellow-700">
-                                    <p>This will optimize storage and update statistics for better performance.</p>
-                                    <div className="mt-2">
-                                      <label className="inline-flex items-center">
-                                        <input
-                                          type="checkbox"
-                                          className="form-checkbox h-4 w-4 text-blue-600"
-                                          checked={skipReindex}
-                                          onChange={(e) => setSkipReindex(e.target.checked)}
-                                        />
-                                        <span className="ml-2 text-sm text-yellow-700">Skip REINDEX (faster but less thorough)</span>
-                                      </label>
-                                    </div>
+                                <p>This will fix data issues identified in the dry run. This process is safe but cannot be undone.</p>
                                   </div>
                                   <div className="mt-3 flex space-x-3">
                                     <button
                                       type="button"
-                                      onClick={handleRunVacuum}
-                                      disabled={isRunningVacuum}
+                                  onClick={handleRunCleanup}
+                                  disabled={isRunningCleanup}
                                       className="inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
                                     >
-                                      {isRunningVacuum ? 'Running...' : 'Yes, Optimize Database'}
+                                  {isRunningCleanup ? 'Running...' : 'Yes, Fix Issues'}
                                     </button>
                                     <button
                                       type="button"
-                                      onClick={() => setShowVacuumConfirmation(false)}
+                                  onClick={() => setShowCleanupConfirmation(false)}
                                       className="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
                                     >
                                       Cancel
@@ -821,27 +719,7 @@ const Settings = () => {
                                 </div>
                               </div>
                             </div>
-                          ) : (
-                            <button
-                              onClick={() => {
-                                if (!maintenanceStatus?.backup_exists) {
-                                  setShowStepWarning(3);
-                                } else if (!maintenanceStatus?.dry_run_completed) {
-                                  setShowStepWarning(3);
-                                } else if (!maintenanceStatus?.cleanup_completed) {
-                                  setShowStepWarning(3);
-                                } else {
-                                  setShowVacuumConfirmation(true);
-                                }
-                              }}
-                              disabled={false}
-                              className="inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-                            >
-                              <FaMagic className="mr-2" />
-                              Optimize Database
-                            </button>
-                          )}
-                        </div>
+                      )}
                       </div>
                     </div>
                   </div>
@@ -894,7 +772,7 @@ const Settings = () => {
                           const step = showStepWarning;
                           setShowStepWarning(null);
                           
-                          if (step === 1) handleRunDryRun();
+                        if (step === 1) handleRunMigrations();
                           else if (step === 2) setShowCleanupConfirmation(true);
                           else if (step === 3) setShowVacuumConfirmation(true);
                         }}
@@ -906,72 +784,6 @@ const Settings = () => {
                   </div>
                 </div>
               )}
-            </div>
-            
-            {/* Legacy Database Cleanup Section (Hidden but kept for backward compatibility) */}
-            <div className="hidden">
-              <div className="border-t border-gray-200 pt-4">
-                <h3 className="text-lg font-medium mb-2">Database Cleanup</h3>
-                
-                <div className="bg-gray-50 p-4 rounded-md mb-4">
-                  <div className="flex items-start">
-                    <div className="flex-shrink-0 pt-1">
-                      <FaExclamationTriangle className="h-5 w-5 text-yellow-400" />
-                    </div>
-                    <div className="ml-3">
-                      <h3 className="text-sm font-medium text-yellow-800">Caution: Data Loss Warning</h3>
-                      <div className="mt-2 text-sm text-yellow-700">
-                        <p>
-                          Cleaning the database will permanently delete all data. This action cannot be undone.
-                          Make sure you have exported any important data before proceeding.
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-                
-                {!showConfirmation ? (
-                  <button
-                    onClick={() => setShowConfirmation(true)}
-                    className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
-                  >
-                    <FaTrash className="mr-2" />
-                    Clean Database
-                  </button>
-                ) : (
-                  <div className="bg-red-50 border border-red-200 rounded-md p-4">
-                    <div className="flex">
-                      <div className="flex-shrink-0">
-                        <FaExclamationTriangle className="h-5 w-5 text-red-400" />
-                      </div>
-                      <div className="ml-3">
-                        <h3 className="text-sm font-medium text-red-800">Are you absolutely sure?</h3>
-                        <div className="mt-2 text-sm text-red-700">
-                          <p>This will permanently delete all data in your database. This action cannot be undone.</p>
-                        </div>
-                        <div className="mt-4 flex space-x-3">
-                          <button
-                            type="button"
-                            onClick={handleCleanDatabase}
-                            disabled={isCleaningDatabase}
-                            className="inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md shadow-sm text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
-                          >
-                            {isCleaningDatabase ? 'Cleaning...' : 'Yes, Clean Database'}
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => setShowConfirmation(false)}
-                            className="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-                          >
-                            Cancel
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
           </div>
         </div>
       )}

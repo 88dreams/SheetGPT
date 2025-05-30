@@ -1,6 +1,6 @@
 import React from 'react';
 import { Form, Space, Spin } from 'antd';
-import { Entity, EntityType, Team, Stadium, League, DivisionConference, BroadcastRights, ProductionService, Brand } from '../../../types/sports';
+import { Entity, EntityType, Team, Stadium, League, DivisionConference, BroadcastRights, ProductionService, Brand, Player } from '../../../types/sports';
 import EntityRelatedInfo from './EntityRelatedInfo';
 import { 
   StadiumFields, 
@@ -9,7 +9,8 @@ import {
   DivisionConferenceFields,
   BrandFields,
   BroadcastFields,
-  ProductionFields
+  ProductionFields,
+  PlayerFields
 } from './fields';
 
 interface AdvancedEditFormProps {
@@ -81,7 +82,14 @@ export const AdvancedEditForm: React.FC<AdvancedEditFormProps> = ({
                 onChange={handleFieldChange} 
                 isEditing={isEditing} 
               />;
-              
+      
+      case 'player':
+        return <PlayerFields 
+                entity={entity as Player} 
+                onChange={handleFieldChange} 
+                isEditing={isEditing} 
+              />;
+      
       // brand_relationship entity type is no longer supported
       // Instead, use the partner fields in the Brand entity
       

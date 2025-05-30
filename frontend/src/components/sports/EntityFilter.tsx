@@ -39,7 +39,9 @@ const FIELD_OPTIONS: Record<EntityType, { label: string; value: string; type: 's
     { label: 'Name', value: 'name', type: 'string' },
     { label: 'Position', value: 'position', type: 'string' },
     { label: 'Jersey Number', value: 'jersey_number', type: 'number' },
-    { label: 'College', value: 'college', type: 'string' }
+    { label: 'College', value: 'college', type: 'string' },
+    { label: 'Sport', value: 'sport', type: 'string' },
+    { label: 'Sponsor Name', value: 'sponsor_name', type: 'string' }
   ],
   game: [
     { label: 'Name', value: 'name', type: 'string' },

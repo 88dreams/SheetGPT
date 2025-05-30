@@ -64,7 +64,9 @@ export function useEntitySchema() {
             { name: 'team_id', required: true, type: 'string', description: 'ID of the team this player belongs to' },
             { name: 'position', required: true, type: 'string', description: 'Player position' },
             { name: 'jersey_number', required: false, type: 'number', description: 'Player jersey number' },
-            { name: 'college', required: false, type: 'string', description: 'College/University attended' }
+            { name: 'college', required: false, type: 'string', description: 'College/University attended' },
+            { name: 'sport', required: false, type: 'string', description: 'Primary sport of the player' },
+            { name: 'sponsor_name', required: false, type: 'string', description: 'Sponsoring brand' }
           );
           break;
 
@@ -180,7 +182,7 @@ export function useEntitySchema() {
              'city', 'state', 'country', 'founded_year'],
       
       // Player fields
-      player: ['id', 'name', 'created_at', 'updated_at', 'team_id', 'position', 'jersey_number', 'college'],
+      player: ['id', 'name', 'created_at', 'updated_at', 'team_id', 'position', 'jersey_number', 'college', 'sport', 'sponsor_id', 'sponsor_name'],
       
       // Stadium fields
       stadium: ['id', 'name', 'created_at', 'updated_at', 'city', 'state', 'country', 'capacity', 

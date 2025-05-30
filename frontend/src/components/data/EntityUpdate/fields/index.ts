@@ -6,14 +6,15 @@ import BroadcastFields from './BroadcastFields';
 import ProductionFields from './ProductionFields';
 import BrandFields from './BrandFields';
 import FormField from './FormField';
+import PlayerFields from './PlayerFields';
 
-export {
-  StadiumFields,
-  LeagueFields,
-  TeamFields,
-  DivisionConferenceFields,
-  BroadcastFields,
-  ProductionFields,
-  BrandFields,
-  FormField
-};
+export { default as FormField } from './FormField';
+export { default as EntitySelectField } from './EntitySelectField';
+export { default as StadiumFields } from './StadiumFields';
+export { default as LeagueFields } from './LeagueFields';
+export { default as TeamFields } from './TeamFields';
+export { default as DivisionConferenceFields } from './DivisionConferenceFields';
+export { default as BrandFields } from './BrandFields';
+export { default as BroadcastFields } from './BroadcastFields';
+export { default as ProductionFields } from './ProductionFields';
+export { default as PlayerFields } from './PlayerFields';

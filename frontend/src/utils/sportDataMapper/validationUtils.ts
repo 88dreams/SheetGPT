@@ -148,10 +148,9 @@ export const validateEntityData = (
       break;
       
     case 'player':
-      if (!data.team_id) {
-        errors.push('Team ID is required');
-      } else if (!isValidUUID(data.team_id)) {
-        errors.push('Team ID must be a valid UUID');
+      // Only validate team_id if it's present and not a valid UUID
+      if (data.team_id && !isValidUUID(data.team_id)) {
+        errors.push('Team ID must be a valid UUID if provided');
       }
       
       if (!data.position) {

@@ -27,6 +27,12 @@ export const adminService = {
   listBackups: (): Promise<any[]> =>
     request('/db-management/backups', { requiresAuth: true }),
     
+  applyMigrations: (): Promise<any> =>
+    request('/db-management/migrations/apply', {
+      method: 'POST',
+      requiresAuth: true
+    }),
+    
   // Conversation archiving
   archiveConversation: (conversationId: string): Promise<{ success: boolean; message: string }> =>
     request(`/db-management/conversations/${conversationId}/archive`, {

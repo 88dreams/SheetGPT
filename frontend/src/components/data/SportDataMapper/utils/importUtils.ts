@@ -429,6 +429,9 @@ async function resolveReferencesForEntity(
     case 'team':
       await _resolveTeamEntityReferences(processedData);
       break;
+    case 'player': // New case for player
+      await _resolvePlayerEntityReferences(processedData);
+      break;
     // Add cases for other entity types if they need specific reference resolution
     default:
       console.log(`No specific reference resolution logic for entity type: ${entityType}`);
@@ -826,5 +829,49 @@ async function _resolveTeamEntityReferences(processedData: Record<string, any>):
             processedData.division_conference_id = divConfLookup.id;
         }
     } catch (error: any) { console.log(`Division/Conference lookup failed: ${error.message}`); }
+  }
+}
+
+async function _resolvePlayerEntityReferences(processedData: Record<string, any>): Promise<void> {
+  console.log('Processing player entity for reference resolution');
+  
+  // Resolve team_id
+  if (processedData.team_id && typeof processedData.team_id === 'string' && !isValidUUID(processedData.team_id)) {
+    const teamName = processedData.team_id;
+    console.log(`Looking up team (brand) "${teamName}" for player`);
+    try {
+      const brandLookup = await api.sports.lookup('brand', teamName);
+      if (brandLookup && brandLookup.id) {
+        // TODO: Optionally verify brandLookup.representative_entity_type === 'Team' here
+        console.log(`Found brand ID ${brandLookup.id} for team name "${teamName}". Assigning as team_id.`);
+        processedData.team_id = brandLookup.id;
+      } else {
+        console.warn(`Team (Brand) named "${teamName}" not found. Setting team_id to null for player.`);
+        processedData.team_id = null; // Set to null if not found, as team is optional
+      }
+    } catch (error: any) {
+      console.error(`Error looking up team (brand) "${teamName}", setting team_id to null: ${error.message}`);
+      processedData.team_id = null; // Also set to null on error during lookup
+    }
+  }
+
+  // Resolve sponsor_id
+  if (processedData.sponsor_id && typeof processedData.sponsor_id === 'string' && !isValidUUID(processedData.sponsor_id)) {
+    const sponsorName = processedData.sponsor_id;
+    console.log(`Looking up sponsor (brand) "${sponsorName}" for player`);
+    try {
+      const brandLookup = await api.sports.lookup('brand', sponsorName);
+      if (brandLookup && brandLookup.id) {
+        console.log(`Found brand ID ${brandLookup.id} for sponsor name "${sponsorName}". Assigning as sponsor_id.`);
+        processedData.sponsor_id = brandLookup.id;
+      } else {
+        // Throw an error if the sponsor brand is not found
+        throw new Error(`Sponsor (Brand) named "${sponsorName}" not found. Please add sponsor as brand, then continue with import`);
+      }
+    } catch (error: any) {
+      // Re-throw the error to be caught by the calling process, whether it's our custom error or a lookup error
+      console.error(`Error looking up or processing sponsor (brand) "${sponsorName}": ${error.message}`);
+      throw error; 
+    }
   }
 }

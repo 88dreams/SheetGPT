@@ -47,10 +47,13 @@ export interface Team extends BaseEntity {
 }
 
 export interface Player extends BaseEntity {
-  team_id: string;
+  team_id?: string;
   position: string;
   jersey_number?: number;
   college?: string;
+  sport?: string;
+  sponsor_id?: string;
+  sponsor_name?: string;
 }
 
 export interface Game extends BaseEntity {

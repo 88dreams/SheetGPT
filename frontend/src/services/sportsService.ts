@@ -125,6 +125,11 @@ export const sportsService = {
       requiresAuth: true
     }),
     
+  getDistinctSports: (): Promise<string[]> =>
+    request('/sports/distinct-sports', { 
+      requiresAuth: true 
+    }),
+    
   // Division/Conference endpoints
   getDivisionConferences: (leagueId?: string): Promise<any[]> =>
     request('/sports/divisions-conferences', { 

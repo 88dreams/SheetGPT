@@ -1,6 +1,6 @@
 import React from 'react';
 import { Form } from 'antd';
-import { Entity, EntityType, Team, Stadium, League, DivisionConference, BroadcastRights, ProductionService, Brand } from '../../../types/sports';
+import { Entity, EntityType, Team, Stadium, League, DivisionConference, BroadcastRights, ProductionService, Brand, Player } from '../../../types/sports';
 import FormField from './fields/FormField';
 import TeamFields from './fields/TeamFields';
 import StadiumFields from './fields/StadiumFields';
@@ -9,6 +9,7 @@ import DivisionConferenceFields from './fields/DivisionConferenceFields';
 import BroadcastFields from './fields/BroadcastFields';
 import ProductionFields from './fields/ProductionFields';
 import BrandFields from './fields/BrandFields';
+import PlayerFields from './fields/PlayerFields';
 
 interface QuickEditFormProps {
   entity: Entity;
@@ -63,9 +64,10 @@ export const QuickEditForm: React.FC<QuickEditFormProps> = ({
       {entityType === 'broadcast' && <BroadcastFields entity={entity as BroadcastRights} onChange={handleFieldChange} isEditing={isEditing} />}
       {entityType === 'production' && <ProductionFields entity={entity as ProductionService} onChange={handleFieldChange} isEditing={isEditing} />}
       {entityType === 'brand' && <BrandFields entity={entity as Brand} onChange={handleFieldChange} isEditing={isEditing} />}
+      {entityType === 'player' && <PlayerFields entity={entity as Player} onChange={handleFieldChange} isEditing={isEditing} />}
       
       {/* Generic fallback for other entity types */}
-      {!['team', 'stadium', 'league', 'division_conference', 'broadcast', 'production', 'brand'].includes(entityType) && 
+      {!['team', 'stadium', 'league', 'division_conference', 'broadcast', 'production', 'brand', 'player'].includes(entityType) &&
         renderGenericFields()
       }
     </Form>

@@ -95,7 +95,8 @@ export function useEntitySchema() {
             { name: 'owner', required: false, type: 'string', description: 'Stadium owner' },
             { name: 'naming_rights_holder', required: false, type: 'string', description: 'Entity holding naming rights' },
             { name: 'host_broadcaster', required: false, type: 'string', description: 'Name of the host broadcaster' },
-            { name: 'host_broadcaster_id', required: false, type: 'string', description: 'ID of the host broadcaster' }
+            { name: 'host_broadcaster_id', required: false, type: 'string', description: 'ID of the host broadcaster' },
+            { name: 'sport', required: false, type: 'string', description: 'Primary sport hosted at the stadium' }
           );
           break;
 
@@ -186,7 +187,7 @@ export function useEntitySchema() {
       
       // Stadium fields
       stadium: ['id', 'name', 'created_at', 'updated_at', 'city', 'state', 'country', 'capacity', 
-                'owner', 'naming_rights_holder', 'host_broadcaster', 'host_broadcaster_id'],
+                'owner', 'naming_rights_holder', 'host_broadcaster', 'host_broadcaster_id', 'sport'],
       
       // Game fields
       game: ['id', 'name', 'created_at', 'updated_at', 'league_id', 'home_team_id', 'away_team_id', 

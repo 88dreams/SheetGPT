@@ -84,6 +84,7 @@ class StadiumBase(BaseModel):
     naming_rights_holder: Optional[str] = None
     host_broadcaster: Optional[str] = None
     host_broadcaster_id: Optional[UUID] = None
+    sport: Optional[str] = None
 
 class StadiumCreate(StadiumBase):
     pass
@@ -98,6 +99,7 @@ class StadiumUpdate(BaseModel):
     naming_rights_holder: Optional[str] = None
     host_broadcaster: Optional[str] = None
     host_broadcaster_id: Optional[UUID] = None
+    sport: Optional[str] = None
 
 class StadiumResponse(StadiumBase):
     id: UUID

@@ -16,6 +16,7 @@ export interface Stadium extends BaseEntity {
   naming_rights_holder?: string;
   host_broadcaster?: string;
   host_broadcaster_id?: string;
+  sport?: string;
 }
 
 export interface League extends BaseEntity {

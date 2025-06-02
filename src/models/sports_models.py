@@ -176,6 +176,11 @@ class Stadium(TimestampedBase):
         ForeignKey("brands.id"),
         nullable=True
     )
+    sport: Mapped[Optional[str]] = mapped_column(
+        String(100),
+        nullable=True,
+        index=True
+    )
 
     # Relationships
     host_broadcaster_company: Mapped[Optional["Brand"]] = relationship(

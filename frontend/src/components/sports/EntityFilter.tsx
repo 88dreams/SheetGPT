@@ -54,7 +54,8 @@ const FIELD_OPTIONS: Record<EntityType, { label: string; value: string; type: 's
     { label: 'Name', value: 'name', type: 'string' },
     { label: 'City', value: 'city', type: 'string' },
     { label: 'Country', value: 'country', type: 'string' },
-    { label: 'Capacity', value: 'capacity', type: 'number' }
+    { label: 'Capacity', value: 'capacity', type: 'number' },
+    { label: 'Sport', value: 'sport', type: 'string' }
   ],
   broadcast: [
     { label: 'Name', value: 'name', type: 'string' },

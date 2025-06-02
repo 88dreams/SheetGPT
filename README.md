@@ -25,6 +25,13 @@ As of June 15, 2025:
 
 For detailed progress, see [docs/PROGRESS.md](./docs/PROGRESS.md).
 
+## Recent Major Features (June 2025)
+
+- **Enhanced CSV Import:** Overhauled the custom CSV import functionality with a new UI, client-side parsing using `papaparse`, record navigation, preamble skipping, and a clearer mapping workflow. This aligns more closely with the SportDataMapper experience.
+- **Advanced Entity Search & Sorting:** Implemented multi-column OR search for entities, allowing search terms to match against all relevant visible columns. Global sorting logic was enhanced to ensure correct sorting across paginated results, especially for fields requiring complex lookups.
+- **LLM Selection in Chat:** Users can now choose between different Large Language Models for their conversations, providing more flexibility in AI interactions.
+- **Development Environment Overhaul:** Stabilized the Docker-based development for the frontend by transitioning to a Yarn workspace structure. This involved significant corrections to Dockerfile configurations, `docker-compose.yml` contexts and volume mounts, and local Node.js version management (via NVM) to ensure consistent and reliable builds and runtime behavior.
+
 ## Recent Improvements
 
 ### Dev Environment Stabilization & Critical Bug Fixes (June 2025)
@@ -103,7 +110,7 @@ The project uses Docker for development. **The recommended method is to use the 
     *   Clone the repository: `git clone https://github.com/yourusername/sheetgpt.git && cd sheetgpt`
     *   Open the `SheetGPT` folder in VS Code/Cursor.
     *   Use the Command Palette (`Cmd+Shift+P` or `Ctrl+Shift+P`) and run: `Dev Containers: Reopen in Container`.
-    *   The extension will build the necessary images (if not already built or if `--no-cache` was used recently) and start the `frontend`, `backend`, and `db` services as defined in `.devcontainer/devcontainer.json` and `docker-compose.yml`.
+    *   The extension will build the necessary images. The frontend now uses a Yarn workspace structure, with build context at the project root.
     *   The frontend (Vite dev server) will be available at `http://localhost:5173`.
     *   The backend API (FastAPI) will be available at `http://localhost:8000` (or `http://backend:8000` from within the Docker network).
 

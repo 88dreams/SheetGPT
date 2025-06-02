@@ -31,6 +31,7 @@ from src.services.sports_service import SportsService
 from src.services.export_service import ExportService
 from src.utils.auth import get_current_user
 from src.schemas.common import PaginatedResponse
+from src.services.sports.player_service import PlayerService
 from src.utils.errors import (
     EntityNotFoundError, 
     EntityValidationError,
@@ -616,7 +617,8 @@ async def create_player(
     with any non-null values from the request. This prevents duplicate players while
     allowing updates to existing ones.
     """
-    return await sports_service.create_player(db, player)
+    player_service = PlayerService()
+    return await player_service.create_player(db, player)
 
 @router.get("/players/{player_id}", response_model=PlayerResponse)
 async def get_player(
@@ -625,10 +627,11 @@ async def get_player(
     current_user: Dict = Depends(get_current_user)
 ):
     """Get a specific player by ID."""
-    player = await sports_service.get_player(db, player_id)
-    if not player:
+    player_service = PlayerService()
+    player_obj = await player_service.get_player(db, player_id)
+    if not player_obj:
         raise HTTPException(status_code=404, detail="Player not found")
-    return player
+    return player_obj
 
 @router.put("/players/{player_id}", response_model=PlayerResponse)
 async def update_player(
@@ -638,10 +641,11 @@ async def update_player(
     current_user: Dict = Depends(get_current_user)
 ):
     """Update a specific player."""
-    player = await sports_service.update_player(db, player_id, player_update)
-    if not player:
+    player_service = PlayerService()
+    player_obj = await player_service.update_player(db, player_id, player_update)
+    if not player_obj:
         raise HTTPException(status_code=404, detail="Player not found")
-    return player
+    return player_obj
 
 @router.delete("/players/{player_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_player(
@@ -650,7 +654,8 @@ async def delete_player(
     current_user: Dict = Depends(get_current_user)
 ):
     """Delete a specific player."""
-    success = await sports_service.delete_player(db, player_id)
+    player_service = PlayerService()
+    success = await player_service.delete_player(db, player_id)
     if not success:
         raise HTTPException(status_code=404, detail="Player not found")
     return None

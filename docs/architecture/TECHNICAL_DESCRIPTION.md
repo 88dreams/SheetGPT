@@ -36,6 +36,12 @@ src/
    - Smart date handling with contextual defaults
    - Polymorphic entity references for cross-entity relationships
    - **Representative Brands (New):** Utilizes the `Brand` model to represent other entity types (League, Team, Stadium, ProductionService) for contact association. The `representative_entity_type` column identifies these specific brands.
+   - **Multi-Column Entity Search Support (`src/services/sports/facade.py`):
+     - `SportsService.get_entities_with_related_names` (and potentially `get_entities`) parses a special filter like `search_columns:colA,colB,...` with operator `contains`.
+     - Dynamically constructs SQLAlchemy `OR` conditions using `func.lower(column_attr).contains(value)` for specified string-based columns (String, Text, VARCHAR), ensuring type safety.
+   - **Global Entity Sorting (`src/services/sports/facade.py`):
+     - For columns requiring complex lookups or name resolution (e.g., polymorphic fields, multi-step relationships), the `SportsService` (e.g., in `get_entities_with_related_names` or `get_entities`) fetches the full filtered dataset, performs in-memory sorting (e.g., using Python's `sorted` with a custom key), and then applies pagination.
+     - Simpler sorting on direct model attributes or easily joinable fields continues to be done at the database level.
 
 3. **Authentication**
    - JWT with refresh token mechanism
@@ -46,6 +52,7 @@ src/
    - Utilizes Claude LLM for Natural Language Query (NLQ) to SQL translation.
    - Employs a detailed, manually curated schema description file (`src/config/database_schema_for_ai.md`) to provide rich context and SQL generation guidelines to the LLM, improving accuracy and handling of specific patterns (e.g., case-insensitivity, entity resolution nuances).
    - Includes backend services for SQL validation and correction, potentially using AI assistance.
+   - **LLM Selection:** Backend services (e.g., Chat service) are updated to accept a parameter indicating the desired LLM for a given request/session, routing to the appropriate model provider or configuration.
 
 ### Frontend (React + TypeScript)
 
@@ -96,24 +103,30 @@ frontend/
    - Enhanced entity search with fuzzy matching
    - **Query Helper UI (Initial):** An interactive modal on the Database Query page assists users in constructing NLQs by allowing them to select tables and apply basic column filters based on a dynamically fetched schema summary.
    - The schema summary is provided by a new backend endpoint that parses the `database_schema_for_ai.md` file.
+   - **Enhanced CSV Import (`CustomCSVImport.tsx`):**
+     - **Workflow:** Receives `initialFile` prop from parent (`ContactsPage.tsx`); no standalone file selection.
+     - **Client-Side Parsing:** Uses `papaparse` for full CSV data processing in the browser.
+     - **State Management:** Manages `sourceDataRows`, `currentRecordIndex`, `currentSourceRecordValues` for record iteration.
+     - **Record Navigation:** Features `goToNextRecord`/`goToPreviousRecord` functions with UI controls in the "Source Fields" header.
+     - **UI/UX:** "Source Fields" column displays current record values. "Database Fields" (target) display mapped data for the current record. Consistent styling, highlighting for mapped fields. Buttons for "Batch Import All" and "Save and Next" (stubbed) relocated to "Database Fields" header. Implements preamble skipping.
+   - **Multi-Column Entity Search (`EntityList/index.tsx`):**
+     - `handleSearchSelect` dynamically identifies visible, searchable columns (excluding IDs, timestamps).
+     - Constructs a single filter object with `search_columns:colA,colB,...` and operator `contains` for backend processing.
+   - **LLM Selection in Chat:** The chat interface now includes UI elements allowing users to choose from different configured Large Language Models for their conversations.
 
-#### Build & Dependency Management (Updated May 17, 2025)
-- Uses `yarn` (v1) for frontend dependency management.
-- **Development Environment (Dev Container):**
-  - The primary development method is via VS Code Dev Containers (`.devcontainer/devcontainer.json`).
-  - This uses the `frontend` service from `docker-compose.yml`, which builds `frontend/Dockerfile`.
-  - `frontend/Dockerfile` now uses `node:18-bullseye` as a base and sets `NODE_ENV=development`. Its `CMD` starts the Vite dev server (`./node_modules/.bin/vite --host 0.0.0.0`).
-  - The `docker-compose.yml` mounts the entire project to `/workspace` in the `frontend` service, with `frontend/node_modules` isolated. The `workspaceFolder` in `devcontainer.json` is set to `/workspace`.
-- **Production Frontend Assets Build:**
-  - The root `Dockerfile` contains a `frontend-builder` stage, also using `node:18-bullseye`.
-  - This stage installs dependencies using `yarn install --frozen-lockfile` (after `rm -rf node_modules` and clearing yarn cache for robustness).
-  - It executes `RUN yarn build` (which runs `tsc && vite build`) to compile static assets into `/app/frontend/dist/` within that build stage.
-  - The `backend-prod` stage in the root `Dockerfile` (used by the `app` service) copies these assets from the `frontend-builder` stage to its own `/app/frontend/dist` for serving.
-- **`.dockerignore` files:**
-  - A root `.dockerignore` prevents `frontend/node_modules` from being copied into the `frontend-builder` stage's context by the `COPY frontend/ ./frontend/` command.
-  - `frontend/.dockerignore` prevents local `node_modules` from interfering with `frontend/Dockerfile`'s `COPY . .` command.
-- Docker anonymous volume for `/workspace/frontend/node_modules` (as defined in `docker-compose.yml` for the `frontend` service) helps persist dependencies between runs while allowing local code syncing for development.
-- **Troubleshooting:** If encountering unexpected dependency versions or build issues, clear stale Docker volumes (`docker-compose down -v`) and rebuild images with `--no-cache` (e.g., `docker compose build --no-cache frontend` or `docker compose build --no-cache app`).
+#### Build & Dependency Management (Updated June 2025)
+- **Yarn Workspaces:** The frontend is managed as a Yarn workspace, with the primary `package.json` and `yarn.lock` located at the project root. The root `package.json` defines `frontend` in its `workspaces` array.
+- **Docker Build (`frontend/Dockerfile` with root context):
+  - The `docker-compose.yml` (and `docker-compose.override.yml`) sets the `build.context` for the `frontend` service to `.` (project root) and `dockerfile` to `frontend/Dockerfile`.
+  - `frontend/Dockerfile` sets `WORKDIR /app`, then:
+    - Copies the root `package.json` and `yarn.lock` (and `.dockerignore`) to `/app/`.
+    - Copies the entire `frontend/` directory into `/app/frontend/`.
+    - Runs `yarn install --frozen-lockfile` from `/app/`, which installs dependencies for the `sheetgpt-frontend` workspace (typically into `/app/node_modules/` due to hoisting).
+  - `CMD` uses `yarn workspace sheetgpt-frontend run dev --host 0.0.0.0` to start the Vite dev server.
+- **Docker Runtime Volumes (`docker-compose.override.yml`):
+  - `- ./frontend:/app/frontend`: Mounts local frontend source code for live reloading.
+  - `- /app/node_modules`: Anonymous volume to preserve the root `node_modules` installed during the build, ensuring workspace dependencies are available at runtime and not overwritten by host mounts.
+- **Local Development:** NVM (Node Version Manager) is recommended for managing Node.js (18.x required by project) to ensure consistency when running `yarn install` locally and generating/updating the root `yarn.lock`.
 
 #### Notable Fixes
 - **Pagination:** Resolved issue where paginated entity lists (e.g., Brands) did not update correctly on page change by disabling `keepPreviousData` in the relevant `useQuery` configuration within `SportsDatabaseContext`.

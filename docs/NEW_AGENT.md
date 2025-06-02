@@ -19,6 +19,9 @@ SheetGPT combines AI-powered chat (Claude) with structured data management and a
   - **Entity Resolution:** Services exist to resolve entity names to IDs (`src/services/sports/`).
   - **Contacts:** Imported contacts (`src/models/sports_models.py::Contact`) are linked to Brands (real or representative) via `ContactBrandAssociation`.
   - **AI Schema Context:** A descriptive schema with guidelines (`src/config/database_schema_for_ai.md`) is provided to the backend LLM (Claude) to improve NLQ-to-SQL accuracy.
+  - **Enhanced CSV Import:** The contacts page features an advanced CSV import tool (`CustomCSVImport.tsx`) with client-side parsing (`papaparse`), record navigation, preamble skipping, and a detailed field mapping UI.
+  - **Advanced Entity Features:** Includes multi-column OR search for entities and global sorting capabilities that handle complex data relationships by performing necessary in-memory sorting before pagination.
+  - **LLM Selection:** The chat interface allows users to select from different available Large Language Models.
 
 - **Further Reading:**
   - `docs/architecture/TECHNICAL_DESCRIPTION.md` (Detailed architecture)
@@ -39,14 +42,13 @@ SheetGPT combines AI-powered chat (Claude) with structured data management and a
 
 - **Dependencies:**
   - **Backend:** Managed by `pip` via `requirements.txt`. Install happens during `docker-compose build backend`.
-  - **Frontend:** Managed by `yarn` via `frontend/package.json` and `frontend/yarn.lock`. 
-    - Dependencies are installed during the build of the `frontend` service (for dev) and the `frontend-builder` stage (for prod assets in the `app` service). Both now correctly use `yarn`.
-    - The `frontend` service in `docker-compose.yml` is configured with `NODE_ENV=development` for Vite dev server.
+  - **Frontend:** Managed by `yarn` (via a root `package.json` and `yarn.lock` defining a workspace that includes `frontend/`).
+    - Dependencies are installed during the build of the `frontend` service. The Docker build context is the project root, and the `frontend/Dockerfile` copies necessary root files ( `package.json`, `yarn.lock`) and then the `frontend/` directory contents.
+    - The `frontend` service in `docker-compose.yml` (and `docker-compose.override.yml`) is configured with `NODE_ENV=development` for Vite dev server, with volume mounts correctly mapping local `./frontend` source to `/app/frontend` in the container and preserving the root `/app/node_modules`.
   - **Troubleshooting Docker/Frontend:**
-    1. Ensure root `.dockerignore` excludes `frontend/node_modules` and `frontend/.dockerignore` excludes `node_modules`.
-    2. If dependency or caching issues arise, try: `docker compose down -v` then `docker compose build --no-cache frontend` (or `app` if `frontend-builder` is suspect).
-    3. Base images for frontend builds (dev and prod) are now `node:18-bullseye` for better VS Code Server compatibility.
-    4. See `docs/development/DEPENDENCY_ANALYSIS.md` for historical context.
+    1. Ensure root `.dockerignore` excludes `frontend/node_modules`.
+    2. The build context for `frontend` service in `docker-compose.yml` and `docker-compose.override.yml` should be `.` (project root) with `dockerfile: frontend/Dockerfile`.
+    3. Local Node.js environment should ideally use NVM to match Node 18.x for consistent `yarn install` behavior if generating/updating `yarn.lock` locally.
 
 - **Further Reading:**
   - `CLAUDE.md` (Root file, contains more build details, style guides)

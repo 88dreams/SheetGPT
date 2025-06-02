@@ -318,7 +318,8 @@ const enhanceDataForEntityType = (
 export const transformMappedData = (
   mappings: Record<string, string>,
   sourceRecord: Record<string, any> | any[],
-  headerRow?: string[] // Optional: the actual header row for array data
+  headerRow?: string[], // Optional: the actual header row for array data
+  explicitEntityType?: EntityType // New optional parameter
 ): Record<string, any> => {
   
   console.log('Transforming mapped data (Orchestrator V3):', {
@@ -326,13 +327,15 @@ export const transformMappedData = (
     isArrayData: Array.isArray(sourceRecord),
     sourceRecordSample: JSON.stringify(sourceRecord).substring(0, 100) + '...',
     hasHeaderRow: !!headerRow,
+    explicitEntityTypeProvided: !!explicitEntityType
   });
 
   const initialMappedData = extractInitialMappedFields(mappings, sourceRecord, headerRow);
   const sourceRecordIsArray = Array.isArray(sourceRecord);
 
-  const entityType = detectEntityType(initialMappedData, mappings, sourceRecordIsArray);
-  console.log('Detected entity type by orchestrator:', entityType);
+  // Use explicitEntityType if provided, otherwise fall back to detection
+  const entityType = explicitEntityType || detectEntityType(initialMappedData, mappings, sourceRecordIsArray);
+  console.log('Effective entity type for transformation:', entityType, explicitEntityType ? '(explicit)' : '(detected)');
 
   let dataForEnhancement = { ...initialMappedData };
   // This specific pre-fill for broadcast might need re-evaluation.
@@ -529,7 +532,7 @@ export const saveEntityToDatabase = async (
     } else {
       // For all other standard entities (team, league, brand, division_conference etc.)
       // Ensure entityType is a valid DbEntityType for _createOrUpdateStandardEntity
-      const validDbEntityTypes = ['league', 'team', 'brand', 'division_conference', 'stadium', 'person', 'game', 'production_company', 'production_service'] as const;
+      const validDbEntityTypes = ['league', 'team', 'brand', 'division_conference', 'stadium', 'person', 'game', 'production_company', 'production_service', 'player'] as const;
       if (validDbEntityTypes.includes(entityType as any)) {
         return await _createOrUpdateStandardEntity(entityType as DbEntityType, processedData, isUpdateMode);
       } else {

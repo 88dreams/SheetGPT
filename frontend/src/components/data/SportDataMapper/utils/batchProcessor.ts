@@ -129,8 +129,8 @@ export const processEntityRecord = async (
   
   while (retries > 0) {
     try {
-      // Transform and map data, passing sourceFields (headerRow)
-      const mappedData = transformMappedData(mappings, record, sourceFields);
+      // Transform and map data, passing sourceFields (headerRow) and explicit entityType
+      const mappedData = transformMappedData(mappings, record, sourceFields, entityType);
       
       // Determine effective update mode
       const effectiveUpdateMode = isUpdateMode || Object.keys(mappings).length === 1;

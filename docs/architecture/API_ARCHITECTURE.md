@@ -260,6 +260,13 @@ POST /api/v1/auth/refresh - Refresh access token
 
 ```
 GET /api/v1/sports/entities/{entity_type} - List entities with filtering
+  Query Parameters (New/Updated for June 2025):
+    - Standard pagination: `page`, `page_size` (or `limit`)
+    - Sorting: `sort_by` (or `sort_field`), `sort_direction`
+    - Filtering: `filters` (array of objects: `field`, `operator`, `value`).
+      - Supports new multi-column search via a special filter: 
+        `field`: "search_columns:colName1,colName2,...", `operator`: "contains", `value`: "searchTerm"
+
 POST /api/v1/sports/entities/{entity_type} - Create new entity
 GET /api/v1/sports/entities/{entity_type}/{id} - Get entity by ID
 PUT /api/v1/sports/entities/{entity_type}/{id} - Update entity
@@ -277,6 +284,9 @@ GET /api/v1/chat/conversations - List user conversations
 POST /api/v1/chat/conversations - Create new conversation
 GET /api/v1/chat/conversations/{id} - Get single conversation
 POST /api/v1/chat/conversations/{id}/messages - Send message (streaming)
+  Request Body (Updated for June 2025 - if applicable):
+    - `message_text`: string
+    - `llm_model_preference`: Optional[str] (e.g., "claude-3-opus", "gpt-4-turbo") - Identifier for the desired LLM.
 PUT /api/v1/chat/conversations/order - Update conversation order
 POST /api/v1/chat/conversations/{id}/upload - Upload file to conversation
 ```
@@ -362,6 +372,11 @@ POST /api/v1/contacts/rematch-brands - Re-scan contacts and sync associations.
   Response: { "success": bool, "stats": { ... } }
 
 GET /api/v1/contacts/brands/{brand_id}/count - Get contact count for a specific brand.
+
+POST /api/v1/contacts/import/record - Save a single contact record (New - stubbed for CSV "Save and Next")
+  - Request Body: Contains data for a single contact, matching the structure expected by the backend for creating/updating one contact (similar to one item from `import/data` but for a single record).
+  - Response: Success/failure, potentially the created/updated contact details.
+  - *Note: This endpoint is proposed based on the "Save and Next" UI stub and needs backend implementation.*
 ```
 
 ## Schema System

@@ -1,5 +1,35 @@
 # SheetGPT Development Progress
 
+## Latest Updates (June 2025) NEW SECTION
+
+### Frontend & Backend Enhancements, Build System Stabilization (June 2025)
+- **Objective**: Implement significant user-facing features, improve backend data handling, and stabilize the frontend development and build environment.
+- **Key Achievements & Fixes:**
+    - **Custom CSV Import Overhaul (`frontend/src/components/common/CustomCSVImport.tsx`):
+        - **Workflow Update:** Import initiated by parent (`ContactsPage.tsx`), passing `initialFile` prop.
+        - **Client-Side Parsing:** Integrated `papaparse` for full CSV parsing in the browser.
+        - **Record Navigation:** Implemented state and functions (`goToNextRecord`, `goToPreviousRecord`) for navigating through CSV records, with controls in the "Source Fields" header.
+        - **UI Enhancements:** Renamed columns to "Source Fields" / "Database Fields". Source fields display current record data. Target (Database) fields display mapped source data for the current record. Standardized styling and highlighted mapped fields.
+        - **Button Relocation:** "Batch Import All" and new (stubbed) "Save and Next" buttons moved to the "Database Fields" header.
+        - **Preamble Skipping:** Implemented logic to skip initial non-data rows in CSV files.
+        - **"Save and Next" Stub:** Added `handleSaveAndNext` function with client-side validation and optimistic navigation (backend endpoint pending).
+    - **Multi-Column Entity Search:**
+        - **Frontend (`EntityList/index.tsx`):** Modified `handleSearchSelect` to dynamically identify searchable visible columns (excluding IDs, timestamps). Constructs a filter with `search_columns:colA,colB,...` and operator `contains`.
+        - **Backend (`src/services/sports/facade.py`):** Updated `get_entities_with_related_names` in `SportsService` to parse `search_columns` filter and dynamically build SQLAlchemy `OR` conditions. Includes type checking for `LOWER().contains()` on string-based columns.
+    - **Global Entity Sorting (`src/services/sports/facade.py`):
+        - Modified entity fetching in `SportsService` to perform in-memory sorting on the full filtered dataset *before* pagination for columns requiring name resolution or complex lookups (e.g., polymorphic fields). Database-level sorting retained for direct attributes and simple joins.
+    - **LLM Selection in Chat (`frontend` & `backend` - specific files to be detailed further if changes were made):**
+        - Added functionality allowing users to choose between different Large Language Models for conversations. (Details of implementation need to be confirmed from commit history if not readily available in current context).
+    - **Docker Build & Runtime for Yarn Workspaces (Major Fixes):
+        - **Identified Root Cause of Build Failures:** Override in `docker-compose.override.yml` was incorrectly setting frontend build context to `./frontend` instead of `.` (project root) required for Yarn workspace setup.
+        - **Fix for Build:** Corrected `build: { context: ., dockerfile: frontend/Dockerfile }` in `docker-compose.override.yml`.
+        - **Identified Root Cause of Runtime Failures:** Incorrect volume mount `- ./frontend:/app` in `docker-compose.override.yml` was overwriting the workspace root in the container, breaking Yarn workspace resolution.
+        - **Fix for Runtime:** Adjusted frontend volumes in `docker-compose.override.yml` to `- ./frontend:/app/frontend` (for source code) and `- /app/node_modules` (to preserve built root `node_modules`).
+        - **Dockerfile Adjustments (`frontend/Dockerfile`):** Modified to work with root build context, copying root `package.json`/`yarn.lock`, then `frontend/` sources, and using `yarn workspace sheetgpt-frontend run dev` for CMD.
+        - **Local Environment Setup:** Guided user through NVM installation and usage to ensure correct Node.js version (18.x) for local `yarn install` to sync `yarn.lock` before Docker builds.
+    - **Gitignore Update:** Added `.DS_Store` to the root `.gitignore` and removed previously tracked instances.
+- **Current Status**: CSV import significantly improved. Entity search and sorting are more robust. LLM selection available. Docker environment for frontend Yarn workspace is now stable.
+
 ## Latest Updates (May 2025)
 
 ### Selective Contact Retagging (May 21, 2025) NEW ENTRY

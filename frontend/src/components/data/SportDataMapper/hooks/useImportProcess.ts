@@ -49,8 +49,8 @@ export default function useImportProcess() {
     setIsSaving(true);
     
     try {
-      // Transform the mappings to data
-      const transformedData = transformMappedData(mappedData, currentRecord, sourceFields);
+      // Transform the mappings to data, passing the explicit entityType
+      const transformedData = transformMappedData(mappedData, currentRecord, sourceFields, entityType);
       console.log('Transformed Data:', transformedData);
       
       // Check if transformed data is empty or missing required fields

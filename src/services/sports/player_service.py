@@ -29,8 +29,9 @@ class PlayerService(BaseEntityService[Player]):
     
     async def create_player(self, db: AsyncSession, player: PlayerCreate) -> Player:
         """Create a new player or update if it already exists."""
-        # Validate that team exists
-        await EntityValidator.validate_team(db, player.team_id)
+        # Validate that team exists only if team_id is provided
+        if player.team_id:
+            await EntityValidator.validate_team(db, player.team_id)
             
         # Check if a player with the same name already exists
         existing_player = await db.execute(
@@ -40,12 +41,13 @@ class PlayerService(BaseEntityService[Player]):
 
         if db_player:
             # Update existing player
-            for key, value in player.dict().items():
-                if value is not None:  # Only update non-None values
-                    setattr(db_player, key, value)
+            update_data = player.model_dump(exclude_unset=True)
+            for key, value in update_data.items():
+                setattr(db_player, key, value)
         else:
             # Create new player
-            db_player = Player(**player.dict())
+            create_data = player.model_dump(exclude_none=True)
+            db_player = Player(**create_data)
             db.add(db_player)
         
         try:
@@ -71,11 +73,13 @@ class PlayerService(BaseEntityService[Player]):
             return None
         
         # Update player attributes
-        update_data = player_update.dict(exclude_unset=True)
+        update_data = player_update.model_dump(exclude_unset=True)
         
-        # Validate team_id if it's being updated
-        if 'team_id' in update_data:
+        # Validate team_id if it's being updated and is not None
+        if 'team_id' in update_data and update_data['team_id'] is not None:
             await EntityValidator.validate_team(db, update_data['team_id'])
+        # If 'team_id' is in update_data and is None, it means we are intentionally unsetting the team.
+        # This is allowed since team_id is nullable.
         
         # Apply updates
         for key, value in update_data.items():

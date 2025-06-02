@@ -19,7 +19,7 @@ COPY frontend/ ./frontend/
 
 # Now, run yarn install from the root of the workspace.
 # Yarn will install dependencies for all workspaces (i.e., frontend).
-RUN yarn install --frozen-lockfile
+RUN yarn install --frozen-lockfilef
 
 # Explicitly remove Vite cache after installation (path relative to WORKDIR /app)
 RUN rm -rf frontend/node_modules/.vite

@@ -142,6 +142,7 @@ services:
       # The port is now set in the script, but you could also pass it via env if Graphiti's Dockerfile/script supports it
       # - MCP_PORT=8001 # Example if Graphiti's entrypoint script could take port from env
       # - MCP_TRANSPORT=sse # Default in script, can be overridden if entrypoint handles it
+    restart: unless-stopped
     # volumes:
       # - ../TOOLS/graphiti:/app # If you need live code reloading for Graphiti dev, similar to SheetGPT backend
       # You might need to adjust this based on Graphiti's Dockerfile WORKDIR and how it runs.

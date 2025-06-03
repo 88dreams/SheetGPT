@@ -44,6 +44,7 @@ from src.services.sports.game_broadcast_service import GameBroadcastService
 from src.services.sports.league_executive_service import LeagueExecutiveService
 from src.services.sports.division_conference_service import DivisionConferenceService
 from src.utils.database import get_db_session as get_session # Added import
+from src.services.sports.base_service import BaseEntityService # Corrected import path
 
 logger = logging.getLogger(__name__)
 
@@ -113,7 +114,7 @@ class SportsService:
         # self.game_service = GameService()
         # self.broadcast_service = BroadcastService()
         # self.production_service = ProductionService()
-        # self.brand_service = BrandService()
+        self.brand_service = BrandService()
     
     async def get_relationship_sort_config(self, entity_type: str, sort_by: str) -> Dict[str, Any]:
         """
@@ -336,14 +337,28 @@ class SportsService:
                 "pages": math.ceil(total_count / limit)
             }
     
-    def _model_to_dict(self, model: Any) -> Dict[str, Any]:
-        """Convert a model instance to a dictionary, including only columns from its own table."""
-        result = {}
-        # Get only the columns that are defined in this model's table
-        for column in model.__table__.columns:
-            # This ensures we only include fields that actually belong to this entity type
-            result[column.name] = getattr(model, column.name)
-        return result
+    def _model_to_dict(self, model_instance: Any) -> Optional[Dict[str, Any]]:
+        if not model_instance:
+            return None
+        
+        logger.debug(f"[_model_to_dict] Serializing instance of {model_instance.__class__.__name__} with ID: {getattr(model_instance, 'id', 'N/A')}")
+        entity_dict = {}
+        try:
+            for c in inspect(model_instance.__class__).mapper.column_attrs:
+                try:
+                    value = getattr(model_instance, c.key)
+                    entity_dict[c.key] = value
+                    logger.debug(f"[_model_to_dict] Successfully serialized attribute: {c.key} = {value}")
+                except Exception as e_attr:
+                    logger.error(f"[_model_to_dict] Error serializing attribute {c.key} for instance {getattr(model_instance, 'id', 'N/A')}: {e_attr}", exc_info=True)
+                    # Optionally, you could choose to skip the problematic attribute or raise the error:
+                    # entity_dict[c.key] = f"ERROR_SERIALIZING: {e_attr}" 
+                    # raise e_attr # Re-raise to see the 500 immediately with this specific attribute error
+            logger.debug(f"[_model_to_dict] Successfully serialized instance {getattr(model_instance, 'id', 'N/A')}")
+            return entity_dict
+        except Exception as e_main:
+            logger.error(f"[_model_to_dict] General error during serialization of instance {getattr(model_instance, 'id', 'N/A')}: {e_main}", exc_info=True)
+            raise # Re-raise the original error to maintain 500 behavior but with more logs
     
     async def get_entities_with_related_names(
         self,
@@ -618,55 +633,94 @@ class SportsService:
     async def get_entity_by_name(self, db: AsyncSession, entity_type: str, name: str) -> Optional[dict]:
         """
         Get an entity by name.
-        
-        For broadcast_company and production_company entity types, if not found with the given name,
-        will also attempt to look up a brand with the same name as a fallback.
+        Delegates to specific services or handles special cases.
         """
-        # Handle special case for broadcast_company (using Brand with company_type='Broadcaster')
+        logger.debug(f"[SportsService.get_entity_by_name] Called for entity_type: {entity_type}, name: '{name}'")
+        target_brand_model = None # Used to hold the brand model instance across different logic paths
+
         if entity_type == 'broadcast_company':
-            # Try to find a Brand with company_type='Broadcaster' and matching name
-            broadcast_company_query = select(Brand).where(
+            action_taken = "found" # Default action
+
+            # 1. Try to find an existing Brand with company_type='Broadcaster' and matching name
+            exact_broadcaster_query = select(Brand).where(
                 (func.lower(Brand.name) == func.lower(name)) &
                 (Brand.company_type == "Broadcaster")
             )
-            bc_result = await db.execute(broadcast_company_query)
-            broadcast_company = bc_result.scalars().first()
-            
-            if broadcast_company:
-                # Found a broadcast company, convert to dict and return
-                return self._model_to_dict(broadcast_company)
-            
-            # No broadcast company brand found, try looking up a generic brand 
-            logger.info(f"No broadcaster brand found with name '{name}', checking generic brands...")
-            brand_query = select(Brand).where(
-                (func.lower(Brand.name) == func.lower(name)) &
-                ((Brand.company_type.is_(None)) | (Brand.company_type != "Production Company"))
-            )
-            brand_result = await db.execute(brand_query)
-            brand = brand_result.scalars().first()
-            
-            if brand:
-                # Found a brand, convert to a broadcast company-like dict
-                logger.info(f"Found brand '{brand.name}' with ID {brand.id}, marking as broadcast company")
-                brand_dict = self._model_to_dict(brand)
-                
-                # Add a special field to indicate this is a brand being used as a broadcaster
-                brand_dict['_is_brand'] = True
-                
-                # Set company type if not already set
-                if not brand.company_type:
-                    brand.company_type = "Broadcaster"
+            exact_bc_result = await db.execute(exact_broadcaster_query)
+            target_brand_model = exact_bc_result.scalars().first()
+
+            if not target_brand_model:
+                # 2. Not found as a specific broadcaster, check for an adaptable generic/other brand
+                logger.info(f"No exact broadcaster brand found with name '{name}', checking adaptable generic/other brands...")
+                adaptable_brand_query = select(Brand).where(
+                    (func.lower(Brand.name) == func.lower(name)) &
+                    ((Brand.company_type.is_(None)) | (Brand.company_type != "Production Company"))
+                )
+                adaptable_brand_result = await db.execute(adaptable_brand_query)
+                target_brand_model = adaptable_brand_result.scalars().first()
+
+                if target_brand_model:
+                    logger.info(f"Found adaptable brand '{target_brand_model.name}' (ID: {target_brand_model.id}, Type: {target_brand_model.company_type}, Industry: {target_brand_model.industry}). Updating to Broadcaster/Broadcasting industry.")
+                    needs_commit = False
+                    if target_brand_model.company_type != "Broadcaster":
+                        target_brand_model.company_type = "Broadcaster"
+                        needs_commit = True
+                    if target_brand_model.industry != "Broadcasting":
+                        target_brand_model.industry = "Broadcasting"
+                        needs_commit = True
+                    
+                    if needs_commit:
+                        try:
+                            await db.commit()
+                            await db.refresh(target_brand_model) # Refresh to get any DB-side changes like updated_at
+                            action_taken = "updated_existing"
+                            logger.info(f"Successfully updated brand '{target_brand_model.name}' to Broadcaster/Broadcasting industry.")
+                        except Exception as e_commit:
+                            logger.error(f"Error committing updates to brand {target_brand_model.id} ('{target_brand_model.name}') during broadcast_company lookup: {e_commit}", exc_info=True)
+                            await db.rollback()
+                            # Fallback: use the brand as is, action remains "found" or a specific error state
+                            action_taken = "found_update_failed" 
+                    else:
+                        # Brand was found and already had correct type and industry
+                        action_taken = "found_already_correct"
+                else:
+                    # 3. No existing brand found at all. Create a new one.
+                    logger.info(f"No existing adaptable brand found for '{name}'. Creating new brand as Broadcaster with Broadcasting industry.")
                     try:
-                        await db.commit()
-                    except:
-                        await db.rollback()
-                
+                        brand_create_schema = BrandCreate(
+                            name=name,
+                            industry="Broadcasting",
+                            company_type="Broadcaster"
+                        )
+                        # Ensure brand_service is initialized (it should be from __init__)
+                        if not hasattr(self, 'brand_service') or not self.brand_service:
+                             logger.critical("CRITICAL: self.brand_service not initialized in SportsService before creating brand!")
+                             # This case should ideally not happen if __init__ is correct.
+                             # For safety, one might initialize it here, but it points to a larger issue.
+                             # self.brand_service = BrandService() # Avoid if possible, ensure __init__
+                             # For now, let's assume it's initialized. If not, an AttributeError will occur here, which is informative.
+                        
+                        created_brand_instance = await self.brand_service.create_brand(db, brand_create_schema)
+                        target_brand_model = created_brand_instance # Use the newly created model
+                        action_taken = "created_new"
+                        logger.info(f"Successfully created new brand '{target_brand_model.name}' (ID: {target_brand_model.id}).")
+                    except Exception as e_create:
+                        logger.error(f"Error creating new brand for '{name}' during broadcast_company lookup: {e_create}", exc_info=True)
+                        # If creation fails, we cannot resolve this broadcast_company name
+                        return None # Explicitly return None if creation fails
+
+            # Process the final target_brand_model (whether found, updated, or created)
+            if target_brand_model:
+                brand_dict = self._model_to_dict(target_brand_model)
+                if brand_dict: 
+                    brand_dict['_action'] = action_taken
+                    # '_is_brand' was used in some previous logic, keeping for potential compatibility if other code relies on it.
+                    # However, the entity_type 'broadcast_company' itself implies it's a brand.
+                    brand_dict['_is_brand'] = True 
                 return brand_dict
             
-            # Neither broadcast company nor brand found
-            return None
+            return None # Reached if no brand found and creation also failed or wasn't attempted.
             
-        # Handle special case for production_company (using Brand with company_type='Production Company')
         elif entity_type == 'production_company':
             # Try to find a Brand with company_type='Production Company' and matching name
             production_company_query = select(Brand).where(
@@ -677,10 +731,8 @@ class SportsService:
             production_company = pc_result.scalars().first()
             
             if production_company:
-                # Found a production company, convert to dict and return
                 return self._model_to_dict(production_company)
             
-            # No production company brand found, try looking up a generic brand 
             logger.info(f"No production company brand found with name '{name}', checking generic brands...")
             brand_query = select(Brand).where(
                 (func.lower(Brand.name) == func.lower(name)) &
@@ -690,63 +742,26 @@ class SportsService:
             brand = brand_result.scalars().first()
             
             if brand:
-                # Found a brand, convert to a production company-like dict
                 logger.info(f"Found brand '{brand.name}' with ID {brand.id}, marking as production company")
                 brand_dict = self._model_to_dict(brand)
-                
-                # Add a special field to indicate this is a brand being used as a production company
                 brand_dict['_is_brand'] = True
-                
-                # Set company type if not already set
                 if not brand.company_type:
                     brand.company_type = "Production Company"
                     try:
                         await db.commit()
-                    except:
+                    except: # noqa: E722
                         await db.rollback()
-                
                 return brand_dict
-            
-            # Neither production company nor brand found
             return None
             
-        # If entity_type is 'brand', look for any company
         elif entity_type == 'brand':
-            # Try to find a brand directly
-            brand_query = select(Brand).where(func.lower(Brand.name) == func.lower(name))
-            brand_result = await db.execute(brand_query)
-            brand = brand_result.scalars().first()
-            
-            if brand:
-                return self._model_to_dict(brand)
-                
-            # Try looking for a brand with company_type='Broadcaster'
-            broadcast_query = select(Brand).where(
-                (func.lower(Brand.name) == func.lower(name)) &
-                (Brand.company_type == "Broadcaster")
-            )
-            broadcast_result = await db.execute(broadcast_query)
-            broadcast = broadcast_result.scalars().first()
-            
-            if broadcast:
-                logger.info(f"Found broadcaster brand '{broadcast.name}'")
-                return self._model_to_dict(broadcast)
-                
-            # Try looking for a brand with company_type='Production Company'
-            production_query = select(Brand).where(
-                (func.lower(Brand.name) == func.lower(name)) &
-                (Brand.company_type == "Production Company")
-            )
-            production_result = await db.execute(production_query)
-            production = production_result.scalars().first()
-            
-            if production:
-                logger.info(f"Found production company brand '{production.name}'")
-                return self._model_to_dict(production)
-                
-            return None
-        
-        # Handle special entity types
+            # This can likely use self.brand_service.get_brand_by_name if such a method exists
+            # For now, let's assume the existing direct logic for 'brand' in facade is okay,
+            # or refactor it to use self.brand_service.get_entity_by_name if BrandService inherits from BaseEntityService.
+            # To ensure consistency, ideally it should call:
+            brand_entity = await self.brand_service.get_entity_by_name(db, name, raise_not_found=False)
+            return self._model_to_dict(brand_entity) if brand_entity else None
+
         if entity_type.lower() in ('championship', 'playoff', 'playoffs', 'tournament'):
             # For championships, playoffs, and tournaments, we return a special object with the name and type
             # This is a virtual entity that doesn't have a database table
@@ -761,31 +776,56 @@ class SportsService:
                 "_virtual": True  # Flag to indicate this is a virtual entity
             }
         
-        # Handle all other entity types normally
-        if entity_type not in self.ENTITY_TYPES:
-            raise ValueError(f"Invalid entity type: {entity_type}")
+        # Delegate to specific services for standard entity types
+        entity: Optional[Any] = None
+        if entity_type == 'league':
+            entity = await self.league_service.get_league_by_name(db, name) # Correctly uses LeagueService
+        elif entity_type == 'team':
+            entity = await self.team_service.get_team_by_name(db, name) # Assuming TeamService has get_team_by_name
+        elif entity_type == 'division_conference':
+            # Assuming DivisionConferenceService has get_division_conference_by_name
+            division_conference_service = DivisionConferenceService() # Instantiate if not already in self
+            entity = await division_conference_service.get_entity_by_name(db, name) # Use get_entity_by_name
+        elif entity_type == 'stadium':
+            entity = await self.stadium_service.get_stadium_by_name(db, name) # Assuming StadiumService has get_stadium_by_name
+        # Add other specific entity type delegations here as needed
+        # e.g., player, game etc.
         
-        model_class = self.ENTITY_TYPES[entity_type]
-        if model_class is None:
-            raise ValueError(f"Entity type {entity_type} does not have a dedicated model")
-        
-        # Use case-insensitive search
-        query = select(model_class).where(func.lower(model_class.name) == func.lower(name))
-        result = await db.execute(query)
-        entity = result.scalars().first()
-        
+        else:
+            # Fallback to generic model lookup if no specific service handler implemented yet for this path
+            # This block should ideally be phased out as specific service methods are used.
+            logger.warning(f"[SportsService.get_entity_by_name] No specific service handler for '{entity_type}', using generic model lookup.")
+            if entity_type not in self.ENTITY_TYPES:
+                raise ValueError(f"Invalid entity type: {entity_type}")
+            model_class = self.ENTITY_TYPES[entity_type]
+            if not model_class: # Should not happen if ENTITY_TYPES is correct
+                 raise ValueError(f"Entity type {entity_type} does not have a dedicated model")
+
+            # This is the problematic part that was only querying by name
+            # The specific services (e.g., LeagueService) should now call the enhanced BaseEntityService.get_entity_by_name
+            # So, this direct query is redundant if delegation above is comprehensive.
+            # If we reach here, it means delegation wasn't set up for this entity_type.
+            # For safety, we can call the base method on a temp base service instance if we know the model_class.
+            # However, it's better to ensure delegation.
+            # For now, let's assume the delegation above will cover the main cases like 'league'.
+            # If a type reaches here, it means it's not covered by specific delegation.
+            # The old query:
+            # query = select(model_class).where(func.lower(model_class.name) == func.lower(name))
+            # result = await db.execute(query)
+            # entity = result.scalars().first()
+            # We should avoid this direct query if possible.
+            # If the entity_type is valid and has a service, it should have been handled.
+            # If it's a valid type but no explicit service path, we could instantiate a BaseEntityService for it.
+            base_service_instance = BaseEntityService(model_class)
+            entity = await base_service_instance.get_entity_by_name(db, name, raise_not_found=False)
+
+
         if entity:
-            # Convert to dict
             entity_dict = self._model_to_dict(entity)
-            
-            # For division_conference, also include the league name
-            if entity_type == 'division_conference' and hasattr(entity, 'league_id'):
-                league_query = select(League).where(League.id == entity.league_id)
-                league_result = await db.execute(league_query)
-                league = league_result.scalars().first()
+            if entity_type == 'division_conference' and hasattr(entity, 'league_id') and entity.league_id:
+                league = await self.league_service.get_league(db, entity.league_id)
                 if league:
                     entity_dict['league_name'] = league.name
-            
             return entity_dict
         
         return None

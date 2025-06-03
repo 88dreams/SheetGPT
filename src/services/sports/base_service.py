@@ -146,11 +146,11 @@ class BaseEntityService(Generic[T]):
     @handle_database_errors
     async def get_entity_by_name(self, db: AsyncSession, name: str, raise_not_found: bool = True) -> Optional[T]:
         """
-        Get an entity by name (case-insensitive).
+        Get an entity by name (case-insensitive), checking nickname if available.
         
         Args:
             db: Database session
-            name: Name of the entity to find
+            name: Name or Nickname of the entity to find
             raise_not_found: Whether to raise EntityNotFoundError if entity doesn't exist
             
         Returns:
@@ -160,16 +160,43 @@ class BaseEntityService(Generic[T]):
             EntityNotFoundError: If entity doesn't exist and raise_not_found is True
             ValidationError: If the model doesn't have a 'name' attribute
         """
+        logger.debug(f"[BaseEntityService.get_entity_by_name] Called for entity_type: {self.entity_type}, name: '{name}', model_class: {self.model_class.__name__}")
+
         if not hasattr(self.model_class, 'name'):
+            logger.error(f"[BaseEntityService.get_entity_by_name] Model {self.model_class.__name__} does not have a 'name' attribute.")
             raise ValidationError(f"{self.entity_type} model does not have a 'name' attribute")
             
-        # Use case-insensitive search
-        query = select(self.model_class).where(func.lower(self.model_class.name) == func.lower(name))
+        search_term_lower = name.lower()
+        logger.debug(f"[BaseEntityService.get_entity_by_name] Lowercased search term: '{search_term_lower}'")
+
+        conditions = [func.lower(self.model_class.name) == search_term_lower]
+        logger.debug(f"[BaseEntityService.get_entity_by_name] Initial condition: name == '{search_term_lower}'")
+
+        if hasattr(self.model_class, 'nickname'):
+            logger.debug(f"[BaseEntityService.get_entity_by_name] Model {self.model_class.__name__} has nickname attribute. Adding to conditions.")
+            conditions.append(func.lower(self.model_class.nickname) == search_term_lower)
+        else:
+            logger.debug(f"[BaseEntityService.get_entity_by_name] Model {self.model_class.__name__} does NOT have nickname attribute.")
+        
+        query = select(self.model_class).where(or_(*conditions))
+        
+        # Log the generated SQL query (for dialects that support it easily like PostgreSQL)
+        try:
+            from sqlalchemy.dialects import postgresql
+            compiled_query = query.compile(dialect=postgresql.dialect(), compile_kwargs={"literal_binds": True})
+            logger.debug(f"[BaseEntityService.get_entity_by_name] Compiled SQL Query: {str(compiled_query)}")
+        except Exception as e:
+            logger.warning(f"[BaseEntityService.get_entity_by_name] Could not compile query for logging: {e}")
+
         result = await db.execute(query)
         entity = result.scalars().first()
         
+        if entity:
+            logger.debug(f"[BaseEntityService.get_entity_by_name] Found entity: {entity}")
+        else:
+            logger.debug(f"[BaseEntityService.get_entity_by_name] No entity found.")
+
         if entity is None and raise_not_found:
-            # Use standardized entity not found error
             raise EntityNotFoundError(entity_type=self.entity_type, entity_name=name)
             
         return entity
@@ -177,7 +204,7 @@ class BaseEntityService(Generic[T]):
     @handle_database_errors
     async def find_entity(self, db: AsyncSession, search_term: str, raise_not_found: bool = False) -> Optional[T]:
         """
-        Find an entity by partial name match or exact ID match.
+        Find an entity by partial name/nickname match or exact ID match.
         
         Args:
             db: Database session
@@ -202,39 +229,52 @@ class BaseEntityService(Generic[T]):
             # Not a valid UUID, continue with name search
             pass
         
-        # Require name attribute for searching
+        # Require name attribute for searching by name/nickname (nickname alone isn't usually enough)
         if not hasattr(self.model_class, 'name'):
             if raise_not_found:
-                raise ValidationError(f"{self.entity_type} model does not have a 'name' attribute")
+                raise ValidationError(f"{self.entity_type} model does not have a 'name' attribute for searching.")
             return None
             
-        # Try exact match first (case insensitive)
-        query = select(self.model_class).where(func.lower(self.model_class.name) == func.lower(search_term))
-        result = await db.execute(query)
-        entity = result.scalars().first()
-        
-        if entity:
-            return entity
+        search_term_lower = search_term.lower()
+
+        # Try exact match on name first (case insensitive)
+        query_name_exact = select(self.model_class).where(func.lower(self.model_class.name) == search_term_lower)
+        result_name_exact = await db.execute(query_name_exact)
+        entity_name_exact = result_name_exact.scalars().first()
+        if entity_name_exact:
+            return entity_name_exact
             
-        # Try partial match (contains)
-        query = select(self.model_class).where(
-            func.lower(self.model_class.name).contains(func.lower(search_term))
-        )
-        result = await db.execute(query)
-        entities = result.scalars().all()
+        # If model has nickname, try exact match on nickname (case insensitive)
+        if hasattr(self.model_class, 'nickname'):
+            query_nickname_exact = select(self.model_class).where(func.lower(self.model_class.nickname) == search_term_lower)
+            result_nickname_exact = await db.execute(query_nickname_exact)
+            entity_nickname_exact = result_nickname_exact.scalars().first()
+            if entity_nickname_exact:
+                return entity_nickname_exact
+            
+        # Try partial match (contains) on name and nickname (if available)
+        partial_match_conditions = [func.lower(self.model_class.name).contains(search_term_lower)]
+        if hasattr(self.model_class, 'nickname') and self.model_class.nickname is not None: # Check if nickname column exists and is not None type
+            partial_match_conditions.append(func.lower(self.model_class.nickname).contains(search_term_lower))
         
-        # If we have multiple matches but one is an exact word match, prefer that one
-        if len(entities) > 1:
-            # Check for word boundary matches (more precise than just contains)
-            for entity in entities:
+        query_partial = select(self.model_class).where(or_(*partial_match_conditions))
+        result_partial = await db.execute(query_partial)
+        entities_partial = result_partial.scalars().all()
+        
+        # If we have multiple partial matches, try to find a more precise one (exact word match)
+        if len(entities_partial) > 1:
+            for entity in entities_partial:
                 name_parts = entity.name.lower().split()
-                search_term_lower = search_term.lower()
                 if search_term_lower in name_parts:
                     return entity
+                if hasattr(entity, 'nickname') and entity.nickname:
+                    nickname_parts = entity.nickname.lower().split()
+                    if search_term_lower in nickname_parts:
+                        return entity
         
-        # Otherwise return the first match if any
-        if entities:
-            return entities[0]
+        # Otherwise return the first partial match if any
+        if entities_partial:
+            return entities_partial[0]
             
         if raise_not_found:
             raise EntityNotFoundError(entity_type=self.entity_type, entity_name=search_term)
@@ -400,3 +440,31 @@ class BaseEntityService(Generic[T]):
         await db.commit()
         
         return result.rowcount
+
+    @handle_database_errors
+    async def get_all_models(self, db: AsyncSession, filters: Optional[Dict[str, Any]] = None) -> List[T]:
+        """
+        Get all entity model instances, with optional filtering.
+        
+        Args:
+            db: Database session
+            filters: Optional dictionary of field:value pairs to filter on
+            
+        Returns:
+            List of entity model instances.
+        """
+        query = select(self.model_class)
+        
+        if filters:
+            conditions = self._prepare_filters(filters)
+            if conditions:
+                query = query.where(*conditions)
+        
+        # Optional: Add default sorting if desired for consistency, e.g., by name or ID
+        if hasattr(self.model_class, "name"):
+            query = query.order_by(self.model_class.name.asc())
+        elif hasattr(self.model_class, "id"):
+            query = query.order_by(self.model_class.id.asc())
+            
+        result = await db.execute(query)
+        return result.scalars().all()

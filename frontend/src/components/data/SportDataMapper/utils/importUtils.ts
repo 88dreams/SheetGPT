@@ -483,6 +483,7 @@ async function _createOrUpdateStandardEntity(
   // Create logic (either not in update mode, or update failed with "not found")
   console.log(`_createOrUpdateStandardEntity: Creating new ${entityType}:`, data);
   try {
+    console.log('Frontend: Payload for /sports/teams (from _createOrUpdateStandardEntity):', JSON.stringify(data, null, 2));
     const response = await sportsDatabaseService.createEntity(
       entityType,
       data,
@@ -525,6 +526,7 @@ export const saveEntityToDatabase = async (
     
     // Step 2: Resolve references
     await resolveReferencesForEntity(entityType, processedData);
+    console.log('Frontend: processedData AFTER resolveReferencesForEntity:', JSON.stringify(processedData, null, 2));
     
     // Step 3: Call appropriate save/update helper
     if (entityType === 'broadcast') {
@@ -805,33 +807,81 @@ async function _resolveBroadcastEntityReferences(processedData: Record<string, a
 }
 
 async function _resolveTeamEntityReferences(processedData: Record<string, any>): Promise<void> {
-  console.log('Processing team entity for reference resolution');
+  console.log('Processing team entity for reference resolution, initial data:', JSON.stringify(processedData));
+
+  let stadiumNameToLookup: string | undefined = undefined;
+
   if (processedData.stadium_id && typeof processedData.stadium_id === 'string' && !isValidUUID(processedData.stadium_id)) {
-    console.log(`Looking up stadium "${processedData.stadium_id}"`);
-    try {
-      const stadiumLookup = await api.sports.lookup('stadium', processedData.stadium_id);
-      if (stadiumLookup && stadiumLookup.id) {
-        processedData.stadium_id = stadiumLookup.id;
-      }
-    } catch (error: any) { console.log(`Stadium lookup failed: ${error.message}`); /* Allow to proceed if not found */ }
+    stadiumNameToLookup = processedData.stadium_id;
+  } else if (processedData.stadium_name && typeof processedData.stadium_name === 'string') { 
+    stadiumNameToLookup = processedData.stadium_name;
+    if (!isValidUUID(processedData.stadium_id)) {
+        processedData.stadium_id = null; 
+    }
   }
-  if (processedData.league_id && typeof processedData.league_id === 'string' && !isValidUUID(processedData.league_id)) {
-    console.log(`Looking up league "${processedData.league_id}"`);
+
+  if (stadiumNameToLookup) {
+    console.log(`Found stadium name "${stadiumNameToLookup}" to look up. Current stadium_id: ${processedData.stadium_id}`);
     try {
-      const leagueLookup = await api.sports.lookup('league', processedData.league_id);
+      const stadiumLookup = await api.sports.lookup('stadium', stadiumNameToLookup);
+      if (stadiumLookup && stadiumLookup.id) {
+        console.log(`Stadium "${stadiumNameToLookup}" found with ID: ${stadiumLookup.id}`);
+        processedData.stadium_id = stadiumLookup.id;
+        delete processedData.stadium_name_to_resolve; 
+      } else {
+        console.warn(`Stadium "${stadiumNameToLookup}" not found. Setting stadium_id to null and passing name for backend creation.`);
+        processedData.stadium_id = null;
+        processedData.stadium_name_to_resolve = stadiumNameToLookup;
+      }
+    } catch (error: any) { 
+      console.error(`Stadium lookup for "${stadiumNameToLookup}" failed: ${error.message}. Setting stadium_id to null.`);
+      processedData.stadium_id = null; 
+      processedData.stadium_name_to_resolve = stadiumNameToLookup;
+    }
+  } else if (isValidUUID(processedData.stadium_id)) {
+     delete processedData.stadium_name_to_resolve;
+     console.log('Stadium ID is already a UUID:', processedData.stadium_id);
+  } else {
+    console.log('Stadium ID is initially null or empty, and no stadium_name found to resolve. Backend will handle.');
+    delete processedData.stadium_name_to_resolve; 
+  }
+
+  // Resolve League ID
+  if (processedData.league_id && typeof processedData.league_id === 'string' && !isValidUUID(processedData.league_id)) {
+    const leagueNameString = processedData.league_id;
+    console.log(`Looking up league "${leagueNameString}"`);
+    try {
+      const leagueLookup = await api.sports.lookup('league', leagueNameString);
       if (leagueLookup && leagueLookup.id) {
         processedData.league_id = leagueLookup.id;
+      } else {
+         console.warn(`League "${leagueNameString}" not found. league_id will remain as string name.`);
       }
-    } catch (error: any) { console.log(`League lookup failed: ${error.message}`); /* Allow to proceed if not found */ }
+    } catch (error: any) { console.log(`League lookup for "${leagueNameString}" failed: ${error.message}`);}
   }
+
+  // Resolve Division/Conference ID
+  let divisionConferenceResolved = false;
   if (processedData.division_conference_id && typeof processedData.division_conference_id === 'string' && !isValidUUID(processedData.division_conference_id)) {
-    console.log(`Looking up division_conference "${processedData.division_conference_id}"`);
+    const divConfNameString = processedData.division_conference_id;
+    console.log(`Looking up division_conference "${divConfNameString}"`);
     try {
-        const divConfLookup = await api.sports.lookup('division_conference', processedData.division_conference_id);
+        const divConfLookup = await api.sports.lookup('division_conference', divConfNameString);
         if (divConfLookup && divConfLookup.id) {
             processedData.division_conference_id = divConfLookup.id;
+            divisionConferenceResolved = true; 
+        } else {
+            console.warn(`Division/Conference "${divConfNameString}" not found.`);
         }
-    } catch (error: any) { console.log(`Division/Conference lookup failed: ${error.message}`); }
+    } catch (error: any) { console.log(`Division/Conference lookup for "${divConfNameString}" failed: ${error.message}`); }
+  } else if (isValidUUID(processedData.division_conference_id)) {
+    divisionConferenceResolved = true; 
+  }
+
+  // Fallback for division_conference_id
+  if (!divisionConferenceResolved && processedData.league_id && isValidUUID(processedData.league_id)) {
+    console.log(`Division/Conference ID not resolved or provided. Using resolved League ID (${processedData.league_id}) as fallback for division_conference_id.`);
+    processedData.division_conference_id = processedData.league_id;
   }
 }
 

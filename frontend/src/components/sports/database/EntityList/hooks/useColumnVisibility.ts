@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { EntityType } from '../../../../../types/sports';
 
 interface ColumnConfigItem {
@@ -12,37 +12,32 @@ interface ColumnConfigItem {
  * Hook for managing column visibility
  */
 export function useColumnVisibility(entityType: EntityType, columnsConfigArray: ColumnConfigItem[]) {
+  console.log('--- RUNNING NEW useColumnVisibility CODE ---');
   // Column visibility state
   const [visibleColumns, setVisibleColumns] = useState<{[key: string]: boolean}>({});
   const [showColumnSelector, setShowColumnSelector] = useState<boolean>(false);
   const [showFullUuids, setShowFullUuids] = useState<boolean>(false);
 
-  // Memoize availableFields to prevent re-calculation if columnsConfigArray reference doesn't change unnecessarily
+  // Derive availableFields from columnsConfigArray.key, memoized
   const availableFields = useMemo(() => {
     if (!Array.isArray(columnsConfigArray) || columnsConfigArray.length === 0) return [];
-    return columnsConfigArray.map(col => col.key);
+    return columnsConfigArray.map(colConfig => colConfig.key);
   }, [columnsConfigArray]);
 
-  // Generate initial column order based on entity data
-  const getInitialVisibility = () => {
+  // Generate initial column visibility based on availableFields derived from columnsConfigArray
+  const getInitialVisibility = useCallback(() => {
     if (availableFields.length === 0) return {};
     
     let newVisibility: {[key: string]: boolean} = {};
     availableFields.forEach(fieldKey => {
-      const columnConfig = columnsConfigArray.find(c => c.key === fieldKey);
-      // Check if this is a UUID field that doesn't have a corresponding _name field
-      // For simplicity, we assume column type or specific naming conventions in `fieldKey` might indicate UUIDs.
-      // The original logic was: availableFields.includes(field.replace('_id', '_name'));
-      // This needs careful thought if we don't have the full entity data here anymore to check for _name pairs.
-      // A simpler heuristic: hide by default if it ends with _id AND is not 'id' itself, or is 'id'.
-      // Or, rely on a type property if available in ColumnConfigItem e.g. columnConfig?.type === 'uuid'
-      const isLikelyIdField = fieldKey === 'id' || (fieldKey.endsWith('_id')); 
-      // Default to visible, but hide likely ID fields. User can override.
-      // This is a common default. The original logic tried to be smarter about _name fields.
-      newVisibility[fieldKey] = !isLikelyIdField; 
+      // Simpler heuristic for default UUID hiding: hide if ends with _id or is 'id'
+      // User can override this with column selector.
+      // The original logic to check for a corresponding _name field is complex without full entity data here.
+      const isLikelyIdField = fieldKey === 'id' || fieldKey.endsWith('_id');
+      newVisibility[fieldKey] = !isLikelyIdField;
     });
     return newVisibility;
-  };
+  }, [availableFields]);
 
   /**
    * Initialize columns based on entity data when entity type or data changes
@@ -55,28 +50,28 @@ export function useColumnVisibility(entityType: EntityType, columnsConfigArray: 
     }
     
     const storageKey = `entityList_${entityType}_columns`;
-    let savedVisibility = sessionStorage.getItem(storageKey) || localStorage.getItem(storageKey);
+    let savedVisibilityJson = sessionStorage.getItem(storageKey) || localStorage.getItem(storageKey);
     
-    let newVisibility: {[key: string]: boolean} = {};
+    let newVisibilityState: {[key: string]: boolean} = {};
     
-    if (savedVisibility) {
+    if (savedVisibilityJson) {
       try {
-        const parsedVisibility = JSON.parse(savedVisibility);
-        newVisibility = { ...parsedVisibility };
+        const parsedVisibility = JSON.parse(savedVisibilityJson);
+        newVisibilityState = { ...parsedVisibility };
         
+        // Ensure all current availableFields are in the visibility state
         availableFields.forEach(fieldKey => {
-          if (newVisibility[fieldKey] === undefined) {
-            const columnConfig = columnsConfigArray.find(c => c.key === fieldKey);
-            const isLikelyIdField = fieldKey === 'id' || (fieldKey.endsWith('_id'));
-            newVisibility[fieldKey] = !isLikelyIdField;
+          if (newVisibilityState[fieldKey] === undefined) {
+            const isLikelyIdField = fieldKey === 'id' || fieldKey.endsWith('_id');
+            newVisibilityState[fieldKey] = !isLikelyIdField; // Default for new fields
           }
         });
       } catch (e) {
         console.error('Error parsing saved column visibility:', e);
-        newVisibility = getInitialVisibility();
+        newVisibilityState = getInitialVisibility();
       }
     } else {
-      newVisibility = getInitialVisibility();
+      newVisibilityState = getInitialVisibility();
     }
     
     // Special handling for entity visibility but respect user preferences
@@ -84,13 +79,14 @@ export function useColumnVisibility(entityType: EntityType, columnsConfigArray: 
     // It might need adjustment if it's trying to show/hide columns not in columnsConfigArray.
     // For now, assuming the fields mentioned will be in columnsConfigArray if relevant.
     if (entityType === 'broadcast' || entityType === 'production') {
-      if ('name' in newVisibility) {
-        // Only delete if it was truly based on a direct column 'name'.
-        // If 'name' is not a key from columnsConfigArray, this won't do anything, which is fine.
-        delete newVisibility['name']; 
+      if ('name' in newVisibilityState && availableFields.includes('name')) {
+        // This logic might need to be more nuanced based on desired default displayed name for these types
+        // For now, if a generic 'name' column exists from config, it respects saved or initial visibility.
+        // If the goal was to always hide a generic 'name' if specific name fields like 'broadcast_company_name' exist,
+        // that would require more complex logic here or in getInitialVisibility.
       }
       
-      if (Object.keys(newVisibility).length === 0 || !savedVisibility) { // Apply defaults if empty or no saved state
+      if (Object.keys(newVisibilityState).length === 0 || !savedVisibilityJson) { // Apply defaults if empty or no saved state
         const defaultVisibleForType: string[] = [];
         if (entityType === 'broadcast') {
           defaultVisibleForType.push('broadcast_company_name', 'territory', 'league_name', 'entity_name', 'entity_type');
@@ -99,14 +95,14 @@ export function useColumnVisibility(entityType: EntityType, columnsConfigArray: 
         }
         defaultVisibleForType.forEach(fieldKey => {
           if (availableFields.includes(fieldKey)) { // Check against fields derived from columnsConfigArray
-            newVisibility[fieldKey] = true;
+            newVisibilityState[fieldKey] = true;
           }
         });
       }
     }
-    setVisibleColumns(newVisibility);
+    setVisibleColumns(newVisibilityState);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [entityType, columnsConfigArray, availableFields]); // availableFields is memoized
+  }, [entityType, columnsConfigArray, availableFields, getInitialVisibility]); // getInitialVisibility is now a stable callback
 
   // Save column visibility to both localStorage and sessionStorage
   useEffect(() => {
@@ -118,22 +114,22 @@ export function useColumnVisibility(entityType: EntityType, columnsConfigArray: 
   }, [visibleColumns, entityType]);
 
   // Toggle visibility of all columns
-  const showAllColumns = () => {
+  const showAllColumns = useCallback(() => {
     if (availableFields.length === 0) return;
     const allVisible = availableFields.reduce((acc, fieldKey) => {
       acc[fieldKey] = true;
       return acc;
     }, {} as {[key: string]: boolean});
     setVisibleColumns(allVisible);
-  };
+  }, [availableFields]);
 
   // Toggle a single column's visibility
-  const toggleColumnVisibility = (fieldKey: string) => {
+  const toggleColumnVisibility = useCallback((fieldKey: string) => {
     setVisibleColumns(prev => ({
       ...prev,
       [fieldKey]: !prev[fieldKey]
     }));
-  };
+  }, []);
 
   return {
     visibleColumns,

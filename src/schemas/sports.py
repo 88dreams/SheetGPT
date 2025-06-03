@@ -118,13 +118,14 @@ class StadiumResponse(StadiumBase):
 # Base schemas for Team
 class TeamBase(BaseModel):
     league_id: UUID
-    stadium_id: UUID
-    division_conference_id: UUID  # Added missing required field
+    stadium_id: Optional[UUID] = None
+    division_conference_id: UUID
     name: str
     city: str
     state: Optional[str] = None
     country: str
     founded_year: Optional[int] = None
+    stadium_name_to_resolve: Optional[str] = None
 
 class TeamCreate(TeamBase):
     pass
@@ -132,7 +133,7 @@ class TeamCreate(TeamBase):
 class TeamUpdate(BaseModel):
     league_id: Optional[UUID] = None
     stadium_id: Optional[UUID] = None
-    division_conference_id: Optional[UUID] = None  # Added missing field
+    division_conference_id: Optional[UUID] = None
     name: Optional[str] = None
     city: Optional[str] = None
     state: Optional[str] = None

@@ -11,10 +11,17 @@ interface ChatInputProps {
   disabled?: boolean
 }
 
+// Define the default Table Data structure
+const DEFAULT_TABLE_DATA_FORMAT = {
+  headers: ['string'], // Or a more generic placeholder like ['Column 1']
+  rows: [['string']]    // Or [['Value 1']]
+};
+
 const ChatInput: React.FC<ChatInputProps> = ({ onSend, disabled = false }) => {
   const [message, setMessage] = useState('')
   const [isFormatModalOpen, setIsFormatModalOpen] = useState(false)
-  const [activeFormat, setActiveFormat] = useState<Record<string, any> | null>(null)
+  // Set activeFormat to Table Data by default
+  const [activeFormat, setActiveFormat] = useState<Record<string, any> | null>(DEFAULT_TABLE_DATA_FORMAT);
   const [fileContent, setFileContent] = useState<string | null>(null)
   const [fileName, setFileName] = useState<string | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -31,8 +38,8 @@ const ChatInput: React.FC<ChatInputProps> = ({ onSend, disabled = false }) => {
   const resizeStartRef = useRef({ y: 0, height: 0 })
   const isResizingRef = useRef(false)
 
-  // State for LLM selection
-  const [selectedLlm, setSelectedLlm] = useState<string>('claude_default')
+  // State for LLM selection - default to gpt-4o
+  const [selectedLlm, setSelectedLlm] = useState<string>('chatgpt_4o'); 
   
   // Updated LLM Options
   const llmOptions = [
@@ -60,7 +67,6 @@ const ChatInput: React.FC<ChatInputProps> = ({ onSend, disabled = false }) => {
       setMessage('')
       setFileContent(null)
       setFileName(null)
-      setActiveFormat(null)
     }
   }
 

@@ -29,33 +29,24 @@ class LeagueService(BaseEntityService[League]):
     @handle_database_errors
     async def get_leagues(self, db: AsyncSession, 
                          filters: Optional[Dict[str, Any]] = None,
-                         page: int = 1, 
-                         limit: int = 50,
-                         sort_by: str = "name", 
-                         sort_direction: str = "asc") -> Dict[str, Any]:
+                         # Remove pagination and sorting params if we always get all for this specific method
+                         # page: int = 1, 
+                         # limit: int = 50,
+                         # sort_by: str = "name", 
+                         # sort_direction: str = "asc"
+                         ) -> List[League]: # Change return type to List[League]
         """
-        Get all leagues with optional filtering.
+        Get all leagues.
         
         Args:
             db: Database session
-            filters: Optional dictionary of field:value pairs to filter on
-            page: Page number to retrieve
-            limit: Number of items per page
-            sort_by: Field to sort by
-            sort_direction: Sort direction ("asc" or "desc")
+            filters: Optional dictionary of field:value pairs to filter on (if needed by get_all_entities_raw)
             
         Returns:
-            Dictionary with paginated results and metadata
+            List of League model instances.
         """
-        # Use the enhanced get_entities method from BaseEntityService
-        return await super().get_entities(
-            db, 
-            filters=filters, 
-            page=page, 
-            limit=limit, 
-            sort_by=sort_by, 
-            sort_direction=sort_direction
-        )
+        # Use get_all_models from BaseEntityService to get a flat list of League models
+        return await super().get_all_models(db, filters=filters)
     
     @handle_database_errors
     async def create_league(self, db: AsyncSession, league_data: Union[LeagueCreate, Dict[str, Any]]) -> League:

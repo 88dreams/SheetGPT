@@ -11,6 +11,8 @@ services:
       - ./frontend:/app/frontend
       # Preserve the root node_modules installed during the build
       - /app/node_modules
+      # Preserve the frontend workspace's own node_modules installed during the build
+      - /app/frontend/node_modules
     environment:
       # NOTE: Keep backend:8000 here - it will be transformed in apiClient.ts for browser access
       - VITE_API_URL=http://backend:8000

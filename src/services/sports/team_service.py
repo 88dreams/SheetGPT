@@ -116,20 +116,6 @@ class TeamService(BaseEntityService[Team]):
             await EntityValidator.validate_stadium(db, team.stadium_id)
         # If team.stadium_id is None and no stadium_name_to_resolve, it means no stadium was intended (schema allows Optional)
 
-        # Explicit check before creating SQLAlchemy model if stadium_id is still None
-        # This is crucial because the database column teams.stadium_id is NOT NULL.
-        if team.stadium_id is None:
-            # This implies that either no stadium name was given initially,
-            # OR a name was given, but the find/create process above failed AND did not re-raise an error stopping execution,
-            # OR the find/create logic correctly decided stadium_id should be None (e.g., if creation was optional and failed).
-            # Given current DB constraints, this is an error state.
-            error_message = f"Stadium ID is None for team '{team.name}'. "
-            if team.stadium_name_to_resolve:
-                error_message += f"Attempted to resolve/create from name '{team.stadium_name_to_resolve}' but failed. "
-            error_message += "A valid stadium ID is required as per database constraints."
-            logger.error(error_message)
-            raise ValueError(error_message)
-
         # Check if a team with the same name already exists (after potential division_conference_id and stadium_id update)
         existing_team = await db.execute(
             select(Team).where(Team.name == team.name)

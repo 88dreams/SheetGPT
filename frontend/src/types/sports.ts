@@ -38,8 +38,8 @@ export interface DivisionConference extends BaseEntity {
 export interface Team extends BaseEntity {
   league_id: string;
   division_conference_id: string;
-  stadium_id: string;
-  city: string;
+  stadium_id?: string;
+  city?: string;
   state?: string;
   country: string;
   founded_year?: number;

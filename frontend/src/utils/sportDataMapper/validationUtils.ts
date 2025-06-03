@@ -88,10 +88,10 @@ export const validateEntityData = (
         }
       }
       
-      if (!data.city) {
-        errors.push('City is required');
-        console.warn(`Team validation error: City is required`);
-      }
+      // if (!data.city) {
+      //   errors.push('City is required');
+      //   console.warn(`Team validation error: City is required`);
+      // }
       if (!data.country) {
         errors.push('Country is required');
         console.warn(`Team validation error: Country is required`);

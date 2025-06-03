@@ -121,7 +121,7 @@ class TeamBase(BaseModel):
     stadium_id: Optional[UUID] = None
     division_conference_id: UUID
     name: str
-    city: str
+    city: Optional[str] = None
     state: Optional[str] = None
     country: str
     founded_year: Optional[int] = None

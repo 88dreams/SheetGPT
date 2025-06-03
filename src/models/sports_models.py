@@ -217,9 +217,9 @@ class Team(TimestampedBase):
         ForeignKey("divisions_conferences.id"),
         nullable=False
     )
-    stadium_id: Mapped[UUID] = mapped_column(
+    stadium_id: Mapped[Optional[UUID]] = mapped_column(
         ForeignKey("stadiums.id"),
-        nullable=False
+        nullable=True
     )
     name: Mapped[str] = mapped_column(
         String(100),
@@ -227,9 +227,9 @@ class Team(TimestampedBase):
         unique=True,
         index=True
     )
-    city: Mapped[str] = mapped_column(
+    city: Mapped[Optional[str]] = mapped_column(
         String(100),
-        nullable=False
+        nullable=True
     )
     state: Mapped[Optional[str]] = mapped_column(
         String(100),

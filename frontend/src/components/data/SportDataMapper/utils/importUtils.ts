@@ -809,6 +809,20 @@ async function _resolveBroadcastEntityReferences(processedData: Record<string, a
 async function _resolveTeamEntityReferences(processedData: Record<string, any>): Promise<void> {
   console.log('Processing team entity for reference resolution, initial data:', JSON.stringify(processedData));
 
+  // START ADDITION: Handle optional city: if it's an empty string, set to null
+  if (Object.prototype.hasOwnProperty.call(processedData, 'city') && processedData.city === "") {
+    console.log('City is an empty string, setting to null for optional database field.');
+    processedData.city = null;
+  }
+  // END ADDITION
+
+  // START ADDITION: Handle optional stadium_id: if it's an empty string, set to null
+  if (Object.prototype.hasOwnProperty.call(processedData, 'stadium_id') && processedData.stadium_id === "") {
+    console.log('stadium_id is an empty string, setting to null.');
+    processedData.stadium_id = null;
+  }
+  // END ADDITION
+
   let stadiumNameToLookup: string | undefined = undefined;
 
   if (processedData.stadium_id && typeof processedData.stadium_id === 'string' && !isValidUUID(processedData.stadium_id)) {

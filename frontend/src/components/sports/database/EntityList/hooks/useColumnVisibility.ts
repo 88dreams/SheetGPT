@@ -12,7 +12,6 @@ interface ColumnConfigItem {
  * Hook for managing column visibility
  */
 export function useColumnVisibility(entityType: EntityType, columnsConfigArray: ColumnConfigItem[]) {
-  console.log('--- RUNNING NEW useColumnVisibility CODE ---');
   // Column visibility state
   const [visibleColumns, setVisibleColumns] = useState<{[key: string]: boolean}>({});
   const [showColumnSelector, setShowColumnSelector] = useState<boolean>(false);
@@ -29,12 +28,16 @@ export function useColumnVisibility(entityType: EntityType, columnsConfigArray: 
     if (availableFields.length === 0) return {};
     
     let newVisibility: {[key: string]: boolean} = {};
+    const fieldsToHideByDefault = ['id', 'created_at', 'updated_at', 'deleted_at']; // Add our target fields
+
     availableFields.forEach(fieldKey => {
-      // Simpler heuristic for default UUID hiding: hide if ends with _id or is 'id'
-      // User can override this with column selector.
-      // The original logic to check for a corresponding _name field is complex without full entity data here.
-      const isLikelyIdField = fieldKey === 'id' || fieldKey.endsWith('_id');
-      newVisibility[fieldKey] = !isLikelyIdField;
+      const isLikelyIdField = fieldKey.endsWith('_id'); // Keep this for other _id fields
+      
+      if (fieldsToHideByDefault.includes(fieldKey) || isLikelyIdField) {
+        newVisibility[fieldKey] = false;
+      } else {
+        newVisibility[fieldKey] = true;
+      }
     });
     return newVisibility;
   }, [availableFields]);
@@ -44,65 +47,79 @@ export function useColumnVisibility(entityType: EntityType, columnsConfigArray: 
    */
   useEffect(() => {
     if (!entityType || availableFields.length === 0) {
-      // If no entity type or no fields from columnsConfigArray, don't proceed or clear visibility
-      // setVisibleColumns({}); // Optionally clear if desired when no columns
       return;
     }
     
     const storageKey = `entityList_${entityType}_columns`;
-    let savedVisibilityJson = sessionStorage.getItem(storageKey) || localStorage.getItem(storageKey);
+    const savedVisibilityJson = sessionStorage.getItem(storageKey) || localStorage.getItem(storageKey);
     
-    let newVisibilityState: {[key: string]: boolean} = {};
-    
+    let finalVisibilityState: {[key: string]: boolean} = {};
+    const initialDefaults = getInitialVisibility(); // Defines our base defaults
+    const fieldsToForceHide = ['created_at', 'updated_at', 'deleted_at'];
+
     if (savedVisibilityJson) {
       try {
-        const parsedVisibility = JSON.parse(savedVisibilityJson);
-        newVisibilityState = { ...parsedVisibility };
-        
-        // Ensure all current availableFields are in the visibility state
+        const parsedSavedVisibility = JSON.parse(savedVisibilityJson);
+        // Initialize with ideal defaults for all available fields
         availableFields.forEach(fieldKey => {
-          if (newVisibilityState[fieldKey] === undefined) {
-            const isLikelyIdField = fieldKey === 'id' || fieldKey.endsWith('_id');
-            newVisibilityState[fieldKey] = !isLikelyIdField; // Default for new fields
-          }
+          finalVisibilityState[fieldKey] = initialDefaults[fieldKey] !== undefined 
+            ? initialDefaults[fieldKey] 
+            : true; // Default to true if not in initialDefaults (should be rare)
         });
+
+        // Override with saved user preferences, EXCEPT for fields we want to force hide
+        for (const fieldKey in parsedSavedVisibility) {
+          if (availableFields.includes(fieldKey) && !fieldsToForceHide.includes(fieldKey)) {
+            finalVisibilityState[fieldKey] = parsedSavedVisibility[fieldKey];
+          }
+        }
+        // Ensure forced hidden fields are indeed false, even if storage had them true
+        fieldsToForceHide.forEach(fieldToHide => {
+            if (availableFields.includes(fieldToHide)) {
+                finalVisibilityState[fieldToHide] = false;
+            }
+        });
+
       } catch (e) {
-        console.error('Error parsing saved column visibility:', e);
-        newVisibilityState = getInitialVisibility();
+        console.error('Error parsing saved column visibility, using initial defaults with overrides:', e);
+        finalVisibilityState = { ...initialDefaults };
+        // Re-apply force hide over potentially faulty initialDefaults if error occurred during parse
+        fieldsToForceHide.forEach(fieldToHide => {
+            if (availableFields.includes(fieldToHide)) {
+                finalVisibilityState[fieldToHide] = false;
+            }
+        });
       }
     } else {
-      newVisibilityState = getInitialVisibility();
+      // No saved state, use initial defaults (which already hides these fields correctly)
+      finalVisibilityState = { ...initialDefaults };
     }
     
-    // Special handling for entity visibility but respect user preferences
-    // This part seems to rely on availableFields from the data, not just column config keys.
-    // It might need adjustment if it's trying to show/hide columns not in columnsConfigArray.
-    // For now, assuming the fields mentioned will be in columnsConfigArray if relevant.
-    if (entityType === 'broadcast' || entityType === 'production') {
-      if ('name' in newVisibilityState && availableFields.includes('name')) {
-        // This logic might need to be more nuanced based on desired default displayed name for these types
-        // For now, if a generic 'name' column exists from config, it respects saved or initial visibility.
-        // If the goal was to always hide a generic 'name' if specific name fields like 'broadcast_company_name' exist,
-        // that would require more complex logic here or in getInitialVisibility.
-      }
-      
-      if (Object.keys(newVisibilityState).length === 0 || !savedVisibilityJson) { // Apply defaults if empty or no saved state
+    // Special handling for 'broadcast' or 'production_service' default visible columns
+    // This applies if it's effectively a "new" view for this entity type for the user
+    if (entityType === 'broadcast' || entityType === 'production_service') { // Ensure type is correct
+      const isEffectivelyNewOrResetState = !savedVisibilityJson || 
+                                         (savedVisibilityJson && Object.keys(JSON.parse(savedVisibilityJson)).length === 0) ||
+                                         (finalVisibilityState === initialDefaults);
+
+      if (isEffectivelyNewOrResetState) {
         const defaultVisibleForType: string[] = [];
         if (entityType === 'broadcast') {
           defaultVisibleForType.push('broadcast_company_name', 'territory', 'league_name', 'entity_name', 'entity_type');
-        } else if (entityType === 'production') {
+        } else if (entityType === 'production_service') { // Ensure type is correct
           defaultVisibleForType.push('production_company_name', 'entity_name', 'entity_type', 'service_type');
         }
         defaultVisibleForType.forEach(fieldKey => {
-          if (availableFields.includes(fieldKey)) { // Check against fields derived from columnsConfigArray
-            newVisibilityState[fieldKey] = true;
+          if (availableFields.includes(fieldKey) && !fieldsToForceHide.includes(fieldKey)) {
+            finalVisibilityState[fieldKey] = true;
           }
         });
       }
     }
-    setVisibleColumns(newVisibilityState);
+
+    setVisibleColumns(finalVisibilityState);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [entityType, columnsConfigArray, availableFields, getInitialVisibility]); // getInitialVisibility is now a stable callback
+  }, [entityType, columnsConfigArray, availableFields, getInitialVisibility]); // getInitialVisibility is stable
 
   // Save column visibility to both localStorage and sessionStorage
   useEffect(() => {

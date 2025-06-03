@@ -1,10 +1,11 @@
-export type EntityType = 'league' | 'division_conference' | 'team' | 'player' | 'game' | 'stadium' | 'broadcast' | 'production' | 'brand' | 'game_broadcast' | 'league_executive';
+export type EntityType = 'league' | 'division_conference' | 'team' | 'player' | 'game' | 'stadium' | 'broadcast' | 'production_service' | 'brand' | 'game_broadcast' | 'league_executive';
 
 export interface BaseEntity {
   id: string;
   name: string;
   created_at?: string;
   updated_at?: string;
+  deleted_at?: string;
 }
 
 export interface Stadium extends BaseEntity {

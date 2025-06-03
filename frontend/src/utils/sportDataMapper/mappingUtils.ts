@@ -383,10 +383,9 @@ export const enhancedMapToDatabaseFieldNames = async (
             if (brandResponse.company_type === 'Production Company') {
               basicMapped.production_company_id = brandResponse.id;
               console.log(`Found brand with production role ID: ${brandResponse.id} for name: ${companyName}`);
-              basicMapped._usingBrandAsProductionCompany = true;
-              basicMapped._brandName = brandResponse.name;
             } else {
-              console.warn(`Brand "${companyName}" found but is not a production company (company_type=${brandResponse.company_type})`);
+              console.warn(`Brand "${companyName}" found with company_type="${brandResponse.company_type}". Using this Brand as Production Company.`);
+              basicMapped.production_company_id = brandResponse.id; // Use the ID anyway
             }
           } else {
             console.warn(`Could not find production company or brand with name: ${companyName}`);

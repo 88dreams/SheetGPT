@@ -71,6 +71,7 @@ const ContactsList: React.FC<ContactsListProps> = ({ brandId, onContactSelect })
   const [searchQuery, setSearchQuery] = useState('');
   const [showColumnSelector, setShowColumnSelector] = useState(false);
   const [rescanning, setRescanning] = useState(false);
+  const [rescanDisplayMessage, setRescanDisplayMessage] = useState<string | null>(null);
   const [isThresholdModalVisible, setIsThresholdModalVisible] = useState(false);
   const [rescanThreshold, setRescanThreshold] = useState(0.8);
   const [refetchKey, setRefetchKey] = useState(0);
@@ -493,6 +494,7 @@ const ContactsList: React.FC<ContactsListProps> = ({ brandId, onContactSelect })
   const confirmRescanWithThreshold = useCallback(async () => {
     setIsThresholdModalVisible(false);
     setRescanning(true);
+    setRescanDisplayMessage("Re-scanning contacts for brand associations... This may take some time. Please wait.");
     console.log(`Starting re-scan with threshold: ${rescanThreshold}`);
     try {
       const response = await apiClient.post('/api/v1/contacts/rematch-brands', 
@@ -511,6 +513,7 @@ const ContactsList: React.FC<ContactsListProps> = ({ brandId, onContactSelect })
            message += ` Encountered ${stats.errors.length} errors during DB operations.`
            showNotification('info', message);
         } else { showNotification('success', message); }
+        setRescanDisplayMessage(message);
         
         console.log("Invalidating contacts query cache (if used elsewhere)...");
         await queryClient.invalidateQueries({ queryKey: ['contacts'], exact: false }); 
@@ -525,18 +528,28 @@ const ContactsList: React.FC<ContactsListProps> = ({ brandId, onContactSelect })
           setCurrentPage(1);
         }
 
-      } else { showNotification('error', 'Backend reported failure during re-scan.'); }
-    } catch (err: any) {
-      console.error('Error re-scanning contacts:', err);
-      let errorMsg = 'Failed to re-scan contacts. Please try again.';
-      if (err.code === 'ECONNABORTED' || err.message?.includes('timeout')) {
-        errorMsg = 'Re-scan operation timed out. It might be processing in the background. Please check back later.';
+      } else {
+        showNotification('error', 'Backend reported failure during re-scan.');
+        setRescanDisplayMessage('Re-scan failed: Backend reported an issue.');
       }
-      showNotification('error', errorMsg);
+    } catch (err: any) {
+      console.error('Error during re-scan contacts:', err);
+      // Check for timeout-like error (axios specific, or a generic message check)
+      // This is a common way axios timeout errors manifest via error.code or error.message
+      if (err.code === 'ECONNABORTED' || (err.message && err.message.toLowerCase().includes('timeout'))) {
+        setRescanDisplayMessage("Re-scan initiated. This can take a while and will continue in the background. Please check back later for updated associations.");
+        showNotification('info', "Re-scan timed out on the frontend, but may still be processing in the background.");
+      } else {
+        const errorMessage = err.response?.data?.detail || err.message || 'An unknown error occurred during re-scan.';
+        showNotification('error', errorMessage);
+        setRescanDisplayMessage(`Re-scan failed: ${errorMessage}`);
+      }
     } finally {
       setRescanning(false);
+      // Optionally clear the rescanDisplayMessage after a delay or keep it until next action
+      // setTimeout(() => setRescanDisplayMessage(null), 10000); 
     }
-  }, [apiClient, rescanThreshold, showNotification, queryClient, setRefetchKey, currentPage]);
+  }, [apiClient, rescanThreshold, showNotification, queryClient, currentPage, limit, setRefetchKey, setCurrentPage]);
 
   // Handler for opening the retag modal
   const handleOpenRetagModal = () => {
@@ -743,6 +756,13 @@ const ContactsList: React.FC<ContactsListProps> = ({ brandId, onContactSelect })
             )}
             Re-scan for brand matches
           </button>
+
+          {/* Display Rescan Message */} 
+          {rescanDisplayMessage && (
+            <div className={`ml-4 p-2 text-sm ${rescanning ? 'text-blue-700' : (rescanDisplayMessage.toLowerCase().includes('fail') || rescanDisplayMessage.toLowerCase().includes('error')) ? 'text-red-700' : 'text-green-700'}`}>
+              {rescanDisplayMessage}
+            </div>
+          )}
 
           {/* Retag Selected Button - New */} 
           {selectedContactIds.size > 0 && (

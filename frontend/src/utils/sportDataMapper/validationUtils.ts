@@ -370,7 +370,7 @@ export const validateEntityData = (
       }
       break;
       
-    case 'production':
+    case 'production_service':
       console.log('Validating production service data:', data);
       
       if (!data.production_company_id) {

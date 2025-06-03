@@ -2,7 +2,7 @@ import { api } from '../utils/api';
 import { FilterConfig } from '../components/sports/EntityFilter';
 
 // Entity types
-export type EntityType = 'league' | 'division_conference' | 'team' | 'player' | 'game' | 'stadium' | 'broadcast' | 'production' | 'brand' | 'game_broadcast' | 'league_executive';
+export type EntityType = 'league' | 'division_conference' | 'team' | 'player' | 'game' | 'stadium' | 'broadcast' | 'production_service' | 'brand' | 'game_broadcast' | 'league_executive';
 
 // Base entity interface
 export interface BaseEntity {
@@ -196,7 +196,7 @@ const entityPromptTemplates: Record<EntityType, string> = {
 8. Value in dollars (optional)
 9. Description (optional)`,
 
-  production: `I'll help you create a new production service record. Please provide the following information:
+  production_service: `I'll help you create a new production service record. Please provide the following information:
 1. Name/title for this production service
 2. Production company (if you know the company ID, please provide it)
 3. Entity type (league, division_conference, team, or game)
@@ -374,7 +374,7 @@ class SportsDatabaseService {
         if (!data.end_date) errors.end_date = ['End date is required'];
         break;
         
-      case 'production':
+      case 'production_service':
         if (!data.production_company_id) errors.production_company_id = ['Production company ID is required'];
         if (!data.entity_type) errors.entity_type = ['Entity type is required'];
         if (!data.entity_id) errors.entity_id = ['Entity ID is required'];
@@ -428,7 +428,7 @@ class SportsDatabaseService {
           return await api.sports.createStadium(entityData);
         case 'broadcast':
           return await api.sports.createBroadcastRightsWithErrorHandling(entityData);
-        case 'production':
+        case 'production_service':
           return await api.sports.createProductionService(entityData);
         case 'brand':
           return await api.sports.createBrand(entityData);
@@ -536,7 +536,7 @@ class SportsDatabaseService {
           return await api.sports.getStadium(id);
         case 'broadcast':
           return await api.sports.getBroadcastRight(id);
-        case 'production':
+        case 'production_service':
           return await api.sports.getProductionService(id);
         case 'brand':
           return await api.sports.getBrand(id);
@@ -675,7 +675,7 @@ class SportsDatabaseService {
         case 'broadcast':
           response = await api.sports.createBroadcastRightsWithErrorHandling(entityData);
           break;
-        case 'production':
+        case 'production_service':
           response = await api.sports.createProductionService(entityData);
           break;
         case 'brand':
@@ -730,7 +730,7 @@ class SportsDatabaseService {
         case 'broadcast':
           await api.sports.deleteBroadcastRights(id);
           break;
-        case 'production':
+        case 'production_service':
           await api.sports.deleteProductionService(id);
           break;
         case 'brand':
@@ -843,7 +843,7 @@ class SportsDatabaseService {
           return await api.sports.updateStadium(entityId, updates);
         case 'broadcast':
           return await api.sports.updateBroadcastRights(entityId, updates);
-        case 'production':
+        case 'production_service':
           return await api.sports.updateProductionService(entityId, updates);
         case 'brand':
           return await api.sports.updateBrand(entityId, updates);

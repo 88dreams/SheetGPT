@@ -6,14 +6,13 @@ export type EntityType =
   | 'game' 
   | 'stadium' 
   | 'broadcast' 
-  | 'production' // This might map to production_service or be distinct
   | 'brand'
   | 'game_broadcast'
   | 'league_executive'
   | 'division_conference'
   | 'person' // Added based on linter error
   | 'production_company' // Added based on linter error
-  | 'production_service' // Added based on linter error
+  | 'production_service' // This is the standard one
   ;
 
 export interface EntityTypeInfo {
@@ -32,7 +31,7 @@ export const ENTITY_TYPES: readonly EntityTypeInfo[] = [
   { id: 'game', name: 'Game', description: 'Individual games between teams', requiredFields: ['name', 'league_id', 'home_team_id', 'away_team_id', 'stadium_id', 'date', 'season_year', 'season_type'] },
   { id: 'stadium', name: 'Stadium', description: 'Venues where games are played', requiredFields: ['name', 'city', 'country'] },
   { id: 'broadcast', name: 'Broadcast Rights', description: 'Media rights for leagues, teams, or games', requiredFields: ['broadcast_company_id', 'entity_type', 'entity_id', 'territory'] }, // Note: league_id is optional for broadcast rights
-  { id: 'production', name: 'Production Service', description: 'Production services for broadcasts', requiredFields: ['production_company_id', 'entity_type', 'entity_id', 'service_type', 'start_date'] },
+  { id: 'production_service', name: 'Production Service', description: 'Production services for broadcasts', requiredFields: ['production_company_id', 'entity_type', 'entity_id', 'service_type', 'start_date'] },
   { id: 'brand', name: 'Brand', description: 'Brand information', requiredFields: ['name', 'industry'] },
   { id: 'game_broadcast', name: 'Game Broadcast', description: 'Broadcast information for specific games', requiredFields: ['name', 'game_id', 'broadcast_company_id', 'broadcast_type', 'territory'] },
   { id: 'league_executive', name: 'League Executive', description: 'Executive personnel for leagues', requiredFields: ['name', 'league_id', 'position', 'start_date'] }

@@ -159,21 +159,53 @@ const EntityList: React.FC<EntityListProps> = ({ className = '' }) => {
   } = useInlineEdit({ selectedEntityType, handleUpdateEntity });
 
   const getInitialColumnOrder = () => {
-    if (!Array.isArray(entities) || entities.length === 0) return [];
-    const availableFields = Object.keys(entities[0]);
-    let coreFields = ['id', 'name', 'created_at', 'updated_at'];
+    // Use generatedColumnsArray (from useEntitySchema) as the source of truth for available field keys
+    const schemaAvailableFields = generatedColumnsArray.map(col => col.key);
+
+    if (schemaAvailableFields.length === 0) {
+      // Fallback if schema fields aren't ready, though less ideal
+      if (!Array.isArray(entities) || entities.length === 0) return [];
+      return Object.keys(entities[0] || {});
+    }
+
+    let coreFields = ['id', 'name', 'created_at', 'updated_at', 'deleted_at']; // Default general core fields
+
     if (selectedEntityType === 'broadcast') {
-      coreFields = ['broadcast_company_id', 'entity_id', 'division_conference_id', 'entity_type', 'territory', 'league_name', 'id', 'created_at', 'updated_at'];
+      coreFields = [
+        'broadcast_company_name', 'entity_name', 'league_name', 'league_sport', 
+        'territory', 'start_date', 'end_date'
+      ];
+    } else if (selectedEntityType === 'production_service') { 
+      coreFields = [
+        'production_company_name', 'service_type', 'league_name', 'entity_name', 
+        'secondary_brand_name', 'start_date', 'end_date'
+      ];
+    } else if (selectedEntityType === 'team') {
+      coreFields = [
+        'name', 'league_sport', 'league_name', 'division_conference_name', 
+        'stadium_name', 'city', 'state', 'founded_year'
+      ];
+    } else if (selectedEntityType === 'brand') {
+      coreFields = [
+        'name', 'company_type', 'partner', 'partner_relationship', 'country'
+      ];
     }
-    if (selectedEntityType === 'production') {
-      coreFields = ['production_company_name', 'entity_name', 'entity_type', 'service_type', 'id', 'created_at', 'updated_at'];
-    }
-    let filteredFields = [...availableFields];
-    if (selectedEntityType === 'broadcast' || selectedEntityType === 'production') {
-      const nameIndex = filteredFields.indexOf('name');
-      if (nameIndex !== -1) filteredFields.splice(nameIndex, 1);
+    
+    let displayableSchemaFields = [...schemaAvailableFields];
+    // For broadcast and production_service, optionally refine 'name' field removal
+    if (selectedEntityType === 'broadcast' || selectedEntityType === 'production_service') {
+      if (coreFields.includes('broadcast_company_name') || coreFields.includes('production_company_name') || coreFields.includes('entity_name')) {
+        const nameIndex = displayableSchemaFields.indexOf('name');
+        if (nameIndex > -1) {
+             displayableSchemaFields.splice(nameIndex, 1);
+        }
       }
-    return [...coreFields.filter(f => filteredFields.includes(f)), ...filteredFields.filter(f => !coreFields.includes(f))];
+    }
+    
+    const validCoreFields = coreFields.filter(f => displayableSchemaFields.includes(f));
+    const remainingFields = displayableSchemaFields.filter(f => !validCoreFields.includes(f));
+    
+    return [...validCoreFields, ...remainingFields];
   };
   
   const entitiesFingerprint = useMemo(() => 

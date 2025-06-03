@@ -56,7 +56,11 @@ export function useEntitySchema() {
             { name: 'city', required: true, type: 'string', description: 'City where the team is based' },
             { name: 'state', required: false, type: 'string', description: 'State/Province where the team is based' },
             { name: 'country', required: true, type: 'string', description: 'Country where the team is based' },
-            { name: 'founded_year', required: false, type: 'number', description: 'Year the team was founded' }
+            { name: 'founded_year', required: false, type: 'number', description: 'Year the team was founded' },
+            { name: 'league_name', required: false, type: 'string', description: 'Name of the league' },
+            { name: 'league_sport', required: false, type: 'string', description: 'Sport of the league' },
+            { name: 'division_conference_name', required: false, type: 'string', description: 'Name of the division/conference' },
+            { name: 'stadium_name', required: false, type: 'string', description: 'Name of the home stadium' }
           );
           break;
 
@@ -103,7 +107,6 @@ export function useEntitySchema() {
 
         case 'broadcast':
           fields.push(
-            // Note: 'name' field is removed as it's redundant with broadcast_company_name
             { name: 'broadcast_company_id', required: true, type: 'string', description: 'ID of the broadcasting company' },
             { name: 'broadcast_company_name', required: true, type: 'string', description: 'Name of the broadcasting company' },
             { name: 'entity_type', required: true, type: 'string', description: 'Type of entity being broadcast (league, team, game)' },
@@ -114,11 +117,14 @@ export function useEntitySchema() {
             { name: 'territory', required: true, type: 'string', description: 'Broadcast territory' },
             { name: 'start_date', required: true, type: 'date', description: 'Start date of broadcast rights' },
             { name: 'end_date', required: true, type: 'date', description: 'End date of broadcast rights' },
-            { name: 'is_exclusive', required: false, type: 'boolean', description: 'Whether the broadcast rights are exclusive' }
+            { name: 'is_exclusive', required: false, type: 'boolean', description: 'Whether the broadcast rights are exclusive' },
+            { name: 'league_id', required: false, type: 'string', description: 'ID of the league associated with this broadcast right' },
+            { name: 'league_name', required: false, type: 'string', description: 'Name of the league associated with this broadcast right' },
+            { name: 'league_sport', required: false, type: 'string', description: 'Sport type of the league associated with this broadcast right' }
           );
           break;
 
-        case 'production':
+        case 'production_service':
           fields.push(
             { name: 'production_company_id', required: true, type: 'string', description: 'ID of the production company' },
             { name: 'production_company_name', required: false, type: 'string', description: 'Name of the production company' },
@@ -129,7 +135,10 @@ export function useEntitySchema() {
             { name: 'entity_name', required: false, type: 'string', description: 'Name of the entity being produced' },
             { name: 'service_type', required: true, type: 'string', description: 'Type of production service' },
             { name: 'start_date', required: true, type: 'date', description: 'Start date of production service' },
-            { name: 'end_date', required: true, type: 'date', description: 'End date of production service' }
+            { name: 'end_date', required: true, type: 'date', description: 'End date of production service' },
+            { name: 'league_id', required: false, type: 'string', description: 'ID of the league associated with the entity' },
+            { name: 'league_name', required: false, type: 'string', description: 'Name of the league associated with the entity' },
+            { name: 'league_sport', required: false, type: 'string', description: 'Sport of the league associated with the entity' }
           );
           break;
 
@@ -139,7 +148,8 @@ export function useEntitySchema() {
             { name: 'company_type', required: false, type: 'string', description: 'Type of company (Broadcaster, Production Company, etc.)' },
             { name: 'country', required: false, type: 'string', description: 'Country where the brand is based' },
             { name: 'partner', required: false, type: 'string', description: 'Partner entity name (e.g., league, team, stadium)' },
-            { name: 'partner_relationship', required: false, type: 'string', description: 'Type of relationship with partner (Sponsor, Partner, etc.)' }
+            { name: 'partner_relationship', required: false, type: 'string', description: 'Type of relationship with partner (Sponsor, Partner, etc.)' },
+            { name: 'representative_entity_type', required: false, type: 'string', description: 'If this brand record acts as a proxy for another entity type (e.g., Team, League) for contact linking.' }
           );
           break;
 
@@ -180,8 +190,7 @@ export function useEntitySchema() {
       division_conference: ['id', 'name', 'created_at', 'updated_at', 'deleted_at', 'league_id', 'nickname', 'type', 'region', 'description'],
       
       // Team fields
-      team: ['id', 'name', 'created_at', 'updated_at', 'deleted_at', 'league_id', 'division_conference_id', 'stadium_id', 
-             'city', 'state', 'country', 'founded_year'],
+      team: ['id', 'name', 'created_at', 'updated_at', 'deleted_at', 'league_id', 'league_name', 'league_sport', 'division_conference_id', 'division_conference_name', 'stadium_id', 'stadium_name', 'city', 'state', 'country', 'founded_year'],
       
       // Player fields
       player: ['id', 'name', 'created_at', 'updated_at', 'deleted_at', 'team_id', 'position', 'jersey_number', 'college', 'sport', 'sponsor_id', 'sponsor_name'],
@@ -196,15 +205,17 @@ export function useEntitySchema() {
       
       // Broadcast Rights fields
       broadcast: ['id', 'name', 'created_at', 'updated_at', 'deleted_at', 'broadcast_company_id', 'broadcast_company_name', 'entity_type', 'entity_id',
-                  'entity_name', 'division_conference_id', 'division_conference_name', 'territory', 'start_date', 'end_date', 'is_exclusive'],
+                  'entity_name', 'division_conference_id', 'division_conference_name', 'territory', 'start_date', 'end_date', 'is_exclusive',
+                  'league_id', 'league_name', 'league_sport'],
       
       // Production fields (using production_service as key to match EntityType)
       production_service: ['id', 'name', 'created_at', 'updated_at', 'deleted_at', 'production_company_id', 'production_company_name', 
                    'secondary_brand_id', 'secondary_brand_name', 'entity_type', 'entity_id', 'entity_name',
-                   'service_type', 'start_date', 'end_date'],
+                   'service_type', 'start_date', 'end_date',
+                   'league_id', 'league_name', 'league_sport'],
       
       // Brand fields
-      brand: ['id', 'name', 'created_at', 'updated_at', 'deleted_at', 'industry', 'company_type', 'country', 'partner', 'partner_relationship'],
+      brand: ['id', 'name', 'created_at', 'updated_at', 'deleted_at', 'industry', 'company_type', 'country', 'partner', 'partner_relationship', 'representative_entity_type'],
       
       // Game Broadcast fields
       game_broadcast: ['id', 'name', 'created_at', 'updated_at', 'deleted_at', 'game_id', 'broadcast_company_id', 

@@ -30,4 +30,4 @@ EXPOSE 5173
 # Start dev server with specific NODE_ENV
 ENV NODE_ENV=development
 # Use yarn workspace to run the dev script from the frontend package
-CMD ["yarn", "workspace", "sheetgpt-frontend", "run", "dev", "--host", "0.0.0.0"]
+CMD ["sh", "-c", "PATH=/app/node_modules/.bin:$PATH yarn workspace sheetgpt-frontend run dev --host 0.0.0.0"]

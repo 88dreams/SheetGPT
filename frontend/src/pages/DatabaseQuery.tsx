@@ -28,6 +28,8 @@ import SavedQueriesDisplay from '../components/query/SavedQueriesDisplay';
 import ColumnSelectorPanel from '../components/query/ColumnSelectorPanel';
 import QueryHelperModal from '../components/query/QueryHelperModal';
 import { useSchemaContext } from '../contexts/SchemaContext';
+import { useEntitySchema } from '../components/sports/database/hooks/useEntitySchema';
+import { EntityType } from '../types/sports';
 
 const SESSION_STORAGE_KEY = 'databaseQueryState';
 
@@ -108,6 +110,7 @@ const DatabaseQuery: React.FC = () => {
   } = useColumnManager({ queryResults: executedQueryResults, queryIdentifier: columnNamesHash });
 
   const { schemaSummary } = useSchemaContext();
+  const { getEntityFields } = useEntitySchema();
 
   const [isBulkEditModalVisible, setIsBulkEditModalVisible] = useState<boolean>(false);
   
@@ -291,23 +294,87 @@ const DatabaseQuery: React.FC = () => {
   };
 
   const handleApplyTemplate = (entityType: string) => {
-    const tableSchema = schemaSummary?.tables.find(t => t.name === entityType);
-    if (!tableSchema) {
-      showNotification('error', `Schema for entity type "${entityType}" not found.`);
-      return;
+    // Convert plural table names to singular entity types
+    const entityTypeMap: Record<string, string> = {
+      'brands': 'brand',
+      'teams': 'team',
+      'leagues': 'league',
+      'players': 'player',
+      'games': 'game',
+      'stadiums': 'stadium',
+      'broadcasts': 'broadcast',
+      'production_services': 'production_service',
+      'game_broadcasts': 'game_broadcast',
+      'league_executives': 'league_executive',
+      'division_conferences': 'division_conference'
+    };
+    
+    const mappedEntityType = entityTypeMap[entityType] || entityType;
+    
+    // Use the frontend's entity schema which includes computed columns
+    const entityFields = getEntityFields(mappedEntityType as EntityType);
+    
+    if (!entityFields || entityFields.length === 0) {
+      // Fall back to backend schema if frontend schema not available
+      const tableSchema = schemaSummary?.tables.find(t => t.name === entityType);
+      if (!tableSchema) {
+        showNotification('error', `Schema for entity type "${entityType}" not found.`);
+        return;
+      }
+      
+      // Get the full list of columns for the entity type from the schema.
+      const templateColumns = tableSchema.columns.map(c => c.name);
+      
+      applyTemplateWithColumns(entityType, templateColumns);
+    } else {
+      // Use frontend schema which includes computed columns
+      const templateColumns = entityFields.map(f => f.fieldName);
+      
+      applyTemplateWithColumns(mappedEntityType, templateColumns);
+    }
+  };
+
+  const applyTemplateWithColumns = (entityType: string, templateColumns: string[]) => {
+    // Determine the default visibility for these columns, matching the logic in useColumnVisibility.
+    const templateVisibility: Record<string, boolean> = {};
+    
+    // Fields that are always hidden
+    const fieldsToHideByDefault = ['id', 'created_at', 'updated_at', 'deleted_at'];
+    
+    // Entity-specific visible columns (from EntityList)
+    let visibleByDefault: string[] = [];
+    
+    switch (entityType) {
+      case 'brand':
+        visibleByDefault = ['name', 'company_type', 'partner', 'partner_relationship', 'country'];
+        break;
+      case 'broadcast':
+        visibleByDefault = ['broadcast_company_name', 'entity_name', 'league_name', 'league_sport', 'territory', 'start_date', 'end_date'];
+        break;
+      case 'production_service':
+        visibleByDefault = ['production_company_name', 'service_type', 'league_name', 'entity_name', 'secondary_brand_name', 'start_date', 'end_date'];
+        break;
+      case 'team':
+        visibleByDefault = ['name', 'league_sport', 'league_name', 'division_conference_name', 'stadium_name', 'city', 'state', 'founded_year'];
+        break;
+      default:
+        // For other entity types, show all non-ID and non-timestamp fields
+        templateColumns.forEach(col => {
+          const isUuidField = col === 'id' || col.endsWith('_id');
+          const isHiddenByDefault = fieldsToHideByDefault.includes(col);
+          templateVisibility[col] = !isUuidField && !isHiddenByDefault;
+        });
+    }
+    
+    // Apply specific visibility if defined for this entity type
+    if (visibleByDefault.length > 0) {
+      templateColumns.forEach(col => {
+        templateVisibility[col] = visibleByDefault.includes(col);
+      });
     }
 
-    // Get the full list of columns for the entity type from the schema.
-    const templateColumns = tableSchema.columns.map(c => c.name);
-    
-    // Determine the default visibility for these columns, matching the logic in useColumnManager.
-    const templateVisibility: Record<string, boolean> = {};
-    templateColumns.forEach(col => {
-      const isUuidField = col === 'id' || col.endsWith('_id');
-      templateVisibility[col] = !isUuidField;
-    });
-
     applyColumnTemplate(templateColumns, templateVisibility);
+    
     setShowColumnSelector(false); // Close the panel after applying
     showNotification('info', `Applied column template from "${entityType}".`);
   };
@@ -511,7 +578,7 @@ const DatabaseQuery: React.FC = () => {
                   
                   {showColumnSelector && (
                     <ColumnSelectorPanel 
-                      allColumns={columnOrder.length > 0 ? columnOrder : (executedQueryResults.length > 0 ? Object.keys(executedQueryResults[0]) : [])}
+                      allColumns={columnOrder}
                       visibleColumns={visibleColumns}
                       onToggleColumn={toggleColumnVisibility}
                       onShowAllColumns={showAllColumns}

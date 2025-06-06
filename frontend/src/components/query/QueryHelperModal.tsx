@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { Modal, Select, Spin, Alert, Button, Form, Input, Checkbox, Space } from 'antd';
 import { useSchemaContext, SchemaTable, SchemaColumn } from '../../contexts/SchemaContext';
 
@@ -25,6 +25,11 @@ const QueryHelperModal: React.FC<QueryHelperModalProps> = ({ isVisible, onClose,
   const [generatedNLQ, setGeneratedNLQ] = useState<string>('');
   
   const modalContentRef = useRef<HTMLDivElement>(null);
+  
+  // Memoize the getPopupContainer function to prevent recreating it on every render
+  const getPopupContainer = useCallback(() => {
+    return modalContentRef.current || document.body;
+  }, []);
 
   useEffect(() => {
     // Reset state when modal visibility changes
@@ -53,12 +58,16 @@ const QueryHelperModal: React.FC<QueryHelperModalProps> = ({ isVisible, onClose,
     // Auto-generate NLQ when table or active filters (and their values) change
     if (selectedTable) {
       let nlq = `Show all ${selectedTable.name.replace(/_/g, ' ')}`;
-      // Use Object.entries(filters) directly here as activeFiltersString already captures the change
-      const activeFilters = Object.entries(filters).filter(([_, f]) => f.active && f.value.trim() !== '');
       
-      if (activeFilters.length > 0) {
+      // Parse activeFiltersString to reconstruct the active filters
+      if (activeFiltersString) {
+        const filterPairs = activeFiltersString.split('&').map(pair => {
+          const [columnName, value] = pair.split('=');
+          return { columnName, value };
+        });
+        
         nlq += " where ";
-        nlq += activeFilters.map(([columnName, filterDetails]) => {
+        nlq += filterPairs.map(({ columnName, value }) => {
           const columnSchema = selectedTable.columns.find(c => c.name === columnName);
           let fieldDisplayName = columnName.replace(/_/g, ' '); // Default display name, replace underscores
 
@@ -67,10 +76,10 @@ const QueryHelperModal: React.FC<QueryHelperModalProps> = ({ isVisible, onClose,
           if (columnName.endsWith('_id') && columnSchema) {
             // e.g., league_id -> "league"
             fieldDisplayName = columnName.replace(/_id$/, '').replace(/_/g, ' '); 
-            return `${fieldDisplayName} is '${filterDetails.value}'`; // e.g., "league is 'NFL'"
+            return `${fieldDisplayName} is '${value}'`; // e.g., "league is 'NFL'"
           } else {
             // For non-ID fields or if schema not found (should not happen)
-            return `${fieldDisplayName} is '${filterDetails.value}'`;
+            return `${fieldDisplayName} is '${value}'`;
           }
         }).join(' and ');
       }
@@ -79,34 +88,34 @@ const QueryHelperModal: React.FC<QueryHelperModalProps> = ({ isVisible, onClose,
     } else {
       setGeneratedNLQ('');
     }
-  }, [selectedTable, activeFiltersString]); // Depend on the memoized string
+  }, [selectedTable, activeFiltersString]); // Only depend on selectedTable and activeFiltersString
 
-  const handleTableChange = (tableName: string) => {
+  const handleTableChange = useCallback((tableName: string) => {
     const table = schemaSummary?.tables.find(t => t.name === tableName) || null;
     setSelectedTable(table);
     setFilters({}); // Reset filters when table changes
-  };
+  }, [schemaSummary]);
 
-  const handleFilterActiveChange = (columnName: string, isActive: boolean) => {
+  const handleFilterActiveChange = useCallback((columnName: string, isActive: boolean) => {
     setFilters(prev => ({
       ...prev,
       [columnName]: { value: prev[columnName]?.value || '', active: isActive },
     }));
-  };
+  }, []);
 
-  const handleFilterValueChange = (columnName: string, value: string) => {
+  const handleFilterValueChange = useCallback((columnName: string, value: string) => {
     setFilters(prev => ({
       ...prev,
       [columnName]: { value, active: prev[columnName]?.active || false },
     }));
-  };
+  }, []);
 
-  const handleApply = () => {
+  const handleApply = useCallback(() => {
     if (generatedNLQ) {
       onApplyQuery(generatedNLQ);
       onClose(); // Close modal after applying
     }
-  };
+  }, [generatedNLQ, onApplyQuery, onClose]);
 
   const renderContent = () => {
     if (isSchemaLoading) {
@@ -132,7 +141,7 @@ const QueryHelperModal: React.FC<QueryHelperModalProps> = ({ isVisible, onClose,
                 filterOption={(input, option) => 
                   option?.children?.toString().toLowerCase().includes(input.toLowerCase()) ?? false
                 }
-                getPopupContainer={() => modalContentRef.current || document.body}
+                getPopupContainer={getPopupContainer}
               >
                 {schemaSummary.tables.map(table => (
                   <Option key={table.name} value={table.name}>
@@ -188,6 +197,8 @@ const QueryHelperModal: React.FC<QueryHelperModalProps> = ({ isVisible, onClose,
       open={isVisible}
       onCancel={onClose}
       width={700}
+      destroyOnClose={true}
+      maskClosable={false}
       footer={[
         <Button key="back" onClick={onClose}>Cancel</Button>,
         <Button key="submit" type="primary" onClick={handleApply} disabled={!generatedNLQ || !selectedTable}>
@@ -195,7 +206,7 @@ const QueryHelperModal: React.FC<QueryHelperModalProps> = ({ isVisible, onClose,
         </Button>,
       ]}
     >
-      {renderContent()}
+      {isVisible && renderContent()}
     </Modal>
   );
 };

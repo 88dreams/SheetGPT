@@ -42,6 +42,7 @@ export const useColumnManager = ({
 }: ColumnManagerProps): ColumnManagerState => {
 
     const initialColumns = useMemo(() => queryResults.length > 0 ? Object.keys(queryResults[0]) : [], [queryResults]);
+    
     const visibilityStorageKey = `queryColumnsVisibility_${queryIdentifier}`;
     const orderStorageKey = `queryColumnsOrder_${queryIdentifier}`;
 
@@ -53,20 +54,21 @@ export const useColumnManager = ({
     const [sortConfig, setSortConfig] = useState<SortConfig | null>(null);
 
     // === Drag & Drop Setup ===
-    // Memoize dragDropItems based on columnOrder fingerprint
-    const dragDropItems = useMemo(() => ({
-        items: columnOrder
-    }), [fingerprint(columnOrder)]);
+    const handleReorder = useCallback((newOrder: string[]) => {
+        setColumnOrder(newOrder);
+    }, []);
 
     const {
-        reorderedItems: reorderedColumnsInternal, // Internal state from useDragAndDrop
         draggedItem,
         dragOverItem,
         handleDragStart,
         handleDragOver,
-        handleDrop: handleColumnDropInternal,
+        handleDrop,
         handleDragEnd
-    } = useDragAndDrop<string>(dragDropItems);
+    } = useDragAndDrop<string>({
+        items: columnOrder,
+        onReorder: handleReorder
+    });
 
     // === EFFECTS ===
 
@@ -172,17 +174,17 @@ export const useColumnManager = ({
     // Use ref to prevent circular dependencies if reorderedColumnsInternal was used directly in dragDropItems
     const prevReorderedColumnsRef = useRef<string[]>([]);
     useEffect(() => {
-        if (reorderedColumnsInternal.length > 0) {
+        if (columnOrder.length > 0) {
             const currentOrderFp = fingerprint(columnOrder);
-            const newOrderFp = fingerprint(reorderedColumnsInternal);
+            const newOrderFp = fingerprint(columnOrder);
             const prevReorderedFp = fingerprint(prevReorderedColumnsRef.current);
 
             if (currentOrderFp !== newOrderFp && prevReorderedFp !== newOrderFp) {
-                prevReorderedColumnsRef.current = [...reorderedColumnsInternal];
-                setColumnOrder([...reorderedColumnsInternal]);
+                prevReorderedColumnsRef.current = [...columnOrder];
+                setColumnOrder([...columnOrder]);
             }
         }
-    }, [reorderedColumnsInternal, columnOrder]); // Watch internal D&D state
+    }, [columnOrder]); // Watch internal D&D state
 
     // === Handlers ===
 
@@ -238,7 +240,7 @@ export const useColumnManager = ({
         applyColumnTemplate,
         handleColumnDragStart: handleDragStart,
         handleColumnDragOver: handleDragOver,
-        handleColumnDrop: handleColumnDropInternal, // Expose the handler from useDragAndDrop directly
+        handleColumnDrop: handleDrop,
         handleColumnDragEnd: handleDragEnd
     };
 }; 

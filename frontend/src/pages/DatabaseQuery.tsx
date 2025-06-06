@@ -27,6 +27,7 @@ import QueryResultsToolbar from '../components/query/QueryResultsToolbar';
 import SavedQueriesDisplay from '../components/query/SavedQueriesDisplay';
 import ColumnSelectorPanel from '../components/query/ColumnSelectorPanel';
 import QueryHelperModal from '../components/query/QueryHelperModal';
+import { useSchemaContext } from '../contexts/SchemaContext';
 
 const SESSION_STORAGE_KEY = 'databaseQueryState';
 
@@ -102,8 +103,11 @@ const DatabaseQuery: React.FC = () => {
     handleColumnDragStart,
     handleColumnDragOver,
     handleColumnDrop,
-    handleColumnDragEnd
+    handleColumnDragEnd,
+    applyColumnTemplate
   } = useColumnManager({ queryResults: executedQueryResults, queryIdentifier: columnNamesHash });
+
+  const { schemaSummary } = useSchemaContext();
 
   const [isBulkEditModalVisible, setIsBulkEditModalVisible] = useState<boolean>(false);
   
@@ -151,7 +155,7 @@ const DatabaseQuery: React.FC = () => {
   }, [executedQueryResults, sortConfig]);
   
   const formatCellValue = useCallback((value: any, column: string) => {
-    if (value === null || value === undefined) return 'NULL';
+    if (value === null || value === undefined) return '-';
     if (typeof value === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value)) {
       if (column === 'id' || column.endsWith('_id')) {
         if (column === 'entity_id' && !showFullUuids) {
@@ -286,6 +290,28 @@ const DatabaseQuery: React.FC = () => {
     showNotification('info', 'Query populated from helper. You can now translate or execute it.');
   };
 
+  const handleApplyTemplate = (entityType: string) => {
+    const tableSchema = schemaSummary?.tables.find(t => t.name === entityType);
+    if (!tableSchema) {
+      showNotification('error', `Schema for entity type "${entityType}" not found.`);
+      return;
+    }
+
+    // Get the full list of columns for the entity type from the schema.
+    const templateColumns = tableSchema.columns.map(c => c.name);
+    
+    // Determine the default visibility for these columns, matching the logic in useColumnManager.
+    const templateVisibility: Record<string, boolean> = {};
+    templateColumns.forEach(col => {
+      const isUuidField = col === 'id' || col.endsWith('_id');
+      templateVisibility[col] = !isUuidField;
+    });
+
+    applyColumnTemplate(templateColumns, templateVisibility);
+    setShowColumnSelector(false); // Close the panel after applying
+    showNotification('info', `Applied column template from "${entityType}".`);
+  };
+
   const pageActions = (
     <div className="flex gap-2">
       <button
@@ -369,83 +395,29 @@ const DatabaseQuery: React.FC = () => {
     showNotification('info', `Loaded query: "${query.name}"`);
   }, [setNaturalLanguageQuery, setQueryName, setGeneratedSql, showNotification]);
 
-  // Log changes to naturalLanguageQuery directly
   useEffect(() => {
-    console.log('[DEBUG] naturalLanguageQuery changed to:', naturalLanguageQuery);
-  }, [naturalLanguageQuery]);
-
-  // Log changes to executedQueryResults directly
-  useEffect(() => {
-    console.log('[DEBUG] executedQueryResults changed, length:', executedQueryResults?.length);
-  }, [executedQueryResults]);
-
-  // Load state from sessionStorage on mount
-  useEffect(() => {
-    console.log('[DEBUG] Attempting to load state from sessionStorage...');
     const storedStateRaw = sessionStorage.getItem(SESSION_STORAGE_KEY);
     if (storedStateRaw) {
       try {
         const storedState: PersistedQueryState = JSON.parse(storedStateRaw);
-        console.log('[DEBUG] Found stored state:', storedState);
-
-        const rehydratedGeneratedSql = storedState.generatedSql || null;
-        let rehydratedExecutionGeneratedSql = storedState.executionGeneratedSql || null;
-
-        // If the main generatedSql was explicitly cleared (is null in storage),
-        // then also treat executionGeneratedSql as cleared for rehydration purposes,
-        // to prevent the sync effect from immediately overwriting the cleared input.
-        if (rehydratedGeneratedSql === null) {
-          rehydratedExecutionGeneratedSql = null;
-        }
-
-        console.log(`[DEBUG] Calling setNaturalLanguageQuery with: "${storedState.naturalLanguageQuery || ''}"`);
         setNaturalLanguageQuery(storedState.naturalLanguageQuery || '');
-        
-        console.log(`[DEBUG] Calling setQueryName with: "${storedState.queryName || ''}"`);
         setQueryName(storedState.queryName || '');
-
-        console.log(`[DEBUG] Calling setGeneratedSql with: "${rehydratedGeneratedSql}"`);
-        setGeneratedSql(rehydratedGeneratedSql); // This calls handleSqlChange from useQueryInput
-        
-        if (setExecutedQueryResults) {
-            console.log(`[DEBUG] Calling setExecutedQueryResults with ${storedState.executedQueryResults?.length || 0} items.`);
-            setExecutedQueryResults(storedState.executedQueryResults || []);
-        } else {
-            console.warn('[DEBUG] setExecutedQueryResults is not defined!');
-        }
-        
-        if (setExecutionValidationError) {
-            console.log(`[DEBUG] Calling setExecutionValidationError with: "${storedState.executionValidationError || null}"`);
-            setExecutionValidationError(storedState.executionValidationError || null);
-        }
-        if (setExecutionSuggestedSql) {
-            console.log(`[DEBUG] Calling setExecutionSuggestedSql with: "${storedState.executionSuggestedSql || null}"`);
-            setExecutionSuggestedSql(storedState.executionSuggestedSql || null);
-        }
-        if (setExecutionGeneratedSql) {
-            console.log(`[DEBUG] Calling setExecutionGeneratedSql with: "${rehydratedExecutionGeneratedSql}"`);
-            setExecutionGeneratedSql(rehydratedExecutionGeneratedSql);
-        }
-        
-        console.log('DatabaseQuery: Loaded state from sessionStorage successfully.');
+        setGeneratedSql(storedState.generatedSql || null);
+        setExecutedQueryResults(storedState.executedQueryResults || []);
+        setExecutionValidationError(storedState.executionValidationError || null);
+        setExecutionSuggestedSql(storedState.executionSuggestedSql || null);
+        setExecutionGeneratedSql(storedState.executionGeneratedSql || null);
       } catch (error) {
         console.error('DatabaseQuery: Error parsing state from sessionStorage', error);
         sessionStorage.removeItem(SESSION_STORAGE_KEY); 
       }
     }
-    setIsStateLoadedFromStorage(true); 
-    console.log('[DEBUG] isStateLoadedFromStorage set to true.');
+    setIsStateLoadedFromStorage(true);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); 
 
-  // Save state to sessionStorage when relevant parts change, only after initial load attempt
   useEffect(() => {
-    if (!isStateLoadedFromStorage) {
-      console.log('[DEBUG] Skipping save to sessionStorage: initial load not complete.');
-      return; 
-    }
-
-    console.log('[DEBUG] Attempting to save state to sessionStorage...');
+    if (!isStateLoadedFromStorage) return; 
     const stateToPersist: PersistedQueryState = {
       naturalLanguageQuery,
       queryName,
@@ -457,17 +429,11 @@ const DatabaseQuery: React.FC = () => {
       executionGeneratedSql,
     };
     sessionStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(stateToPersist));
-    console.log('[DEBUG] Saved state to sessionStorage:', stateToPersist);
   }, [isStateLoadedFromStorage, naturalLanguageQuery, queryName, generatedSql, isNaturalLanguage, executedQueryResults, executionValidationError, executionSuggestedSql, executionGeneratedSql]);
 
   const clearAllQueryResults = () => {
-    console.log('[DEBUG] Clearing all query results');
-    if (setExecutedQueryResults) {
-      setExecutedQueryResults([]);
-    }
-    if (setSelectedRows) {
-      setSelectedRows(new Set());
-    }
+    setExecutedQueryResults([]);
+    setSelectedRows(new Set());
     showNotification('info', 'Query results have been cleared.');
   };
 
@@ -549,6 +515,8 @@ const DatabaseQuery: React.FC = () => {
                       visibleColumns={visibleColumns}
                       onToggleColumn={toggleColumnVisibility}
                       onShowAllColumns={showAllColumns}
+                      schemaSummary={schemaSummary}
+                      onApplyTemplate={handleApplyTemplate}
                     />
                   )}
                   
@@ -611,4 +579,4 @@ const DatabaseQuery: React.FC = () => {
   );
 };
 
-export default DatabaseQuery; 
+export default DatabaseQuery;

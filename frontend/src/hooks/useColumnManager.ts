@@ -29,6 +29,7 @@ export interface ColumnManagerState {
     toggleColumnVisibility: (column: string) => void;
     showAllColumns: () => void;
     handleSort: (column: string) => void;
+    applyColumnTemplate: (columns: string[], visibility: Record<string, boolean>) => void;
     handleColumnDragStart: Function;
     handleColumnDragOver: Function;
     handleColumnDrop: Function;
@@ -97,7 +98,7 @@ export const useColumnManager = ({
                         if (!(col in updatedVisibility)) {
                            // Default new columns based on UUID pattern, matching original logic
                             const isUuidField = col === 'id' || (col.endsWith('_id')); // Simplified check
-                            updatedVisibility[col] = !isUuidField; 
+                            updatedVisibility[col] = !isUuidField;
                             changed = true;
                         }
                     });
@@ -198,8 +199,13 @@ export const useColumnManager = ({
         const allVisible: { [key: string]: boolean } = {};
         initialColumns.forEach(col => { allVisible[col] = true; });
         setVisibleColumns(allVisible);
-        // localStorage.setItem(visibilityStorageKey, JSON.stringify(allVisible)); // Persistence handled by separate useEffect
     }, [initialColumns]);
+
+    const applyColumnTemplate = useCallback((templateColumns: string[], templateVisibility: Record<string, boolean>) => {
+        // Directly set the column order and visibility from the template
+        setColumnOrder(templateColumns);
+        setVisibleColumns(templateVisibility);
+    }, []);
 
     const handleSort = useCallback((column: string) => {
         setSortConfig(prev => {
@@ -229,6 +235,7 @@ export const useColumnManager = ({
         toggleColumnVisibility,
         showAllColumns,
         handleSort,
+        applyColumnTemplate,
         handleColumnDragStart: handleDragStart,
         handleColumnDragOver: handleDragOver,
         handleColumnDrop: handleColumnDropInternal, // Expose the handler from useDragAndDrop directly

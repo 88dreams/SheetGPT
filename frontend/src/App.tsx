@@ -22,6 +22,7 @@ import { FaFlask } from 'react-icons/fa'
 import SportDataMapper from './components/data/SportDataMapper'
 import { DataExtractionService } from './services/DataExtractionService'
 import { isTokenExpiredOrExpiringSoon, refreshAuthToken } from './utils/tokenRefresh'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 
 // Protected route wrapper component
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -58,6 +59,8 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   )
 }
 
+const queryClient = new QueryClient()
+
 const App: React.FC = () => {
   // Check token status and refresh if needed when the app loads
   /*
@@ -87,56 +90,58 @@ const App: React.FC = () => {
   */
 
   return (
-    <NotificationProvider>
-      <DataFlowProvider>
-        <ChatProvider>
-          <Routes>
-            {/* Public routes with navbar */}
-            <Route element={
-              <div className="min-h-screen bg-gray-50">
-                <Navbar />
-                <div className="pt-16">{/* Add padding for fixed navbar */}
-                  <Outlet />
-                </div>
-              </div>
-            }>
-              <Route path="login" element={<Login />} />
-              <Route path="register" element={<Register />} />
-            </Route>
+    <QueryClientProvider client={queryClient}>
+      <NotificationProvider>
+        <DataFlowProvider>
+          <ChatProvider>
+            <SchemaProvider>
+              <Routes>
+                {/* Public routes with navbar */}
+                <Route element={
+                  <div className="min-h-screen bg-gray-50">
+                    <Navbar />
+                    <div className="pt-16">{/* Add padding for fixed navbar */}
+                      <Outlet />
+                    </div>
+                  </div>
+                }>
+                  <Route path="login" element={<Login />} />
+                  <Route path="register" element={<Register />} />
+                </Route>
 
-            {/* Protected routes */}
-            <Route
-              path="/"
-              element={
-                <ProtectedRoute>
-                  <Layout />
-                </ProtectedRoute>
-              }
-            >
-              {/* Add nested routes here later */}
-              <Route index element={<Navigate to="chat" />} />
-              <Route path="chat" element={<Chat />} />
-              <Route path="data" element={<DataManagement />} />
-              {/* Add a redirect for any data/:id pattern to the main data page */}
-              <Route path="data/:id" element={<Navigate to="data" replace />} />
-              <Route path="sports" element={<SportsDatabase />} />
-              <Route path="sports/:entityType/:id" element={<EntityDetail />} />
-              <Route 
-                path="database" 
-                element={                  
-                  <SchemaProvider>  
-                    <DatabaseQuery />
-                  </SchemaProvider>
-                } 
-              />
-              <Route path="contacts" element={<Contacts />} />
-              <Route path="settings" element={<Settings />} />
-              <Route path="help/*" element={<Documentation />} />
-            </Route>
-          </Routes>
-        </ChatProvider>
-      </DataFlowProvider>
-    </NotificationProvider>
+                {/* Protected routes */}
+                <Route
+                  path="/"
+                  element={
+                    <ProtectedRoute>
+                      <Layout />
+                    </ProtectedRoute>
+                  }
+                >
+                  {/* Add nested routes here later */}
+                  <Route index element={<Navigate to="chat" />} />
+                  <Route path="chat" element={<Chat />} />
+                  <Route path="data" element={<DataManagement />} />
+                  {/* Add a redirect for any data/:id pattern to the main data page */}
+                  <Route path="data/:id" element={<Navigate to="data" replace />} />
+                  <Route path="sports" element={<SportsDatabase />} />
+                  <Route path="sports/:entityType/:id" element={<EntityDetail />} />
+                  <Route 
+                    path="database" 
+                    element={                  
+                      <DatabaseQuery />
+                    } 
+                  />
+                  <Route path="contacts" element={<Contacts />} />
+                  <Route path="settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
+                  <Route path="help/*" element={<Documentation />} />
+                </Route>
+              </Routes>
+            </SchemaProvider>
+          </ChatProvider>
+        </DataFlowProvider>
+      </NotificationProvider>
+    </QueryClientProvider>
   )
 }
 

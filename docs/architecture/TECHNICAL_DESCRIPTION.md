@@ -94,6 +94,7 @@ frontend/
    - Fingerprinting for complex object comparisons
    - Session-resilient state persistence
    - **Query Page Persistence:** The Database Query page now uses `sessionStorage` to persist user inputs (NLQ, query name, SQL), query results, and related execution feedback across page navigations, enhancing user experience.
+   - **Global Context Providers:** To ensure stability and prevent re-rendering issues, critical context providers like `SchemaProvider` are located at the top level of the application in `App.tsx`, wrapping all routes. This provides a stable context to all child components and avoids unnecessary data fetching that can occur when a provider is re-mounted.
 
 3. **UI Features**
    - Column persistence with drag-and-drop

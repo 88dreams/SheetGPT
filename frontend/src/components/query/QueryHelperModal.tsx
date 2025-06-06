@@ -40,10 +40,20 @@ const QueryHelperModal: React.FC<QueryHelperModalProps> = ({ isVisible, onClose,
     }
   }, [isVisible]);
 
+  const activeFiltersString = React.useMemo(() => {
+    if (!selectedTable) return '';
+    return Object.entries(filters)
+      .filter(([_, f]) => f.active && f.value.trim() !== '')
+      .map(([columnName, filterDetails]) => `${columnName}=${filterDetails.value}`)
+      .sort() // Ensure consistent order
+      .join('&');
+  }, [filters, selectedTable]);
+
   useEffect(() => {
-    // Auto-generate NLQ when table or filters change
+    // Auto-generate NLQ when table or active filters (and their values) change
     if (selectedTable) {
       let nlq = `Show all ${selectedTable.name.replace(/_/g, ' ')}`;
+      // Use Object.entries(filters) directly here as activeFiltersString already captures the change
       const activeFilters = Object.entries(filters).filter(([_, f]) => f.active && f.value.trim() !== '');
       
       if (activeFilters.length > 0) {
@@ -69,7 +79,7 @@ const QueryHelperModal: React.FC<QueryHelperModalProps> = ({ isVisible, onClose,
     } else {
       setGeneratedNLQ('');
     }
-  }, [selectedTable, filters]);
+  }, [selectedTable, activeFiltersString]); // Depend on the memoized string
 
   const handleTableChange = (tableName: string) => {
     const table = schemaSummary?.tables.find(t => t.name === tableName) || null;

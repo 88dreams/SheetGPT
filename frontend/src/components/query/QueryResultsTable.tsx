@@ -140,9 +140,9 @@ const QueryResultsTable: React.FC<QueryResultsTableProps> = ({
                                     key={`${rowIndex}-${column}`}
                                     className="px-3 py-2 whitespace-nowrap text-sm text-gray-500 border-r border-gray-200"
                                 >
-                                    {row[column] !== null && row[column] !== undefined 
+                                    {row.hasOwnProperty(column)
                                         ? formatCellValue(row[column], column)
-                                        : <span className="text-gray-400">NULL</span>}
+                                        : <span className="text-gray-400">-</span>}
                                 </td>
                             ))}
                         </tr>

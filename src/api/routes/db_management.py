@@ -460,6 +460,7 @@ async def execute_database_query(
         return response_data
 
     except ValueError as e:
+        logger.error(f"ValueError in /query endpoint: {str(e)}", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(e)

@@ -88,7 +88,6 @@ DATABASE SCHEMA:
     *   `name` (VARCHAR): Name of the brand or company.
     *   `industry` (VARCHAR, NULLABLE): Industry of the brand (e.g., "Media", "Sports Apparel", "Telecommunications").
     *   `representative_entity_type` (VARCHAR, NULLABLE): If this brand record is acting as a proxy for another entity (e.g., for contact management), this field indicates the type of that other entity. *Examples: "League", "Team", "Stadium".*
-    *   `representative_entity_id` (UUID, NULLABLE): If `representative_entity_type` is set, this is the ID of the actual entity (from its own table, e.g., `leagues.id`) that this brand record represents.
     *   `created_at` (TIMESTAMP): Timestamp of creation.
     *   `updated_at` (TIMESTAMP): Timestamp of last update.
     *   `deleted_at` (TIMESTAMP, NULLABLE): Timestamp if soft-deleted. *Queries should generally filter using `WHERE brands.deleted_at IS NULL`.*

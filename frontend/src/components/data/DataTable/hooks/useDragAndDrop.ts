@@ -25,6 +25,7 @@ export function useDragAndDrop<T>({ items, storageKey }: UseDragAndDropProps<T>)
   
   // Track if we've loaded data from localStorage
   const hasLoadedFromStorage = useRef(false);
+  const isInitialized = useRef(false); // Ref to track initialization
   
   // Keep track of the previous storage key
   const previousStorageKey = useRef<string | undefined>(storageKey);
@@ -100,6 +101,7 @@ export function useDragAndDrop<T>({ items, storageKey }: UseDragAndDropProps<T>)
           if (allItems.length > 0) {
             setReorderedItems(allItems);
             hasLoadedFromStorage.current = true;
+            isInitialized.current = true; // Mark as initialized
             return;
           }
         }
@@ -110,10 +112,11 @@ export function useDragAndDrop<T>({ items, storageKey }: UseDragAndDropProps<T>)
     
     // Default: use items as is if we couldn't load from storage
     // Only update if the items have actually changed to avoid render loops
-    if (itemsFingerprint !== previousItemsFingerprint || reorderedItems.length === 0) {
+    if (!isInitialized.current) {
       setReorderedItems([...items]);
+      isInitialized.current = true; // Mark as initialized
     }
-  }, [items, storageKey, reorderedItems.length]);
+  }, [items, storageKey]);
   
   // Save to both localStorage and sessionStorage whenever order changes
   // This is separate from the items initialization effect

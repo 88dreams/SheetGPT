@@ -22,6 +22,7 @@ SheetGPT combines AI-powered chat (Claude) with structured data management and a
   - **Enhanced CSV Import:** The contacts page features an advanced CSV import tool (`CustomCSVImport.tsx`) with client-side parsing (`papaparse`), record navigation, preamble skipping, and a detailed field mapping UI.
   - **Advanced Entity Features:** Includes multi-column OR search for entities and global sorting capabilities that handle complex data relationships by performing necessary in-memory sorting before pagination.
   - **LLM Selection:** The chat interface allows users to select from different available Large Language Models.
+  - **Global Context Providers:** To ensure stability and prevent re-rendering issues, critical context providers like `SchemaProvider` are located at the top level of the application in `App.tsx`, wrapping all routes.
 
 - **Further Reading:**
   - `docs/architecture/TECHNICAL_DESCRIPTION.md` (Detailed architecture)

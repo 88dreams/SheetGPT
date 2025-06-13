@@ -3,9 +3,12 @@ import { FilterConfig } from '../components/sports/EntityFilter';
 
 export const sportsService = {
   // Entity lookup by name
-  lookup: (entityType: string, name: string): Promise<any> => {
-    console.log(`sportsService.lookup: Looking up ${entityType} with name "${name}"`);
-    const url = `/sports/lookup/${entityType}?name=${encodeURIComponent(name)}`;
+  lookup: (entityType: string, name: string, leagueId?: string): Promise<any> => {
+    console.log(`sportsService.lookup: Looking up ${entityType} with name "${name}"${leagueId ? ` in league ${leagueId}` : ''}`);
+    let url = `/sports/lookup/${entityType}?name=${encodeURIComponent(name)}`;
+    if (entityType === 'division_conference' && leagueId) {
+      url += `&league_id=${leagueId}`;
+    }
     console.log(`Lookup URL: ${url}`);
     return request(url, { requiresAuth: true })
       .then(result => {

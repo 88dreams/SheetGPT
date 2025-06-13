@@ -10,59 +10,7 @@ import React from 'react';
  */
 export function useSorting() {
   const [sortField, setSortField] = useState<string>('name');
-  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc'); // Removed 'none' option for consistency
-  
-  // Internal function to reset pagination when sort changes
-  // This must be provided by the parent component
-  const [resetPagination, setResetPagination] = useState<(() => void) | null>(null);
-
-  // Handle sort column change
-  const handleSort = useCallback((field: string) => {
-    // Log before change
-    console.log(`useSorting: handleSort called with field=${field}, current sortField=${sortField}, sortDirection=${sortDirection}`);
-    
-    // Determine the new direction based on current state
-    let newDirection: 'asc' | 'desc' = 'asc';
-    
-    // If clicking the same field, toggle between asc and desc
-    if (sortField === field) {
-      newDirection = sortDirection === 'asc' ? 'desc' : 'asc';
-      console.log(`useSorting: Toggling sort direction for ${field} from ${sortDirection} to ${newDirection}`);
-    } else {
-      console.log(`useSorting: Changing sort field from ${sortField} to ${field} with direction ${newDirection}`);
-    }
-    
-    // CRITICAL: Reset pagination before updating sort state to ensure we fetch correct data
-    // This ensures we always see freshly sorted results beginning from page 1
-    if (resetPagination) {
-      console.log('useSorting: Resetting pagination to page 1 BEFORE updating sort parameters');
-      resetPagination();
-    } else {
-      console.warn('useSorting: No pagination reset function available - sort may not apply to all items');
-    }
-    
-    // Update sort state AFTER pagination is reset to prevent race conditions
-    // This sequence ensures the next data fetch will use the new sort parameters
-    setTimeout(() => {
-      const isChangingField = sortField !== field;
-      if (isChangingField) {
-        console.log(`useSorting: Setting sort field to "${field}" and direction to "asc"`);
-        setSortField(field);
-        setSortDirection('asc');
-      } else {
-        console.log(`useSorting: Setting sort direction to "${newDirection}"`);
-        setSortDirection(newDirection);
-      }
-      
-      console.log(`useSorting: Sort updated: field=${field}, direction=${isChangingField ? 'asc' : newDirection}`);
-    }, 0); // Use a timeout to ensure we don't have state updates in the same render cycle
-  }, [sortField, sortDirection, resetPagination]);
-  
-  // Register function to reset pagination
-  const registerResetPagination = useCallback((resetFn: () => void) => {
-    console.log('useSorting: Registering pagination reset function');
-    setResetPagination(() => resetFn);
-  }, []);
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
 
   // Get sorted entities based on current sort settings
   // This is used for client-side sorting, which we prefer to avoid for relationship fields
@@ -127,9 +75,7 @@ export function useSorting() {
     setSortField,
     sortDirection,
     setSortDirection,
-    handleSort,
     getSortedEntities, // Kept for backwards compatibility
     renderSortIcon,
-    registerResetPagination
   };
 }

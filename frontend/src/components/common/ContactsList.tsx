@@ -26,7 +26,7 @@ interface ContactBrandAssociation {
   end_date?: string;
 }
 
-interface Contact {
+export interface Contact {
   id: string;
   first_name: string;
   last_name: string;
@@ -40,7 +40,7 @@ interface Contact {
   brand_associations: ContactBrandAssociation[];
 }
 
-interface ContactsResponse {
+export interface ContactsResponse {
   items: Contact[];
   total: number;
   skip: number;
@@ -79,6 +79,8 @@ const ContactsList: React.FC<ContactsListProps> = ({ brandId, onContactSelect })
   const [isRetagModalVisible, setIsRetagModalVisible] = useState(false);
   const [retagValue, setRetagValue] = useState('');
   const [isRetagging, setIsRetagging] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [importProgress, setImportProgress] = useState<any>(null);
   
   // Column visibility state
   const [visibleColumns, setVisibleColumns] = useState<Record<string, boolean>>({
@@ -163,9 +165,10 @@ const ContactsList: React.FC<ContactsListProps> = ({ brandId, onContactSelect })
     'connected_on'      // Connected On
   ];
 
+  const [columnOrder, setColumnOrder] = useState<string[]>(initialColumnOrder);
+
   // Column drag and drop
   const {
-    reorderedItems: columnOrder,
     draggedItem,
     dragOverItem,
     handleDragStart,
@@ -173,8 +176,8 @@ const ContactsList: React.FC<ContactsListProps> = ({ brandId, onContactSelect })
     handleDrop,
     handleDragEnd
   } = useDragAndDrop<string>({
-    items: initialColumnOrder,
-    storageKey: 'contactList_columnOrder'
+    items: columnOrder,
+    onReorder: setColumnOrder
   });
   
   // Add refs to track component mount state and prevent duplicate requests
@@ -494,11 +497,23 @@ const ContactsList: React.FC<ContactsListProps> = ({ brandId, onContactSelect })
   const confirmRescanWithThreshold = useCallback(async () => {
     setIsThresholdModalVisible(false);
     setRescanning(true);
-    setRescanDisplayMessage("Re-scanning contacts for brand associations... This may take some time. Please wait.");
-    console.log(`Starting re-scan with threshold: ${rescanThreshold}`);
+    
+    const requestBody: { match_threshold: number; contact_ids?: string[] } = {
+      match_threshold: rescanThreshold,
+    };
+
+    if (selectedContactIds.size > 0) {
+      requestBody.contact_ids = Array.from(selectedContactIds);
+      setRescanDisplayMessage(`Re-scanning ${selectedContactIds.size} selected contact(s)... This may take some time.`);
+    } else {
+      setRescanDisplayMessage("Re-scanning all contacts for brand associations... This may take some time. Please wait.");
+    }
+
+    console.log(`Starting re-scan with threshold: ${rescanThreshold}`, requestBody);
+    
     try {
       const response = await apiClient.post('/api/v1/contacts/rematch-brands', 
-        { match_threshold: rescanThreshold }, 
+        requestBody, 
         { requiresAuth: true }
       );
       console.log('Re-scan API response:', response.data);
@@ -549,7 +564,7 @@ const ContactsList: React.FC<ContactsListProps> = ({ brandId, onContactSelect })
       // Optionally clear the rescanDisplayMessage after a delay or keep it until next action
       // setTimeout(() => setRescanDisplayMessage(null), 10000); 
     }
-  }, [apiClient, rescanThreshold, showNotification, queryClient, currentPage, limit, setRefetchKey, setCurrentPage]);
+  }, [apiClient, rescanThreshold, showNotification, queryClient, currentPage, limit, setRefetchKey, setCurrentPage, selectedContactIds]);
 
   // Handler for opening the retag modal
   const handleOpenRetagModal = () => {
@@ -593,6 +608,38 @@ const ContactsList: React.FC<ContactsListProps> = ({ brandId, onContactSelect })
     } finally {
       setIsRetagging(false);
     }
+  };
+
+  const handleDeleteSelected = async () => {
+    if (selectedContactIds.size === 0) {
+      showNotification('info', 'Please select at least one contact to delete.');
+      return;
+    }
+
+    Modal.confirm({
+      title: 'Are you sure you want to delete the selected contacts?',
+      content: `You are about to permanently delete ${selectedContactIds.size} contact(s). This action cannot be undone.`,
+      okText: 'Yes, Delete Them',
+      okType: 'danger',
+      cancelText: 'No, Cancel',
+      onOk: async () => {
+        setIsDeleting(true);
+        try {
+          const response = await apiClient.post('/api/v1/contacts/bulk-delete', {
+            contact_ids: Array.from(selectedContactIds),
+          }, { requiresAuth: true });
+
+          showNotification('success', response.data.message || `Successfully deleted ${response.data.deleted_count} contacts.`);
+          setSelectedContactIds(new Set()); // Clear selection
+          fetchContactsRef.current(); // Refetch data
+        } catch (err: any) {
+          console.error('Error deleting contacts:', err);
+          showNotification('error', err.response?.data?.detail || 'Failed to delete contacts.');
+        } finally {
+          setIsDeleting(false);
+        }
+      },
+    });
   };
 
   // Render sort icon
@@ -737,6 +784,36 @@ const ContactsList: React.FC<ContactsListProps> = ({ brandId, onContactSelect })
     }
   };
 
+  const handleImport = async (file: File) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    // Add other import options if necessary
+    // formData.append('auto_match_brands', 'true');
+
+    setImportProgress({ processed_count: 0, total_contacts: 'N/A', status: 'uploading' });
+
+    try {
+      await apiClient.postStreaming(
+        '/api/v1/contacts/import/linkedin',
+        formData,
+        {
+          onProgress: (progress) => {
+            console.log('Import Progress:', progress);
+            setImportProgress(progress);
+          },
+        }
+      );
+      showNotification('success', 'Contact import completed successfully.');
+      fetchContactsRef.current(); // Refresh the list
+    } catch (error: any) {
+      showNotification('error', `Import failed: ${error.message}`);
+      setImportProgress({ status: 'error', message: error.message });
+    } finally {
+      // Optionally clear progress after a delay
+      setTimeout(() => setImportProgress(null), 10000);
+    }
+  };
+
   return (
     <div className="bg-white rounded-lg shadow overflow-hidden">
       <div className="p-4 border-b flex flex-col md:flex-row md:items-center justify-between">
@@ -772,6 +849,19 @@ const ContactsList: React.FC<ContactsListProps> = ({ brandId, onContactSelect })
               title="Retag selected contacts"
             >
               Retag Selected ({selectedContactIds.size})
+            </button>
+          )}
+
+          {/* Delete Selected Button */}
+          {selectedContactIds.size > 0 && (
+            <button
+              onClick={handleDeleteSelected}
+              disabled={isDeleting}
+              className="ml-2 px-3 py-1 rounded-md flex items-center bg-red-50 text-red-700 border border-red-300 hover:bg-red-100 disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+              title="Delete selected contacts"
+            >
+              {isDeleting ? <FaSpinner className="mr-2 animate-spin" /> : null}
+              Delete Selected ({selectedContactIds.size})
             </button>
           )}
         </div>
@@ -859,13 +949,35 @@ const ContactsList: React.FC<ContactsListProps> = ({ brandId, onContactSelect })
           ) : (
             <>
               <p className="text-gray-500 mb-2">No contacts yet. Import your LinkedIn contacts to get started.</p>
-              <button
-                onClick={() => window.dispatchEvent(new CustomEvent('contact-import-click'))}
-                className="px-4 py-2 mt-4 bg-blue-600 text-white rounded-md hover:bg-blue-700 flex items-center mx-auto"
+              <input
+                type="file"
+                id="contact-import-input"
+                className="hidden"
+                accept=".csv"
+                onChange={(e) => {
+                  if (e.target.files && e.target.files.length > 0) {
+                    handleImport(e.target.files[0]);
+                  }
+                }}
+              />
+              <label
+                htmlFor="contact-import-input"
+                className="px-4 py-2 mt-4 bg-blue-600 text-white rounded-md hover:bg-blue-700 flex items-center mx-auto cursor-pointer"
               >
                 <FaFileUpload className="mr-2" />
                 Import Contacts
-              </button>
+              </label>
+              {importProgress && (
+                <div className="mt-4 text-sm text-gray-600">
+                  <p>Status: {importProgress.status}</p>
+                  {importProgress.total_contacts && (
+                    <p>
+                      Processed: {importProgress.processed_count} / {importProgress.total_contacts}
+                    </p>
+                  )}
+                  {importProgress.message && <p>Message: {importProgress.message}</p>}
+                </div>
+              )}
             </>
           )}
         </div>

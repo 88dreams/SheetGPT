@@ -13,6 +13,7 @@ import sportsService from '../services/sportsService';
 import adminService from '../services/adminService';
 import docsService from '../services/docsService';
 import linkedinService from '../services/linkedinService';
+import contactService from '../services/contactService';
 
 // Re-export types that consumers might need
 export { APIError } from './apiClient';
@@ -33,6 +34,7 @@ export const api = {
   dbManagement: adminService, // For backward compatibility
   docs: docsService, // Documentation service
   linkedin: linkedinService, // LinkedIn integration
+  contacts: contactService,
 };
 
 export default api; 

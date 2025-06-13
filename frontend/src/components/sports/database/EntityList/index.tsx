@@ -218,8 +218,13 @@ const EntityList: React.FC<EntityListProps> = ({ className = '' }) => {
     [entitiesFingerprint, selectedEntityType]
   );
   
+  const [columnOrder, setColumnOrder] = useState(initialColumnOrder);
+
+  useEffect(() => {
+    setColumnOrder(initialColumnOrder);
+  }, [initialColumnOrder]);
+
   const {
-    reorderedItems: columnOrder,
     draggedItem,
     dragOverItem,
     handleDragStart: handleColumnDragStart,
@@ -227,8 +232,8 @@ const EntityList: React.FC<EntityListProps> = ({ className = '' }) => {
     handleDrop: handleColumnDrop,
     handleDragEnd: handleColumnDragEnd
   } = useDragAndDrop<string>({
-    items: initialColumnOrder,
-    storageKey: selectedEntityType ? `entityList_${selectedEntityType}_columnOrder` : undefined
+    items: columnOrder,
+    onReorder: setColumnOrder
   });
   
   const scrollPositionRef = useRef<number>(0);
@@ -493,7 +498,7 @@ const EntityList: React.FC<EntityListProps> = ({ className = '' }) => {
         handleCsvExport={actualCsvExportHandler}
         handleSheetsExport={actualSheetsExportHandler}
         entities={entities}
-        visibleColumns={columnOrder.filter(col => 
+        visibleColumns={(columnOrder || []).filter(col => 
           visibleColumns[col] !== false && (entities.length > 0 ? entities[0].hasOwnProperty(col) : true)
         )}
       />

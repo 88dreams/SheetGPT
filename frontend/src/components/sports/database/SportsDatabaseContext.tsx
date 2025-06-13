@@ -230,31 +230,19 @@ export const SportsDatabaseProvider: React.FC<SportsDatabaseProviderProps> = ({ 
     setSortField,
     sortDirection,
     setSortDirection,
-    handleSort,
     getSortedEntities,
     renderSortIcon,
-    registerResetPagination
   } = useSorting();
   
-  // Register a function to reset pagination when sort changes
-  useEffect(() => {
-    // Define the reset function
-    const resetToFirstPage = () => {
-      console.log('Resetting to page 1 due to sort change');
+  const handleSort = useCallback((field: string) => {
+    const isChangingField = sortField !== field;
+    const newDirection = isChangingField ? 'asc' : (sortDirection === 'asc' ? 'desc' : 'asc');
       
-      // Reset to page 1
+    // Batch all state updates together for a single re-render
+    setSortField(field);
+    setSortDirection(newDirection);
       setCurrentPage(1);
-      
-      // Force invalidation of the current queries to ensure fresh data with new sort
-      if (queryClient) {
-        console.log('Invalidating queries for new sort order');
-        queryClient.invalidateQueries(['sportsEntities', selectedEntityType]);
-      }
-    };
-    
-    // Register it with the sorting hook
-    registerResetPagination(resetToFirstPage);
-  }, [registerResetPagination, queryClient, selectedEntityType]);
+  }, [sortField, sortDirection, setSortField, setSortDirection, setCurrentPage]);
 
   // Fetch entity data using react-query
   // Key is updated when any parameters change
@@ -267,26 +255,6 @@ export const SportsDatabaseProvider: React.FC<SportsDatabaseProviderProps> = ({ 
     sortDirection,
     JSON.stringify(activeFilters)
   ], [selectedEntityType, currentPage, pageSize, sortField, sortDirection, activeFilters]);
-  
-  // Add debugging output for query key changes that highlights sorting parameters
-  useEffect(() => {
-    console.log('QueryKey updated with sort parameters:', {
-      entityType: selectedEntityType,
-      sortField,
-      sortDirection,
-      page: currentPage
-    });
-    
-    // Whenever sort parameters change, make sure we properly invalidate the cache
-    // This ensures that when user sorts, they get freshly sorted data from the server
-    if (queryClient) {
-      console.log('Sort parameters changed, invalidating entity queries');
-      queryClient.invalidateQueries({
-        queryKey: ['sportsEntities', selectedEntityType],
-        refetchType: 'active'  // Only refetch active queries
-      });
-    }
-  }, [selectedEntityType, sortField, sortDirection, queryClient]);
   
   const {
     data: response,
@@ -328,7 +296,7 @@ export const SportsDatabaseProvider: React.FC<SportsDatabaseProviderProps> = ({ 
       }
       
       // For production services, add extra logging
-      if (selectedEntityType === 'production' || selectedEntityType === 'broadcast') {
+      if (selectedEntityType === 'production_service' || selectedEntityType === 'broadcast') {
         console.log(`[${requestId}] Entity details:`, {
           type: selectedEntityType,
           page: currentPage,

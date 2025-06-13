@@ -404,32 +404,10 @@ export const processDivisionConferenceReference = async (
   entityType: EntityType,
   data: Record<string, any>
 ): Promise<Record<string, any>> => {
-  // Clone the data to avoid mutating the original
-  const processedData = { ...data };
-  
-  // Only process for team entities with division_conference_id that looks like a name
-  if (
-    entityType === 'team' && 
-    Object.keys(processedData).includes('division_conference_id') &&
-    processedData.division_conference_id && 
-    typeof processedData.division_conference_id === 'string' &&
-    !processedData.division_conference_id.includes('-')
-  ) {
-    try {
-      console.log('division_conference_id appears to be a name:', processedData.division_conference_id);
-      const divConfLookup = await sportsService.lookup('division_conference', processedData.division_conference_id);
-      
-      if (divConfLookup && divConfLookup.id) {
-        console.log(`Found division/conference ID: ${divConfLookup.id} for name: ${processedData.division_conference_id}`);
-        // Replace the name with the actual ID
-        processedData.division_conference_id = divConfLookup.id;
-      }
-    } catch (error) {
-      console.error('Error looking up division/conference by name:', error);
-    }
-  }
-  
-  return processedData;
+  // This function is being deprecated in favor of the more robust
+  // reference resolution inside _resolveTeamEntityReferences.
+  // It is now a no-op to prevent incorrect lookups.
+  return data;
 };
 
 // NEW Dispatcher for reference resolution
@@ -822,163 +800,76 @@ async function _resolveBroadcastEntityReferences(processedData: Record<string, a
 async function _resolveTeamEntityReferences(processedData: Record<string, any>): Promise<void> {
   console.log('Processing team entity for reference resolution, initial data:', JSON.stringify(processedData));
 
-  // Handle optional city: if it's an empty string, set to null
-  if (Object.prototype.hasOwnProperty.call(processedData, 'city') && processedData.city === "") {
-    console.log('City is an empty string, setting to null for optional database field.');
-    processedData.city = null;
-  }
-
-  // Handle optional stadium_id: if it's an empty string, set to null
-  if (Object.prototype.hasOwnProperty.call(processedData, 'stadium_id') && processedData.stadium_id === "") {
-    console.log('stadium_id is an empty string, setting to null.');
-    processedData.stadium_id = null;
-  }
-
   // --- Resolve League ID ---
-  let leagueIdResolved = false;
-  if (processedData.league_id && isValidUUID(processedData.league_id)) {
-    console.log(`League ID "${processedData.league_id}" is already a valid UUID.`);
-    leagueIdResolved = true;
-  } else {
-    const leagueNameToLookup = (processedData.league_id && typeof processedData.league_id === 'string') 
-      ? processedData.league_id 
-      : processedData.league_name;
-
-    if (leagueNameToLookup && typeof leagueNameToLookup === 'string') {
-      console.log(`Attempting to resolve league_id from name: "${leagueNameToLookup}" (source: processedData.league_id or processedData.league_name)`);
+  // This step is critical and must succeed before proceeding.
+  if (!processedData.league_id || !isValidUUID(processedData.league_id)) {
+    const leagueNameToLookup = (processedData.league_id || processedData.league_name);
+    if (!leagueNameToLookup || typeof leagueNameToLookup !== 'string') {
+      throw new Error('League name or ID is missing or invalid. It is required to resolve the team.');
+    }
+    console.log(`Attempting to resolve league_id from name: "${leagueNameToLookup}"`);
       try {
         const leagueLookup = await api.sports.lookup('league', leagueNameToLookup);
         if (leagueLookup && leagueLookup.id) {
           processedData.league_id = leagueLookup.id;
-          leagueIdResolved = true;
           console.log(`Resolved league_id to UUID: "${processedData.league_id}"`);
         } else {
-          throw new Error(`League named "${leagueNameToLookup}" not found via lookup.`);
+        throw new Error(`League named "${leagueNameToLookup}" could not be found.`);
         }
       } catch (error: any) {
-        console.error(`League lookup for "${leagueNameToLookup}" failed: ${error.message}`);
-        throw new Error(`Failed to resolve League ID for "${leagueNameToLookup}": ${error.message}`);
-      }
-    }
+      console.error(`Error during league lookup for "${leagueNameToLookup}": ${error.message}`);
+      throw new Error(`Failed to resolve League ID for "${leagueNameToLookup}". Please ensure it exists.`);
   }
-  if (!leagueIdResolved) {
-    throw new Error(`League ID is missing, not a UUID, or could not be resolved from name. Current league_id: "${processedData.league_id}", league_name: "${processedData.league_name}". Team creation requires a valid league_id.`);
   }
-  delete processedData.league_name; // Clean up league_name as TeamCreate expects league_id
-
 
   // --- Resolve Division/Conference ID ---
-  let divConfIdResolved = false;
-  if (processedData.division_conference_id && isValidUUID(processedData.division_conference_id)) {
-    console.log(`Division/Conference ID "${processedData.division_conference_id}" is already a valid UUID.`);
-    divConfIdResolved = true;
-  } else {
-    const divConfNameToLookup = (processedData.division_conference_id && typeof processedData.division_conference_id === 'string')
-      ? processedData.division_conference_id
-      : processedData.division_conference_name;
-
-    if (divConfNameToLookup && typeof divConfNameToLookup === 'string') {
-      console.log(`Attempting to resolve division_conference_id from name: "${divConfNameToLookup}" (source: processedData.division_conference_id or processedData.division_conference_name)`);
-      try {
-        const divConfLookup = await api.sports.lookup('division_conference', divConfNameToLookup);
-        if (divConfLookup && divConfLookup.id) {
-          // TODO: Optionally verify divConfLookup.league_id matches resolved processedData.league_id if both are available
-          processedData.division_conference_id = divConfLookup.id;
-          divConfIdResolved = true;
-          console.log(`Resolved division_conference_id to UUID: "${processedData.division_conference_id}"`);
-        } else {
-          console.warn(`Division/Conference named "${divConfNameToLookup}" not found by name. Will attempt fallback to resolved league ID.`);
-        }
-      } catch (error: any) {
-        console.error(`Division/Conference lookup for "${divConfNameToLookup}" failed: ${error.message}. Will attempt fallback to resolved league ID.`);
+  // This step now requires a valid league_id to have been resolved.
+  if (!processedData.division_conference_id || !isValidUUID(processedData.division_conference_id)) {
+    const divConfNameToLookup = (processedData.division_conference_id || processedData.division_conference_name);
+     if (!divConfNameToLookup || typeof divConfNameToLookup !== 'string') {
+      throw new Error('Division/Conference name or ID is missing or invalid. It is required to resolve the team.');
+    }
+    console.log(`Attempting to resolve division_conference_id from name: "${divConfNameToLookup}" using league_id: ${processedData.league_id}`);
+    try {
+      // The lookup is now scoped by the league_id, which is guaranteed to be a UUID here.
+      const divConfLookup = await api.sports.lookup('division_conference', divConfNameToLookup, processedData.league_id);
+      if (divConfLookup && divConfLookup.id) {
+        processedData.division_conference_id = divConfLookup.id;
+        console.log(`Resolved division_conference_id to UUID: "${processedData.division_conference_id}"`);
+      } else {
+        throw new Error(`Division/Conference named "${divConfNameToLookup}" was not found for the specified league.`);
       }
+    } catch (error: any) {
+      console.error(`Error during division/conference lookup for "${divConfNameToLookup}": ${error.message}`);
+      throw new Error(`Failed to resolve Division/Conference ID for "${divConfNameToLookup}".`);
     }
   }
 
-  if (!divConfIdResolved) { // Fallback to league_id if not resolved yet
-    // league_id has been validated to be a UUID by this point if leagueIdResolved is true
-    if (processedData.league_id && isValidUUID(processedData.league_id)) { 
-      console.log(`Division/Conference ID not resolved or provided as UUID. Using resolved League ID (${processedData.league_id}) as fallback.`);
-      processedData.division_conference_id = processedData.league_id;
-      divConfIdResolved = true; // Mark as resolved via fallback
-    } else {
-      // This should not happen if league_id resolution logic above is correct and throws on failure
-      throw new Error(`Cannot fallback division_conference_id: Resolved League ID ("${processedData.league_id}") is not a valid UUID.`);
-    }
-  }
-  
-  if (!divConfIdResolved) { // If still not resolved after potential fallback
-    throw new Error(`Division/Conference ID is missing, not a UUID, or could not be resolved from name/fallback. Current division_conference_id: "${processedData.division_conference_id}", division_conference_name: "${processedData.division_conference_name}". Team creation requires a valid division_conference_id.`);
-  }
-  delete processedData.division_conference_name; // Clean up as TeamCreate expects division_conference_id
-
-  // --- Resolve Stadium ID (existing logic with minor adjustment for clarity) ---
-  let stadiumNameToLookup: string | undefined = undefined;
-  const originalStadiumIdValue = processedData.stadium_id; // Keep original for logging/debugging if needed
-
+  // --- Resolve Stadium ID ---
   if (processedData.stadium_id && typeof processedData.stadium_id === 'string' && !isValidUUID(processedData.stadium_id)) {
-    stadiumNameToLookup = processedData.stadium_id;
-  } else if (processedData.stadium_name && typeof processedData.stadium_name === 'string') { 
-    stadiumNameToLookup = processedData.stadium_name;
-    // If stadium_id was provided but isn't a UUID (and stadium_name is being used for lookup), nullify stadium_id
-    if (processedData.stadium_id && !isValidUUID(processedData.stadium_id)) {
-        processedData.stadium_id = null; 
-    }
-  }
-
-  if (stadiumNameToLookup) {
-    console.log(`Attempting to resolve stadium_id from name: "${stadiumNameToLookup}". Current stadium_id value: ${originalStadiumIdValue}`);
+      const stadiumNameToLookup = processedData.stadium_id;
+      console.log(`Attempting to resolve stadium_id from name: "${stadiumNameToLookup}"`);
     try {
       const stadiumLookup = await api.sports.lookup('stadium', stadiumNameToLookup);
       if (stadiumLookup && stadiumLookup.id) {
-        console.log(`Stadium "${stadiumNameToLookup}" found with ID: ${stadiumLookup.id}`);
         processedData.stadium_id = stadiumLookup.id;
-        delete processedData.stadium_name_to_resolve; 
-        delete processedData.stadium_name; // Clean up stadium_name
       } else {
-        console.warn(`Stadium "${stadiumNameToLookup}" not found. Setting stadium_id to null. Backend might attempt creation if stadium_name_to_resolve is set.`);
+              console.warn(`Stadium "${stadiumNameToLookup}" not found. This will be set to null.`);
         processedData.stadium_id = null;
-        // Ensure stadium_name_to_resolve is set if we intend for backend to create it
-        if (!processedData.stadium_name_to_resolve) {
-            processedData.stadium_name_to_resolve = stadiumNameToLookup;
-        }
-        delete processedData.stadium_name; // Clean up stadium_name
       }
-    } catch (error: any) { 
-      console.error(`Stadium lookup for "${stadiumNameToLookup}" failed: ${error.message}. Setting stadium_id to null.`);
+      } catch (error) {
+          console.error(`Stadium lookup for "${stadiumNameToLookup}" failed. This will be set to null.`);
       processedData.stadium_id = null; 
-      // Ensure stadium_name_to_resolve is set if we intend for backend to create it
-      if (!processedData.stadium_name_to_resolve) {
-        processedData.stadium_name_to_resolve = stadiumNameToLookup;
       }
-      delete processedData.stadium_name; // Clean up stadium_name
-    }
-  } else if (isValidUUID(processedData.stadium_id)) {
-     console.log('Stadium ID is already a valid UUID:', processedData.stadium_id);
-     delete processedData.stadium_name_to_resolve;
-     delete processedData.stadium_name; 
-  } else { // Covers stadium_id being null, undefined, or an empty string (already handled if empty string)
-    console.log('Stadium ID is null, undefined, or was an empty string. No stadium will be linked, or backend may handle stadium_name_to_resolve if present.');
-    // Ensure it's explicitly null if it was some other non-UUID, non-name value
-    if (Object.prototype.hasOwnProperty.call(processedData, 'stadium_id') && !isValidUUID(processedData.stadium_id) && processedData.stadium_id !== null) {
+  } else if (!processedData.stadium_id || !isValidUUID(processedData.stadium_id)) {
+      // Ensure any non-UUID value (like an empty string) becomes null
         processedData.stadium_id = null;
     }
-    // Don't delete stadium_name_to_resolve here if stadium_id is null, backend might use it
-    delete processedData.stadium_name;
-  }
 
-  // Final check to ensure critical IDs are valid UUIDs
-  // league_id and division_conference_id are non-nullable in Pydantic TeamCreate
-  if (!isValidUUID(processedData.league_id)) {
-      throw new Error(`FATAL: league_id ("${processedData.league_id}") is not a valid UUID before sending to backend.`);
-  }
-  if (!isValidUUID(processedData.division_conference_id)) {
-      throw new Error(`FATAL: division_conference_id ("${processedData.division_conference_id}") is not a valid UUID before sending to backend.`);
-  }
-  // stadium_id is optional, so it can be null or a valid UUID
-  if (processedData.stadium_id !== null && !isValidUUID(processedData.stadium_id)) {
-      throw new Error(`FATAL: stadium_id ("${processedData.stadium_id}") is not null and not a valid UUID before sending to backend.`);
-  }
+  // Clean up temporary name fields before sending to the backend
+  delete processedData.league_name;
+  delete processedData.division_conference_name;
+    delete processedData.stadium_name;
 
   console.log('Processed data after all team reference resolutions:', JSON.stringify(processedData, null, 2));
 }

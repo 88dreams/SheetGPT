@@ -1,4 +1,6 @@
 import React, { useCallback } from 'react';
+import { FaEye } from 'react-icons/fa';
+import { Link } from 'react-router-dom';
 import SmartColumn from '../common/SmartColumn'; // Adjust path as needed
 
 interface QueryResultsTableProps {
@@ -92,6 +94,11 @@ const QueryResultsTable: React.FC<QueryResultsTableProps> = ({
                                 aria-label="Select all rows"
                             />
                         </th>
+
+                        {/* Actions column */}
+                        <th className="w-20 px-3 py-2 border-r border-gray-200 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Actions
+                        </th>
                         
                         {/* Generate header from the visible columns */}
                         {columnsToRender.map((column) => (
@@ -132,6 +139,21 @@ const QueryResultsTable: React.FC<QueryResultsTableProps> = ({
                                     className="h-4 w-4 text-blue-600 border-gray-300 rounded"
                                     aria-label={`Select row ${rowIndex + 1}`}
                                 />
+                            </td>
+
+                            {/* Actions cell */}
+                            <td className="px-3 py-2 whitespace-nowrap border-r border-gray-200">
+                                {(() => {
+                                    const entityId = row.id || row[`${row.entity_type}_id`];
+                                    if (row.entity_type && entityId) {
+                                        return (
+                                            <Link to={`/sports/${row.entity_type}/${entityId}`} title="View Details">
+                                                <FaEye className="text-gray-400 hover:text-blue-500" />
+                                            </Link>
+                                        );
+                                    }
+                                    return null;
+                                })()}
                             </td>
                             
                             {/* Only display visible columns */}

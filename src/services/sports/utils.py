@@ -59,51 +59,35 @@ ENTITY_TYPES = {
 }
 
 def normalize_entity_type(entity_type: str) -> str:
-    """
-    Standardize entity type strings.
+    """Standardizes entity type strings to match internal conventions."""
+    type_map = {
+        "leagues": "league",
+        "divisions_conferences": "division_conference",
+        "division_conference": "division_conference", # Explicitly handle this case
+        "teams": "team",
+        "players": "player",
+        "games": "game",
+        "stadiums": "stadium",
+        "broadcast_companies": "broadcast_company",
+        "broadcast_rights": "broadcast_right",
+        "production_companies": "production_company",
+        "production_services": "production_service",
+        "brands": "brand",
+        "game_broadcasts": "game_broadcast",
+        "league_executives": "league_executive",
+        "brand_relationships": "brand_relationship",
+        "contacts": "contact"
+    }
     
-    Examples:
-        'division' or 'conference' -> 'division_conference'
-        'broadcast_right' -> 'broadcast_rights' 
-        'Team' -> 'team'
-        'Racing Series' or 'racing' -> 'league'
-    """
-    if not entity_type:
-        return ""
+    # First, check for an exact match in our mapping
+    if entity_type in type_map:
+        return type_map[entity_type]
     
-    # Convert to lowercase and remove any trailing 's'
-    normalized = entity_type.lower()
-    
-    # Handle specific mappings
-    if normalized in ['division', 'conference']:
-        return 'division_conference'
-    elif normalized == 'broadcast':
-        return 'broadcast_rights'
-    elif normalized == 'production':
-        return 'production_services'
-    elif normalized in ['championship', 'playoff', 'playoffs', 'tournament']:
-        return normalized  # Keep these as is for special handling
-    
-    # Handle racing series and variations
-    elif 'racing' in normalized or 'series' in normalized:
-        logger.info(f"Normalizing racing entity type: {entity_type} -> league")
-        return 'league'
-    
-    # Check if it's a valid entity type (handles pluralization)
-    if normalized in ENTITY_TYPES:
-        # Return the normalized form based on the model class name
-        model_class = ENTITY_TYPES[normalized]
-        if model_class:
-            return model_class.__name__.lower()
-        return normalized
-    
-    # Handle plural forms not in the mapping
-    if normalized.endswith('s') and normalized[:-1] in ENTITY_TYPES:
-        model_class = ENTITY_TYPES[normalized[:-1]]
-        if model_class:
-            return model_class.__name__.lower()
-    
-    # Return as is if we can't normalize it
+    # If no exact match, try a more general plural-to-singular conversion
+    # This is a fallback and might not cover all edge cases perfectly.
+    if entity_type.endswith('s'):
+        return entity_type[:-1]
+        
     return entity_type
 
 def get_model_for_entity_type(entity_type: str) -> Optional[Type]:

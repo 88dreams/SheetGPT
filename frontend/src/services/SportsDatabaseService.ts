@@ -2,7 +2,7 @@ import { api } from '../utils/api';
 import { FilterConfig } from '../components/sports/EntityFilter';
 
 // Entity types
-export type EntityType = 'league' | 'division_conference' | 'team' | 'player' | 'game' | 'stadium' | 'broadcast' | 'production_service' | 'brand' | 'game_broadcast' | 'league_executive';
+export type EntityType = 'league' | 'division_conference' | 'team' | 'player' | 'game' | 'stadium' | 'broadcast' | 'production_service' | 'brand' | 'game_broadcast' | 'league_executive' | 'contact';
 
 // Base entity interface
 export interface BaseEntity {
@@ -227,7 +227,13 @@ const entityPromptTemplates: Record<EntityType, string> = {
 1. League ID
 2. Position
 3. Start date (YYYY-MM-DD format)
-4. End date (YYYY-MM-DD format, optional)`
+4. End date (YYYY-MM-DD format, optional)`,
+
+  contact: `I'll help you create a new contact record. Please provide the following information:
+1. Contact name
+2. Email
+3. Phone
+4. Description (optional)`
 };
 
 export interface GetEntitiesParams {
@@ -400,6 +406,12 @@ class SportsDatabaseService {
         if (!data.position) errors.position = ['Position is required'];
         if (!data.start_date) errors.start_date = ['Start date is required'];
         break;
+        
+      case 'contact':
+        if (!data.name) errors.name = ['Name is required'];
+        if (!data.email) errors.email = ['Email is required'];
+        if (!data.phone) errors.phone = ['Phone is required'];
+        break;
     }
     
     return Object.keys(errors).length > 0 ? errors : null;
@@ -436,6 +448,8 @@ class SportsDatabaseService {
           return await api.sports.createGameBroadcast(entityData);
         case 'league_executive':
           return await api.sports.createLeagueExecutive(entityData);
+        case 'contact':
+          return await api.contacts.createContact(entityData);
         default:
           throw new Error(`API endpoint for creating ${entityType} not implemented yet`);
       }
@@ -544,6 +558,8 @@ class SportsDatabaseService {
           return await api.sports.getGameBroadcast(id);
         case 'league_executive':
           return await api.sports.getLeagueExecutive(id);
+        case 'contact':
+          return await api.contacts.getContact(id);
         default:
           throw new Error(`API endpoint for getting ${entityType} by ID not implemented yet`);
       }
@@ -687,6 +703,9 @@ class SportsDatabaseService {
         case 'league_executive':
           response = await api.sports.createLeagueExecutive(entityData);
           break;
+        case 'contact':
+          response = await api.contacts.createContact(entityData);
+          break;
         default:
           throw new Error(`Unsupported entity type: ${entityType}`);
       }
@@ -741,6 +760,9 @@ class SportsDatabaseService {
           break;
         case 'league_executive':
           await api.sports.deleteLeagueExecutive(id);
+          break;
+        case 'contact':
+          await api.contacts.deleteContact(id);
           break;
         default:
           throw new Error(`Unsupported entity type for deletion: ${entityType}`);
@@ -851,6 +873,8 @@ class SportsDatabaseService {
           return await api.sports.updateGameBroadcast(entityId, updates);
         case 'league_executive':
           return await api.sports.updateLeagueExecutive(entityId, updates);
+        case 'contact':
+          return await api.contacts.updateContact(entityId, updates);
         default:
           throw new Error(`Unsupported entity type for update: ${entityType}`);
       }

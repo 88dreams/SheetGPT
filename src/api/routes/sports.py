@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from typing import List, Optional, Dict, Any
+from typing import List, Optional, Dict, Any, Union
 from uuid import UUID
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
@@ -22,6 +22,7 @@ from src.schemas.sports import (
     BroadcastRightsCreate, BroadcastRightsUpdate, BroadcastRightsResponse,
     ProductionCompanyCreate, ProductionCompanyUpdate, ProductionCompanyResponse,
     DivisionConferenceCreate, DivisionConferenceUpdate, DivisionConferenceResponse,
+    DivisionConferenceLookupResponse,
     ProductionServiceCreate, ProductionServiceUpdate, ProductionServiceResponse,
     BrandCreate, BrandUpdate, BrandRead,
     EntityExportRequest, EntityExportResponse
@@ -38,32 +39,38 @@ from src.utils.errors import (
     DatabaseOperationError
 )
 from src.services.sports.league_service import LeagueService
+from src.services.sports.utils import normalize_entity_type
 
 router = APIRouter()
 sports_service = SportsService()
 export_service = ExportService()
 
 # Lookup endpoint for entity by name
-@router.get("/lookup/{entity_type}")
+@router.get("/lookup/{entity_type}", response_model=Dict)
 async def lookup_entity_by_name(
     entity_type: str,
     name: str,
+    league_id: Optional[UUID] = Query(None, description="Optional league ID to scope the search for division/conference"),
     db: AsyncSession = Depends(get_db),
     current_user: Dict = Depends(get_current_user)
 ):
-    """Look up an entity by name, with case-insensitive matching."""
-    # With our new error handling, we don't need try/except here
-    # EntityNotFoundError will be caught by middleware
+    """
+    Looks up an entity by name. For division/conference, can be scoped by league_id.
+    """
     try:
-        # Validate entity_type before proceeding
-        if entity_type not in sports_service.ENTITY_TYPES:
+        normalized_type = normalize_entity_type(entity_type)
+        if normalized_type not in sports_service.ENTITY_TYPES:
             raise EntityValidationError(
                 message=f"Invalid entity type: {entity_type}",
                 entity_type=entity_type,
                 details={"valid_types": list(sports_service.ENTITY_TYPES.keys())}
             )
             
-        entity = await sports_service.get_entity_by_name(db, entity_type, name)
+        entity = await sports_service.get_entity_by_name(db, normalized_type, name, league_id=league_id)
+        
+        if not entity:
+            raise HTTPException(status_code=404, detail=f"{entity_type} '{name}' not found.")
+
         return entity
     except ValueError as e:
         # Map legacy ValueError to our new error types

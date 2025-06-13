@@ -5,6 +5,7 @@ from uuid import UUID
 import logging
 from sqlalchemy import select, delete, update, func, or_
 import math
+from sqlalchemy.types import String, Text
 
 from src.utils.errors import (
     DatabaseOperationError, 
@@ -44,6 +45,26 @@ class BaseEntityService(Generic[T]):
     def _prepare_filters(self, filters: Dict[str, Any]) -> List:
         """Convert a dictionary of filters to SQLAlchemy filter conditions."""
         conditions = []
+        search_clauses = []
+        search_value = None
+
+        # Separate search_columns filter
+        if 'search_columns' in filters:
+            search_value = f"%{filters['search_columns']['value']}%"
+            search_columns = filters['search_columns']['columns']
+            
+            for col_name in search_columns:
+                if hasattr(self.model_class, col_name):
+                    column = getattr(self.model_class, col_name)
+                    # Ensure we only apply ILIKE to string-based columns
+                    if isinstance(column.type, (String, Text)):
+                        search_clauses.append(column.ilike(search_value))
+            
+            del filters['search_columns'] # Remove from normal processing
+
+        if search_clauses:
+            conditions.append(or_(*search_clauses))
+
         for key, value in filters.items():
             if hasattr(self.model_class, key):
                 # Handle None values (IS NULL in SQL)

@@ -1,4 +1,4 @@
-from typing import List, Dict, Any, Optional, Tuple
+from typing import List, Dict, Any, Optional, Tuple, AsyncGenerator
 from uuid import UUID, uuid4
 from datetime import datetime, date
 import re
@@ -9,7 +9,7 @@ from pydantic import EmailStr
 from dateutil import parser as dateutil_parser
 
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, and_, or_, func, update
+from sqlalchemy import select, and_, or_, func, update, delete
 from sqlalchemy.orm import selectinload, joinedload
 
 from src.models.sports_models import Contact, ContactBrandAssociation, Brand, League, Team, Stadium, ProductionService
@@ -107,6 +107,33 @@ class ContactsService:
         await self.db.commit()
         return True
     
+    async def bulk_delete_contacts(self, user_id: UUID, contact_ids: List[UUID]) -> int:
+        """Deletes a list of contacts in bulk."""
+        if not contact_ids:
+            return 0
+
+        # First, delete associated records (e.g., brand associations)
+        # This is important to handle foreign key constraints
+        await self.db.execute(
+            delete(ContactBrandAssociation).where(
+                ContactBrandAssociation.contact_id.in_(contact_ids)
+            )
+        )
+
+        # Now, delete the contacts themselves
+        stmt = (
+            delete(Contact)
+            .where(Contact.user_id == user_id)
+            .where(Contact.id.in_(contact_ids))
+            .execution_options(synchronize_session=False)
+        )
+        result = await self.db.execute(stmt)
+        await self.db.commit()
+        
+        deleted_count = result.rowcount
+        print(f"User {user_id} deleted {deleted_count} contacts. Contact IDs: {contact_ids}")
+        return deleted_count
+    
     async def list_contacts(
         self, 
         user_id: UUID, 
@@ -133,7 +160,8 @@ class ContactsService:
                     Contact.last_name.ilike(search_term),
                     Contact.email.ilike(search_term),
                     Contact.company.ilike(search_term),
-                    Contact.position.ilike(search_term)
+                    Contact.position.ilike(search_term),
+                    Contact.import_source_tag.ilike(search_term)
                 )
             )
         
@@ -471,6 +499,196 @@ class ContactsService:
             stats["import_errors"].append({"row": "COMMIT FAILED", "error": str(commit_error)})
 
         return stats
+    
+    async def import_linkedin_csv_streaming(
+        self, 
+        user_id: UUID, 
+        csv_data: List[Dict[str, str]],
+        auto_match_brands: bool = True,
+        match_threshold: float = 0.6,
+        import_source_tag: Optional[str] = None
+    ) -> AsyncGenerator[Dict[str, Any], None]:
+        """
+        Import contacts from LinkedIn CSV, streaming progress back.
+        """
+        stats = {
+            "total_contacts": len(csv_data),
+            "processed_count": 0,
+            "imported_contacts": 0,
+            "matched_brands": 0,
+            "matched_entities": 0,
+            "new_representative_brands": 0,
+            "import_errors": []
+        }
+        
+        processed_associations = set()
+        
+        for i, row in enumerate(csv_data):
+            contact = None # Ensure contact is defined in this scope
+            try:
+                # Normalize column names
+                normalized_row = self._normalize_csv_columns(row)
+                
+                # Extract data
+                first_name = normalized_row.get("first_name", "").strip()
+                last_name = normalized_row.get("last_name", "").strip()
+                email = normalized_row.get("email", "").strip()
+                company = normalized_row.get("company", "").strip()
+                position = normalized_row.get("position", "").strip()
+                profile_url = normalized_row.get("linkedin_url", "").strip()
+                
+                # Parse connected_on date if present
+                connected_on_str = normalized_row.get("connected_on", "").strip()
+                connected_on = None
+                if connected_on_str:
+                    # Try different date formats
+                    try:
+                        # Format options (common in LinkedIn exports):
+                        # 01-Jan-2024, 01/01/2024, 2024-01-01, Jan 01, 2024, etc.
+                        for fmt in (
+                            "%d-%b-%Y", "%m/%d/%Y", "%Y-%m-%d", "%b %d, %Y", 
+                            "%B %d, %Y", "%d %b %Y", "%d %B %Y", "%m-%d-%Y"
+                        ):
+                            try:
+                                connected_on = datetime.strptime(connected_on_str, fmt).date()
+                                print(f"Parsed date '{connected_on_str}' with format '{fmt}' -> {connected_on}")
+                                break
+                            except ValueError:
+                                continue
+                        
+                        if connected_on is None:
+                            print(f"Unable to parse date: '{connected_on_str}'")
+                    except Exception as e:
+                        print(f"Date parsing error for '{connected_on_str}': {str(e)}")
+                        pass
+                
+                # Validate required fields
+                if not first_name or not last_name:
+                    stats["import_errors"].append({
+                        "row": row,
+                        "error": "Missing required fields (first name and last name)"
+                    })
+                    continue
+                
+                # Check for existing contact with same first name, last name, and email
+                query = select(Contact).where(
+                    and_(
+                        Contact.user_id == user_id,
+                        Contact.first_name == first_name,
+                        Contact.last_name == last_name
+                    )
+                )
+                
+                if email:
+                    query = query.where(Contact.email == email)
+                    
+                result = await self.db.execute(query)
+                existing_contact = result.scalars().first()
+                
+                if existing_contact:
+                    # Update existing contact
+                    if company and not existing_contact.company:
+                        existing_contact.company = company
+                    if position and not existing_contact.position:
+                        existing_contact.position = position
+                    if profile_url and not existing_contact.linkedin_url:
+                        existing_contact.linkedin_url = profile_url
+                    if connected_on and not existing_contact.connected_on:
+                        existing_contact.connected_on = connected_on
+                    if email and not existing_contact.email:
+                        existing_contact.email = email
+                    
+                    # Update import_source_tag if provided for an existing contact
+                    if import_source_tag is not None:
+                        existing_contact.import_source_tag = import_source_tag
+                        
+                    existing_contact.updated_at = datetime.utcnow()
+                    contact = existing_contact
+                else:
+                    # Create new contact
+                    contact = Contact(
+                        user_id=user_id,
+                        first_name=first_name,
+                        last_name=last_name,
+                        email=email,
+                        linkedin_url=profile_url,
+                        company=company,
+                        position=position,
+                        connected_on=connected_on,
+                        import_source_tag=import_source_tag
+                    )
+                    self.db.add(contact)
+                    await self.db.flush()  # Generate ID without committing
+                
+                # Auto-match if requested and company is provided
+                if auto_match_brands and company:
+                    # Find all potential brand associations (real and representative)
+                    matched_brands = await self._find_brand_associations(company, match_threshold)
+                    
+                    is_first_association_for_contact = True
+                    for brand_match in matched_brands:
+                        brand_id = brand_match["id"]
+                        confidence = brand_match["confidence"]
+                        is_representative = brand_match["is_representative"]
+                        
+                        assoc_key = (contact.id, brand_id)
+                        if assoc_key in processed_associations:
+                            continue # Already associated in this import run
+                        
+                        # Check for existing association in DB
+                        assoc_query = select(ContactBrandAssociation).where(
+                            and_(
+                                ContactBrandAssociation.contact_id == contact.id,
+                                ContactBrandAssociation.brand_id == brand_id
+                            )
+                        )
+                        assoc_result = await self.db.execute(assoc_query)
+                        existing_assoc = assoc_result.scalars().first()
+                        
+                        if not existing_assoc:
+                            # Determine if this should be primary
+                            # Simple approach: first association for this contact in this run is primary
+                            # Could be refined later (e.g., prioritize non-representative)
+                            make_primary = is_first_association_for_contact
+                            
+                            association = ContactBrandAssociation(
+                                contact_id=contact.id,
+                                brand_id=brand_id,
+                                confidence_score=confidence,
+                                association_type="employed_at", # Or determine based on representative type?
+                                is_current=True,
+                                is_primary=make_primary 
+                            )
+                            self.db.add(association)
+                            stats["matched_entities"] += 1
+                            if is_representative:
+                                stats["new_representative_brands"] += 1 # Needs refinement if brand already existed
+                            else:
+                                stats["matched_brands"] += 1
+                                
+                            processed_associations.add(assoc_key)
+                            is_first_association_for_contact = False # Only the first one is primary
+                        else:
+                            # Optionally update confidence score or other fields if needed
+                            pass 
+                            
+                stats["processed_count"] = i + 1
+                yield stats
+                
+            except Exception as e:
+                stats["import_errors"].append({
+                    "row": row,
+                    "error": f"Error processing row: {str(e)}"
+                })
+        
+        # Final commit and stats yield
+        try:
+            await self.db.commit()
+        except Exception as commit_error:
+            await self.db.rollback()
+            stats["import_errors"].append({"row": "COMMIT FAILED", "error": str(commit_error)})
+        
+        yield stats
     
     async def _find_brand_associations(self, company_name: str, threshold: float) -> List[Dict[str, Any]]:
         """ 
@@ -1121,11 +1339,13 @@ class ContactsService:
     async def rematch_contacts_with_brands(
         self, 
         user_id: UUID, 
-        match_threshold: float # Now required, no default
+        match_threshold: float, # Now required, no default
+        contact_ids: Optional[List[UUID]] = None
     ) -> Dict[str, Any]:
         """ 
-        Re-scan all contacts, adding new brand/entity associations and
+        Re-scan contacts, adding new brand/entity associations and
         removing old ones that no longer meet the specified threshold.
+        If contact_ids is provided, only those contacts are processed.
         """
         stats = {
             "total_contacts": 0,
@@ -1139,6 +1359,11 @@ class ContactsService:
         
         # Get all contacts for the user, preloading existing associations
         query = select(Contact).where(Contact.user_id == user_id).options(selectinload(Contact.brand_associations).selectinload(ContactBrandAssociation.brand))
+        
+        # If specific contact IDs are provided, filter the query
+        if contact_ids:
+            query = query.where(Contact.id.in_(contact_ids))
+
         result = await self.db.execute(query)
         contacts = result.scalars().unique().all()
         stats["total_contacts"] = len(contacts)

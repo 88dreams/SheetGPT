@@ -87,9 +87,48 @@ class QueryService:
         # It's better to have a clear error if the primary source (MD file) fails and no fallback is desired.
         raise ConnectionError(f"Failed to load schema information. Primary schema file missing or unreadable: {_SCHEMA_FILE_PATH}")
 
+    def _get_table_name_from_query(self, sql: str) -> Optional[str]:
+        """Extracts the primary table name from a SQL query."""
+        # This is a simplified regex and might not cover all SQL complexities
+        # It looks for FROM or JOIN clauses and extracts the table name
+        match = re.search(r'\sFROM\s+([a-zA-Z_][a-zA-Z0-9_]*)', sql, re.IGNORECASE)
+        if match:
+            return match.group(1)
+        
+        match = re.search(r'\sJOIN\s+([a-zA-Z_][a-zA-Z0-9_]*)', sql, re.IGNORECASE)
+        if match:
+            return match.group(1)
+            
+        return None
+
+    def _map_table_to_entity_type(self, table_name: str) -> str:
+        """Maps a table name to a singular entity type."""
+        # Simple plural-to-singular mapping
+        if table_name.endswith('s'):
+            # Handle special cases like 'broadcast_rights' -> 'broadcast'
+            if table_name == 'broadcast_rights':
+                return 'broadcast'
+            return table_name[:-1]
+        return table_name
+
     async def execute_safe_query(self, query: str) -> List[Dict[str, Any]]:
-        """Executes a validated SELECT query."""
-        query = self._strip_comments(query) # Ensure comments are stripped even if called directly
+        """Executes a validated SELECT query and adds entity_type to results."""
+        query = self._strip_comments(query)
+        
+        # Add 'tableoid' to the SELECT list to identify the source table of each row
+        # This is a PostgreSQL-specific feature
+        if query.upper().startswith("SELECT"):
+            # A more robust way to inject 'tableoid' without breaking existing aliases
+            # We find the first SELECT and insert 'tableoid,' right after it.
+            # This handles 'SELECT DISTINCT' as well.
+            select_keyword_pos = query.upper().find("SELECT")
+            insert_pos = select_keyword_pos + len("SELECT")
+            
+            # Move past DISTINCT if it exists
+            if query.upper()[insert_pos:].lstrip().startswith("DISTINCT"):
+                insert_pos = query.upper().find("DISTINCT", insert_pos) + len("DISTINCT")
+            
+            query = query[:insert_pos] + " tableoid," + query[insert_pos:]
         
         # Basic check again, although primary validation should happen before calling this
         if not re.match(r'^\s*SELECT', query, re.IGNORECASE):
@@ -108,23 +147,41 @@ class QueryService:
                 logger.error(f"Query rejected by keyword check: contains forbidden operation '{pattern}': {query[:100]}...")
                 raise ValueError(f"Forbidden operation detected: {pattern}")
 
-        logger.info(f"Executing safe query: {query}")
+        logger.info(f"Executing safe query with tableoid: {query}")
         try:
             result = await self.db.execute(text(query))
             rows = []
             if result.returns_rows:
-                # Using keys() and fetchall() is generally robust with SQLAlchemy
                 column_names = list(result.keys())
                 fetched_rows = result.fetchall()
-                rows = [dict(zip(column_names, row_proxy)) for row_proxy in fetched_rows]
+                
+                # Fetch table name mappings from tableoids
+                tableoid_map = {}
+                tableoids = {row.tableoid for row in fetched_rows if hasattr(row, 'tableoid')}
+                if tableoids:
+                    map_query = text("SELECT oid, relname FROM pg_class WHERE oid = ANY(:oids)")
+                    map_result = await self.db.execute(map_query, {'oids': list(tableoids)})
+                    tableoid_map = {oid: relname for oid, relname in map_result}
+
+                rows = []
+                for row_proxy in fetched_rows:
+                    row_dict = dict(zip(column_names, row_proxy))
+                    
+                    # Add entity_type based on tableoid
+                    tableoid = row_dict.pop('tableoid', None) # Remove tableoid from final result
+                    if tableoid and tableoid in tableoid_map:
+                        table_name = tableoid_map[tableoid]
+                        row_dict['entity_type'] = self._map_table_to_entity_type(table_name)
+                    
+                    rows.append(row_dict)
+
                 logger.info(f"Query returned {len(rows)} rows.")
             else:
                  logger.info("Query did not return rows (e.g., EXPLAIN statement).")
             return rows
         except Exception as e:
             logger.error(f"Error executing query: {str(e)} SQL: {query}", exc_info=True)
-            # Add more specific error handling if possible (e.g., catch DB connection errors, syntax errors)
-            raise ValueError(f"Query execution failed: {str(e)}") # Re-raise as ValueError for API handling
+            raise ValueError(f"Query execution failed: {str(e)}")
 
     def _is_ncaa_broadcast_query(self, query: str) -> bool:
         """Checks if the query appears to be about NCAA broadcast rights."""

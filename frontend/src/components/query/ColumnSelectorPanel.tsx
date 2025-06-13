@@ -39,7 +39,7 @@ const ColumnSelectorPanel: React.FC<ColumnSelectorPanelProps> = ({
   };
   
   const displayColumns = getDisplayColumns();
-  
+
   const handleTemplateChange = (value: string) => {
     if (value) {
       onApplyTemplate(value);
@@ -69,12 +69,12 @@ const ColumnSelectorPanel: React.FC<ColumnSelectorPanelProps> = ({
             </Select>
           </div>
           {displayColumns.length > 0 && (
-            <button 
-              className="text-xs text-blue-600 hover:text-blue-800 font-medium transition-colors"
-              onClick={onShowAllColumns}
-            >
-              Show All Columns
-            </button>
+          <button 
+            className="text-xs text-blue-600 hover:text-blue-800 font-medium transition-colors"
+            onClick={onShowAllColumns}
+          >
+            Show All Columns
+          </button>
           )}
         </div>
       </div>
@@ -84,26 +84,26 @@ const ColumnSelectorPanel: React.FC<ColumnSelectorPanelProps> = ({
           No columns available. Select a template above or execute a query to see columns.
         </div>
       ) : (
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-x-4 gap-y-2">
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-x-4 gap-y-2">
           {displayColumns.map((column) => (
-            <div key={column} className="flex items-center">
-              <input
-                type="checkbox"
-                id={`col-vis-${column}`}
-                checked={visibleColumns[column] === undefined ? true : visibleColumns[column]} // Default to true if not in map
-                onChange={() => onToggleColumn(column)}
-                className="mr-2 h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500 cursor-pointer"
-              />
-              <label 
-                htmlFor={`col-vis-${column}`} 
-                className="text-sm text-gray-700 truncate select-none cursor-pointer"
-                title={column}
-              >
-                {column}
-              </label>
-            </div>
-          ))}
-        </div>
+          <div key={column} className="flex items-center">
+            <input
+              type="checkbox"
+              id={`col-vis-${column}`}
+              checked={visibleColumns[column] === undefined ? true : visibleColumns[column]} // Default to true if not in map
+              onChange={() => onToggleColumn(column)}
+              className="mr-2 h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500 cursor-pointer"
+            />
+            <label 
+              htmlFor={`col-vis-${column}`} 
+              className="text-sm text-gray-700 truncate select-none cursor-pointer"
+              title={column}
+            >
+              {column}
+            </label>
+          </div>
+        ))}
+      </div>
       )}
     </div>
   );

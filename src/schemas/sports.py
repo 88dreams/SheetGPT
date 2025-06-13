@@ -518,3 +518,21 @@ class EntityExportResponse(BaseModel):
     entity_count: int
     folder_id: Optional[str] = None
     folder_url: Optional[str] = None 
+
+# New DivisionConferenceLookupResponse schema
+class DivisionConferenceLookupResponse(BaseModel):
+    name: str
+    nickname: Optional[str] = None
+    type: str
+    region: Optional[str] = None
+    description: Optional[str] = None
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        orm_mode = True
+
+# Team Schemas
+class TeamBase(BaseModel):
+    name: str
+    # ... existing code ... 

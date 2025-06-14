@@ -11,6 +11,7 @@ export interface QueryData {
   export_format?: string;
   sheet_title?: string;
   queryName?: string;
+  limit?: number;
 }
 
 // Define the expected success response structure (adjust based on actual API)

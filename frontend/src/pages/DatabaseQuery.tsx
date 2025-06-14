@@ -53,12 +53,14 @@ const DatabaseQuery: React.FC = () => {
   const [isStateLoadedFromStorage, setIsStateLoadedFromStorage] = useState(false);
 
   const {
-    naturalLanguageQuery,
-    setNaturalLanguageQuery,
+    nlq,
+    setNlq,
     queryName,
     setQueryName,
-    generatedSql,
-    setGeneratedSql,
+    sql,
+    setSql,
+    limit,
+    setLimit,
     isNaturalLanguage,
     validationError,
     setValidationError,
@@ -66,9 +68,10 @@ const DatabaseQuery: React.FC = () => {
     setSuggestedSql,
     isTranslating,
     handleTranslateQuery,
-    clearNaturalLanguageQuery,
-    clearGeneratedSql,
-    applySuggestedFix
+    clearNlq,
+    clearSql,
+    applySuggestedFix,
+    clearAll
   } = useQueryInput();
   
   const {
@@ -118,10 +121,10 @@ const DatabaseQuery: React.FC = () => {
   
   const getLatestQueryForBackendExport = useCallback(() => {
     return {
-      queryText: (!isNaturalLanguage && generatedSql) ? generatedSql : naturalLanguageQuery,
-      isNaturalLanguage: isNaturalLanguage || !generatedSql,
+      queryText: (!isNaturalLanguage && sql) ? sql : nlq,
+      isNaturalLanguage: isNaturalLanguage || !sql,
     };
-  }, [naturalLanguageQuery, generatedSql, isNaturalLanguage]);
+  }, [nlq, sql, isNaturalLanguage]);
 
   const exporter = useExporter({
     baseQueryName: queryName,
@@ -232,12 +235,12 @@ const DatabaseQuery: React.FC = () => {
   
   useEffect(() => {
     if (executionGeneratedSql !== null) {
-      setGeneratedSql(executionGeneratedSql);
+      setSql(executionGeneratedSql);
     }
-  }, [executionGeneratedSql, setGeneratedSql]);
+  }, [executionGeneratedSql, setSql]);
   
   const executeQueryForDisplay = async () => {
-    const queryText = !isNaturalLanguage && generatedSql ? generatedSql : naturalLanguageQuery;
+    const queryText = !isNaturalLanguage && sql ? sql : nlq;
     
     if (!queryText.trim() || isTranslating) return;
     
@@ -249,8 +252,9 @@ const DatabaseQuery: React.FC = () => {
     
     const queryDataToSubmit: QueryData = {
       query: queryText,
-      natural_language: isNaturalLanguage || !generatedSql,
-      queryName: queryName || undefined
+      natural_language: isNaturalLanguage || !sql,
+      queryName: queryName || undefined,
+      limit: limit,
     };
     
     try {
@@ -262,14 +266,14 @@ const DatabaseQuery: React.FC = () => {
   };
 
   const saveQuery = () => {
-    if (!naturalLanguageQuery.trim() || !queryName.trim()) return;
+    if (!nlq.trim() || !queryName.trim()) return;
     
     const newQueryData: SavedQuery = {
       id: '',
       timestamp: new Date().toISOString(),
       name: queryName,
-      query: naturalLanguageQuery,
-      sql: generatedSql || '',
+      query: nlq,
+      sql: sql || '',
       isNaturalLanguage: true,
     };
     addSavedQuery(newQueryData);
@@ -287,8 +291,8 @@ const DatabaseQuery: React.FC = () => {
   };
 
   const handleApplyGeneratedNLQ = (nlq: string) => {
-    setNaturalLanguageQuery(nlq);
-    setGeneratedSql(null);
+    setNlq(nlq);
+    setSql(null);
     setQueryName('Generated from Helper');
     showNotification('info', 'Query populated from helper. You can now translate or execute it.');
   };
@@ -391,7 +395,7 @@ const DatabaseQuery: React.FC = () => {
       <button
         className="px-3 py-1 text-sm border border-gray-300 rounded hover:bg-gray-100 flex items-center"
         onClick={saveQuery}
-        disabled={!naturalLanguageQuery.trim() || !queryName.trim()}
+        disabled={!nlq.trim() || !queryName.trim()}
       >
         <FaSave className="mr-2" /> Save Query
       </button>
@@ -400,7 +404,7 @@ const DatabaseQuery: React.FC = () => {
         <button
           className="px-3 py-1 text-sm border border-gray-300 rounded hover:bg-gray-100 flex items-center"
           disabled={
-            (!naturalLanguageQuery.trim() && !generatedSql?.trim() && executedQueryResults.length === 0) ||
+            (!nlq.trim() && !sql?.trim() && executedQueryResults.length === 0) ||
             queryMutationFromHook.isLoading || isTranslating
           }
         >
@@ -455,21 +459,21 @@ const DatabaseQuery: React.FC = () => {
   };
 
   const handleLoadSavedQuery = useCallback((query: SavedQuery) => {
-    setNaturalLanguageQuery(query.query);
+    setNlq(query.query);
     setQueryName(`${query.name} (Copy)`);
-    setGeneratedSql(query.sql || null);
+    setSql(query.sql || null);
     window.scrollTo({ top: 0, behavior: 'smooth' });
     showNotification('info', `Loaded query: "${query.name}"`);
-  }, [setNaturalLanguageQuery, setQueryName, setGeneratedSql, showNotification]);
+  }, [setNlq, setQueryName, setSql, showNotification]);
 
   useEffect(() => {
     const storedStateRaw = sessionStorage.getItem(SESSION_STORAGE_KEY);
     if (storedStateRaw) {
       try {
         const storedState: PersistedQueryState = JSON.parse(storedStateRaw);
-        setNaturalLanguageQuery(storedState.naturalLanguageQuery || '');
+        setNlq(storedState.naturalLanguageQuery || '');
         setQueryName(storedState.queryName || '');
-        setGeneratedSql(storedState.generatedSql || null);
+        setSql(storedState.generatedSql || null);
         setExecutedQueryResults(storedState.executedQueryResults || []);
         setExecutionValidationError(storedState.executionValidationError || null);
         setExecutionSuggestedSql(storedState.executionSuggestedSql || null);
@@ -486,17 +490,17 @@ const DatabaseQuery: React.FC = () => {
   useEffect(() => {
     if (!isStateLoadedFromStorage) return; 
     const stateToPersist: PersistedQueryState = {
-      naturalLanguageQuery,
+      naturalLanguageQuery: nlq,
       queryName,
-      generatedSql,
-      isNaturalLanguage: isNaturalLanguage || !generatedSql, 
+      generatedSql: sql,
+      isNaturalLanguage: isNaturalLanguage || !sql, 
       executedQueryResults,
       executionValidationError: executionValidationError || null,
       executionSuggestedSql,
       executionGeneratedSql,
     };
     sessionStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(stateToPersist));
-  }, [isStateLoadedFromStorage, naturalLanguageQuery, queryName, generatedSql, isNaturalLanguage, executedQueryResults, executionValidationError, executionSuggestedSql, executionGeneratedSql]);
+  }, [isStateLoadedFromStorage, nlq, queryName, sql, isNaturalLanguage, executedQueryResults, executionValidationError, executionSuggestedSql, executionGeneratedSql]);
 
   const clearAllQueryResults = () => {
     setExecutedQueryResults([]);
@@ -527,22 +531,30 @@ const DatabaseQuery: React.FC = () => {
       />
       <PageContainer title="Database Query" actions={pageActions}>
         <div className="space-y-4">
-          <QueryInputPanel 
+          <QueryInputPanel
             queryName={queryName}
             setQueryName={setQueryName}
-            naturalLanguageQuery={naturalLanguageQuery}
-            setNaturalLanguageQuery={setNaturalLanguageQuery}
-            generatedSql={generatedSql}
-            setGeneratedSql={setGeneratedSql}
-            validationError={executionValidationError}
-            suggestedSql={executionSuggestedSql}
+            naturalLanguageQuery={nlq}
+            setNaturalLanguageQuery={setNlq}
+            generatedSql={sql}
+            setGeneratedSql={setSql}
+            limit={limit}
+            setLimit={setLimit}
+            validationError={validationError}
+            suggestedSql={suggestedSql}
             isTranslating={isTranslating}
-            isLoadingExecution={queryMutationFromHook.isLoading && !queryMutationFromHook.variables?.export_format}
+            isLoadingExecution={queryMutationFromHook.isLoading}
             onTranslateQuery={handleTranslateQuery}
             onExecuteQuery={executeQueryForDisplay}
-            onClearNLQ={clearNaturalLanguageQuery}
-            onClearSQL={clearGeneratedSql}
+            onClearNLQ={clearNlq}
+            onClearSQL={clearSql}
             onApplyFix={applySuggestedFix}
+            onSave={saveQuery}
+            isExecuting={queryMutationFromHook.isLoading}
+            isSaving={false}
+            hasResults={executedQueryResults.length > 0}
+            onClear={clearAll}
+            onShowHelper={handleOpenQueryHelper}
           />
           
           <div className="bg-white overflow-hidden rounded-lg border border-gray-200">

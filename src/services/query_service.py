@@ -111,25 +111,27 @@ class QueryService:
             return table_name[:-1]
         return table_name
 
-    async def execute_safe_query(self, query: str) -> List[Dict[str, Any]]:
+    async def execute_safe_query(self, query: str, limit: int = 100) -> List[Dict[str, Any]]:
         """Executes a validated SELECT query and adds entity_type to results."""
         query = self._strip_comments(query)
         
-        # Add 'tableoid' to the SELECT list to identify the source table of each row
-        # This is a PostgreSQL-specific feature
-        if query.upper().startswith("SELECT"):
-            # A more robust way to inject 'tableoid' without breaking existing aliases
-            # We find the first SELECT and insert 'tableoid,' right after it.
-            # This handles 'SELECT DISTINCT' as well.
-            select_keyword_pos = query.upper().find("SELECT")
-            insert_pos = select_keyword_pos + len("SELECT")
-            
-            # Move past DISTINCT if it exists
-            if query.upper()[insert_pos:].lstrip().startswith("DISTINCT"):
-                insert_pos = query.upper().find("DISTINCT", insert_pos) + len("DISTINCT")
-            
-            query = query[:insert_pos] + " tableoid," + query[insert_pos:]
-        
+        # Defensively remove 'tableoid' if the AI adds it, as it can cause execution errors.
+        # This is a more robust solution than trying to prevent it via prompts alone.
+        # The regex looks for 'tableoid' as a whole word, optionally followed by a comma,
+        # in a case-insensitive manner.
+        query = re.sub(r'\b(tableoid,?\s*)\b', '', query, flags=re.IGNORECASE)
+
+        # Enforce a server-side maximum limit to prevent abuse
+        server_max_limit = 5000
+        effective_limit = min(limit, server_max_limit)
+
+        # Append the LIMIT clause to the query
+        # This will override any existing LIMIT clause in the query string
+        if 'LIMIT' in query.upper():
+            query = re.sub(r'LIMIT\s+\d+', f'LIMIT {effective_limit}', query, flags=re.IGNORECASE)
+        else:
+            query = f"{query.rstrip(';')} LIMIT {effective_limit};"
+
         # Basic check again, although primary validation should happen before calling this
         if not re.match(r'^\s*SELECT', query, re.IGNORECASE):
             logger.error(f"execute_safe_query called with non-SELECT statement: {query[:100]}...")
@@ -147,7 +149,7 @@ class QueryService:
                 logger.error(f"Query rejected by keyword check: contains forbidden operation '{pattern}': {query[:100]}...")
                 raise ValueError(f"Forbidden operation detected: {pattern}")
 
-        logger.info(f"Executing safe query with tableoid: {query}")
+        logger.info(f"Executing safe query: {query}")
         try:
             result = await self.db.execute(text(query))
             rows = []
@@ -155,25 +157,7 @@ class QueryService:
                 column_names = list(result.keys())
                 fetched_rows = result.fetchall()
                 
-                # Fetch table name mappings from tableoids
-                tableoid_map = {}
-                tableoids = {row.tableoid for row in fetched_rows if hasattr(row, 'tableoid')}
-                if tableoids:
-                    map_query = text("SELECT oid, relname FROM pg_class WHERE oid = ANY(:oids)")
-                    map_result = await self.db.execute(map_query, {'oids': list(tableoids)})
-                    tableoid_map = {oid: relname for oid, relname in map_result}
-
-                rows = []
-                for row_proxy in fetched_rows:
-                    row_dict = dict(zip(column_names, row_proxy))
-                    
-                    # Add entity_type based on tableoid
-                    tableoid = row_dict.pop('tableoid', None) # Remove tableoid from final result
-                    if tableoid and tableoid in tableoid_map:
-                        table_name = tableoid_map[tableoid]
-                        row_dict['entity_type'] = self._map_table_to_entity_type(table_name)
-                    
-                    rows.append(row_dict)
+                rows = [dict(zip(column_names, row_proxy)) for row_proxy in fetched_rows]
 
                 logger.info(f"Query returned {len(rows)} rows.")
             else:
@@ -297,7 +281,7 @@ class QueryService:
         # or the corrected_sql if the AI validator provided one and is_valid was true (which shouldn't happen with current validator logic, but defensive)
         return corrected_sql # The validator returns original SQL if valid, or corrected if it made changes and deemed it valid post-correction.
 
-    async def execute_natural_language_query(self, nl_query: str) -> Tuple[List[Dict[str, Any]], str]:
+    async def execute_natural_language_query(self, nl_query: str, limit: int = 100) -> Tuple[List[Dict[str, Any]], str]:
         """Processes an NLQ: translates+validates, then executes."""
         logger.info(f"[QS_EXECUTE_NLQ] Received nl_query: '{nl_query}'")
         sql_to_execute = ""
@@ -320,7 +304,7 @@ class QueryService:
 
         # Execute the final SQL (either from template or translated/validated)
         try:
-            results = await self.execute_safe_query(sql_to_execute)
+            results = await self.execute_safe_query(sql_to_execute, limit=limit)
             return results, sql_to_execute
         except ValueError as e:
              logger.error(f"Execution failed for SQL derived from NLQ '{nl_query[:50]}...': {e}")

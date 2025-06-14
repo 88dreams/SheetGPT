@@ -389,6 +389,7 @@ async def execute_database_query(
         is_natural_language = query_data.get("natural_language", False)
         query_text = query_data.get("query", "")
         translate_only = query_data.get("translate_only", False)
+        limit = query_data.get("limit", 100) # Default to 100 if not provided
 
         if not query_text:
             raise ValueError("Query text is required")
@@ -401,9 +402,9 @@ async def execute_database_query(
                 generated_sql = await query_service.translate_natural_language_to_sql(query_text)
                 # results remain empty as per original logic
             else:
-                results, generated_sql = await query_service.execute_natural_language_query(query_text)
+                results, generated_sql = await query_service.execute_natural_language_query(query_text, limit=limit)
         else: # Direct SQL
-            is_valid, validated_sql, error_msg = await query_service.validate_sql_query(query_text)
+            is_valid, validated_sql, error_msg = await query_service.validate_and_correct_sql(query_text)
             
             if not is_valid:
                 return {
@@ -412,7 +413,7 @@ async def execute_database_query(
                     "validation_error": error_msg,
                     "suggested_sql": validated_sql # This is the (potentially) corrected SQL by AI
                 }
-            results = await query_service.execute_safe_query(validated_sql)
+            results = await query_service.execute_safe_query(validated_sql, limit=limit)
             # If SQL was changed by validation, show it as generated_sql
             if validated_sql != query_text:
                 generated_sql = validated_sql

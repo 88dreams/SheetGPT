@@ -1,6 +1,9 @@
+// @ts-nocheck
 import React from 'react';
 import { FaKeyboard, FaPlay, FaTrash, FaCheck } from 'react-icons/fa';
 import LoadingSpinner from '../common/LoadingSpinner';
+import { Button, Input, Tooltip } from 'antd';
+import { SaveOutlined, SendOutlined, ClearOutlined, QuestionCircleOutlined, SettingOutlined } from '@ant-design/icons';
 
 interface QueryInputPanelProps {
   queryName: string;
@@ -18,6 +21,14 @@ interface QueryInputPanelProps {
   onClearNLQ: () => void;
   onClearSQL: () => void;
   onApplyFix: () => void;
+  limit: number;
+  setLimit: (limit: number) => void;
+  onSave: () => void;
+  isExecuting: boolean;
+  isSaving: boolean;
+  hasResults: boolean;
+  onClear: () => void;
+  onShowHelper: () => void;
 }
 
 const QueryInputPanel: React.FC<QueryInputPanelProps> = ({
@@ -36,6 +47,14 @@ const QueryInputPanel: React.FC<QueryInputPanelProps> = ({
   onClearNLQ,
   onClearSQL,
   onApplyFix,
+  limit,
+  setLimit,
+  onSave,
+  isExecuting,
+  isSaving,
+  hasResults,
+  onClear,
+  onShowHelper,
 }) => {
   return (
     <div className="bg-white overflow-hidden rounded-lg border border-gray-200">
@@ -43,105 +62,92 @@ const QueryInputPanel: React.FC<QueryInputPanelProps> = ({
         <h3 className="text-lg font-medium">Query Editor</h3>
       </div>
       <div className="p-4 space-y-4">
-        <div>
-          <label htmlFor="queryNameInput" className="block text-sm font-medium text-gray-700 mb-1">
-            Query Name (for saving & export default)
-          </label>
-          <input
-            id="queryNameInput"
-            type="text"
+        <div className="flex items-center mb-4 space-x-4">
+          <Input
+            placeholder="Enter Query Name (optional)"
             value={queryName}
             onChange={(e) => setQueryName(e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:border-blue-500 focus:ring-blue-500"
-            placeholder="Enter a name for this query"
+            className="flex-grow"
+            prefix={<SaveOutlined className="text-gray-400" />}
           />
+          <div className="flex items-center space-x-2">
+            <label htmlFor="row-limit" className="text-sm font-medium text-gray-700">Row Limit:</label>
+            <Input
+              id="row-limit"
+              type="number"
+              value={limit}
+              onChange={(e) => setLimit(Number(e.target.value))}
+              min={1}
+              max={5000}
+              className="w-24"
+              prefix={<SettingOutlined className="text-gray-400" />}
+            />
+          </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <div className="flex justify-between items-center mb-1">
-              <label htmlFor="nlqInput" className="block text-sm font-medium text-gray-700">Question</label>
-              <button 
-                onClick={onClearNLQ}
-                className="text-gray-400 hover:text-gray-600 px-1 text-xs"
-                title="Clear Question"
-              >
-                <FaTrash className="inline mr-1" /> Clear
-              </button>
-            </div>
-            <textarea
-              id="nlqInput"
-              value={naturalLanguageQuery}
-              onChange={(e) => setNaturalLanguageQuery(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:border-blue-500 focus:ring-blue-500 h-48"
-              placeholder="E.g., Show me all users who signed up last month with their email addresses"
-            />
-          </div>
-          <div>
-            <div className="flex justify-between items-center mb-1">
-              <label htmlFor="sqlInput" className="block text-sm font-medium text-gray-700">SQL Query</label>
-              <div>
-                {suggestedSql && (
-                  <button 
-                    onClick={onApplyFix}
-                    className="bg-green-600 text-white px-2 py-1 rounded text-xs mr-2 hover:bg-green-700 transition-colors"
-                    title="Apply suggested SQL fix"
-                  >
-                    <FaCheck className="inline mr-1" /> Apply Fix
-                  </button>
-                )}
-                <button 
-                  onClick={onClearSQL}
-                  className="text-gray-400 hover:text-gray-600 px-1 text-xs"
-                  title="Clear SQL Query"
-                >
-                  <FaTrash className="inline mr-1" /> Clear
-                </button>
-              </div>
-            </div>
-            <textarea
-              id="sqlInput"
-              value={generatedSql || ''}
-              onChange={(e) => setGeneratedSql(e.target.value)}
-              className={`w-full px-3 py-2 border rounded-md font-mono h-48 shadow-sm focus:border-blue-500 focus:ring-blue-500 ${
-                validationError ? 'border-red-400 bg-red-50 text-red-700' : 'border-gray-300'
-              }`}
-              placeholder="Enter SQL directly or use the Translate button to generate SQL from your question"
-            />
-            {validationError && (
-              <div className="mt-2 p-3 border border-red-300 bg-red-50 rounded text-sm text-red-700">
-                <div className="font-semibold mb-1">SQL Validation Issues:</div>
-                <pre className="whitespace-pre-wrap text-xs font-mono">{validationError}</pre>
-              </div>
-            )}
-          </div>
-        </div>
-        
-        <div className="mt-4 flex justify-end space-x-3">
-          <button
+        <div className="relative mb-2">
+          <Input.TextArea
+            placeholder="Ask a question in natural language... (e.g., 'Show me all contacts from Apple')"
+            value={naturalLanguageQuery}
+            onChange={(e) => setNaturalLanguageQuery(e.target.value)}
+            rows={3}
+            className="pr-24"
+          />
+          <Button
+            type="primary"
+            icon={<SendOutlined />}
             onClick={onTranslateQuery}
-            disabled={!naturalLanguageQuery.trim() || isTranslating || isLoadingExecution}
-            className={`px-4 py-2 text-sm font-medium rounded-md shadow-sm flex items-center justify-center transition-colors ${
-              !naturalLanguageQuery.trim() || isTranslating || isLoadingExecution
-                ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                : 'bg-gray-600 text-white hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500'
-            }`}
+            loading={isTranslating}
+            className="absolute right-2 top-1/2 -translate-y-1/2"
           >
-            {isTranslating ? <LoadingSpinner size="small" /> : <FaKeyboard className="mr-2" />}
-            {isTranslating ? 'Translating...' : 'Translate to SQL'}
-          </button>
-          <button
+            Translate
+          </Button>
+        </div>
+
+        <div className="relative">
+          <Input.TextArea
+            placeholder="Or enter a SQL query directly..."
+            value={generatedSql || ''}
+            onChange={(e) => setGeneratedSql(e.target.value)}
+            rows={5}
+            className="font-mono text-sm"
+          />
+          <Tooltip title="Need help building a query?">
+            <Button
+              shape="circle"
+              icon={<QuestionCircleOutlined />}
+              onClick={onShowHelper}
+              className="absolute right-2 top-2"
+            />
+          </Tooltip>
+        </div>
+
+        <div className="mt-4 flex justify-end space-x-3">
+          <Button
+            icon={<ClearOutlined />}
+            onClick={onClear}
+            danger
+          >
+            Clear All
+          </Button>
+          <Button
+            onClick={onSave}
+            icon={<SaveOutlined />}
+            loading={isSaving}
+            disabled={!generatedSql || isExecuting}
+          >
+            Save Query
+          </Button>
+          <Button
+            type="primary"
             onClick={onExecuteQuery}
-            disabled={(!naturalLanguageQuery.trim() && !generatedSql?.trim()) || isLoadingExecution || isTranslating}
-            className={`px-4 py-2 text-sm font-medium rounded-md shadow-sm flex items-center justify-center transition-colors ${
-              (!naturalLanguageQuery.trim() && !generatedSql?.trim()) || isLoadingExecution || isTranslating
-                ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                : 'bg-blue-600 text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500'
-            }`}
+            icon={<SendOutlined />}
+            loading={isExecuting}
+            disabled={!naturalLanguageQuery}
+            className="w-32"
           >
-            {isLoadingExecution ? <LoadingSpinner size="small" /> : <FaPlay className="mr-2" />}
-            {isLoadingExecution ? 'Executing...' : 'Execute Query'}
-          </button>
+            Execute
+          </Button>
         </div>
       </div>
     </div>

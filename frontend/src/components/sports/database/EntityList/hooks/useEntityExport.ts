@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { useNotification } from '../../../../../contexts/NotificationContext';
 import { saveCsvFile } from '../utils/csvExport';
 import sportsService from '../../../../../services/sportsService';
@@ -8,32 +8,27 @@ import { EntityType } from '../../../../../services/SportsDatabaseService';
 interface PaginatedResponse<T> {
   items: T[];
   total: number;
-  page: number;
-  size: number;
-  pages: number;
 }
 
 interface UseEntityExportProps {
   selectedEntityType: EntityType;
-  handleExportToSheets: (entities: any[], visibleColumns?: string[]) => Promise<void>;
 }
 
 /**
  * Custom hook for handling entity export
  */
-export function useEntityExport({ selectedEntityType, handleExportToSheets }: UseEntityExportProps) {
+export function useEntityExport({ selectedEntityType }: UseEntityExportProps) {
   const { showNotification } = useNotification();
   const { activeFilters, sortField, sortDirection } = useSportsDatabase();
-  const [isExporting, setIsExporting] = useState(false);
-  const [showExportDialog, setShowExportDialog] = useState(false);
-  const [selectedFolderName, setSelectedFolderName] = useState<string>('');
+  const [exportState, setExportState] = useState<'idle' | 'fetching' | 'saving'>('idle');
 
   /**
    * Handle CSV export
    */
   const handleCsvExport = useCallback(async () => {
-    setIsExporting(true);
+    setExportState('fetching');
     showNotification('info', 'Preparing full data export...');
+
     try {
       const response = await sportsService.getAllEntitiesForExport(
         selectedEntityType,
@@ -45,12 +40,13 @@ export function useEntityExport({ selectedEntityType, handleExportToSheets }: Us
       const allEntities = response?.items || [];
       if (allEntities.length === 0) {
         showNotification('warning', 'No data available to export.');
-        setIsExporting(false);
+        setExportState('idle');
         return;
       }
       
+      setExportState('saving');
       const suggestedName = `${selectedEntityType}-export-${new Date().toISOString().split('T')[0]}`;
-      const columns = allEntities.length > 0 ? Object.keys(allEntities[0]) : [];
+      const columns = Object.keys(allEntities[0] || {});
 
       const success = await saveCsvFile(allEntities, columns, suggestedName);
 
@@ -64,9 +60,9 @@ export function useEntityExport({ selectedEntityType, handleExportToSheets }: Us
       console.error('Full entity fetch for CSV export failed:', error);
       showNotification('error', 'Could not fetch full dataset for export.');
     } finally {
-      setIsExporting(false);
+      setExportState('idle');
     }
-  }, [selectedEntityType, showNotification, activeFilters, sortField, sortDirection]);
+  }, [selectedEntityType, activeFilters, sortField, sortDirection, showNotification]);
 
   /**
    * Handle Google Sheets export
@@ -77,14 +73,6 @@ export function useEntityExport({ selectedEntityType, handleExportToSheets }: Us
   }, [showNotification]);
 
   /**
-   * Open export dialog
-   */
-  const openExportDialog = useCallback(() => {
-    setShowExportDialog(true);
-    setSelectedFolderName('');
-  }, []);
-
-  /**
    * Handle Google Drive folder selection
    */
   const handleFolderSelection = useCallback(() => {
@@ -92,11 +80,7 @@ export function useEntityExport({ selectedEntityType, handleExportToSheets }: Us
   }, [showNotification]);
 
   return {
-    isExporting,
-    showExportDialog,
-    setShowExportDialog,
-    selectedFolderName,
-    openExportDialog,
+    exportState,
     handleCsvExport,
     handleSheetsExport,
     handleFolderSelection,

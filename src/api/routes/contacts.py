@@ -75,7 +75,7 @@ async def create_contact(
 @router.get("/", response_model=PaginatedContactsResponse)
 async def list_contacts(
     skip: int = Query(0, ge=0),
-    limit: int = Query(100, ge=1, le=1000),
+    limit: int = Query(100, ge=1, le=10000),
     search: Optional[str] = None,
     brand_id: Optional[UUID] = None,
     sort_by: str = "last_name",

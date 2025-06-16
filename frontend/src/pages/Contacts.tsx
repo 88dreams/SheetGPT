@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { FaLinkedin, FaFileUpload, FaAddressBook, FaTags } from 'react-icons/fa';
+import { FaLinkedin, FaFileUpload, FaAddressBook, FaTags, FaFileExport } from 'react-icons/fa';
 import { Modal, Input, Select, Form, Button } from 'antd';
 // import LinkedInCSVImport from '../components/common/LinkedInCSVImport'; // Old import
 import CustomCSVImport from '../components/common/CustomCSVImport'; // New import
@@ -9,6 +9,8 @@ import PageContainer from '../components/common/PageContainer';
 import PageHeader from '../components/common/PageHeader';
 import { useApiClient } from '../hooks/useApiClient';
 import { useNotification } from '../contexts/NotificationContext';
+import ExportContactsDialog from '../components/common/ExportContactsDialog';
+import { useContactExport } from '../hooks/useContactExport';
 
 interface Contact {
   id: string;
@@ -47,6 +49,8 @@ const ContactsPage: React.FC = () => {
   const [bulkTagForm] = Form.useForm();
   const apiClient = useApiClient();
   const { showNotification } = useNotification();
+  const [showExportDialog, setShowExportDialog] = useState(false);
+  const { exportState, handleCsvExport, handleSheetsExport } = useContactExport();
   
   const [selectedFileForImport, setSelectedFileForImport] = useState<File | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -166,6 +170,13 @@ const ContactsPage: React.FC = () => {
             >
               Bulk Update Tags
             </Button>
+            <Button
+              onClick={() => setShowExportDialog(true)}
+              icon={<FaFileExport className="mr-1" />}
+              style={{ display: 'inline-flex', alignItems: 'center', flexDirection: 'row' }}
+            >
+              Export
+            </Button>
           </div>
         }
       />
@@ -201,6 +212,14 @@ const ContactsPage: React.FC = () => {
           />
         )}
       </div>
+
+      <ExportContactsDialog
+        show={showExportDialog}
+        onClose={() => setShowExportDialog(false)}
+        onExportCsv={handleCsvExport}
+        onExportSheets={handleSheetsExport}
+        isExporting={exportState !== 'idle'}
+      />
 
       <Modal
         title="Bulk Update Contact Tags"

@@ -100,7 +100,7 @@ export async function saveCsvFile(
       }
       // If any other error occurs with the modern API, fall back to the legacy method
       console.error('Error with showSaveFilePicker, falling back to legacy download:', err);
-      return fallbackDownload(blob, fileName, onSuccess, onError);
+        return fallbackDownload(blob, fileName, onSuccess, onError);
     }
   } else {
     // If the API is not available (e.g., non-secure context like http://localhost),

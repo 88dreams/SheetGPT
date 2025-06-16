@@ -122,18 +122,14 @@ const EntityList: React.FC<EntityListProps> = ({ className = '' }) => {
   const [searchInputValue, setSearchInputValue] = useState('');
   const [isEditModalVisible, setIsEditModalVisible] = useState(false);
   const [editingEntity, setEditingEntity] = useState<any | null>(null);
+  const [showExportDialog, setShowExportDialog] = useState(false);
 
   // useEntityExport Hook
   const {
-    isExporting,
-    showExportDialog: isExportDialogOpen,
-    setShowExportDialog: setIsExportDialogOpen,
-    selectedFolderName,
-    openExportDialog: triggerOpenExportDialog,
-    handleCsvExport: actualCsvExportHandler,
-    handleSheetsExport: actualSheetsExportHandler,
-    handleFolderSelection: actualFolderSelectionHandler,
-  } = useEntityExport({ selectedEntityType, handleExportToSheets });
+    exportState,
+    handleCsvExport,
+    handleSheetsExport,
+  } = useEntityExport({ selectedEntityType });
 
   // Inline Edit Hook (Corrected call and destructuring)
   const {
@@ -371,7 +367,7 @@ const EntityList: React.FC<EntityListProps> = ({ className = '' }) => {
         setShowColumnSelector={setIsColumnSelectorPanelVisible}
         showFullUuids={false}
         setShowFullUuids={(show) => {}}
-        openExportDialog={triggerOpenExportDialog}
+        openExportDialog={() => setShowExportDialog(true)}
         onSearch={handleSearchInputChange}
         searchValue={searchInputValue}
       />
@@ -484,13 +480,11 @@ const EntityList: React.FC<EntityListProps> = ({ className = '' }) => {
       />
       
       <ExportDialog
-        showExportDialog={isExportDialogOpen}
-        setShowExportDialog={setIsExportDialogOpen}
-        selectedFolderName={selectedFolderName}
-        handleFolderSelection={actualFolderSelectionHandler}
-        handleCsvExport={actualCsvExportHandler}
-        handleSheetsExport={actualSheetsExportHandler}
-        isExporting={isExporting}
+        show={showExportDialog}
+        onClose={() => setShowExportDialog(false)}
+        onExportCsv={handleCsvExport}
+        onExportSheets={handleSheetsExport}
+        isExporting={exportState !== 'idle'}
       />
     </div>
   );

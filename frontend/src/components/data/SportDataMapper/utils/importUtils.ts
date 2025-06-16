@@ -833,16 +833,16 @@ async function _resolveTeamEntityReferences(processedData: Record<string, any>):
     try {
       // The lookup is now scoped by the league_id, which is guaranteed to be a UUID here.
       const divConfLookup = await api.sports.lookup('division_conference', divConfNameToLookup, processedData.league_id);
-      if (divConfLookup && divConfLookup.id) {
-        processedData.division_conference_id = divConfLookup.id;
-        console.log(`Resolved division_conference_id to UUID: "${processedData.division_conference_id}"`);
-      } else {
+        if (divConfLookup && divConfLookup.id) {
+          processedData.division_conference_id = divConfLookup.id;
+          console.log(`Resolved division_conference_id to UUID: "${processedData.division_conference_id}"`);
+        } else {
         throw new Error(`Division/Conference named "${divConfNameToLookup}" was not found for the specified league.`);
-      }
-    } catch (error: any) {
+        }
+      } catch (error: any) {
       console.error(`Error during division/conference lookup for "${divConfNameToLookup}": ${error.message}`);
       throw new Error(`Failed to resolve Division/Conference ID for "${divConfNameToLookup}".`);
-    }
+  }
   }
 
   // --- Resolve Stadium ID ---

@@ -124,14 +124,14 @@ class QueryService:
         # Enforce a server-side maximum limit to prevent abuse
         server_max_limit = 5000
         effective_limit = min(limit, server_max_limit)
-
+            
         # Append the LIMIT clause to the query
         # This will override any existing LIMIT clause in the query string
         if 'LIMIT' in query.upper():
             query = re.sub(r'LIMIT\s+\d+', f'LIMIT {effective_limit}', query, flags=re.IGNORECASE)
         else:
             query = f"{query.rstrip(';')} LIMIT {effective_limit};"
-
+        
         # Basic check again, although primary validation should happen before calling this
         if not re.match(r'^\s*SELECT', query, re.IGNORECASE):
             logger.error(f"execute_safe_query called with non-SELECT statement: {query[:100]}...")

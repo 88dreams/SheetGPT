@@ -29,7 +29,7 @@ import ColumnSelectorPanel from '../components/query/ColumnSelectorPanel';
 import QueryHelperModal from '../components/query/QueryHelperModal';
 import { useSchemaContext } from '../contexts/SchemaContext';
 import { useEntitySchema } from '../components/sports/database/hooks/useEntitySchema';
-import { EntityType } from '../types/sports';
+import { EntityType } from '../services/SportsDatabaseService';
 
 const SESSION_STORAGE_KEY = 'databaseQueryState';
 
@@ -531,7 +531,7 @@ const DatabaseQuery: React.FC = () => {
       />
       <PageContainer title="Database Query" actions={pageActions}>
         <div className="space-y-4">
-          <QueryInputPanel
+          <QueryInputPanel 
             queryName={queryName}
             setQueryName={setQueryName}
             naturalLanguageQuery={nlq}

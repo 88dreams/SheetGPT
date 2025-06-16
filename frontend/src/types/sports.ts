@@ -1,5 +1,3 @@
-export type EntityType = 'league' | 'division_conference' | 'team' | 'player' | 'game' | 'stadium' | 'broadcast' | 'production_service' | 'brand' | 'game_broadcast' | 'league_executive';
-
 export interface BaseEntity {
   id: string;
   name: string;
@@ -120,7 +118,33 @@ export interface LeagueExecutive extends BaseEntity {
   end_date?: string;
 }
 
-export type Entity = Stadium | League | DivisionConference | Team | Player | Game | BroadcastRights | ProductionService | Brand | GameBroadcast | LeagueExecutive;
+export interface ContactBrandAssociation {
+  id: string;
+  contact_id: string;
+  brand_id: string;
+  brand?: Brand;
+  confidence_score: number;
+  association_type: string;
+  is_current: boolean;
+  is_primary: boolean;
+  start_date?: string;
+  end_date?: string;
+}
+
+export interface Contact extends BaseEntity {
+  first_name: string;
+  last_name: string;
+  email?: string;
+  linkedin_url?: string;
+  company?: string;
+  position?: string;
+  connected_on?: string;
+  notes?: string;
+  import_source_tag?: string;
+  brand_associations: ContactBrandAssociation[];
+}
+
+export type Entity = Stadium | League | DivisionConference | Team | Player | Game | BroadcastRights | ProductionService | Brand | GameBroadcast | LeagueExecutive | Contact;
 
 export interface EntityChange {
   field: string;

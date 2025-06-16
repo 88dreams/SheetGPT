@@ -8,10 +8,11 @@ interface ExportDialogProps {
   setExportFileName: (name: string) => void;
   selectedFolderName: string;
   handleFolderSelection: () => void;
-  handleCsvExport: (entities: any[], visibleColumns: string[]) => Promise<void>;
+  handleCsvExport: (visibleColumns: string[]) => Promise<void>;
   handleSheetsExport: (entities: any[], visibleColumns: string[]) => Promise<void>;
   entities: any[];
   visibleColumns: string[];
+  isExporting: boolean;
 }
 
 const ExportDialog: React.FC<ExportDialogProps> = ({
@@ -24,7 +25,8 @@ const ExportDialog: React.FC<ExportDialogProps> = ({
   handleCsvExport,
   handleSheetsExport,
   entities,
-  visibleColumns
+  visibleColumns,
+  isExporting,
 }) => {
   if (!showExportDialog) {
     return null;
@@ -96,19 +98,18 @@ const ExportDialog: React.FC<ExportDialogProps> = ({
           
           <button
             onClick={async () => {
-              setShowExportDialog(false);
               const visibleColumnNames = getVisibleColumnNames();
-              await handleCsvExport(entities, visibleColumnNames);
+              await handleCsvExport(visibleColumnNames);
+              setShowExportDialog(false);
             }}
-            className="px-3 py-1 text-xs font-medium text-white bg-blue-600 rounded hover:bg-blue-700 flex items-center space-x-1"
+            className="px-3 py-1 text-xs font-medium text-white bg-blue-600 rounded hover:bg-blue-700 flex items-center space-x-1 disabled:bg-gray-400"
+            disabled={isExporting}
           >
-            <FaFileCsv className="inline-block mr-1" size={12} />
-            Export to CSV
+            {isExporting ? 'Exporting...' : <><FaFileCsv className="inline-block mr-1" size={12} /> Export to CSV</>}
           </button>
           
           <button
             onClick={async () => {
-              setShowExportDialog(false);
               const visibleColumnNames = getVisibleColumnNames();
               await handleSheetsExport(entities, visibleColumnNames);
             }}

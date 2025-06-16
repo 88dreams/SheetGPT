@@ -7,7 +7,8 @@ import { FilterConfig } from '../../EntityFilter';
 // import LoadingSpinner from '../../../common/LoadingSpinner'; // Keep commented if not used directly
 import BulkEditModal from '../../../common/BulkEditModal'; // Restore import
 import { EntityCard } from '../../../data/EntityUpdate/EntityCard'; // Restore import
-import { Entity, EntityType, BaseEntity } from '../../../../types/sports';
+import { Entity, BaseEntity } from '../../../../types/sports';
+import { EntityType } from '../../../../services/SportsDatabaseService';
 import { useDragAndDrop } from '../../../data/DataTable/hooks/useDragAndDrop';
 
 // Restore Child Component imports
@@ -124,20 +125,16 @@ const EntityList: React.FC<EntityListProps> = ({ className = '' }) => {
 
   // useEntityExport Hook
   const {
-    showExportDialog: isExportDialogOpen, // Rename for clarity if used directly as prop
+    showExportDialog: isExportDialogOpen,
     setShowExportDialog: setIsExportDialogOpen,
     exportFileName,
     setExportFileName,
-    // exportType, // Manage within ExportDialog or pass if needed
-    // setExportType,
-    // includeRelationships, // Manage within ExportDialog or pass if needed
-    // setIncludeRelationships,
     selectedFolderName,
-    // setSelectedFolderName, // Managed by hook's handleFolderSelection
-    openExportDialog: triggerOpenExportDialog, // Rename to avoid conflict if EntityListHeader also has openExportDialog
-    handleCsvExport: actualCsvExportHandler, // Rename to avoid conflict
-    handleSheetsExport: actualSheetsExportHandler, // Rename to avoid conflict
-    handleFolderSelection: actualFolderSelectionHandler // Rename to avoid conflict
+    openExportDialog: triggerOpenExportDialog,
+    handleCsvExport: actualCsvExportHandler,
+    handleSheetsExport: actualSheetsExportHandler,
+    handleFolderSelection: actualFolderSelectionHandler,
+    isExporting,
   } = useEntityExport({ selectedEntityType, handleExportToSheets });
 
   // Inline Edit Hook (Corrected call and destructuring)
@@ -501,6 +498,7 @@ const EntityList: React.FC<EntityListProps> = ({ className = '' }) => {
         visibleColumns={(columnOrder || []).filter(col => 
           visibleColumns[col] !== false && (entities.length > 0 ? entities[0].hasOwnProperty(col) : true)
         )}
+        isExporting={isExporting}
       />
     </div>
   );

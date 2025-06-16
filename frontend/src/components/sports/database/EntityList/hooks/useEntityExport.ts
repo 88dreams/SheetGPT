@@ -1,7 +1,17 @@
 import { useState, useCallback } from 'react';
 import { useNotification } from '../../../../../contexts/NotificationContext';
 import { saveCsvFile } from '../utils/csvExport';
-import { EntityType } from '../../../../../types/sports';
+import sportsDatabaseService, { EntityType } from '../../../../../services/SportsDatabaseService';
+import { useSportsDatabase } from '../../SportsDatabaseContext';
+import sportsService from '../../../../../services/sportsService';
+
+interface PaginatedResponse<T> {
+  items: T[];
+  total: number;
+  page: number;
+  size: number;
+  pages: number;
+}
 
 interface UseEntityExportProps {
   selectedEntityType: EntityType;
@@ -19,6 +29,8 @@ interface UseEntityExportProps {
  */
 export function useEntityExport({ selectedEntityType, handleExportToSheets }: UseEntityExportProps) {
   const { showNotification } = useNotification();
+  const { activeFilters, sortField, sortDirection } = useSportsDatabase(); // Get filters and sorting
+  const [isExporting, setIsExporting] = useState(false);
   const [showExportDialog, setShowExportDialog] = useState(false);
   const [exportFileName, setExportFileName] = useState('');
   const [exportType, setExportType] = useState<'sheets' | 'csv'>('sheets');
@@ -29,25 +41,35 @@ export function useEntityExport({ selectedEntityType, handleExportToSheets }: Us
   /**
    * Handle CSV export
    */
-  const handleCsvExport = useCallback(async (entities: any[], visibleColumns: string[]) => {
+  const handleCsvExport = useCallback(async (visibleColumns: string[]) => {
+    setIsExporting(true);
+    showNotification('info', 'Preparing full data export...');
     try {
-      const suggestedName = exportFileName || `${selectedEntityType}-export`;
-      const success = await saveCsvFile(
-        entities, 
+      // Use the new dedicated export fetcher
+      const response = await sportsService.getAllEntitiesForExport(
+        selectedEntityType,
+        activeFilters,
+        sortField,
+        sortDirection === 'none' ? 'asc' : sortDirection
+      ) as PaginatedResponse<any> | null;
+
+      const allEntities = response?.items || [];
+      const suggestedName = exportFileName || `${selectedEntityType}-export-${new Date().toISOString().split('T')[0]}`;
+      
+      await saveCsvFile(
+        allEntities, 
         visibleColumns, 
         suggestedName,
-        () => showNotification('success', 'CSV export completed successfully'),
-        () => showNotification('error', 'Failed to export CSV')
+        () => showNotification('success', `Successfully exported ${allEntities.length} records.`),
+        () => showNotification('error', 'Failed to save the CSV file.')
       );
-      
-      if (!success) {
-        showNotification('error', 'CSV export was cancelled');
-      }
     } catch (error) {
-      console.error('CSV export error:', error);
-      showNotification('error', 'Failed to export CSV');
+      console.error('Full entity fetch for CSV export failed:', error);
+      showNotification('error', 'Could not fetch full dataset for export.');
+    } finally {
+      setIsExporting(false);
     }
-  }, [exportFileName, selectedEntityType, showNotification]);
+  }, [exportFileName, selectedEntityType, showNotification, activeFilters, sortField, sortDirection]);
 
   /**
    * Handle Google Sheets export
@@ -111,6 +133,7 @@ export function useEntityExport({ selectedEntityType, handleExportToSheets }: Us
   }, [showNotification]);
 
   return {
+    isExporting,
     showExportDialog,
     setShowExportDialog,
     exportFileName,

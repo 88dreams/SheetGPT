@@ -58,11 +58,11 @@ export const sportsService = {
     sortBy: string = 'id',
     sortDirection: 'asc' | 'desc' = 'asc'
   ) => {
-    // Ensure limit is within the backend's allowed range (1-100)
-    const validatedLimit = Math.min(100, Math.max(1, limit));
+    // Ensure limit is within the backend's allowed range
+    const validatedLimit = Math.min(10000, Math.max(1, limit));
     
     // Log if we had to adjust the limit
-    if (validatedLimit !== limit) {
+    if (validatedLimit !== limit && limit < 10000) { // Only warn if user set a high limit that got capped by old value
       console.warn(`API: Adjusted limit from ${limit} to ${validatedLimit} to comply with backend limits`);
     }
     
@@ -565,6 +565,26 @@ export const sportsService = {
       method: 'DELETE',
       requiresAuth: true
     }),
+
+  getAllEntitiesForExport: async (
+    entityType: string,
+    filters: FilterConfig[] = [],
+    sortBy: string = 'id',
+    sortDirection: 'asc' | 'desc' = 'asc'
+  ) => {
+    const params = new URLSearchParams({
+      sort_by: sortBy,
+      sort_direction: sortDirection,
+      limit: '10000' // Hardcode a high limit for export
+    });
+
+    if (filters && filters.length > 0) {
+      params.append('filters', JSON.stringify(filters));
+    }
+
+    const url = `/sports/entities/${entityType}?${params.toString()}`;
+    return request(url, { requiresAuth: true });
+  },
 };
 
 export default sportsService;

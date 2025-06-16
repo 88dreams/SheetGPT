@@ -84,7 +84,7 @@ async def lookup_entity_by_name(
 async def get_entities(
     entity_type: str,
     page: int = Query(1, ge=1, description="Page number"),
-    limit: int = Query(50, ge=1, le=100, description="Items per page"),
+    limit: int = Query(50, ge=1, le=10000, description="Items per page"),
     sort_by: str = Query("id", description="Field to sort by"),
     sort_direction: str = Query("asc", description="Sort direction (asc or desc)"),
     filters: Optional[str] = Query(None, description="JSON string of filter conditions"),

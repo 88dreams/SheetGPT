@@ -88,8 +88,8 @@ const QueryInputPanel: React.FC<QueryInputPanelProps> = ({
         <div className="relative mb-2">
           <Input.TextArea
             placeholder="Ask a question in natural language... (e.g., 'Show me all contacts from Apple')"
-            value={naturalLanguageQuery}
-            onChange={(e) => setNaturalLanguageQuery(e.target.value)}
+              value={naturalLanguageQuery}
+              onChange={(e) => setNaturalLanguageQuery(e.target.value)}
             rows={3}
             className="pr-24"
           />
@@ -99,16 +99,16 @@ const QueryInputPanel: React.FC<QueryInputPanelProps> = ({
             onClick={onTranslateQuery}
             loading={isTranslating}
             className="absolute right-2 top-1/2 -translate-y-1/2"
-          >
+                >
             Translate
           </Button>
-        </div>
+              </div>
 
         <div className="relative">
           <Input.TextArea
             placeholder="Or enter a SQL query directly..."
-            value={generatedSql || ''}
-            onChange={(e) => setGeneratedSql(e.target.value)}
+              value={generatedSql || ''}
+              onChange={(e) => setGeneratedSql(e.target.value)}
             rows={5}
             className="font-mono text-sm"
           />
@@ -121,7 +121,7 @@ const QueryInputPanel: React.FC<QueryInputPanelProps> = ({
             />
           </Tooltip>
         </div>
-
+        
         <div className="mt-4 flex justify-end space-x-3">
           <Button
             icon={<ClearOutlined />}

@@ -39,10 +39,16 @@ services:
       dockerfile: Dockerfile
       # Use the development backend target
       target: backend-dev
+    command: >
+      sh -c "
+        python src/scripts/alembic_wrapper.py upgrade &&
+        uvicorn src.main:app --host 0.0.0.0 --port 8000 --reload --ssl-keyfile /app/.cert/key.pem --ssl-certfile /app/.cert/cert.pem
+      "
     ports:
       - "8000:8000"
     volumes:
       - .:/app
+      - ./.cert:/app/.cert:ro
       - ./credentials:/app/credentials
       - local-data:/app/data
       - /var/run/docker.sock:/var/run/docker.sock

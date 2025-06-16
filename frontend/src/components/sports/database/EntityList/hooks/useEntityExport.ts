@@ -1,9 +1,9 @@
 import { useState, useCallback } from 'react';
 import { useNotification } from '../../../../../contexts/NotificationContext';
 import { saveCsvFile } from '../utils/csvExport';
-import sportsDatabaseService, { EntityType } from '../../../../../services/SportsDatabaseService';
-import { useSportsDatabase } from '../../SportsDatabaseContext';
 import sportsService from '../../../../../services/sportsService';
+import { useSportsDatabase } from '../../SportsDatabaseContext';
+import { EntityType } from '../../../../../services/SportsDatabaseService';
 
 interface PaginatedResponse<T> {
   items: T[];
@@ -15,13 +15,7 @@ interface PaginatedResponse<T> {
 
 interface UseEntityExportProps {
   selectedEntityType: EntityType;
-  handleExportToSheets: (
-    allEntities: any[], 
-    visibleColumns?: string[], 
-    folderName?: string, 
-    fileName?: string, 
-    useDrivePicker?: boolean
-  ) => Promise<void>;
+  handleExportToSheets: (entities: any[], visibleColumns?: string[]) => Promise<void>;
 }
 
 /**
@@ -29,23 +23,18 @@ interface UseEntityExportProps {
  */
 export function useEntityExport({ selectedEntityType, handleExportToSheets }: UseEntityExportProps) {
   const { showNotification } = useNotification();
-  const { activeFilters, sortField, sortDirection } = useSportsDatabase(); // Get filters and sorting
+  const { activeFilters, sortField, sortDirection } = useSportsDatabase();
   const [isExporting, setIsExporting] = useState(false);
   const [showExportDialog, setShowExportDialog] = useState(false);
-  const [exportFileName, setExportFileName] = useState('');
-  const [exportType, setExportType] = useState<'sheets' | 'csv'>('sheets');
-  const [includeRelationships, setIncludeRelationships] = useState(false);
-  const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null);
   const [selectedFolderName, setSelectedFolderName] = useState<string>('');
 
   /**
    * Handle CSV export
    */
-  const handleCsvExport = useCallback(async (visibleColumns: string[]) => {
+  const handleCsvExport = useCallback(async () => {
     setIsExporting(true);
     showNotification('info', 'Preparing full data export...');
     try {
-      // Use the new dedicated export fetcher
       const response = await sportsService.getAllEntitiesForExport(
         selectedEntityType,
         activeFilters,
@@ -54,58 +43,44 @@ export function useEntityExport({ selectedEntityType, handleExportToSheets }: Us
       ) as PaginatedResponse<any> | null;
 
       const allEntities = response?.items || [];
-      const suggestedName = exportFileName || `${selectedEntityType}-export-${new Date().toISOString().split('T')[0]}`;
+      if (allEntities.length === 0) {
+        showNotification('warning', 'No data available to export.');
+        setIsExporting(false);
+        return;
+      }
       
-      await saveCsvFile(
-        allEntities, 
-        visibleColumns, 
-        suggestedName,
-        () => showNotification('success', `Successfully exported ${allEntities.length} records.`),
-        () => showNotification('error', 'Failed to save the CSV file.')
-      );
+      const suggestedName = `${selectedEntityType}-export-${new Date().toISOString().split('T')[0]}`;
+      const columns = allEntities.length > 0 ? Object.keys(allEntities[0]) : [];
+
+      const success = await saveCsvFile(allEntities, columns, suggestedName);
+
+      if (success) {
+        showNotification('success', `Successfully exported ${allEntities.length} records.`);
+      } else {
+        showNotification('info', 'CSV export was cancelled by the user.');
+      }
+
     } catch (error) {
       console.error('Full entity fetch for CSV export failed:', error);
       showNotification('error', 'Could not fetch full dataset for export.');
     } finally {
       setIsExporting(false);
     }
-  }, [exportFileName, selectedEntityType, showNotification, activeFilters, sortField, sortDirection]);
+  }, [selectedEntityType, showNotification, activeFilters, sortField, sortDirection]);
 
   /**
    * Handle Google Sheets export
    */
-  const handleSheetsExport = useCallback(async (entities: any[], visibleColumns: string[]) => {
-    try {
-      await handleExportToSheets(
-        entities,
-        visibleColumns,
-        selectedFolderId || undefined,
-        exportFileName.trim() || undefined,
-        true // Always use Drive picker approach
-      );
-    } catch (error) {
-      console.error('Sheets export error:', error);
-      showNotification('error', 'Failed to export to Google Sheets');
-    }
-  }, [
-    exportFileName, 
-    selectedFolderId, 
-    handleExportToSheets, 
-    showNotification
-  ]);
+  const handleSheetsExport = useCallback(async () => {
+    showNotification('info', 'Google Sheets export uses the currently visible data. Full export not yet implemented for this option.');
+    // This would need to be updated to fetch all data similar to handleCsvExport
+  }, [showNotification]);
 
   /**
    * Open export dialog
    */
   const openExportDialog = useCallback(() => {
-    // Show folder selection dialog first and reset states
     setShowExportDialog(true);
-    // Default to Google Sheets export
-    setExportType('sheets');
-    setIncludeRelationships(true);
-    // Clear previous selections
-    setExportFileName('');
-    setSelectedFolderId(null);
     setSelectedFolderName('');
   }, []);
 
@@ -113,42 +88,17 @@ export function useEntityExport({ selectedEntityType, handleExportToSheets }: Us
    * Handle Google Drive folder selection
    */
   const handleFolderSelection = useCallback(() => {
-    try {
-      // Simplified folder selection to avoid gapi issues
-      showNotification('info', 'Please authenticate with Google Sheets');
-      // Prompt for manual folder ID entry as a fallback
-      const folderId = prompt('Enter a Google Drive folder ID (or leave empty for default folder):');
-      if (folderId) {
-        setSelectedFolderId(folderId);
-        setSelectedFolderName('Manually entered folder');
-      } else {
-        // Use a default "My Drive" as fallback
-        setSelectedFolderId('root');
-        setSelectedFolderName('My Drive (root)');
-      }
-    } catch (error) {
-      console.error('Error with folder selection:', error);
-      showNotification('error', 'Error selecting folder');
-    }
+    showNotification('info', 'Folder selection is a placeholder.');
   }, [showNotification]);
 
   return {
     isExporting,
     showExportDialog,
     setShowExportDialog,
-    exportFileName,
-    setExportFileName,
-    exportType,
-    setExportType,
-    includeRelationships,
-    setIncludeRelationships,
-    selectedFolderId,
-    setSelectedFolderId,
     selectedFolderName,
-    setSelectedFolderName,
     openExportDialog,
     handleCsvExport,
     handleSheetsExport,
-    handleFolderSelection
+    handleFolderSelection,
   };
 }

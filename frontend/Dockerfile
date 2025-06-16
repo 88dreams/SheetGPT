@@ -1,5 +1,5 @@
-# Use Node.js 18 as specified in package.json engines field
-FROM node:18-bullseye
+# Use Node.js 18 with the newer 'Bookworm' Debian release which includes mkcert
+FROM node:18-bookworm
 
 # Set working directory for the entire application build
 WORKDIR /app
@@ -20,6 +20,11 @@ COPY frontend/ ./frontend/
 # Now, run yarn install from the root of the workspace.
 # Yarn will install dependencies for all workspaces (i.e., frontend).
 RUN yarn install --frozen-lockfile
+
+# Install mkcert and generate self-signed certificate for localhost
+RUN apt-get update && apt-get install -y mkcert
+RUN mkcert -install
+RUN mkdir -p .cert && mkcert -key-file ./.cert/key.pem -cert-file ./.cert/cert.pem "localhost" "127.0.0.1" "::1"
 
 # Explicitly remove Vite cache after installation (path relative to WORKDIR /app)
 RUN rm -rf frontend/node_modules/.vite

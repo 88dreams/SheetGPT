@@ -74,19 +74,17 @@ export async function saveCsvFile(
   const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
   const fileName = `${suggestedName || 'export'}.csv`;
   
-  // Check if the File System Access API is supported
-  if ('showSaveFilePicker' in window) {
+  // Check if the File System Access API is available and in a secure context
+  if (window.showSaveFilePicker && window.isSecureContext) {
     try {
-      // Use modern File System Access API for OS-level save dialog
       const options = {
         suggestedName: fileName,
         types: [{
           description: 'CSV Files',
-          accept: { 'text/csv': ['.csv'] }
-        }]
+          accept: { 'text/csv': ['.csv'] },
+        }],
       };
       
-      // Show OS-level save dialog
       const fileHandle = await window.showSaveFilePicker(options);
       const writable = await fileHandle.createWritable();
       await writable.write(blob);
@@ -95,16 +93,19 @@ export async function saveCsvFile(
       onSuccess?.();
       return true;
     } catch (err) {
-      // User cancelled or API failed, fall back to legacy approach
-      if ((err as Error).name !== 'AbortError') {
-        console.error('Error using File System Access API:', err);
-        // Fall back to legacy download method
-        return fallbackDownload(blob, fileName, onSuccess, onError);
+      if ((err as Error).name === 'AbortError') {
+        console.log('CSV export cancelled by user.');
+        onError?.(new Error('User cancelled the file save dialog.'));
+        return false;
       }
-      return false; // User canceled
+      // If any other error occurs with the modern API, fall back to the legacy method
+      console.error('Error with showSaveFilePicker, falling back to legacy download:', err);
+      return fallbackDownload(blob, fileName, onSuccess, onError);
     }
   } else {
-    // Fall back to legacy download method for browsers without File System Access API
+    // If the API is not available (e.g., non-secure context like http://localhost),
+    // immediately use the fallback method.
+    console.log('File System Access API not available. Using fallback download method.');
     return fallbackDownload(blob, fileName, onSuccess, onError);
   }
 }

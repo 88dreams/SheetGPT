@@ -1,6 +1,7 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import path from 'path';
+import fs from 'fs';
 
 // Mock data configuration:
 // This app supports running with mock data when backend services are unavailable.
@@ -21,6 +22,10 @@ export default defineConfig({
     host: '0.0.0.0',
     port: 5173,
     strictPort: true,
+    https: {
+      key: fs.readFileSync(path.resolve(__dirname, '../.cert/key.pem')),
+      cert: fs.readFileSync(path.resolve(__dirname, '../.cert/cert.pem')),
+    },
     // Handle HMR based on environment variable
     hmr: process.env.VITE_DISABLE_WS === 'true' ? false : {
       // Use explicit protocol and host
@@ -35,7 +40,7 @@ export default defineConfig({
     },
     proxy: {
       '/api': {
-        target: 'http://backend:8000',
+        target: 'https://backend:8000',
         changeOrigin: true,
         secure: false,
         ws: true,
@@ -50,7 +55,7 @@ export default defineConfig({
             console.log('VITE_PROXY: Original Incoming Headers (from browser to Vite):', JSON.stringify(req.headers, null, 2));
             // Log headers being set ON the outgoing request to the backend
             console.log('VITE_PROXY: Outgoing ProxyRequest Headers (from Vite to backend):', JSON.stringify(proxyReq.getHeaders(), null, 2));
-            console.log('VITE_PROXY: Proxy target:', 'http://backend:8000' + req.url);
+            console.log('VITE_PROXY: Proxy target:', 'https://backend:8000' + req.url);
           });
           proxy.on('proxyRes', (proxyRes, req, _res) => {
             console.log('VITE_PROXY: Received API Response:', proxyRes.statusCode, req.url);

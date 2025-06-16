@@ -125,16 +125,14 @@ const EntityList: React.FC<EntityListProps> = ({ className = '' }) => {
 
   // useEntityExport Hook
   const {
+    isExporting,
     showExportDialog: isExportDialogOpen,
     setShowExportDialog: setIsExportDialogOpen,
-    exportFileName,
-    setExportFileName,
     selectedFolderName,
     openExportDialog: triggerOpenExportDialog,
     handleCsvExport: actualCsvExportHandler,
     handleSheetsExport: actualSheetsExportHandler,
     handleFolderSelection: actualFolderSelectionHandler,
-    isExporting,
   } = useEntityExport({ selectedEntityType, handleExportToSheets });
 
   // Inline Edit Hook (Corrected call and destructuring)
@@ -488,16 +486,10 @@ const EntityList: React.FC<EntityListProps> = ({ className = '' }) => {
       <ExportDialog
         showExportDialog={isExportDialogOpen}
         setShowExportDialog={setIsExportDialogOpen}
-        exportFileName={exportFileName}
-        setExportFileName={setExportFileName}
         selectedFolderName={selectedFolderName}
         handleFolderSelection={actualFolderSelectionHandler}
         handleCsvExport={actualCsvExportHandler}
         handleSheetsExport={actualSheetsExportHandler}
-        entities={entities}
-        visibleColumns={(columnOrder || []).filter(col => 
-          visibleColumns[col] !== false && (entities.length > 0 ? entities[0].hasOwnProperty(col) : true)
-        )}
         isExporting={isExporting}
       />
     </div>

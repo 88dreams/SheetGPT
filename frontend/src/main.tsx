@@ -19,7 +19,7 @@ const queryClient = new QueryClient({
 
 ReactDOM.createRoot(document.getElementById('root') as HTMLElement).render(
   <React.StrictMode>
-    <BrowserRouter basename="/sheetgpt">
+    <BrowserRouter basename={import.meta.env.VITE_BASE_PATH || '/'}>
       <QueryClientProvider client={queryClient}>
         <ReactQueryDevtools initialIsOpen={false} />
         <App />

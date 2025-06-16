@@ -1,7 +1,7 @@
 /// <reference types="vite/client" />
 
-import axios, { AxiosError, AxiosRequestConfig, AxiosResponse } from 'axios';
-import { isTokenExpiredOrExpiringSoon, refreshAuthToken } from './tokenRefresh';
+import axios, { AxiosError, AxiosRequestConfig, AxiosResponse, AxiosInstance } from 'axios';
+import { isTokenExpiredOrExpiringSoon, refreshAuthToken, ensureValidToken } from './tokenRefresh';
 
 // Determine if we're running in Docker by checking the hostname
 const isDocker = window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1';
@@ -9,39 +9,30 @@ const isDocker = window.location.hostname !== 'localhost' && window.location.hos
 // IMPORTANT: All mock data and development fallbacks have been removed
 // In Docker, we use the VITE_API_URL environment variable or a relative URL
 const getApiUrl = () => {
-  console.log('ALL MOCK DATA DISABLED: Only using real API data');
-  
-  // For Docker container, use the API_URL from environment if available
-  if (import.meta.env.VITE_API_URL) {
-    // Replace 'backend' with 'localhost' for browser access
-    // inside Docker it's 'backend', but from browser it needs to be 'localhost'
-    const apiUrl = import.meta.env.VITE_API_URL.replace('http://backend:', 'http://localhost:');
-    console.log('Using API URL from environment (adjusted for browser):', apiUrl);
-    return apiUrl;
+  if (process.env.NODE_ENV === 'development') {
+    // For local dev, we target the backend service directly on port 8000 with HTTPS
+    return 'https://localhost:8000';
   }
-  
-  // Default to empty string for relative URL (works with Docker and development)
-  // This will make requests go to the same server that served the frontend
-  console.log('Using relative URL for API requests');
-  return '';
+  // For production/other envs, use the Vite env variable.
+  return process.env.VITE_API_URL || '';
 };
 
 const API_URL = getApiUrl();
-// Add the /api/v1 prefix since components will use paths without it
-// This must match the backend route prefix in settings.API_V1_PREFIX
 const API_PREFIX = '/api/v1';
+
+const fullBaseURL = `${API_URL}${API_PREFIX}`;
 
 console.log('API configuration:', {
   isDocker,
   API_URL,
   API_PREFIX,
-  fullBaseURL: `${API_URL}${API_PREFIX}`,
+  fullBaseURL: fullBaseURL,
   hostname: window.location.hostname,
 });
 
 // Create an Axios instance with default configuration
-const apiClient = axios.create({
-    baseURL: `${API_URL}${API_PREFIX}`,
+const apiClient: AxiosInstance = axios.create({
+    baseURL: fullBaseURL,
     withCredentials: true,
     timeout: 40000,
     headers: {

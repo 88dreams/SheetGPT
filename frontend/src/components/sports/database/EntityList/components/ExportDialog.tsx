@@ -4,39 +4,25 @@ import { FaFileCsv, FaGoogle } from 'react-icons/fa';
 interface ExportDialogProps {
   showExportDialog: boolean;
   setShowExportDialog: (show: boolean) => void;
-  exportFileName: string;
-  setExportFileName: (name: string) => void;
   selectedFolderName: string;
   handleFolderSelection: () => void;
-  handleCsvExport: (visibleColumns: string[]) => Promise<void>;
-  handleSheetsExport: (entities: any[], visibleColumns: string[]) => Promise<void>;
-  entities: any[];
-  visibleColumns: string[];
+  handleCsvExport: () => Promise<void>;
+  handleSheetsExport: () => Promise<void>;
   isExporting: boolean;
 }
 
 const ExportDialog: React.FC<ExportDialogProps> = ({
   showExportDialog,
   setShowExportDialog,
-  exportFileName,
-  setExportFileName,
   selectedFolderName,
   handleFolderSelection,
   handleCsvExport,
   handleSheetsExport,
-  entities,
-  visibleColumns,
   isExporting,
 }) => {
   if (!showExportDialog) {
     return null;
   }
-
-  // Get visible column names in the correct order
-  const getVisibleColumnNames = () => {
-    // Filter visible columns that actually exist in the data
-    return visibleColumns.filter(col => entities[0]?.hasOwnProperty(col));
-  };
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
@@ -51,20 +37,8 @@ const ExportDialog: React.FC<ExportDialogProps> = ({
           </button>
         </div>
         
-        {/* Simple Export Dialog with just file name, select folder, and export/cancel */}
-        <div className="mb-4">
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            File Name
-          </label>
-          <input
-            type="text"
-            value={exportFileName}
-            onChange={(e) => setExportFileName(e.target.value)}
-            placeholder="Enter file name"
-            className="w-full p-2 border border-gray-300 rounded"
-          />
-        </div>
-        
+        <p className="text-sm text-gray-600 mb-6">Select an export format. You will be prompted to choose a file name and location by your operating system.</p>
+
         {/* Folder Selection for Google Sheets */}
         <div className="mb-6">
           <div className="flex items-center justify-between">
@@ -98,8 +72,7 @@ const ExportDialog: React.FC<ExportDialogProps> = ({
           
           <button
             onClick={async () => {
-              const visibleColumnNames = getVisibleColumnNames();
-              await handleCsvExport(visibleColumnNames);
+              await handleCsvExport();
               setShowExportDialog(false);
             }}
             className="px-3 py-1 text-xs font-medium text-white bg-blue-600 rounded hover:bg-blue-700 flex items-center space-x-1 disabled:bg-gray-400"
@@ -110,8 +83,7 @@ const ExportDialog: React.FC<ExportDialogProps> = ({
           
           <button
             onClick={async () => {
-              const visibleColumnNames = getVisibleColumnNames();
-              await handleSheetsExport(entities, visibleColumnNames);
+              await handleSheetsExport();
             }}
             className="px-3 py-1 text-xs font-medium text-white bg-green-600 rounded hover:bg-green-700 flex items-center space-x-1"
           >

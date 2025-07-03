@@ -1,12 +1,13 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useSportsDatabase } from './SportsDatabaseContext';
 import { EntityType } from '../../../services/SportsDatabaseService';
+import { FaEdit } from 'react-icons/fa';
 
 // Define the market categories
-const MARKETS = ['All', 'SPORTS', 'MUSIC', 'CREATOR', 'CORPORATE'];
+const MARKETS = ['SPORTS', 'MUSIC', 'CREATOR', 'CORPORATE'];
 
-// Define the entity types with their descriptions and market tags
-const ENTITY_TYPES = [
+// Define the initial entity types with their descriptions and market tags
+const INITIAL_ENTITY_TYPES = [
   { id: 'league', name: 'Leagues', description: 'Sports leagues', markets: ['SPORTS'] },
   { id: 'division_conference', name: 'Divisions/Conferences', description: 'League divisions and conferences', markets: ['SPORTS'] },
   { id: 'team', name: 'Teams', description: 'Sports teams', markets: ['SPORTS'] },
@@ -25,8 +26,31 @@ interface EntityTypeSelectorProps {
 const EntityTypeSelector: React.FC<EntityTypeSelectorProps> = ({ className = '' }) => {
   const { selectedEntityType, setSelectedEntityType } = useSportsDatabase();
   const [activeMarket, setActiveMarket] = useState('All');
+  const [entityTypes, setEntityTypes] = useState(INITIAL_ENTITY_TYPES);
+  const [editingEntityTypeId, setEditingEntityTypeId] = useState<string | null>(null);
 
-  const filteredEntityTypes = ENTITY_TYPES.filter(entityType => {
+  useEffect(() => {
+    const savedEntityTypes = localStorage.getItem('entityTypeMarkets');
+    if (savedEntityTypes) {
+      setEntityTypes(JSON.parse(savedEntityTypes));
+    }
+  }, []);
+
+  const handleMarketToggle = (entityId: string, market: string) => {
+    const updatedEntityTypes = entityTypes.map(entity => {
+      if (entity.id === entityId) {
+        const newMarkets = entity.markets.includes(market)
+          ? entity.markets.filter(m => m !== market)
+          : [...entity.markets, market];
+        return { ...entity, markets: newMarkets };
+      }
+      return entity;
+    });
+    setEntityTypes(updatedEntityTypes);
+    localStorage.setItem('entityTypeMarkets', JSON.stringify(updatedEntityTypes));
+  };
+
+  const filteredEntityTypes = entityTypes.filter(entityType => {
     if (activeMarket === 'All') {
       return true;
     }
@@ -40,7 +64,7 @@ const EntityTypeSelector: React.FC<EntityTypeSelectorProps> = ({ className = '' 
       </div>
       <div className="p-4">
         <div className="mb-4 flex space-x-2">
-          {MARKETS.map(market => (
+          {['All', ...MARKETS].map(market => (
             <button
               key={market}
               onClick={() => setActiveMarket(market)}
@@ -58,7 +82,7 @@ const EntityTypeSelector: React.FC<EntityTypeSelectorProps> = ({ className = '' 
           {filteredEntityTypes.map(entityType => (
             <div
               key={entityType.id}
-              className={`p-4 rounded-lg cursor-pointer border ${
+              className={`p-4 rounded-lg cursor-pointer border relative ${
                 selectedEntityType === entityType.id
                   ? 'bg-blue-50 border-blue-300'
                   : 'bg-white border-gray-200 hover:bg-gray-50'
@@ -67,6 +91,32 @@ const EntityTypeSelector: React.FC<EntityTypeSelectorProps> = ({ className = '' 
             >
               <div className="font-medium">{entityType.name}</div>
               <div className="text-sm text-gray-500 mt-1">{entityType.description}</div>
+              <button
+                title="Edit Markets"
+                aria-label={`Edit markets for ${entityType.name}`}
+                className="absolute top-2 right-2 p-1 text-gray-400 hover:text-gray-600"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setEditingEntityTypeId(editingEntityTypeId === entityType.id ? null : entityType.id);
+                }}
+              >
+                <FaEdit />
+              </button>
+              {editingEntityTypeId === entityType.id && (
+                <div className="absolute top-10 right-2 bg-white border rounded shadow-lg p-2 z-10">
+                  <p className="text-xs font-semibold mb-1">Assign Markets:</p>
+                  {MARKETS.map(market => (
+                    <label key={market} className="flex items-center space-x-2 text-xs">
+                      <input
+                        type="checkbox"
+                        checked={entityType.markets.includes(market)}
+                        onChange={() => handleMarketToggle(entityType.id, market)}
+                      />
+                      <span>{market}</span>
+                    </label>
+                  ))}
+                </div>
+              )}
             </div>
           ))}
         </div>

@@ -60,29 +60,27 @@ const getAllEntityFields = (entityType: EntityType | null): { name: string, requ
     'stadium': ['name', 'city', 'country'],
     'broadcast': ['name', 'entity_id', 'entity_type', 'territory', 'start_date', 'end_date'],
     'game_broadcast': ['game_id', 'broadcast_company_id', 'broadcast_type'],
-    'production': ['entity_id', 'entity_type', 'service_type'],
     'brand': ['name', 'industry'],
     'league_executive': ['name', 'league_id', 'position'],
     'person': ['name', 'role'],
     'production_company': ['name', 'industry'],
-    'production_service': ['name', 'service_type']
+    'production_service': ['name', 'service_type', 'entity_id', 'entity_type']
   };
 
   const allFieldsByEntityType: Record<EntityType, string[]> = {
-    'league': ['id', 'name', 'nickname', 'sport', 'country', 'founded_year', 'broadcast_start_date', 'broadcast_end_date', 'created_at', 'updated_at'],
-    'division_conference': ['id', 'name', 'nickname', 'league_id', 'type', 'region', 'description', 'created_at', 'updated_at'],
-    'team': ['id', 'name', 'league_id', 'division_conference_id', 'stadium_id', 'city', 'state', 'country', 'founded_year', 'created_at', 'updated_at'],
-    'player': ['id', 'name', 'team_id', 'position', 'jersey_number', 'college', 'sport', 'sponsor_id', 'created_at', 'updated_at'],
-    'game': ['id', 'league_id', 'home_team_id', 'away_team_id', 'stadium_id', 'date', 'time', 'home_score', 'away_score', 'status', 'season_year', 'season_type', 'created_at', 'updated_at'],
-    'stadium': ['id', 'name', 'city', 'state', 'country', 'capacity', 'owner', 'naming_rights_holder', 'host_broadcaster', 'host_broadcaster_id', 'sport', 'created_at', 'updated_at'],
-    'broadcast': ['id', 'name', 'broadcast_company_id', 'entity_type', 'entity_id', 'division_conference_id', 'territory', 'start_date', 'end_date', 'is_exclusive', 'created_at', 'updated_at'],
-    'game_broadcast': ['id', 'game_id', 'broadcast_company_id', 'production_company_id', 'broadcast_type', 'territory', 'start_time', 'end_time', 'created_at', 'updated_at'],
-    'production': ['id', 'production_company_id', 'secondary_brand_id', 'entity_type', 'entity_id', 'service_type', 'start_date', 'end_date', 'created_at', 'updated_at'],
-    'brand': ['id', 'name', 'industry', 'company_type', 'country', 'partner', 'partner_relationship', 'created_at', 'updated_at'],
-    'league_executive': ['id', 'name', 'league_id', 'position', 'start_date', 'end_date', 'created_at', 'updated_at'],
-    'person': ['id', 'name', 'role', 'email', 'phone', 'created_at', 'updated_at'],
-    'production_company': ['id', 'name', 'industry', 'country', 'founded_year', 'created_at', 'updated_at'],
-    'production_service': ['id', 'name', 'service_type', 'description', 'created_at', 'updated_at']
+    'league': ['id', 'name', 'nickname', 'sport', 'country', 'founded_year', 'broadcast_start_date', 'broadcast_end_date', 'tags', 'created_at', 'updated_at'],
+    'division_conference': ['id', 'name', 'nickname', 'league_id', 'type', 'region', 'description', 'tags', 'created_at', 'updated_at'],
+    'team': ['id', 'name', 'league_id', 'division_conference_id', 'stadium_id', 'city', 'state', 'country', 'founded_year', 'tags', 'created_at', 'updated_at'],
+    'player': ['id', 'name', 'team_id', 'position', 'jersey_number', 'college', 'sport', 'sponsor_id', 'tags', 'created_at', 'updated_at'],
+    'game': ['id', 'league_id', 'home_team_id', 'away_team_id', 'stadium_id', 'date', 'time', 'home_score', 'away_score', 'status', 'season_year', 'season_type', 'tags', 'created_at', 'updated_at'],
+    'stadium': ['id', 'name', 'city', 'state', 'country', 'capacity', 'owner', 'naming_rights_holder', 'host_broadcaster', 'host_broadcaster_id', 'sport', 'tags', 'created_at', 'updated_at'],
+    'broadcast': ['id', 'name', 'broadcast_company_id', 'entity_type', 'entity_id', 'division_conference_id', 'territory', 'start_date', 'end_date', 'is_exclusive', 'tags', 'created_at', 'updated_at'],
+    'game_broadcast': ['id', 'game_id', 'broadcast_company_id', 'production_company_id', 'broadcast_type', 'territory', 'start_time', 'end_time', 'tags', 'created_at', 'updated_at'],
+    'brand': ['id', 'name', 'industry', 'company_type', 'country', 'partner', 'partner_relationship', 'tags', 'created_at', 'updated_at'],
+    'league_executive': ['id', 'name', 'league_id', 'position', 'start_date', 'end_date', 'tags', 'created_at', 'updated_at'],
+    'person': ['id', 'name', 'role', 'email', 'phone', 'tags', 'created_at', 'updated_at'],
+    'production_company': ['id', 'name', 'industry', 'country', 'founded_year', 'tags', 'created_at', 'updated_at'],
+    'production_service': ['id', 'name', 'service_type', 'description', 'production_company_id', 'secondary_brand_id', 'entity_type', 'entity_id', 'start_date', 'end_date', 'tags', 'created_at', 'updated_at']
   };
 
   const fields = allFieldsByEntityType[entityType] || [];

@@ -11,6 +11,7 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock
       - /workspace/frontend/node_modules
     environment:
+      - VITE_BASE_PATH=/sheetgpt/
       - VITE_API_URL=http://backend:8000
       - VITE_ENABLE_DEV_FALLBACKS=false
       - VITE_MOCK_DATA=false

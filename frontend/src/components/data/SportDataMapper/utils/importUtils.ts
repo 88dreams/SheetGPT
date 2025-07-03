@@ -392,6 +392,12 @@ export const transformMappedData = (
       }
     }
   });
+
+  // Handle 'tags' field if it's a string
+  if (finalOutputData.tags && typeof finalOutputData.tags === 'string') {
+    finalOutputData.tags = finalOutputData.tags.split(',').map((tag: string) => tag.trim());
+    console.log(`Orchestrator formatted tags:`, finalOutputData.tags);
+  }
   
   console.log('Final transformed data from orchestrator V3:', finalOutputData);
   return finalOutputData;

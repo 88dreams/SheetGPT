@@ -95,12 +95,23 @@ const EntityList: React.FC<EntityListProps> = ({ className = '' }) => {
     if (!selectedEntityType) return [];
     const fields = getEntityFields(selectedEntityType);
     if (!fields) return [];
-    return fields.map(field => ({
+    
+    // Manually add our new "MARKET" column definition
+    const marketColumn = {
+      key: 'tags',
+      label: 'MARKET',
+      type: 'tags', // Custom type for rendering
+      isSortable: true,
+    };
+
+    const entityFields = fields.map(field => ({
       key: field.fieldName,
       label: field.name || field.fieldName,
       type: field.type,
       isSortable: true,
     }));
+
+    return [marketColumn, ...entityFields];
   }, [selectedEntityType, getEntityFields]);
   
   const generatedColumnsConfigMap = useMemo(() => {
@@ -159,26 +170,26 @@ const EntityList: React.FC<EntityListProps> = ({ className = '' }) => {
       return Object.keys(entities[0] || {});
     }
 
-    let coreFields = ['id', 'name', 'created_at', 'updated_at', 'deleted_at']; // Default general core fields
+    let coreFields = ['tags', 'id', 'name', 'created_at', 'updated_at', 'deleted_at']; // Default general core fields
 
     if (selectedEntityType === 'broadcast') {
       coreFields = [
-        'broadcast_company_name', 'entity_name', 'league_name', 'league_sport', 
+        'tags', 'broadcast_company_name', 'entity_name', 'league_name', 'league_sport', 
         'territory', 'start_date', 'end_date'
       ];
     } else if (selectedEntityType === 'production_service') { 
       coreFields = [
-        'production_company_name', 'service_type', 'league_name', 'entity_name', 
+        'tags', 'production_company_name', 'service_type', 'league_name', 'entity_name', 
         'secondary_brand_name', 'start_date', 'end_date'
       ];
     } else if (selectedEntityType === 'team') {
       coreFields = [
-        'name', 'league_sport', 'league_name', 'division_conference_name', 
+        'tags', 'name', 'league_sport', 'league_name', 'division_conference_name', 
         'stadium_name', 'city', 'state', 'founded_year'
       ];
     } else if (selectedEntityType === 'brand') {
       coreFields = [
-        'name', 'company_type', 'partner', 'partner_relationship', 'country'
+        'tags', 'name', 'company_type', 'partner', 'partner_relationship', 'country'
       ];
     }
     

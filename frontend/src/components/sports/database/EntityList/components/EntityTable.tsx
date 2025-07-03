@@ -5,7 +5,7 @@ import { fingerprint, createMemoEqualityFn } from '../../../../../utils/fingerpr
 import EntityRow from './EntityRow';
 import SmartColumn from './SmartColumn';
 import ContactColumn from './ContactColumn';
-import { EntityType } from '../../../../../types/sports';
+import { EntityType } from '../../../../../services/SportsDatabaseService';
 import { getDisplayValue } from '../utils/formatters';
 
 interface EntityTableProps {
@@ -235,7 +235,7 @@ const EntityTable: React.FC<EntityTableProps> = ({
   const visibleColumnsArray = useMemo(() => 
     columnOrder.filter(field => {
       // Hide "name" field for broadcast and production entities
-      if ((selectedEntityType === 'broadcast' || selectedEntityType === 'production') && field === 'name') {
+      if ((selectedEntityType === 'broadcast' || selectedEntityType === 'production_service') && field === 'name') {
         return false;
       }
       // Otherwise show fields that are visible and exist in the data
@@ -315,6 +315,7 @@ const EntityTable: React.FC<EntityTableProps> = ({
               <div className="flex items-center">
                 <input
                   type="checkbox"
+                  aria-label="Select all rows"
                   checked={Array.isArray(entities) && entities.length > 0 &&
                     Object.values(selectedEntities).filter(Boolean).length === entities.length}
                   onChange={(e) => {
@@ -390,6 +391,7 @@ const EntityTable: React.FC<EntityTableProps> = ({
                 <div className="flex items-center">
                   <input
                     type="checkbox"
+                    aria-label={`Select row for ${entity.name || entity.id}`}
                     checked={!!selectedEntities[entity.id]}
                     onChange={() => toggleEntitySelection(entity.id)}
                   />
@@ -441,6 +443,14 @@ const EntityTable: React.FC<EntityTableProps> = ({
                       selectedEntityType={selectedEntityType}
                       entityId={entity.id}
                     />
+                  ) : field === 'tags' ? (
+                    <div className="flex flex-wrap gap-1">
+                      {(entity.tags || []).map((tag: string, index: number) => (
+                        <span key={index} className="px-2 py-1 text-xs font-semibold text-white bg-blue-500 rounded-full">
+                          {tag}
+                        </span>
+                      ))}
+                    </div>
                   ) : (
                     <div className="text-sm text-gray-700 overflow-hidden text-ellipsis">
                       {/* Diagnostic Log Removed */}

@@ -3,6 +3,17 @@ import { useNotification } from '../contexts/NotificationContext';
 import { apiClient } from '../utils/apiClient';
 import { saveCsvFile } from '../components/sports/database/EntityList/utils/csvExport';
 
+interface Brand {
+  id: string;
+  name: string;
+}
+
+interface BrandAssociation {
+  id: string;
+  brand_id: string;
+  brand?: Brand; // The brand object is nested here
+}
+
 interface Contact {
   id: string;
   first_name: string;
@@ -14,6 +25,7 @@ interface Contact {
   connected_on?: string;
   notes?: string;
   import_source_tag?: string;
+  brand_associations?: BrandAssociation[];
 }
 
 interface PaginatedContactsResponse {
@@ -41,11 +53,25 @@ export function useContactExport() {
         return;
       }
       
+      // Format data for export: transform brand_associations array into a string
+      const formattedContacts = allContacts.map(contact => {
+        const associations = contact.brand_associations || [];
+        const brandNames = associations
+          .map(assoc => assoc.brand?.name)
+          .filter(Boolean) // Filter out any undefined names
+          .join(', ');
+        
+        return {
+          ...contact,
+          brand_associations: brandNames,
+        };
+      });
+      
       setExportState('saving');
       const suggestedName = `contacts-export-${new Date().toISOString().split('T')[0]}`;
-      const columns = Object.keys(allContacts[0] || {});
+      const columns = Object.keys(formattedContacts[0] || {});
 
-      const success = await saveCsvFile(allContacts, columns, suggestedName);
+      const success = await saveCsvFile(formattedContacts, columns, suggestedName);
 
       if (success) {
         showNotification('success', `Successfully exported ${allContacts.length} contacts.`);

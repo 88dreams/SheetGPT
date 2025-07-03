@@ -1,7 +1,8 @@
 from datetime import datetime
 from sqlalchemy import DateTime
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
-from typing import Optional
+from typing import Optional, List
 
 from src.utils.database import Base
 
@@ -10,6 +11,11 @@ class TimestampedBase(Base):
     
     __abstract__ = True
 
+    tags: Mapped[Optional[List[str]]] = mapped_column(
+        JSONB, 
+        nullable=True, 
+        default=[]
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         default=datetime.utcnow,

@@ -11,6 +11,7 @@ class LeagueBase(BaseModel):
     nickname: Optional[str] = None
     broadcast_start_date: Optional[date] = None
     broadcast_end_date: Optional[date] = None
+    tags: Optional[List[str]] = None
 
 class LeagueCreate(LeagueBase):
     pass
@@ -22,6 +23,7 @@ class LeagueUpdate(BaseModel):
     nickname: Optional[str] = None
     broadcast_start_date: Optional[date] = None
     broadcast_end_date: Optional[date] = None
+    tags: Optional[List[str]] = None
 
 class LeagueResponse(LeagueBase):
     id: UUID
@@ -45,6 +47,7 @@ class DivisionConferenceBase(BaseModel):
     nickname: Optional[str] = None
     region: Optional[str] = None
     description: Optional[str] = None
+    tags: Optional[List[str]] = None
 
 class DivisionConferenceCreate(DivisionConferenceBase):
     pass
@@ -56,6 +59,7 @@ class DivisionConferenceUpdate(BaseModel):
     nickname: Optional[str] = None
     region: Optional[str] = None
     description: Optional[str] = None
+    tags: Optional[List[str]] = None
 
 class DivisionConferenceResponse(DivisionConferenceBase):
     id: UUID
@@ -85,6 +89,7 @@ class StadiumBase(BaseModel):
     host_broadcaster: Optional[str] = None
     host_broadcaster_id: Optional[UUID] = None
     sport: Optional[str] = None
+    tags: Optional[List[str]] = None
 
 class StadiumCreate(StadiumBase):
     pass
@@ -100,6 +105,7 @@ class StadiumUpdate(BaseModel):
     host_broadcaster: Optional[str] = None
     host_broadcaster_id: Optional[UUID] = None
     sport: Optional[str] = None
+    tags: Optional[List[str]] = None
 
 class StadiumResponse(StadiumBase):
     id: UUID
@@ -126,6 +132,7 @@ class TeamBase(BaseModel):
     country: str
     founded_year: Optional[int] = None
     stadium_name_to_resolve: Optional[str] = None
+    tags: Optional[List[str]] = None
 
 class TeamCreate(TeamBase):
     pass
@@ -139,6 +146,7 @@ class TeamUpdate(BaseModel):
     state: Optional[str] = None
     country: Optional[str] = None
     founded_year: Optional[int] = None
+    tags: Optional[List[str]] = None
 
 class TeamResponse(TeamBase):
     id: UUID
@@ -167,6 +175,7 @@ class PlayerBase(BaseModel):
     college: Optional[str] = None
     sport: Optional[str] = None
     sponsor_id: Optional[UUID] = None
+    tags: Optional[List[str]] = None
 
 class PlayerCreate(PlayerBase):
     pass
@@ -179,6 +188,7 @@ class PlayerUpdate(BaseModel):
     college: Optional[str] = None
     sport: Optional[str] = None
     sponsor_id: Optional[UUID] = None
+    tags: Optional[List[str]] = None
 
 class PlayerResponse(PlayerBase):
     id: UUID
@@ -208,6 +218,7 @@ class GameBase(BaseModel):
     status: str = "Scheduled"
     season_year: int
     season_type: str = "Regular Season"
+    tags: Optional[List[str]] = None
 
 class GameCreate(GameBase):
     pass
@@ -224,6 +235,7 @@ class GameUpdate(BaseModel):
     status: Optional[str] = None
     season_year: Optional[int] = None
     season_type: Optional[str] = None
+    tags: Optional[List[str]] = None
 
 class GameResponse(GameBase):
     id: UUID
@@ -244,6 +256,7 @@ class BroadcastCompanyBase(BaseModel):
     name: str
     type: str
     country: str
+    tags: Optional[List[str]] = None
 
 class BroadcastCompanyCreate(BroadcastCompanyBase):
     pass
@@ -252,6 +265,7 @@ class BroadcastCompanyUpdate(BaseModel):
     name: Optional[str] = None
     type: Optional[str] = None
     country: Optional[str] = None
+    tags: Optional[List[str]] = None
 
 class BroadcastCompanyResponse(BroadcastCompanyBase):
     id: UUID
@@ -277,6 +291,7 @@ class BroadcastRightsBase(BaseModel):
     end_date: date
     is_exclusive: bool = False
     division_conference_id: Optional[UUID] = None
+    tags: Optional[List[str]] = None
 
 class BroadcastRightsCreate(BroadcastRightsBase):
     pass
@@ -290,6 +305,7 @@ class BroadcastRightsUpdate(BaseModel):
     end_date: Optional[date] = None
     is_exclusive: Optional[bool] = None
     division_conference_id: Optional[UUID] = None
+    tags: Optional[List[str]] = None
 
 class BroadcastRightsResponse(BroadcastRightsBase):
     id: UUID
@@ -315,12 +331,14 @@ class BroadcastRightsResponse(BroadcastRightsBase):
 # Base schemas for ProductionCompany
 class ProductionCompanyBase(BaseModel):
     name: str
+    tags: Optional[List[str]] = None
 
 class ProductionCompanyCreate(ProductionCompanyBase):
     pass
 
 class ProductionCompanyUpdate(BaseModel):
     name: Optional[str] = None
+    tags: Optional[List[str]] = None
 
 class ProductionCompanyResponse(ProductionCompanyBase):
     id: UUID
@@ -345,6 +363,7 @@ class ProductionServiceBase(BaseModel):
     start_date: date
     end_date: date
     secondary_brand_id: Optional[UUID] = None
+    tags: Optional[List[str]] = None
 
 class ProductionServiceCreate(ProductionServiceBase):
     @validator('entity_id')
@@ -377,6 +396,7 @@ class ProductionServiceUpdate(BaseModel):
     start_date: Optional[date] = None
     end_date: Optional[date] = None
     secondary_brand_id: Optional[UUID] = None
+    tags: Optional[List[str]] = None
 
 class ProductionServiceResponse(ProductionServiceBase):
     id: UUID
@@ -408,6 +428,7 @@ class BrandBase(BaseModel):
     partner: Optional[str] = None
     partner_relationship: Optional[str] = None
     representative_entity_type: Optional[str] = None
+    tags: Optional[List[str]] = None
 
     class Config:
         orm_mode = True
@@ -423,6 +444,7 @@ class BrandUpdate(BaseModel):
     partner: Optional[str] = None
     partner_relationship: Optional[str] = None
     representative_entity_type: Optional[str] = None
+    tags: Optional[List[str]] = None
 
 class BrandRead(BrandBase):
     id: UUID
@@ -441,6 +463,7 @@ class GameBroadcastBase(BaseModel):
     production_company_id: Optional[UUID] = None
     start_time: Optional[str] = None
     end_time: Optional[str] = None
+    tags: Optional[List[str]] = None
 
 class GameBroadcastCreate(GameBroadcastBase):
     pass
@@ -453,6 +476,7 @@ class GameBroadcastUpdate(BaseModel):
     production_company_id: Optional[UUID] = None
     start_time: Optional[str] = None
     end_time: Optional[str] = None
+    tags: Optional[List[str]] = None
 
 class GameBroadcastResponse(GameBroadcastBase):
     id: UUID
@@ -475,6 +499,7 @@ class LeagueExecutiveBase(BaseModel):
     position: str
     start_date: Optional[date] = None
     end_date: Optional[date] = None
+    tags: Optional[List[str]] = None
 
 class LeagueExecutiveCreate(LeagueExecutiveBase):
     pass
@@ -485,6 +510,7 @@ class LeagueExecutiveUpdate(BaseModel):
     position: Optional[str] = None
     start_date: Optional[date] = None
     end_date: Optional[date] = None
+    tags: Optional[List[str]] = None
 
 class LeagueExecutiveResponse(LeagueExecutiveBase):
     id: UUID

@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field, validator
+from pydantic import BaseModel, Field, validator, model_validator
 from typing import List, Optional, Dict, Any, Union
 from uuid import UUID
 from datetime import date, datetime
@@ -605,12 +605,15 @@ class ManagementBase(BaseModel):
     tags: Optional[List[str]] = None
 
 class ManagementCreate(ManagementBase):
-    @validator('*', pre=True, always=True)
-    def check_name_or_names(cls, v, values, field):
-        if field.name == 'name':
-            if v is None and (values.get('first_name') is None or values.get('last_name') is None):
-                raise ValueError('Either name or both first_name and last_name are required')
-        return v
+    @model_validator(mode='before')
+    def check_name_or_names(cls, values: Dict[str, Any]) -> Dict[str, Any]:
+        name = values.get('name')
+        first_name = values.get('first_name')
+        last_name = values.get('last_name')
+        
+        if not name and not (first_name and last_name):
+            raise ValueError('Either name or both first_name and last_name are required')
+        return values
 
 class ManagementUpdate(BaseModel):
     name: Optional[str] = None

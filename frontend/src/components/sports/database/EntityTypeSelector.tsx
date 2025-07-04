@@ -32,9 +32,14 @@ const EntityTypeSelector: React.FC<EntityTypeSelectorProps> = ({ className = '' 
   const [editingEntityTypeId, setEditingEntityTypeId] = useState<string | null>(null);
 
   useEffect(() => {
-    const savedEntityTypes = localStorage.getItem('entityTypeMarkets');
-    if (savedEntityTypes) {
-      setEntityTypes(JSON.parse(savedEntityTypes));
+    const savedEntityTypesJSON = localStorage.getItem('entityTypeMarkets');
+    if (savedEntityTypesJSON) {
+      const savedEntityTypes = JSON.parse(savedEntityTypesJSON);
+      const updatedEntityTypes = INITIAL_ENTITY_TYPES.map(initialEntity => {
+        const savedEntity = savedEntityTypes.find((saved: any) => saved.id === initialEntity.id);
+        return savedEntity ? { ...initialEntity, markets: savedEntity.markets } : initialEntity;
+      });
+      setEntityTypes(updatedEntityTypes);
     }
   }, []);
 

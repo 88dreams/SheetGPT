@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { EntityType, ENTITY_TYPES } from '../../../../utils/sportDataMapper';
+import { EntityType as AppEntityType, ENTITY_TYPES } from '../../../../utils/sportDataMapper';
 import FieldItem from './FieldItem';
 import FieldHelpTooltip from './FieldHelpTooltip';
 import DroppableField from './DroppableField';
@@ -27,6 +27,8 @@ type ColumnType = 'field' | 'status' | 'mapping';
 
 // Define column type for source fields sorting
 type SourceColumnType = 'name' | 'value';
+
+type EntityType = AppEntityType | 'creator' | 'management';
 
 interface FieldMappingAreaProps {
   selectedEntityType: EntityType | null;
@@ -64,7 +66,9 @@ const getAllEntityFields = (entityType: EntityType | null): { name: string, requ
     'league_executive': ['name', 'league_id', 'position'],
     'person': ['name', 'role'],
     'production_company': ['name', 'industry'],
-    'production_service': ['name', 'service_type', 'entity_id', 'entity_type']
+    'production_service': ['name', 'service_type', 'entity_id', 'entity_type'],
+    'creator': ['first_name', 'last_name', 'genre', 'platform'],
+    'management': ['industry']
   };
 
   const allFieldsByEntityType: Record<EntityType, string[]> = {
@@ -80,7 +84,9 @@ const getAllEntityFields = (entityType: EntityType | null): { name: string, requ
     'league_executive': ['id', 'name', 'league_id', 'position', 'start_date', 'end_date', 'tags', 'created_at', 'updated_at'],
     'person': ['id', 'name', 'role', 'email', 'phone', 'tags', 'created_at', 'updated_at'],
     'production_company': ['id', 'name', 'industry', 'country', 'founded_year', 'tags', 'created_at', 'updated_at'],
-    'production_service': ['id', 'name', 'service_type', 'description', 'production_company_id', 'secondary_brand_id', 'entity_type', 'entity_id', 'start_date', 'end_date', 'tags', 'created_at', 'updated_at']
+    'production_service': ['id', 'name', 'service_type', 'description', 'production_company_id', 'secondary_brand_id', 'entity_type', 'entity_id', 'start_date', 'end_date', 'tags', 'created_at', 'updated_at'],
+    'creator': ['id', 'first_name', 'last_name', 'genre', 'platform', 'url', 'followers', 'management_id', 'notes', 'tags', 'created_at', 'updated_at'],
+    'management': ['id', 'name', 'first_name', 'last_name', 'industry', 'url', 'founded_year', 'notes', 'tags', 'created_at', 'updated_at']
   };
 
   const fields = allFieldsByEntityType[entityType] || [];

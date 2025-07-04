@@ -1,6 +1,6 @@
 export interface BaseEntity {
   id: string;
-  name: string;
+  name?: string;
   created_at?: string;
   updated_at?: string;
   deleted_at?: string;
@@ -144,7 +144,30 @@ export interface Contact extends BaseEntity {
   brand_associations: ContactBrandAssociation[];
 }
 
-export type Entity = Stadium | League | DivisionConference | Team | Player | Game | BroadcastRights | ProductionService | Brand | GameBroadcast | LeagueExecutive | Contact;
+export interface Creator extends BaseEntity {
+  first_name: string;
+  last_name: string;
+  genre: string;
+  platform: string;
+  url?: string;
+  followers?: number;
+  management_id?: string;
+  notes?: string;
+  tags?: string[];
+}
+
+export interface Management extends BaseEntity {
+  name?: string;
+  first_name?: string;
+  last_name?: string;
+  industry: string;
+  url?: string;
+  founded_year?: number;
+  notes?: string;
+  tags?: string[];
+}
+
+export type Entity = Stadium | League | DivisionConference | Team | Player | Game | BroadcastRights | ProductionService | Brand | GameBroadcast | LeagueExecutive | Contact | Creator | Management;
 
 export interface EntityChange {
   field: string;

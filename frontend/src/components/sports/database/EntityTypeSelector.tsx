@@ -16,7 +16,9 @@ const INITIAL_ENTITY_TYPES = [
   { id: 'stadium', name: 'Stadiums', description: 'Venues and stadiums', markets: ['SPORTS'] },
   { id: 'broadcast', name: 'Broadcast Rights', description: 'Media broadcast rights', markets: ['SPORTS', 'CORPORATE'] },
   { id: 'production_service', name: 'Production Services', description: 'Production services', markets: ['SPORTS', 'MUSIC', 'CREATOR', 'CORPORATE'] },
-  { id: 'brand', name: 'Brands', description: 'Companies or products in the sports space', markets: ['SPORTS', 'MUSIC', 'CREATOR', 'CORPORATE'] }
+  { id: 'brand', name: 'Brands', description: 'Companies or products in the sports space', markets: ['SPORTS', 'MUSIC', 'CREATOR', 'CORPORATE'] },
+  { id: 'creator', name: 'Creators', description: 'Content creators', markets: ['CREATOR'] },
+  { id: 'management', name: 'Management', description: 'Creator or artist management', markets: ['CREATOR', 'MUSIC'] }
 ];
 
 interface EntityTypeSelectorProps {

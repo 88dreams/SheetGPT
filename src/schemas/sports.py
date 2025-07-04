@@ -558,6 +558,78 @@ class DivisionConferenceLookupResponse(BaseModel):
     class Config:
         orm_mode = True
 
+# Creator Schemas
+class CreatorBase(BaseModel):
+    first_name: str
+    last_name: str
+    genre: str
+    platform: str
+    url: Optional[str] = None
+    followers: Optional[int] = None
+    management_id: Optional[UUID] = None
+    notes: Optional[str] = None
+    tags: Optional[List[str]] = None
+
+class CreatorCreate(CreatorBase):
+    pass
+
+class CreatorUpdate(BaseModel):
+    first_name: Optional[str] = None
+    last_name: Optional[str] = None
+    genre: Optional[str] = None
+    platform: Optional[str] = None
+    url: Optional[str] = None
+    followers: Optional[int] = None
+    management_id: Optional[UUID] = None
+    notes: Optional[str] = None
+    tags: Optional[List[str]] = None
+
+class CreatorResponse(CreatorBase):
+    id: UUID
+    created_at: str
+    updated_at: str
+    management_name: Optional[str] = None
+
+    class Config:
+        from_attributes = True
+
+# Management Schemas
+class ManagementBase(BaseModel):
+    name: Optional[str] = None
+    first_name: Optional[str] = None
+    last_name: Optional[str] = None
+    industry: str
+    url: Optional[str] = None
+    founded_year: Optional[int] = None
+    notes: Optional[str] = None
+    tags: Optional[List[str]] = None
+
+class ManagementCreate(ManagementBase):
+    @validator('*', pre=True, always=True)
+    def check_name_or_names(cls, v, values, field):
+        if field.name == 'name':
+            if v is None and (values.get('first_name') is None or values.get('last_name') is None):
+                raise ValueError('Either name or both first_name and last_name are required')
+        return v
+
+class ManagementUpdate(BaseModel):
+    name: Optional[str] = None
+    first_name: Optional[str] = None
+    last_name: Optional[str] = None
+    industry: Optional[str] = None
+    url: Optional[str] = None
+    founded_year: Optional[int] = None
+    notes: Optional[str] = None
+    tags: Optional[List[str]] = None
+
+class ManagementResponse(ManagementBase):
+    id: UUID
+    created_at: str
+    updated_at: str
+
+    class Config:
+        from_attributes = True
+
 # Team Schemas
 class TeamBase(BaseModel):
     name: str

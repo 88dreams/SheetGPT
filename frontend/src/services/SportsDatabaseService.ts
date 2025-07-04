@@ -2,7 +2,7 @@ import { api } from '../utils/api';
 import { FilterConfig } from '../components/sports/EntityFilter';
 
 // Entity types
-export type EntityType = 'league' | 'division_conference' | 'team' | 'player' | 'game' | 'stadium' | 'broadcast' | 'production_service' | 'brand' | 'game_broadcast' | 'league_executive' | 'contact';
+export type EntityType = 'league' | 'division_conference' | 'team' | 'player' | 'game' | 'stadium' | 'broadcast' | 'production_service' | 'brand' | 'game_broadcast' | 'league_executive' | 'contact' | 'creator' | 'management';
 
 // Base entity interface
 export interface BaseEntity {
@@ -233,7 +233,24 @@ const entityPromptTemplates: Record<EntityType, string> = {
 1. Contact name
 2. Email
 3. Phone
-4. Description (optional)`
+4. Description (optional)`,
+
+  creator: `I'll help you create a new creator record. Please provide the following information:
+1. First Name
+2. Last Name
+3. Genre
+4. Platform
+5. URL (optional)
+6. Followers (optional)
+7. Management (if you know the management ID, please provide it, optional)
+8. Notes (optional)`,
+
+  management: `I'll help you create a new management record. Please provide the following information:
+1. Name (for a company) OR First and Last Name (for an individual)
+2. Industry
+3. URL (optional)
+4. Founded Year (optional)
+5. Notes (optional)`
 };
 
 export interface GetEntitiesParams {

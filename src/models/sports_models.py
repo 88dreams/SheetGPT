@@ -912,3 +912,37 @@ class ContactBrandAssociation(TimestampedBase):
     brand: Mapped["Brand"] = relationship(
         back_populates="contact_associations"
     )
+
+class Creator(TimestampedBase):
+    """Model for creators."""
+    
+    __tablename__ = "creators"
+
+    id: Mapped[UUID] = mapped_column(SQLUUID, primary_key=True, default=uuid4)
+    first_name: Mapped[str] = mapped_column(String(100), nullable=False)
+    last_name: Mapped[str] = mapped_column(String(100), nullable=False)
+    genre: Mapped[str] = mapped_column(String(100), nullable=False)
+    platform: Mapped[str] = mapped_column(String(100), nullable=False)
+    url: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    followers: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    management_id: Mapped[Optional[UUID]] = mapped_column(ForeignKey("managements.id"), nullable=True)
+    notes: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+
+    management: Mapped[Optional["Management"]] = relationship(back_populates="creators")
+
+
+class Management(TimestampedBase):
+    """Model for management companies or individuals."""
+    
+    __tablename__ = "managements"
+
+    id: Mapped[UUID] = mapped_column(SQLUUID, primary_key=True, default=uuid4)
+    name: Mapped[Optional[str]] = mapped_column(String(200), nullable=True)
+    first_name: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+    last_name: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+    industry: Mapped[str] = mapped_column(String(100), nullable=False)
+    url: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    founded_year: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    notes: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+
+    creators: Mapped[List["Creator"]] = relationship(back_populates="management")

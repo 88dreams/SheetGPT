@@ -187,6 +187,30 @@ export function useEntitySchema() {
             { name: 'end_date', required: false, type: 'date', description: 'End date of position' }
           );
           break;
+
+        case 'creator':
+          fields.push(
+            { name: 'first_name', required: true, type: 'string', description: 'First name of the creator' },
+            { name: 'last_name', required: true, type: 'string', description: 'Last name of the creator' },
+            { name: 'genre', required: true, type: 'string', description: 'Primary genre of the creator' },
+            { name: 'platform', required: true, type: 'string', description: 'Primary platform of the creator' },
+            { name: 'url', required: false, type: 'string', description: 'URL to the creator\'s primary platform' },
+            { name: 'followers', required: false, type: 'number', description: 'Number of followers' },
+            { name: 'management_id', required: false, type: 'string', description: 'ID of the management entity' },
+            { name: 'notes', required: false, type: 'string', description: 'Notes about the creator' }
+          );
+          break;
+        
+        case 'management':
+          fields.push(
+            { name: 'first_name', required: false, type: 'string', description: 'First name if the manager is an individual' },
+            { name: 'last_name', required: false, type: 'string', description: 'Last name if the manager is an individual' },
+            { name: 'industry', required: true, type: 'string', description: 'Industry of the management entity' },
+            { name: 'url', required: false, type: 'string', description: 'URL for the management entity' },
+            { name: 'founded_year', required: false, type: 'number', description: 'Year the management entity was founded' },
+            { name: 'notes', required: false, type: 'string', description: 'Notes about the management entity' }
+          );
+          break;
       }
       
       return fields;
@@ -238,6 +262,10 @@ export function useEntitySchema() {
       // League Executive fields
       league_executive: ['id', 'name', 'created_at', 'updated_at', 'deleted_at', 'league_id', 'league_name', 'position', 'start_date', 'end_date'],
       
+      // New entity types
+      creator: ['id', 'name', 'first_name', 'last_name', 'genre', 'platform', 'url', 'followers', 'management_id', 'notes', 'tags', 'created_at', 'updated_at'],
+      management: ['id', 'name', 'first_name', 'last_name', 'industry', 'url', 'founded_year', 'notes', 'tags', 'created_at', 'updated_at'],
+
       // Additional models for completeness (ensure these keys match EntityType if used elsewhere for field generation)
       broadcast_company: ['id', 'name', 'created_at', 'updated_at', 'deleted_at', 'type', 'country'],
       production_company: ['id', 'name', 'created_at', 'updated_at', 'deleted_at'],

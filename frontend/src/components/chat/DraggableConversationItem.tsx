@@ -187,13 +187,6 @@ const DraggableConversationItem: React.FC<ConversationItemProps> = ({
                       </span>
                     )}
                   </div>
-                  <div className="flex items-center space-x-2 mt-1">
-                    {(conversation.tags || []).map(tag => (
-                      <span key={tag} className="px-2 py-0.5 text-xs font-semibold text-white bg-blue-500 rounded-full">
-                        {tag}
-                      </span>
-                    ))}
-                  </div>
                   {conversation.description && (
                     <p className="text-xs text-gray-600 truncate">
                       {conversation.description}

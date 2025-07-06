@@ -592,4 +592,19 @@ class ChatService:
         for conversation in conversations:
             await self.db.refresh(conversation)
             
-        return conversations 
+        return conversations
+
+    async def update_conversation_tags(
+        self,
+        conversation_id: UUID,
+        new_tags: List[str]
+    ) -> Conversation:
+        """Update the tags of a conversation."""
+        conversation = await self.db.get(Conversation, conversation_id)
+        if not conversation:
+            raise ValueError("Conversation not found")
+        
+        conversation.tags = new_tags
+        await self.db.commit()
+        await self.db.refresh(conversation)
+        return conversation 

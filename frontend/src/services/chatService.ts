@@ -81,9 +81,9 @@ export const chatService = {
       }
     }),
 
-  updateConversation: (id: string, data: { title: string; description?: string }): Promise<Conversation> =>
-    request(`/chat/conversations/${id}/update`, {
-      method: 'POST',
+  updateConversation: (id: string, data: { title?: string; tags?: string[] }): Promise<Conversation> =>
+    request(`/chat/conversations/${id}`, {
+      method: 'PATCH',
       body: JSON.stringify(data),
       requiresAuth: true
     }),

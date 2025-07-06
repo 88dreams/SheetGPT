@@ -218,6 +218,11 @@ async def update_conversation(
                 conversation_id=conversation_id,
                 new_title=update_data.title
             )
+        if update_data.tags is not None:
+            conversation = await chat_service.update_conversation_tags(
+                conversation_id=conversation_id,
+                new_tags=update_data.tags
+            )
         return ConversationResponse.model_validate(conversation)
     except ValueError as e:
         raise HTTPException(

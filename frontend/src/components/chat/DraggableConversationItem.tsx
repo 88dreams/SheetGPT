@@ -8,7 +8,7 @@ import {
   CheckIcon,
   XMarkIcon,
 } from '@heroicons/react/24/outline';
-import { FaArchive, FaUndo } from 'react-icons/fa';
+import { FaArchive, FaUndo, FaEdit } from 'react-icons/fa';
 
 // Helper function to format dates (duplicated from ConversationList.tsx for now)
 const formatDate = (dateString: string): string => {
@@ -54,6 +54,10 @@ export interface ConversationItemProps { // Exporting if used by parent for type
   archiveConversationMutation: { mutate: (id: string) => void }; 
   restoreConversationMutation: { mutate: (id: string) => void };
   deleteConversationMutation: { mutate: (ids: string[]) => void };
+  onMarketToggle: (conversationId: string, market: string) => void;
+  isEditingTags: boolean;
+  onToggleTagsEdit: (e: React.MouseEvent) => void;
+  availableMarkets: string[];
 }
 
 const DraggableConversationItem: React.FC<ConversationItemProps> = ({
@@ -77,7 +81,11 @@ const DraggableConversationItem: React.FC<ConversationItemProps> = ({
   moveConversation,
   archiveConversationMutation,
   restoreConversationMutation,
-  deleteConversationMutation
+  deleteConversationMutation,
+  onMarketToggle,
+  isEditingTags,
+  onToggleTagsEdit,
+  availableMarkets
 }) => {
   const ref = useRef<HTMLTableRowElement>(null);
   const itemType = 'conversation'; // Consistent item type
@@ -147,6 +155,7 @@ const DraggableConversationItem: React.FC<ConversationItemProps> = ({
             onChange={(e) => onToggleSelect(conversation.id, e)}
             onClick={(e) => e.stopPropagation()}
             className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+            aria-label={`Select conversation ${conversation.title}`}
           />
         </div>
       </td>
@@ -161,16 +170,19 @@ const DraggableConversationItem: React.FC<ConversationItemProps> = ({
                 onKeyDown={e => handleKeyDown(conversation.id, e)}
                 className="flex-1 px-2 py-1 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
                 autoFocus
+                aria-label="Edit conversation title"
               />
               <button 
                 onClick={e => handleSaveEdit(conversation.id, e)}
                 className="p-1 text-green-600 hover:text-green-800"
+                title="Save title"
               >
                 <CheckIcon className="h-4 w-4" />
               </button>
               <button 
                 onClick={handleCancelEdit}
                 className="p-1 text-red-600 hover:text-red-800"
+                title="Cancel edit"
               >
                 <XMarkIcon className="h-4 w-4" />
               </button>
@@ -189,6 +201,13 @@ const DraggableConversationItem: React.FC<ConversationItemProps> = ({
                       </span>
                     )}
                   </div>
+                  <div className="flex items-center space-x-2 mt-1">
+                    {(conversation.tags || []).map(tag => (
+                      <span key={tag} className="px-2 py-0.5 text-xs font-semibold text-white bg-blue-500 rounded-full">
+                        {tag}
+                      </span>
+                    ))}
+                  </div>
                   {conversation.description && (
                     <p className="text-xs text-gray-600 truncate">
                       {conversation.description}
@@ -203,6 +222,13 @@ const DraggableConversationItem: React.FC<ConversationItemProps> = ({
                 </div>
                 {selectedId === conversation.id && (
                   <div className="flex space-x-1 flex-shrink-0">
+                    <button
+                      onClick={onToggleTagsEdit}
+                      className="p-1 text-gray-600 hover:text-gray-800 bg-gray-50 hover:bg-gray-100 rounded"
+                      title="Edit Tags"
+                    >
+                      <FaEdit className="h-3.5 w-3.5" />
+                    </button>
                     <button
                       onClick={(e) => onStartEdit(conversation, e)}                       
                       className="p-1 text-blue-600 hover:text-blue-800 bg-blue-50 hover:bg-blue-100 rounded"
@@ -237,6 +263,22 @@ const DraggableConversationItem: React.FC<ConversationItemProps> = ({
                   </div>
                 )}
               </div>
+              {isEditingTags && selectedId === conversation.id && (
+                <div className="absolute top-full left-0 mt-1 bg-white border rounded shadow-lg p-2 z-20" onClick={e => e.stopPropagation()}>
+                  <p className="text-xs font-semibold mb-1">Assign Markets:</p>
+                  {availableMarkets.map(market => (
+                    <label key={market} className="flex items-center space-x-2 text-xs">
+                      <input
+                        type="checkbox"
+                        checked={conversation.tags?.includes(market)}
+                        onChange={() => onMarketToggle(conversation.id, market)}
+                        aria-label={`Assign to ${market} market`}
+                      />
+                      <span>{market}</span>
+                    </label>
+                  ))}
+                </div>
+              )}
             </div>
           )}
         </div>

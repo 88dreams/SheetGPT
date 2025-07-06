@@ -54,6 +54,7 @@ export interface Conversation {
   order?: number;
   messages: Message[];
   meta_data: Record<string, unknown>;
+  tags?: string[];
 }
 
 export interface Message {

@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useRef } from 'react'
+import React, { useState, useCallback, useRef, useEffect } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useNotification } from '../../contexts/NotificationContext'
 import { api } from '../../utils/api'
@@ -14,7 +14,7 @@ import {
   ArrowUpIcon,
   ArrowDownIcon,
 } from '@heroicons/react/24/outline'
-import { FaArchive, FaUndo } from 'react-icons/fa'
+import { FaArchive, FaUndo, FaEdit } from 'react-icons/fa'
 import type { Conversation } from '../../utils/api'
 import { DndProvider } from 'react-dnd'
 import { HTML5Backend } from 'react-dnd-html5-backend'
@@ -30,6 +30,9 @@ interface ConversationListProps {
   total: number
   onReorder?: (dragIndex: number, hoverIndex: number) => void
 }
+
+// Market categories
+const MARKETS = ['SPORTS', 'MUSIC', 'CREATOR', 'CORPORATE'];
 
 // Sort types for the ConversationList
 type SortField = 'title' | 'date' | 'order'
@@ -56,6 +59,8 @@ const ConversationList: React.FC<ConversationListProps> = ({
   const [selectedConversations, setSelectedConversations] = useState<Set<string>>(new Set())
   const [localConversations, setLocalConversations] = useState<Conversation[]>([])
   const [sortConfig, setSortConfig] = useState<SortConfig>({ field: 'order', direction: 'asc' })
+  const [activeMarket, setActiveMarket] = useState('All');
+  const [editingTags, setEditingTags] = useState<string | null>(null);
   const queryClient = useQueryClient()
   const { showNotification } = useNotification()
   
@@ -232,13 +237,22 @@ const ConversationList: React.FC<ConversationListProps> = ({
   })
 
   const updateConversationMutation = useMutation({
-    mutationFn: async (params: { id: string, title: string }) => api.chat.updateConversation(params.id, { title: params.title }),
+    mutationFn: async (params: { id: string, title?: string, tags?: string[] }) => api.chat.updateConversation(params.id, { title: params.title, tags: params.tags }),
     onSuccess: (updatedConversation) => {
-      queryClient.setQueryData(['conversations'], (old: Conversation[] | undefined) => 
-        (old || []).map(c => c.id === updatedConversation.id ? updatedConversation : c)
-      )
+      queryClient.setQueryData(['conversations'], (old: any) => {
+        if (!old?.pages) return old
+        return {
+          ...old,
+          pages: old.pages.map((page: any) => ({
+            ...page,
+            items: page.items.map((c: Conversation) => 
+              c.id === updatedConversation.id ? { ...c, ...updatedConversation } : c
+            )
+          }))
+        }
+      })
       setEditingConversation(null)
-      showNotification('success', 'Conversation renamed successfully')
+      showNotification('success', 'Conversation updated successfully')
     },
     onError: (error: Error) => showNotification('error', error.message)
   })
@@ -338,6 +352,22 @@ const ConversationList: React.FC<ConversationListProps> = ({
     })
   }
 
+  const handleMarketToggle = (conversationId: string, market: string) => {
+    const conversation = localConversations.find(c => c.id === conversationId);
+    if (!conversation) return;
+
+    const newTags = conversation.tags?.includes(market)
+      ? conversation.tags.filter(t => t !== market)
+      : [...(conversation.tags || []), market];
+
+    updateConversationMutation.mutate({ id: conversationId, tags: newTags });
+  };
+
+  const filteredConversations = localConversations.filter(conversation => {
+    if (activeMarket === 'All') return true;
+    return conversation.tags?.includes(activeMarket);
+  });
+
   if (isLoading && localConversations.length === 0) {
     return (
       <div className="h-full flex items-center justify-center">
@@ -359,6 +389,23 @@ const ConversationList: React.FC<ConversationListProps> = ({
             >
               <PlusIcon className="h-5 w-5" />
             </button>
+          </div>
+        </div>
+        <div className="px-4 pb-2 border-b">
+          <div className="flex space-x-2">
+            {['All', ...MARKETS].map(market => (
+              <button
+                key={market}
+                onClick={() => setActiveMarket(market)}
+                className={`px-3 py-1 text-sm font-medium rounded-full ${
+                  activeMarket === market
+                    ? 'bg-blue-500 text-white'
+                    : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                }`}
+              >
+                {market}
+              </button>
+            ))}
           </div>
         </div>
       </div>
@@ -437,7 +484,7 @@ const ConversationList: React.FC<ConversationListProps> = ({
                 </tr>
               </thead>
               <tbody>
-                {localConversations.map((conversation, index) => (
+                {filteredConversations.map((conversation, index) => (
                   <DraggableConversationItem
                     key={conversation.id}
                     index={index}
@@ -466,6 +513,13 @@ const ConversationList: React.FC<ConversationListProps> = ({
                     archiveConversationMutation={archiveConversationMutation}
                     restoreConversationMutation={restoreConversationMutation}
                     deleteConversationMutation={deleteConversationMutation}
+                    onMarketToggle={handleMarketToggle}
+                    isEditingTags={editingTags === conversation.id}
+                    onToggleTagsEdit={(e) => {
+                      e.stopPropagation();
+                      setEditingTags(prev => prev === conversation.id ? null : conversation.id);
+                    }}
+                    availableMarkets={MARKETS}
                   />
                 ))}
               </tbody>

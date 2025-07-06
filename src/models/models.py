@@ -3,6 +3,8 @@ from sqlalchemy import String, Boolean, ForeignKey, JSON, Text, Integer
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from typing import Optional, List
 from uuid import UUID, uuid4
+from sqlalchemy.dialects import postgresql
+import sqlalchemy as sa
 
 from src.models.base import TimestampedBase
 
@@ -39,6 +41,11 @@ class User(TimestampedBase):
         Boolean,
         default=False,
         nullable=False
+    )
+    tags: Mapped[Optional[List[str]]] = mapped_column(
+        postgresql.JSONB(astext_type=sa.Text()), 
+        nullable=True, 
+        default=[]
     )
 
     # Relationships
@@ -83,6 +90,11 @@ class Conversation(TimestampedBase):
         nullable=False,
         default=dict
     )
+    tags: Mapped[Optional[List[str]]] = mapped_column(
+        postgresql.JSONB(astext_type=sa.Text()), 
+        nullable=True, 
+        default=[]
+    )
 
     # Relationships
     user: Mapped[User] = relationship(back_populates="conversations")
@@ -121,6 +133,11 @@ class Message(TimestampedBase):
         nullable=False,
         default=dict
     )
+    tags: Mapped[Optional[List[str]]] = mapped_column(
+        postgresql.JSONB(astext_type=sa.Text()), 
+        nullable=True, 
+        default=[]
+    )
 
     # Relationships
     conversation: Mapped[Conversation] = relationship(back_populates="messages")
@@ -154,6 +171,11 @@ class StructuredData(TimestampedBase):
         JSON,
         nullable=False,
         default=dict
+    )
+    tags: Mapped[Optional[List[str]]] = mapped_column(
+        postgresql.JSONB(astext_type=sa.Text()), 
+        nullable=True, 
+        default=[]
     )
 
     # Relationships
@@ -210,6 +232,11 @@ class DataColumn(TimestampedBase):
         nullable=False,
         default=dict
     )
+    tags: Mapped[Optional[List[str]]] = mapped_column(
+        postgresql.JSONB(astext_type=sa.Text()), 
+        nullable=True, 
+        default=[]
+    )
 
     # Relationships
     structured_data: Mapped[StructuredData] = relationship(back_populates="columns")
@@ -255,6 +282,11 @@ class DataChangeHistory(TimestampedBase):
         JSON,
         nullable=False,
         default=dict
+    )
+    tags: Mapped[Optional[List[str]]] = mapped_column(
+        postgresql.JSONB(astext_type=sa.Text()), 
+        nullable=True, 
+        default=[]
     )
 
     # Relationships

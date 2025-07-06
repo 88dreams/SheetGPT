@@ -13,10 +13,10 @@ const INITIAL_ENTITY_TYPES = [
   { id: 'team', name: 'Teams', description: 'Sports teams', markets: ['SPORTS'] },
   { id: 'player', name: 'Players', description: 'Team players', markets: ['SPORTS'] },
   { id: 'game', name: 'Games', description: 'Scheduled games', markets: ['SPORTS'] },
-  { id: 'stadium', name: 'Stadiums', description: 'Venues and stadiums', markets: ['SPORTS'] },
+  { id: 'stadium', name: 'Venues', description: 'Venues and stadiums', markets: ['SPORTS'] },
   { id: 'broadcast', name: 'Broadcast Rights', description: 'Media broadcast rights', markets: ['SPORTS', 'CORPORATE'] },
   { id: 'production_service', name: 'Production Services', description: 'Production services', markets: ['SPORTS', 'MUSIC', 'CREATOR', 'CORPORATE'] },
-  { id: 'brand', name: 'Brands', description: 'Companies/Products connected to Markets.', markets: ['SPORTS', 'MUSIC', 'CREATOR', 'CORPORATE'] },
+  { id: 'brand', name: 'Brands', description: 'Companies/products connected to markets', markets: ['SPORTS', 'MUSIC', 'CREATOR', 'CORPORATE'] },
   { id: 'creator', name: 'Creators', description: 'Content creators', markets: ['CREATOR'] },
   { id: 'management', name: 'Management', description: 'Creator or artist management', markets: ['CREATOR', 'MUSIC'] }
 ];

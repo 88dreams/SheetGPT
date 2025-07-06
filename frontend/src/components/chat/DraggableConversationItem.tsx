@@ -1,7 +1,7 @@
 import React, { useRef } from 'react';
 import { useDrag, useDrop } from 'react-dnd';
 import { Conversation } from '../../utils/api'; // Adjust path as needed
-import { format, isThisYear, isToday, isYesterday } from 'date-fns'; // Added date-fns imports
+import { formatDate } from '../../utils/formatters';
 import {
   TrashIcon,
   PencilIcon,
@@ -9,20 +9,6 @@ import {
   XMarkIcon,
 } from '@heroicons/react/24/outline';
 import { FaArchive, FaUndo, FaEdit } from 'react-icons/fa';
-
-// Helper function to format dates (duplicated from ConversationList.tsx for now)
-const formatDate = (dateString: string): string => {
-  const date = new Date(dateString);
-  if (isToday(date)) {
-    return format(date, "'Today' h:mm a");
-  } else if (isYesterday(date)) {
-    return 'Yesterday';
-  } else if (isThisYear(date)) {
-    return format(date, 'MMM d');
-  } else {
-    return format(date, 'MM/dd/yy');
-  }
-}
 
 // Define DragItem type (if not already in a shared types file)
 interface DragItem {
@@ -213,12 +199,22 @@ const DraggableConversationItem: React.FC<ConversationItemProps> = ({
                       {conversation.description}
                     </p>
                   )}
-                  <p className="text-xs text-gray-400 mt-1">
-                    {conversation.meta_data?.archived_at 
-                      ? `Archived: ${formatDate(String(conversation.meta_data.archived_at))}`
-                      : `Created: ${formatDate(conversation.created_at)}`
-                    }
-                  </p>
+                  <div className="flex items-center text-xs text-gray-400 mt-1">
+                    <span>
+                      {conversation.meta_data?.archived_at 
+                        ? `Archived: ${formatDate(String(conversation.meta_data.archived_at))}`
+                        : `Created: ${formatDate(conversation.created_at)}`
+                      }
+                    </span>
+                    <div className="flex items-center space-x-2 ml-2">
+                      {(conversation.tags || []).map(tag => (
+                        <div key={tag} className="flex items-center">
+                          <span className="h-2 w-2 bg-blue-500 rounded-full mr-1"></span>
+                          <span>{tag}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
                 </div>
                 {selectedId === conversation.id && (
                   <div className="flex space-x-1 flex-shrink-0">

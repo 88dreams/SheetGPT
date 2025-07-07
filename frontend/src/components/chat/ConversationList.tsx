@@ -64,6 +64,12 @@ const ConversationList: React.FC<ConversationListProps> = ({
   const queryClient = useQueryClient()
   const { showNotification } = useNotification()
   
+  useEffect(() => {
+    if (editingTags) {
+      setEditingTags(null);
+    }
+  }, [selectedId]);
+  
   const sortConversations = useCallback((convs: Conversation[]): Conversation[] => {
     const sorted = [...convs]
     switch (sortConfig.field) {
@@ -239,6 +245,10 @@ const ConversationList: React.FC<ConversationListProps> = ({
   const updateConversationMutation = useMutation({
     mutationFn: async (params: { id: string, title?: string, tags?: string[] }) => api.chat.updateConversation(params.id, { title: params.title, tags: params.tags }),
     onSuccess: (updatedConversation) => {
+      setLocalConversations(prev =>
+        prev.map(c => c.id === updatedConversation.id ? { ...c, ...updatedConversation } : c)
+      );
+
       queryClient.setQueryData(['conversations'], (old: any) => {
         if (!old?.pages) return old
         return {

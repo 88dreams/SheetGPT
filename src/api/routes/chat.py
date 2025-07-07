@@ -198,14 +198,14 @@ async def update_conversation(
     """Update conversation details."""
     chat_service = ChatService(db)
     try:
-        # Verify conversation ownership
-        conv_messages = await chat_service.get_conversation_messages(conversation_id)
-        if not conv_messages:
+        # Verify conversation ownership by eagerly loading the conversation
+        conversation = await chat_service.get_conversation_by_id(conversation_id)
+        if not conversation:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Conversation not found"
             )
-        conversation = conv_messages[0].conversation
+
         if conversation.user_id != current_user_id:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
@@ -213,17 +213,11 @@ async def update_conversation(
             )
 
         # Update conversation
-        if update_data.title:
-            conversation = await chat_service.update_conversation_title(
-                conversation_id=conversation_id,
-                new_title=update_data.title
-            )
-        if update_data.tags is not None:
-            conversation = await chat_service.update_conversation_tags(
-                conversation_id=conversation_id,
-                new_tags=update_data.tags
-            )
-        return ConversationResponse.model_validate(conversation)
+        updated_conversation = await chat_service.update_conversation(
+            conversation_id=conversation_id,
+            update_data=update_data
+        )
+        return ConversationResponse.model_validate(updated_conversation)
     except ValueError as e:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,

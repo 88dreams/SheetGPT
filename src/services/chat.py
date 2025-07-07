@@ -232,6 +232,12 @@ class ChatService:
 
         return conversation
 
+    async def get_conversation_by_id(self, conversation_id: UUID) -> Optional[Conversation]:
+        """Get a conversation by its ID."""
+        stmt = select(Conversation).where(Conversation.id == conversation_id).options(selectinload(Conversation.messages))
+        result = await self.db.execute(stmt)
+        return result.scalar_one_or_none()
+
     async def get_chat_response(
         self,
         conversation_id: UUID,
@@ -446,17 +452,21 @@ class ChatService:
             yield "[STREAM_END]\n"
             yield "__STREAM_COMPLETE__"
 
-    async def update_conversation_title(
+    async def update_conversation(
         self,
         conversation_id: UUID,
-        new_title: str
+        update_data: "ConversationUpdate"
     ) -> Conversation:
-        """Update the title of a conversation."""
-        conversation = await self.db.get(Conversation, conversation_id)
+        """Update a conversation with new data."""
+        conversation = await self.get_conversation_by_id(conversation_id)
         if not conversation:
             raise ValueError("Conversation not found")
+
+        if update_data.title is not None:
+            conversation.title = update_data.title
+        if update_data.tags is not None:
+            conversation.tags = update_data.tags
         
-        conversation.title = new_title
         await self.db.commit()
         await self.db.refresh(conversation)
         return conversation

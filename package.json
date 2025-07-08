@@ -4,6 +4,9 @@
   "workspaces": [
     "frontend"
   ],
+  "engines": {
+    "node": "18.x"
+  },
   "devDependencies": {
     "@types/react-virtualized-auto-sizer": "^1.0.4"
   },

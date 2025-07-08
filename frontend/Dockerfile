@@ -1,38 +1,23 @@
-# Use Node.js 18 with the newer 'Bookworm' Debian release which includes mkcert
-FROM node:18-bookworm
+# 1. Use the correct Node.js version that matches your project's requirement
+FROM node:18-slim
 
-# Set working directory for the entire application build
+# Set the working directory for the application
 WORKDIR /app
 
-# Ensure corepack is enabled
-RUN corepack enable && corepack prepare yarn@stable --activate
+# 2. Copy the root package.json and yarn.lock to leverage Docker's layer caching.
+# This step requires the build context in Digital Ocean to be the repository root.
+COPY package.json yarn.lock ./
 
-# The Node base image should already set this, but to be explicit:
-# Add Node's global bin directory and Yarn's shims to PATH
-ENV PATH /usr/local/bin:${PATH}
-
-# Copy root package.json, yarn.lock, and .dockerignore to ensure this layer's cache breaks
-COPY package.json yarn.lock* .dockerignore ./
-
-# Copy the frontend workspace files
+# 3. Copy the frontend-specific code into its workspace directory
 COPY frontend/ ./frontend/
 
-# Now, run yarn install from the root of the workspace.
-# Yarn will install dependencies for all workspaces (i.e., frontend).
+# 4. Install all dependencies for the entire monorepo using yarn.
+# --frozen-lockfile ensures that the exact versions from yarn.lock are used.
 RUN yarn install --frozen-lockfile
 
-# Install mkcert and generate self-signed certificate for localhost
-RUN apt-get update && apt-get install -y mkcert
-RUN mkcert -install
-RUN mkdir -p .cert && mkcert -key-file ./.cert/key.pem -cert-file ./.cert/cert.pem "localhost" "127.0.0.1" "::1"
-
-# Explicitly remove Vite cache after installation (path relative to WORKDIR /app)
-RUN rm -rf frontend/node_modules/.vite
-
-# Expose Vite dev server port
+# 5. Expose the port Vite runs on
 EXPOSE 5173
 
-# Start dev server with specific NODE_ENV
-ENV NODE_ENV=development
-# Use yarn workspace to run the dev script from the frontend package
-CMD ["yarn", "workspace", "sheetgpt-frontend", "run", "dev", "--host", "0.0.0.0"]
+# 6. Set the command to run the dev server for the frontend workspace.
+# This correctly targets the 'dev' script inside the frontend's package.json.
+CMD ["yarn", "workspace", "sheetgpt-frontend", "run", "dev"]

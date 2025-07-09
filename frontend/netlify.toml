@@ -2,14 +2,15 @@
 
 # Build settings
 [build]
-  # Directory to change to before starting a build
-  base = "frontend/"
+  # IMPORTANT: The base directory is removed.
+  # The build must run from the repository root for Yarn Workspaces to work.
   
-  # Directory that contains the deploy-ready HTML files
-  publish = "dist/"
+  # Directory that contains the deploy-ready HTML files, relative to the root.
+  publish = "frontend/dist/"
   
-  # Default build command with improved reliability - install dev dependencies
-  command = "npm ci --prefer-offline --include=dev && echo 'Dependencies installed successfully' && npm run build:netlify"
+  # Correct build command for a Yarn workspace.
+  # Netlify automatically runs `yarn install` first from the root.
+  command = "yarn workspace sheetgpt-frontend build"
   
   # Ignore Python runtime files - frontend only needs Node.js
   ignore = "cd .. && test -f runtime.txt"

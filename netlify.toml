@@ -1,0 +1,13 @@
+# Netlify configuration file for the root of the monorepo.
+
+[build]
+  # 1. This tells Netlify to `cd` into the `frontend` directory first.
+  #    This is the most important step for isolating the build.
+  base = "frontend"
+  
+  # 2. This command will be run from inside the `frontend` directory.
+  #    Netlify will correctly use yarn because it finds the `yarn.lock` file.
+  command = "yarn build"
+  
+  # 3. The publish directory is relative to the `base` directory (`frontend/dist`).
+  publish = "dist" 

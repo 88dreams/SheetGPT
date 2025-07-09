@@ -8,10 +8,10 @@
   # Directory that contains the deploy-ready HTML files, relative to the root.
   publish = "frontend/dist/"
   
-  # Correct build command for a Yarn workspace. We include `yarn install`
-  # to signal to Netlify that we are handling installations, preventing it
-  # from trying to run `pip install` on its own.
-  command = "yarn install --frozen-lockfile && yarn workspace sheetgpt-frontend build"
+  # Correct build command. We create an empty requirements.txt to prevent
+  # Netlify's Python buildpack from running and failing. Then we run our
+  # actual yarn commands.
+  command = "touch requirements.txt && yarn install --frozen-lockfile && yarn workspace sheetgpt-frontend build"
   
   # Ignore Python runtime files - frontend only needs Node.js
   ignore = "cd .. && test -f runtime.txt"

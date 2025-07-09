@@ -120,15 +120,8 @@ const ConversationList: React.FC<ConversationListProps> = ({
   
   React.useEffect(() => {
     const sortedConversations = sortConversations(conversations)
-    const shouldUpdate = localConversations.length !== sortedConversations.length || 
-      localConversations.some((conv, idx) => 
-        conv.id !== sortedConversations[idx]?.id || 
-        conv.order !== sortedConversations[idx]?.order
-      )
-    if (shouldUpdate) {
-      setLocalConversations(sortedConversations)
-    }
-  }, [conversations, localConversations, sortConversations])
+    setLocalConversations(sortedConversations)
+  }, [conversations, sortConversations])
   
   React.useEffect(() => {
     setLocalConversations(prev => sortConversations([...prev]))

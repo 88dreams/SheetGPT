@@ -1,17 +1,18 @@
 # Netlify configuration file for the root of the monorepo.
 
 [build]
-  # 1. This tells Netlify to `cd` into the `frontend` directory first.
-  #    This is the most important step for isolating the build.
-  base = "frontend"
+  # 1. The command to run to build your site. We build from the root
+  #    but explicitly target the frontend workspace.
+  command = "yarn workspace sheetgpt-frontend build"
   
-  # 2. This command will be run from inside the `frontend` directory.
-  #    Netlify will correctly use yarn because it finds the `yarn.lock` file.
-  command = "yarn build"
-  
-  # 3. The publish directory is relative to the `base` directory (`frontend/dist`).
-  publish = "dist"
+  # 2. The directory to publish, relative to the repository root.
+  publish = "frontend/dist"
 
 [build.environment]
-  # This forces Netlify to install devDependencies, which are required for the build.
+  # 3. Explicitly set the Node.js and Yarn versions to ensure consistency.
+  NODE_VERSION = "18"
+  YARN_VERSION = "4.9.1"
+  
+  # 4. Set NODE_ENV to "development" to force installation of devDependencies
+  #    which are required for the build command.
   NODE_ENV = "development" 

@@ -10,4 +10,8 @@
   command = "yarn build"
   
   # 3. The publish directory is relative to the `base` directory (`frontend/dist`).
-  publish = "dist" 
+  publish = "dist"
+
+[build.environment]
+  # This forces Netlify to install devDependencies, which are required for the build.
+  NODE_ENV = "development" 

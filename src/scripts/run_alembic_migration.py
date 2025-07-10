@@ -1,12 +1,14 @@
 import os
 import sys
 from pathlib import Path
+import types
 
 # Add the project root to the Python path
 sys.path.append(str(Path(__file__).parent.parent.parent))
 
-# Temporarily modify sys.modules to prevent sports_models from being imported
-sys.modules['src.models.sports_models'] = type('MockModule', (), {
+# Create a mock module
+mock_sports_models = types.ModuleType('MockSportsModels')
+mock_attrs = {
     'League': None,
     'Stadium': None,
     'Team': None,
@@ -22,7 +24,12 @@ sys.modules['src.models.sports_models'] = type('MockModule', (), {
     'TeamOwnership': None,
     'LeagueExecutive': None,
     'GameBroadcast': None
-})
+}
+for attr, value in mock_attrs.items():
+    setattr(mock_sports_models, attr, value)
+
+# Temporarily modify sys.modules to prevent sports_models from being imported
+sys.modules['src.models.sports_models'] = mock_sports_models
 
 # Import alembic components
 from alembic.config import Config

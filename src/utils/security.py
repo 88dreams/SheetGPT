@@ -94,7 +94,7 @@ async def get_current_user_id(token: str = Depends(oauth2_scheme)) -> UUID:
             settings.SECRET_KEY,
             algorithms=["HS256"]
         )
-        user_id: str = payload.get("sub")
+        user_id: Optional[str] = payload.get("sub")
         if user_id is None:
             raise credentials_exception
         
@@ -102,6 +102,9 @@ async def get_current_user_id(token: str = Depends(oauth2_scheme)) -> UUID:
     except (JWTError, ValueError):
         raise credentials_exception
     
+    if token_data.user_id is None:
+        raise credentials_exception
+
     return token_data.user_id
 
 async def get_current_admin_user(

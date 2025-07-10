@@ -153,7 +153,7 @@ class QueryService:
         try:
             result = await self.db.execute(text(query))
             rows = []
-            if result.returns_rows:
+            if result.keys():
                 column_names = list(result.keys())
                 fetched_rows = result.fetchall()
                 

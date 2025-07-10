@@ -11,18 +11,18 @@ class Settings(BaseSettings):
     DEBUG: bool = False
     
     # Security
-    SECRET_KEY: str
+    SECRET_KEY: str = ""
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
     ENCRYPTION_KEY: Optional[str] = None
     
     # Database
-    DATABASE_URL: str
+    DATABASE_URL: str = ""
     
     # OpenAI (kept for compatibility with other parts of the system)
     OPENAI_API_KEY: Optional[str] = None
     
     # Anthropic (primary LLM provider)
-    ANTHROPIC_API_KEY: str
+    ANTHROPIC_API_KEY: str = ""
     
     # Google Sheets
     GOOGLE_SHEETS_CREDENTIALS: Optional[str] = None

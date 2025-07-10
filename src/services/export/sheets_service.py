@@ -103,12 +103,7 @@ class GoogleSheetsService:
     async def create_spreadsheet_with_data(self, title: str, data: List[List[Any]]) -> Tuple[str, str]:
         """Create a new spreadsheet with data pre-populated and return its ID and URL."""
         if not self.service:
-            print(f"DEBUG: Service not initialized in create_spreadsheet_with_data")
-            raise HTTPException(
-                status_code=500,
-                detail="Service not initialized"
-            )
-            
+            raise HTTPException(status_code=500, detail="Google Sheets service not initialized. Please authenticate first.")
         try:
             import time
             import random
@@ -294,12 +289,7 @@ class GoogleSheetsService:
                 - folder_url: The URL of the folder (if folder_name was provided)
         """
         if not self.service:
-            print(f"DEBUG: Service not initialized in create_spreadsheet")
-            raise HTTPException(
-                status_code=500,
-                detail="Service not initialized"
-            )
-            
+            raise HTTPException(status_code=500, detail="Google Sheets service not initialized. Please authenticate first.")
         try:
             import time
             import random
@@ -452,6 +442,8 @@ class GoogleSheetsService:
         value_input_option: str = 'USER_ENTERED'
     ) -> Dict[str, Any]:
         """Append values to a spreadsheet with rate limit handling."""
+        if not self.service:
+            raise HTTPException(status_code=500, detail="Google Sheets service not initialized. Please authenticate first.")
         try:
             import time
             import random
@@ -534,6 +526,8 @@ class GoogleSheetsService:
         value_input_option: str = 'USER_ENTERED'
     ) -> Dict[str, Any]:
         """Update values in a spreadsheet with rate limit handling."""
+        if not self.service:
+            raise HTTPException(status_code=500, detail="Google Sheets service not initialized. Please authenticate first.")
         try:
             import time
             import random
@@ -683,6 +677,8 @@ class GoogleSheetsService:
         range_name: str
     ) -> List[List[Any]]:
         """Get values from a spreadsheet."""
+        if not self.service:
+            raise HTTPException(status_code=500, detail="Google Sheets service not initialized. Please authenticate first.")
         try:
             request = self.service.spreadsheets().values().get(
                 spreadsheetId=spreadsheet_id,
@@ -700,6 +696,8 @@ class GoogleSheetsService:
         format_json: Dict[str, Any]
     ) -> Dict[str, Any]:
         """Apply formatting to a range in the spreadsheet with rate limit handling."""
+        if not self.service:
+            raise HTTPException(status_code=500, detail="Google Sheets service not initialized. Please authenticate first.")
         try:
             import time
             import random
@@ -809,12 +807,7 @@ class GoogleSheetsService:
     ) -> Dict[str, Any]:
         """Create a new spreadsheet using a template and optionally populate it with data."""
         if not self.service:
-            print(f"DEBUG: Service not initialized in create_spreadsheet_with_template")
-            raise HTTPException(
-                status_code=500,
-                detail="Service not initialized"
-            )
-            
+            raise HTTPException(status_code=500, detail="Google Sheets service not initialized. Please authenticate first.")
         try:
             # Check if we should use the direct data method
             if data:
@@ -1108,7 +1101,7 @@ class GoogleSheetsService:
         if not self.service:
             raise HTTPException(
                 status_code=500,
-                detail="Service not initialized"
+                detail="Google Sheets service not initialized. Please authenticate first."
             )
             
         try:
@@ -1167,6 +1160,8 @@ class GoogleSheetsService:
         value_input_option: str = 'USER_ENTERED'
     ) -> Dict[str, Any]:
         """Write headers and rows to a sheet using batch operations."""
+        if not self.service:
+            raise HTTPException(status_code=500, detail="Google Sheets service not initialized. Please authenticate first.")
         try:
             import time
             import random
@@ -1249,6 +1244,8 @@ class GoogleSheetsService:
         template_name: str = "default"
     ) -> Dict[str, Any]:
         """Apply formatting to a sheet."""
+        if not self.service:
+            raise HTTPException(status_code=500, detail="Google Sheets service not initialized. Please authenticate first.")
         try:
             import time
             import random

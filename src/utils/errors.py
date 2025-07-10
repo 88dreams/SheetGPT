@@ -26,7 +26,7 @@ class SportsDatabaseError(Exception):
             "status_code": self.status_code
         }
     
-    def log_error(self, logger_instance=None, level=logging.ERROR, context: Dict[str, Any] = None):
+    def log_error(self, logger_instance=None, level=logging.ERROR, context: Optional[Dict[str, Any]] = None):
         """Log the error with consistent formatting."""
         log = logger_instance or logger
         context_dict = {

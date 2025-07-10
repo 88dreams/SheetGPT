@@ -106,7 +106,7 @@ class ExportService:
         
         # Include relationships if requested
         if include_relationships:
-            entity_dicts = await self._include_relationships(db, entity_type, entity_dicts, entities)
+            entity_dicts = await self._include_relationships(db, entity_type, entity_dicts, list(entities))
         
         # Create a custom sheet title if file_name is provided, otherwise use default
         sheet_title = file_name if file_name else f"{entity_type.capitalize()} Export"

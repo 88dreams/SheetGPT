@@ -1,14 +1,15 @@
 from fastapi import Depends, HTTPException, status
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 from typing import Dict, Any
+from uuid import UUID
 
 from src.utils.database import get_db
 from src.utils.security import get_current_user_id
 from src.services.user import UserService
 
 async def get_current_user(
-    current_user_id = Depends(get_current_user_id),
-    db: Session = Depends(get_db)
+    current_user_id: str = Depends(get_current_user_id),
+    db: AsyncSession = Depends(get_db)
 ) -> Dict[str, Any]:
     """
     Get current authenticated user information.
@@ -20,7 +21,7 @@ async def get_current_user(
         Dict[str, Any]: User information as a dictionary
     """
     user_service = UserService(db)
-    user = user_service.get_user_by_id(current_user_id)
+    user = await user_service.get_user_by_id(UUID(current_user_id))
     
     if not user:
         raise HTTPException(

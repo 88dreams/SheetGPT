@@ -631,9 +631,4 @@ class ManagementResponse(ManagementBase):
     updated_at: str
 
     class Config:
-        from_attributes = True
-
-# Team Schemas
-class TeamBase(BaseModel):
-    name: str
-    # ... existing code ... 
+        from_attributes = True 

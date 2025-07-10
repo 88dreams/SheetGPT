@@ -51,4 +51,4 @@ class HistoryService:
         )
 
         result = await self.db.execute(query)
-        return result.scalars().all()
+        return list(result.scalars().all())

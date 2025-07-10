@@ -228,15 +228,15 @@ Here's the code to review:
                 logger.warning("Empty response from Claude API")
                 return ""
                 
-        except anthropic.APIError as e:
-            logger.error(f"Anthropic API error: {str(e)}")
-            raise HTTPException(status_code=502, detail=f"Anthropic API error: {str(e)}")
         except anthropic.RateLimitError as e:
             logger.error(f"Rate limit error: {str(e)}")
             raise HTTPException(status_code=429, detail="Rate limit exceeded, please try again later")
         except anthropic.APIConnectionError as e:
             logger.error(f"API connection error: {str(e)}")
             raise HTTPException(status_code=503, detail="Connection to Anthropic API failed")
+        except anthropic.APIError as e:
+            logger.error(f"Anthropic API error: {str(e)}")
+            raise HTTPException(status_code=502, detail=f"Anthropic API error: {str(e)}")
         except Exception as e:
             logger.error(f"Unexpected error in code generation: {str(e)}")
             raise HTTPException(status_code=500, detail=f"Unexpected error during code generation")

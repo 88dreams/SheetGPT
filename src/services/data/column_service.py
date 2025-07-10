@@ -5,7 +5,7 @@ from fastapi import HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.models.models import DataColumn
-from src.schemas.data_management import ColumnCreate, ColumnUpdate
+from src.schemas.data_management import ColumnCreate, ColumnUpdate, ColumnResponse
 from .history_service import HistoryService
 from .structured_data_service import StructuredDataService
 
@@ -18,7 +18,7 @@ class ColumnService:
         self.structured_data_service = StructuredDataService(db)
         self.history_service = HistoryService(db)
 
-    async def get_columns(self, data_id: UUID, user_id: UUID) -> List[DataColumn]:
+    async def get_columns(self, data_id: UUID, user_id: UUID) -> List[ColumnResponse]:
         """Get columns for structured data."""
         structured_data = await self.structured_data_service.get_data_by_id(
             data_id, user_id

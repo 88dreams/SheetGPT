@@ -254,7 +254,7 @@ export const enhancedMapToDatabaseFieldNames = async (
   });
   
   // Handle relationship fields by entity type
-  if (entityType === 'broadcast') {
+  if (entityType === 'broadcast_rights') {
     // Special handling for broadcast entity dates
     // Format start_date and end_date if they are just years or missing
     const DEFAULT_DATE = '1976-04-01';
@@ -317,7 +317,7 @@ export const enhancedMapToDatabaseFieldNames = async (
   }
   
   // Handle broadcast_company_id and production_company_id for broadcast and production entities
-  if ((entityType === 'broadcast' || entityType === 'game_broadcast') && 
+  if ((entityType === 'broadcast_rights' || entityType === 'game_broadcast') && 
       basicMapped.broadcast_company_id && 
       !isValidUUID(basicMapped.broadcast_company_id)) {
     
@@ -359,7 +359,7 @@ export const enhancedMapToDatabaseFieldNames = async (
       console.error(`Error looking up broadcast company: ${companyName}`, error);
       basicMapped._newBroadcastCompanyName = companyName;
     }
-  } else if (entityType === 'production' && 
+  } else if (entityType === 'production_service' && 
             basicMapped.production_company_id && 
             !isValidUUID(basicMapped.production_company_id)) {
     

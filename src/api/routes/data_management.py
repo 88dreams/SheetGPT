@@ -229,7 +229,8 @@ async def list_columns(
 ) -> List[ColumnResponse]:
     """Get all columns for structured data."""
     service = DataManagementService(db)
-    return await service.get_columns(data_id, current_user_id)
+    columns = await service.get_columns(data_id, current_user_id)
+    return [ColumnResponse.model_validate(col) for col in columns]
 
 @router.post("/{data_id}/columns", response_model=ColumnResponse, status_code=status.HTTP_201_CREATED)
 async def create_column(
@@ -240,7 +241,8 @@ async def create_column(
 ) -> ColumnResponse:
     """Create a new column."""
     service = DataManagementService(db)
-    return await service.create_column(data_id, current_user_id, column)
+    new_column = await service.create_column(data_id, current_user_id, column)
+    return ColumnResponse.model_validate(new_column)
 
 @router.put("/{data_id}/columns/{column_name}", response_model=ColumnResponse)
 async def update_column(
@@ -252,7 +254,8 @@ async def update_column(
 ) -> ColumnResponse:
     """Update a column."""
     service = DataManagementService(db)
-    return await service.update_column(data_id, column_name, current_user_id, column)
+    updated_column = await service.update_column(data_id, column_name, current_user_id, column)
+    return ColumnResponse.model_validate(updated_column)
 
 @router.delete("/{data_id}/columns/{column_name}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_column(
@@ -292,7 +295,8 @@ async def get_change_history(
 ) -> List[DataChangeHistoryResponse]:
     """Get change history for structured data."""
     service = DataManagementService(db)
-    return await service.get_change_history(data_id, current_user_id, limit, offset)
+    history = await service.get_change_history(data_id, current_user_id, limit, offset)
+    return [DataChangeHistoryResponse.model_validate(h) for h in history]
 
 @router.post("/{data_id}/export", status_code=status.HTTP_202_ACCEPTED)
 async def export_data(

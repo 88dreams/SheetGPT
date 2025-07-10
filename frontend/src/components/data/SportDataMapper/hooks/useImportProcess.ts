@@ -58,7 +58,7 @@ export default function useImportProcess() {
         console.error('No data was transformed from mappings. Attempting to apply default values.');
         
         // For production entity, apply default/critical values directly
-        if (entityType === 'production') {
+        if (entityType === 'production_service') {
           console.log('Applying default values for production entity');
           
           // Apply direct mapping based on position for production entities
@@ -87,7 +87,7 @@ export default function useImportProcess() {
           }
         } 
         // For broadcast entity, apply default/critical values directly
-        else if (entityType === 'broadcast') {
+        else if (entityType === 'broadcast_rights') {
           console.log('Applying default values for broadcast entity');
           
           // Apply direct mapping based on position for broadcast entities
@@ -207,7 +207,7 @@ export default function useImportProcess() {
       }
       
       // If this is a production entity, check for duplicates before saving
-      if (entityType === 'production') {
+      if (entityType === 'production_service') {
         try {
           // Import the checkDuplicateProductionService function
           const { checkDuplicateProductionService } = await import('../utils/importUtils');
@@ -237,7 +237,7 @@ export default function useImportProcess() {
       }
       
       // If this is a broadcast entity, check for duplicates before saving
-      if (entityType === 'broadcast') {
+      if (entityType === 'broadcast_rights') {
         try {
           // Import the checkDuplicateBroadcastRight function
           const { checkDuplicateBroadcastRight } = await import('../utils/importUtils');

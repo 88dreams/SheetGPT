@@ -7,7 +7,8 @@ import re
 from datetime import datetime
 from typing import Dict, Any, List, Tuple, Optional
 from uuid import UUID
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select, delete, update, insert
 import fuzzywuzzy.fuzz as fuzz
 
 from ...models.linkedin import LinkedInConnection, BrandConnection
@@ -75,7 +76,7 @@ class ConnectionService:
     """
     Service for LinkedIn connection management.
     """
-    def __init__(self, db: Session):
+    def __init__(self, db: AsyncSession):
         self.db = db
 
     async def save_connection(
@@ -90,96 +91,35 @@ class ConnectionService:
         Returns:
             The created or updated LinkedInConnection object
         """
-        # Use raw SQL for compatibility with both sync and async sessions
-        from sqlalchemy import text
-        
-        # Check if connection already exists
-        check_query = await self.db.execute(
-            text(f"""
-                SELECT id FROM linkedin_connections 
-                WHERE user_id = '{connection_data.user_id}' 
-                AND linkedin_profile_id = '{connection_data.linkedin_profile_id}'
-            """)
+        stmt = select(LinkedInConnection).where(
+            LinkedInConnection.user_id == connection_data.user_id,
+            LinkedInConnection.linkedin_profile_id == connection_data.linkedin_profile_id
         )
-        existing = check_query.fetchone()
+        result = await self.db.execute(stmt)
+        existing_connection = result.scalars().first()
         
-        if existing:
-            # Update existing connection using direct SQL
-            connection_id = existing[0]
-            now = datetime.now()
-            update_query = text(f"""
-                UPDATE linkedin_connections SET
-                full_name = '{connection_data.full_name}',
-                company_name = '{connection_data.company_name}',
-                position = '{connection_data.position}',
-                connection_degree = {connection_data.connection_degree},
-                updated_at = '{now.isoformat()}'
-                WHERE id = {connection_id}
-            """)
-            
-            # Execute without parameters to avoid type conversion issues
-            await self.db.execute(update_query)
-            
+        if existing_connection:
+            update_stmt = (
+                update(LinkedInConnection)
+                .where(LinkedInConnection.id == existing_connection.id)
+                .values(
+                    full_name=connection_data.full_name,
+                    company_name=connection_data.company_name,
+                    position=connection_data.position,
+                    connection_degree=connection_data.connection_degree,
+                    updated_at=datetime.now()
+                )
+            )
+            await self.db.execute(update_stmt)
             await self.db.commit()
-            
-            # Get updated connection
-            result = await self.db.execute(text(f"SELECT * FROM linkedin_connections WHERE id = {connection_id}"))
-            updated = result.fetchone()
-            
-            # Convert to a simple object
-            class SimpleConnection:
-                def __init__(self, row):
-                    self.id = row[0]
-                    self.user_id = row[1]
-                    self.linkedin_profile_id = row[2]
-                    self.full_name = row[3]
-                    self.company_name = row[4]
-                    self.position = row[5]
-                    self.connection_degree = row[6]
-                    self.created_at = row[7]
-                    self.updated_at = row[8]
-            
-            return SimpleConnection(updated)
+            await self.db.refresh(existing_connection)
+            return existing_connection
         else:
-            # Generate current timestamp
-            now = datetime.now()
-            
-            # Create new connection using direct SQL with proper PostgreSQL timestamp syntax
-            insert_query = text(f"""
-                INSERT INTO linkedin_connections
-                (user_id, linkedin_profile_id, full_name, company_name, position, connection_degree, created_at, updated_at)
-                VALUES 
-                ('{connection_data.user_id}', '{connection_data.linkedin_profile_id}', 
-                '{connection_data.full_name}', '{connection_data.company_name}', 
-                '{connection_data.position}', {connection_data.connection_degree}, 
-                '{now.isoformat()}', '{now.isoformat()}')
-                RETURNING id
-            """)
-            
-            # Execute without parameters to avoid type conversion issues
-            result = await self.db.execute(insert_query)
-            
-            connection_id = result.scalar()
+            new_connection = LinkedInConnection(**connection_data.dict())
+            self.db.add(new_connection)
             await self.db.commit()
-            
-            # Get new connection
-            result = await self.db.execute(text(f"SELECT * FROM linkedin_connections WHERE id = {connection_id}"))
-            new_connection = result.fetchone()
-            
-            # Convert to a simple object
-            class SimpleConnection:
-                def __init__(self, row):
-                    self.id = row[0]
-                    self.user_id = row[1]
-                    self.linkedin_profile_id = row[2]
-                    self.full_name = row[3]
-                    self.company_name = row[4]
-                    self.position = row[5]
-                    self.connection_degree = row[6]
-                    self.created_at = row[7]
-                    self.updated_at = row[8]
-            
-            return SimpleConnection(new_connection)
+            await self.db.refresh(new_connection)
+            return new_connection
 
     async def save_connections(
         self, user_id: UUID, connections: List[Dict[str, Any]], connection_degree: int = 1
@@ -239,7 +179,7 @@ class ConnectionService:
                 
         return count
 
-    def get_user_connections(
+    async def get_user_connections(
         self, user_id: UUID, connection_degree: Optional[int] = None
     ) -> List[LinkedInConnection]:
         """
@@ -252,14 +192,15 @@ class ConnectionService:
         Returns:
             List of LinkedInConnection objects
         """
-        query = self.db.query(LinkedInConnection).filter(
+        stmt = select(LinkedInConnection).where(
             LinkedInConnection.user_id == user_id
         )
         
         if connection_degree is not None:
-            query = query.filter(LinkedInConnection.connection_degree == connection_degree)
+            stmt = stmt.where(LinkedInConnection.connection_degree == connection_degree)
             
-        return query.all()
+        result = await self.db.execute(stmt)
+        return list(result.scalars().all())
 
     async def get_user_connections_count(self, user_id: UUID) -> int:
         """
@@ -272,18 +213,16 @@ class ConnectionService:
             Count of connections
         """
         try:
-            # Use raw SQL to get count for compatibility with both sync and async sessions
-            from sqlalchemy import text
-            result = await self.db.execute(
-                text(f"SELECT COUNT(*) FROM linkedin_connections WHERE user_id = '{user_id}'")
-            )
-            count = result.scalar()
+            from sqlalchemy import func
+            stmt = select(func.count(LinkedInConnection.id)).where(LinkedInConnection.user_id == user_id)
+            result = await self.db.execute(stmt)
+            count = result.scalar_one_or_none()
             return count or 0
         except Exception as e:
             logger.error(f"Error getting user connections count: {str(e)}")
             return 0
 
-    def delete_user_connections(self, user_id: UUID) -> int:
+    async def delete_user_connections(self, user_id: UUID) -> int:
         """
         Delete all LinkedIn connections for a user.
         
@@ -293,12 +232,10 @@ class ConnectionService:
         Returns:
             Number of connections deleted
         """
-        count = self.db.query(LinkedInConnection).filter(
-            LinkedInConnection.user_id == user_id
-        ).delete()
-        
-        self.db.commit()
-        return count
+        stmt = delete(LinkedInConnection).where(LinkedInConnection.user_id == user_id)
+        result = await self.db.execute(stmt)
+        await self.db.commit()
+        return result.rowcount
 
     def fuzzy_match_company_name(
         self, company_name: str, brands: List[Brand]
@@ -356,8 +293,6 @@ class ConnectionService:
         Returns:
             Dict with statistics about the matching process
         """
-        from sqlalchemy import select
-        
         stats = {
             "total_connections": 0,
             "connections_with_company": 0,
@@ -367,20 +302,14 @@ class ConnectionService:
             "brands_with_connections": 0
         }
         
-        # Get all the user's LinkedIn connections using async method
-        # Use raw SQL for compatibility with both sync and async sessions
-        from sqlalchemy import text
-        connections_query = await self.db.execute(
-            text(f"SELECT * FROM linkedin_connections WHERE user_id = '{user_id}'")
-        )
-        connections = connections_query.fetchall()
+        connections = await self.get_user_connections(user_id)
         stats["total_connections"] = len(connections)
         
         logger.info(f"Found {len(connections)} LinkedIn connections for user {user_id}")
         
-        # Get all brands from the database using async method
-        brands_query = await self.db.execute(select(Brand))
-        brands = brands_query.scalars().all()
+        brands_stmt = select(Brand)
+        brands_result = await self.db.execute(brands_stmt)
+        brands = list(brands_result.scalars().all())
         
         logger.info(f"Found {len(brands)} brands for matching")
         
@@ -400,20 +329,16 @@ class ConnectionService:
         
         # Process each connection
         for connection in connections:
-            # Access the company_name by position in the tuple
-            # The tuple is (id, user_id, linkedin_profile_id, full_name, company_name, position, connection_degree, created_at, updated_at)
-            connection_id, connection_user_id, profile_id, full_name, company_name, position, connection_degree, _, _ = connection
-            
-            if not company_name:
+            if not connection.company_name:
                 continue
                 
             stats["connections_with_company"] += 1
-            normalized_company_name = normalize_company_name(company_name)
+            normalized_company_name = normalize_company_name(connection.company_name)
             
             # Check for exact match
             if normalized_company_name in company_to_brand_map:
                 brand_id = company_to_brand_map[normalized_company_name]
-                if connection_degree == 1:
+                if connection.connection_degree == 1:
                     brand_connections[brand_id]["first"] += 1
                 else:
                     brand_connections[brand_id]["second"] += 1
@@ -421,12 +346,10 @@ class ConnectionService:
                 continue
             
             # If no exact match, try fuzzy matching
-            # Convert the connection object to be compatible with our fuzzy matching method
-            brand_objs = [brand for brand in brands]
-            potential_matches = self.fuzzy_match_company_name(company_name, brand_objs)
+            potential_matches = self.fuzzy_match_company_name(connection.company_name, brands)
             if potential_matches and potential_matches[0][1] >= CONFIDENCE_THRESHOLD:
                 brand_id, confidence = potential_matches[0]
-                if connection_degree == 1:
+                if connection.connection_degree == 1:
                     brand_connections[brand_id]["first"] += 1
                 else:
                     brand_connections[brand_id]["second"] += 1
@@ -434,26 +357,22 @@ class ConnectionService:
             else:
                 stats["no_matches"] += 1
         
-        # Delete existing brand connections for this user using async method
-        await self.db.execute(
-            text(f"DELETE FROM brand_connections WHERE user_id = '{user_id}'")
-        )
+        # Delete existing brand connections for this user
+        await self.db.execute(delete(BrandConnection).where(BrandConnection.user_id == user_id))
         
         # Save the results
         for brand_id, counts in brand_connections.items():
             if counts["first"] > 0 or counts["second"] > 0:
-                # Insert with correct column names for the brand_connections table
-                now = datetime.now().isoformat()
-                await self.db.execute(
-                    text(f"""
-                        INSERT INTO brand_connections 
-                        (user_id, brand_id, first_degree_count, second_degree_count, last_updated) 
-                        VALUES ('{user_id}', '{brand_id}', {counts['first']}, {counts['second']}, '{now}')
-                    """)
+                await self.save_brand_connection(
+                    BrandConnectionCreate(
+                        user_id=user_id,
+                        brand_id=brand_id,
+                        first_degree_count=counts["first"],
+                        second_degree_count=counts["second"]
+                    )
                 )
                 stats["brands_with_connections"] += 1
         
-        # Commit changes        
         await self.db.commit()
         return stats
 
@@ -469,32 +388,26 @@ class ConnectionService:
         Returns:
             The created or updated BrandConnection object
         """
-        # Check if brand connection already exists
-        existing = self.db.query(BrandConnection).filter(
+        stmt = select(BrandConnection).where(
             BrandConnection.user_id == brand_connection_data.user_id,
             BrandConnection.brand_id == brand_connection_data.brand_id
-        ).first()
+        )
+        result = await self.db.execute(stmt)
+        existing = result.scalars().first()
         
         if existing:
             # Update existing brand connection
             existing.first_degree_count = brand_connection_data.first_degree_count
             existing.second_degree_count = brand_connection_data.second_degree_count
             existing.last_updated = datetime.now()
-            self.db.commit()
-            self.db.refresh(existing)
-            return existing
+            self.db.add(existing)
         else:
             # Create new brand connection
-            db_brand_connection = BrandConnection(
-                user_id=brand_connection_data.user_id,
-                brand_id=brand_connection_data.brand_id,
-                first_degree_count=brand_connection_data.first_degree_count,
-                second_degree_count=brand_connection_data.second_degree_count
-            )
+            db_brand_connection = BrandConnection(**brand_connection_data.dict())
             self.db.add(db_brand_connection)
-            self.db.commit()
-            self.db.refresh(db_brand_connection)
-            return db_brand_connection
+
+        # The commit will be handled in the calling function (match_connections_to_brands)
+        return existing or db_brand_connection
 
     async def get_brand_connections(
         self, user_id: UUID, min_connections: int = 0
@@ -509,32 +422,26 @@ class ConnectionService:
         Returns:
             List of BrandConnectionResponse objects
         """
-        # Use raw SQL for compatibility with both sync and async sessions
-        from sqlalchemy import text
+        stmt = (
+            select(
+                Brand.id,
+                Brand.name,
+                Brand.industry,
+                Brand.company_type,
+                BrandConnection.first_degree_count,
+                BrandConnection.second_degree_count
+            )
+            .join(Brand, BrandConnection.brand_id == Brand.id)
+            .where(BrandConnection.user_id == user_id)
+        )
         
-        # Query for brand connections with join to brands
-        query = f"""
-            SELECT 
-                bc.id, bc.user_id, bc.brand_id, bc.first_degree_count, bc.second_degree_count, 
-                b.id as brand_id, b.name as brand_name, b.industry, b.company_type
-            FROM brand_connections bc
-            JOIN brands b ON bc.brand_id = b.id
-            WHERE bc.user_id = '{user_id}'
-        """
-        
-        result = await self.db.execute(text(query))
-        rows = result.fetchall()
+        result = await self.db.execute(stmt)
+        rows = result.all()
         
         # Convert to response format
         responses = []
         for row in rows:
-            # Extract fields from the row by position
-            first_degree_count = row[3]
-            second_degree_count = row[4]
-            brand_id = row[5]
-            brand_name = row[6]
-            industry = row[7]
-            company_type = row[8]
+            brand_id, brand_name, industry, company_type, first_degree_count, second_degree_count = row
             
             total = first_degree_count + second_degree_count
             
@@ -569,32 +476,26 @@ class ConnectionService:
         Returns:
             BrandConnectionResponse object if found, None otherwise
         """
-        # Use raw SQL for compatibility with both sync and async sessions
-        from sqlalchemy import text
+        stmt = (
+            select(
+                Brand.id,
+                Brand.name,
+                Brand.industry,
+                Brand.company_type,
+                BrandConnection.first_degree_count,
+                BrandConnection.second_degree_count
+            )
+            .join(Brand, BrandConnection.brand_id == Brand.id)
+            .where(BrandConnection.user_id == user_id, BrandConnection.brand_id == brand_id)
+        )
         
-        # Query for brand connection with join to brand
-        query = f"""
-            SELECT 
-                bc.id, bc.user_id, bc.brand_id, bc.first_degree_count, bc.second_degree_count, 
-                b.id as brand_id, b.name as brand_name, b.industry, b.company_type
-            FROM brand_connections bc
-            JOIN brands b ON bc.brand_id = b.id
-            WHERE bc.user_id = '{user_id}' AND bc.brand_id = '{brand_id}'
-        """
-        
-        result = await self.db.execute(text(query))
-        row = result.fetchone()
+        result = await self.db.execute(stmt)
+        row = result.first()
         
         if not row:
             return None
             
-        # Extract fields from the row by position
-        first_degree_count = row[3]
-        second_degree_count = row[4]
-        brand_id = row[5]
-        brand_name = row[6]
-        industry = row[7]
-        company_type = row[8]
+        brand_id, brand_name, industry, company_type, first_degree_count, second_degree_count = row
         
         return BrandConnectionResponse(
             brand_id=brand_id,

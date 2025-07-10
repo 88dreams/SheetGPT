@@ -5,7 +5,8 @@ import LoadingSpinner from '../components/common/LoadingSpinner';
 import { useNotification } from '../contexts/NotificationContext';
 import { useAuth } from '../hooks/useAuth';
 import usePageTitle from '../hooks/usePageTitle';
-import SportsDatabaseService, { EntityType } from '../services/SportsDatabaseService';
+import SportsDatabaseService from '../services/SportsDatabaseService';
+import { EntityType } from '../types/sports';
 import PageContainer from '../components/common/PageContainer';
 // @ts-ignore
 import { FaArrowLeft, FaEdit, FaTrash } from 'react-icons/fa';

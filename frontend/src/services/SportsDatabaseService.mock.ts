@@ -1,5 +1,5 @@
 import { FilterConfig } from '../components/sports/EntityFilter';
-import { EntityType } from './SportsDatabaseService';
+import { EntityType } from '../types/sports';
 
 // Create mock data
 const mockLeagues = [
@@ -68,9 +68,14 @@ const mockData = {
   game: mockGames,
   broadcast: mockBroadcasts,
   game_broadcast: mockGameBroadcasts,
-  production: [],
+  production_service: [],
   player: [],
-  league_executive: []
+  league_executive: [],
+  contact: [],
+  creator: [],
+  management: [],
+  person: [],
+  production_company: [],
 };
 
 // Helper to paginate results
@@ -183,7 +188,7 @@ const entityPromptTemplates: Record<EntityType, string> = {
 6. Opened year
 7. Description (optional)`,
 
-  broadcast: `I'll help you create a new broadcast rights record. Please provide the following information:
+  broadcast_rights: `I'll help you create a new broadcast rights record. Please provide the following information:
 1. Name/title for this broadcast rights agreement
 2. Broadcasting company (if you know the company ID, please provide it)
 3. Entity type (league, division_conference, team, or game)
@@ -194,7 +199,7 @@ const entityPromptTemplates: Record<EntityType, string> = {
 8. Value in dollars (optional)
 9. Description (optional)`,
 
-  production: `I'll help you create a new production service record. Please provide the following information:
+  production_service: `I'll help you create a new production service record. Please provide the following information:
 1. Name/title for this production service
 2. Production company (if you know the company ID, please provide it)
 3. Entity type (league, division_conference, team, or game)
@@ -225,7 +230,30 @@ const entityPromptTemplates: Record<EntityType, string> = {
 1. League ID
 2. Position
 3. Start date (YYYY-MM-DD format)
-4. End date (YYYY-MM-DD format, optional)`
+4. End date (YYYY-MM-DD format, optional)`,
+
+  contact: `I'll help you create a new contact. Please provide the following information:
+1. First Name
+2. Last Name
+3. Email (optional)
+4. Company (optional)`,
+
+  creator: `I'll help you create a new creator. Please provide the following information:
+1. First Name
+2. Last Name
+3. Genre`,
+
+  management: `I'll help you create a new management company. Please provide the following information:
+1. Name
+2. Industry`,
+
+  person: `I'll help you create a new person. Please provide the following information:
+1. First Name
+2. Last Name`,
+
+  production_company: `I'll help you create a new production company. Please provide the following information:
+1. Name
+2. Country`
 };
 
 // Create mock service that implements the same interface as the real service

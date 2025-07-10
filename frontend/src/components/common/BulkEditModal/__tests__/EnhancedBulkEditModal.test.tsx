@@ -137,10 +137,10 @@ jest.mock('../../../../../frontend/src/hooks/useEntityResolution', () => ({
 jest.mock('antd', () => {
   const actual = jest.requireActual('antd');
   return Object.assign({}, actual, {
-    Modal: jest.fn(({ title, visible, onCancel, onOk, confirmLoading, children, footer, width }: any) => (
+    Modal: jest.fn(({ title, open, onCancel, onOk, confirmLoading, children, footer, width }: any) => (
       <div 
         data-testid="modal" 
-        data-visible={String(visible)}
+        data-open={String(open)}
         data-title={title as string}
         data-width={width}
       >
@@ -192,7 +192,7 @@ describe('EnhancedBulkEditModal', () => {
   };
   
   const defaultProps = {
-    visible: true,
+    open: true,
     entityType: 'team' as any,
     selectedIds: Object.keys(mockSelectedEntities),
     onCancel: jest.fn(),
@@ -207,7 +207,7 @@ describe('EnhancedBulkEditModal', () => {
     render(<EnhancedBulkEditModal {...defaultProps} />);
     
     // Modal should be visible
-    expect(screen.getByTestId('modal')).toHaveAttribute('data-visible', 'true');
+    expect(screen.getByTestId('modal')).toHaveAttribute('data-open', 'true');
     expect(screen.getByTestId('modal')).toHaveAttribute('data-title', 'Bulk Edit Teams');
     
     // Should have tabs for field selection and values

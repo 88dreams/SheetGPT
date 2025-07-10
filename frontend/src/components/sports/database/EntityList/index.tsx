@@ -8,7 +8,8 @@ import { FilterConfig } from '../../EntityFilter';
 import BulkEditModal from '../../../common/BulkEditModal'; // Restore import
 import { EntityCard } from '../../../data/EntityUpdate/EntityCard'; // Restore import
 import { Entity, BaseEntity } from '../../../../types/sports';
-import { EntityType } from '../../../../services/SportsDatabaseService';
+import SportsDatabaseService from '../../../../services/SportsDatabaseService';
+import { EntityType } from '../../../../types/sports';
 import { useDragAndDrop } from '../../../data/DataTable/hooks/useDragAndDrop';
 
 // Restore Child Component imports
@@ -172,7 +173,7 @@ const EntityList: React.FC<EntityListProps> = ({ className = '' }) => {
 
     let coreFields = ['tags', 'id', 'name', 'created_at', 'updated_at', 'deleted_at']; // Default general core fields
 
-    if (selectedEntityType === 'broadcast') {
+    if (selectedEntityType === 'broadcast_rights') {
       coreFields = [
         'tags', 'broadcast_company_name', 'entity_name', 'league_name', 'league_sport', 
         'territory', 'start_date', 'end_date'
@@ -195,7 +196,7 @@ const EntityList: React.FC<EntityListProps> = ({ className = '' }) => {
     
     let displayableSchemaFields = [...schemaAvailableFields];
     // For broadcast and production_service, optionally refine 'name' field removal
-    if (selectedEntityType === 'broadcast' || selectedEntityType === 'production_service') {
+    if (selectedEntityType === 'broadcast_rights' || selectedEntityType === 'production_service') {
       if (coreFields.includes('broadcast_company_name') || coreFields.includes('production_company_name') || coreFields.includes('entity_name')) {
         const nameIndex = displayableSchemaFields.indexOf('name');
         if (nameIndex > -1) {

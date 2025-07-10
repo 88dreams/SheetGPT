@@ -83,7 +83,7 @@ const EntityRow: React.FC<EntityRowProps> = ({
   const visibleColumnFields = useMemo(() => 
     columnOrder.filter(field => {
       // Hide "name" field for broadcast entities (it's redundant with broadcast_company_name)
-      if (selectedEntityType === 'broadcast' && field === 'name') {
+      if (selectedEntityType === 'broadcast_rights' && field === 'name') {
         return false;
       }
       // Otherwise show fields that are visible and exist in the data
@@ -127,7 +127,7 @@ const EntityRow: React.FC<EntityRowProps> = ({
             <div className="text-sm font-medium text-gray-900 overflow-hidden text-ellipsis">
               <div className="flex items-center">
                 <span className="mr-2">
-                  {selectedEntityType === 'broadcast' && typeof entity.name === 'string' && entity.name.includes(' - ')
+                  {selectedEntityType === 'broadcast_rights' && typeof entity.name === 'string' && entity.name.includes(' - ')
                     ? entity.name.split(' - ')[0] // Show just the broadcast company name for broadcast rights
                     : entity.name
                   }
@@ -296,7 +296,7 @@ const EntityRow: React.FC<EntityRowProps> = ({
                     <div className="text-sm font-medium text-gray-900 overflow-hidden text-ellipsis">
                       <div className="flex items-center">
                         <span className="mr-2">
-                          {selectedEntityType === 'broadcast' && typeof entity.name === 'string' && entity.name.includes(' - ')
+                          {selectedEntityType === 'broadcast_rights' && typeof entity.name === 'string' && entity.name.includes(' - ')
                             ? entity.name.split(' - ')[0] // Show just the broadcast company name for broadcast rights
                             : entity.name
                           }

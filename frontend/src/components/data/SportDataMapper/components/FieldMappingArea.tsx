@@ -1,17 +1,27 @@
 import React, { useState, useEffect } from 'react';
-import { EntityType as AppEntityType, ENTITY_TYPES } from '../../../../utils/sportDataMapper';
+import { EntityType } from '../../../../types/sports';
+import { ENTITY_TYPES } from '../../../../utils/sportDataMapper/entityTypes';
 import FieldItem from './FieldItem';
 import FieldHelpTooltip from './FieldHelpTooltip';
 import DroppableField from './DroppableField';
 import { useDrop } from 'react-dnd';
-import { 
-  League, Team, Player, Game, Stadium, 
-  BroadcastRights, GameBroadcast, ProductionService, 
-  Brand, LeagueExecutive 
-} from '../../../../services/SportsDatabaseService';
+import {
+  League,
+  Team,
+  Player,
+  Game,
+  Stadium,
+  BroadcastRights,
+  GameBroadcast,
+  ProductionService,
+  Brand,
+  LeagueExecutive,
+} from '../../../../types/sports';
 
 // Define the ItemType constant for drag and drop
-const ItemType = 'FIELD';
+const ItemTypes = {
+  FIELD: 'FIELD'
+};
 
 // Define drag item interface
 interface DragItem {
@@ -28,13 +38,12 @@ type ColumnType = 'field' | 'status' | 'mapping';
 // Define column type for source fields sorting
 type SourceColumnType = 'name' | 'value';
 
-type EntityType = AppEntityType | 'creator' | 'management';
+type LocalEntityType = EntityType | 'creator' | 'management';
 
 interface FieldMappingAreaProps {
-  selectedEntityType: EntityType | null;
+  entityType: EntityType;
   sourceFields: string[];
-  sourceFieldValues: Record<string, any>;
-  mappingsByEntityType: Record<string, Record<string, string>>;
+  mappedFields: Record<string, string>;
   showFieldHelp: string | null;
   onFieldMapping: (sourceField: string, targetField: string) => void;
   onRemoveMapping: (targetField: string) => void;
@@ -58,17 +67,18 @@ const getAllEntityFields = (entityType: EntityType | null): { name: string, requ
     'division_conference': ['name', 'league_id', 'type'],
     'team': ['name', 'league_id', 'division_conference_id', 'stadium_id', 'city', 'country'],
     'player': ['name', 'position'],
-    'game': ['home_team_id', 'away_team_id', 'date', 'time'],
+    'game': ['name', 'date', 'home_team_id', 'away_team_id', 'season_year', 'season_type'],
     'stadium': ['name', 'city', 'country'],
-    'broadcast': ['name', 'entity_id', 'entity_type', 'territory', 'start_date', 'end_date'],
-    'game_broadcast': ['game_id', 'broadcast_company_id', 'broadcast_type'],
+    'broadcast_rights': ['broadcast_company_id', 'entity_type', 'entity_id', 'territory', 'start_date', 'end_date'],
+    'game_broadcast': ['game_id', 'broadcast_company_id', 'broadcast_type', 'territory'],
     'brand': ['name', 'industry'],
     'league_executive': ['name', 'league_id', 'position'],
     'person': ['name', 'role'],
     'production_company': ['name', 'industry'],
-    'production_service': ['name', 'service_type', 'entity_id', 'entity_type'],
+    'production_service': ['production_company_id', 'entity_type', 'entity_id', 'service_type'],
+    'contact': ['first_name', 'last_name'],
     'creator': ['first_name', 'last_name', 'genre', 'platform'],
-    'management': ['industry']
+    'management': ['name', 'industry']
   };
 
   const allFieldsByEntityType: Record<EntityType, string[]> = {
@@ -76,15 +86,16 @@ const getAllEntityFields = (entityType: EntityType | null): { name: string, requ
     'division_conference': ['id', 'name', 'nickname', 'league_id', 'type', 'region', 'description', 'tags', 'created_at', 'updated_at'],
     'team': ['id', 'name', 'league_id', 'division_conference_id', 'stadium_id', 'city', 'state', 'country', 'founded_year', 'tags', 'created_at', 'updated_at'],
     'player': ['id', 'name', 'team_id', 'position', 'jersey_number', 'college', 'sport', 'sponsor_id', 'tags', 'created_at', 'updated_at'],
-    'game': ['id', 'league_id', 'home_team_id', 'away_team_id', 'stadium_id', 'date', 'time', 'home_score', 'away_score', 'status', 'season_year', 'season_type', 'tags', 'created_at', 'updated_at'],
-    'stadium': ['id', 'name', 'city', 'state', 'country', 'capacity', 'owner', 'naming_rights_holder', 'host_broadcaster', 'host_broadcaster_id', 'sport', 'tags', 'created_at', 'updated_at'],
-    'broadcast': ['id', 'name', 'broadcast_company_id', 'entity_type', 'entity_id', 'division_conference_id', 'territory', 'start_date', 'end_date', 'is_exclusive', 'tags', 'created_at', 'updated_at'],
-    'game_broadcast': ['id', 'game_id', 'broadcast_company_id', 'production_company_id', 'broadcast_type', 'territory', 'start_time', 'end_time', 'tags', 'created_at', 'updated_at'],
+    'game': ['id', 'name', 'league_id', 'home_team_id', 'away_team_id', 'stadium_id', 'date', 'time', 'home_score', 'away_score', 'status', 'season_year', 'season_type', 'tags', 'created_at', 'updated_at'],
+    'stadium': ['id', 'name', 'city', 'state', 'country', 'capacity', 'owner', 'naming_rights_holder', 'host_broadcaster', 'host_broadcaster_id', 'tags', 'created_at', 'updated_at'],
+    'broadcast_rights': ['id', 'name', 'broadcast_company_id', 'entity_type', 'entity_id', 'territory', 'start_date', 'end_date', 'is_exclusive', 'tags', 'created_at', 'updated_at'],
+    'game_broadcast': ['id', 'name', 'game_id', 'broadcast_company_id', 'production_company_id', 'broadcast_type', 'territory', 'start_time', 'end_time', 'tags', 'created_at', 'updated_at'],
     'brand': ['id', 'name', 'industry', 'company_type', 'country', 'partner', 'partner_relationship', 'tags', 'created_at', 'updated_at'],
     'league_executive': ['id', 'name', 'league_id', 'position', 'start_date', 'end_date', 'tags', 'created_at', 'updated_at'],
     'person': ['id', 'name', 'role', 'email', 'phone', 'tags', 'created_at', 'updated_at'],
     'production_company': ['id', 'name', 'industry', 'country', 'founded_year', 'tags', 'created_at', 'updated_at'],
-    'production_service': ['id', 'name', 'service_type', 'description', 'production_company_id', 'secondary_brand_id', 'entity_type', 'entity_id', 'start_date', 'end_date', 'tags', 'created_at', 'updated_at'],
+    'production_service': ['id', 'name', 'production_company_id', 'entity_type', 'entity_id', 'service_type', 'start_date', 'end_date', 'tags', 'created_at', 'updated_at'],
+    'contact': ['id', 'first_name', 'last_name', 'email', 'linkedin_url', 'company', 'position', 'connected_on', 'notes', 'import_source_tag', 'tags', 'created_at', 'updated_at'],
     'creator': ['id', 'first_name', 'last_name', 'genre', 'platform', 'url', 'followers', 'management_id', 'notes', 'tags', 'created_at', 'updated_at'],
     'management': ['id', 'name', 'first_name', 'last_name', 'industry', 'url', 'founded_year', 'notes', 'tags', 'created_at', 'updated_at']
   };
@@ -102,10 +113,9 @@ const formatFieldValue = (value: any): string => {
 };
 
 const FieldMappingArea: React.FC<FieldMappingAreaProps> = ({
-  selectedEntityType,
+  entityType,
   sourceFields,
-  sourceFieldValues,
-  mappingsByEntityType,
+  mappedFields,
   showFieldHelp,
   onFieldMapping,
   onRemoveMapping,
@@ -126,9 +136,9 @@ const FieldMappingArea: React.FC<FieldMappingAreaProps> = ({
   const [sourceFieldsSortDirection, setSourceFieldsSortDirection] = useState<SortDirection>(null);
 
   useEffect(() => {
-    setFieldValuesState(sourceFieldValues || {});
+    setFieldValuesState(mappedFields || {});
     setForceUpdateFlag(prev => prev + 1);
-  }, [currentRecordIndex, sourceFieldValues]);
+  }, [currentRecordIndex, mappedFields]);
 
   const toggleSort = (column: ColumnType) => {
     if (sortColumn === column) {
@@ -150,8 +160,7 @@ const FieldMappingArea: React.FC<FieldMappingAreaProps> = ({
     }
   };
 
-  const mappings = selectedEntityType ? (mappingsByEntityType[selectedEntityType] || {}) : {};
-  const allFields = getAllEntityFields(selectedEntityType);
+  const allFields = getAllEntityFields(entityType);
 
   const sortedFields = [...allFields].sort((a, b) => {
     if (!sortColumn || !sortDirection) return 0;
@@ -163,8 +172,8 @@ const FieldMappingArea: React.FC<FieldMappingAreaProps> = ({
       return sortDirection === 'asc' ? (a.required ? -1 : 1) : (a.required ? 1 : -1);
     }
     if (sortColumn === 'mapping') {
-      const aIsMapped = !!Object.values(mappings).includes(a.name);
-      const bIsMapped = !!Object.values(mappings).includes(b.name);
+      const aIsMapped = !!Object.values(mappedFields).includes(a.name);
+      const bIsMapped = !!Object.values(mappedFields).includes(b.name);
       if (aIsMapped === bIsMapped) return sortDirection === 'asc' ? a.name.localeCompare(b.name) : b.name.localeCompare(a.name);
       return sortDirection === 'asc' ? (aIsMapped ? -1 : 1) : (aIsMapped ? 1 : -1);
     }
@@ -177,8 +186,8 @@ const FieldMappingArea: React.FC<FieldMappingAreaProps> = ({
       return sourceFieldsSortDirection === 'asc' ? a.localeCompare(b) : b.localeCompare(a);
     }
     if (sourceFieldsSortColumn === 'value') {
-      const aValue = fieldValuesState[a] ?? sourceFieldValues[a];
-      const bValue = fieldValuesState[b] ?? sourceFieldValues[b];
+      const aValue = fieldValuesState[a] ?? mappedFields[a];
+      const bValue = fieldValuesState[b] ?? mappedFields[b];
       const aStr = String(aValue ?? '');
       const bStr = String(bValue ?? '');
       return sourceFieldsSortDirection === 'asc' ? aStr.localeCompare(bStr) : bStr.localeCompare(aStr);
@@ -230,7 +239,7 @@ const FieldMappingArea: React.FC<FieldMappingAreaProps> = ({
               <FieldItem
                 key={`source-${field}-${currentRecordIndex}-${forceUpdateFlag}`}
                 field={field}
-                value={fieldValuesState[field] ?? sourceFieldValues[field]}
+                value={fieldValuesState[field] ?? mappedFields[field]}
                 isSource={true}
                 formatValue={formatFieldValue}
                 id={`source-field-${field}`}
@@ -258,13 +267,13 @@ const FieldMappingArea: React.FC<FieldMappingAreaProps> = ({
         </div>
         <div className="space-y-2 overflow-y-auto pr-2 flex-grow">
           {sortedFields.map((field) => {
-            const sourceFieldMapped = Object.keys(mappings).find(key => mappings[key] === field.name);
+            const sourceFieldMapped = Object.keys(mappedFields).find(key => mappedFields[key] === field.name);
             return (
               <DroppableField
                 key={`${field.name}-${currentRecordIndex}-${forceUpdateFlag}`}
                 field={field}
-                sourceField={sourceFieldMapped ? mappings[field.name] : undefined} //This was an error, should be sourceField={mappings[field.name]} but Object.keys(mappings).find(key => mappings[key] === field.name)
-                isMapped={!!mappings[field.name]}
+                sourceField={sourceFieldMapped ? mappedFields[field.name] : undefined}
+                isMapped={!!mappedFields[field.name]}
                 onFieldMapping={onFieldMapping}
                 onRemoveMapping={onRemoveMapping}
                 onShowFieldHelp={onShowFieldHelp}
@@ -281,8 +290,8 @@ const FieldMappingArea: React.FC<FieldMappingAreaProps> = ({
       <div className="md:col-span-2 bg-white rounded-lg shadow-sm border border-gray-200 p-4 flex flex-col h-[calc(100vh-350px)] max-h-[400px]">
         <div className="text-lg font-semibold text-gray-800 mb-2">Connections</div>
         <div className="space-y-1 overflow-y-auto pr-2 flex-grow">
-          {Object.entries(mappings).length > 0 ? (
-            Object.entries(mappings).map(([targetField, sourceFieldVal]) => (
+          {Object.entries(mappedFields).length > 0 ? (
+            Object.entries(mappedFields).map(([targetField, sourceFieldVal]) => (
               <div key={`${sourceFieldVal}-${targetField}-${forceUpdateFlag}`} className="mb-1 p-2 bg-indigo-50 rounded-md border border-indigo-200 relative">
                 <div className="flex items-center justify-between">
                   <div className="font-medium text-indigo-700 truncate max-w-[40%] text-sm" title={sourceFieldVal}>{sourceFieldVal}</div>

@@ -24,7 +24,7 @@ describe('formatters utility functions', () => {
     });
 
     it('handles special case for broadcast entities', () => {
-      expect(formatCellValue('ESPN - USA', 'name', 'broadcast')).toBe('ESPN');
+      expect(formatCellValue('ESPN - USA', 'name', 'broadcast_rights')).toBe('ESPN');
     });
 
     it('strips (Brand) text from company names', () => {
@@ -104,7 +104,7 @@ describe('formatters utility functions', () => {
 
     it('extracts territory from broadcast entity name', () => {
       const entity = { name: 'ESPN - USA' };
-      expect(getDisplayValue(entity, 'territory', 'broadcast')).toBe('USA');
+      expect(getDisplayValue(entity, 'territory', 'broadcast_rights')).toBe('USA');
     });
   });
 
@@ -112,7 +112,7 @@ describe('formatters utility functions', () => {
     it('returns proper display name for entity types', () => {
       expect(getEntityTypeName('league')).toBe('Leagues');
       expect(getEntityTypeName('team')).toBe('Teams');
-      expect(getEntityTypeName('broadcast')).toBe('Broadcast Rights');
+      expect(getEntityTypeName('broadcast_rights')).toBe('Broadcast Rights');
     });
 
     it('returns the original string if no match is found', () => {

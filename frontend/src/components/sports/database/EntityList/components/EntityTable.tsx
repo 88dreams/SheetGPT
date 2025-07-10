@@ -5,7 +5,7 @@ import { fingerprint, createMemoEqualityFn } from '../../../../../utils/fingerpr
 import EntityRow from './EntityRow';
 import SmartColumn from './SmartColumn';
 import ContactColumn from './ContactColumn';
-import { EntityType } from '../../../../../services/SportsDatabaseService';
+import { EntityType } from '../../../../../types/sports';
 import { getDisplayValue } from '../utils/formatters';
 
 interface EntityTableProps {
@@ -235,7 +235,7 @@ const EntityTable: React.FC<EntityTableProps> = ({
   const visibleColumnsArray = useMemo(() => 
     columnOrder.filter(field => {
       // Hide "name" field for broadcast and production entities
-      if ((selectedEntityType === 'broadcast' || selectedEntityType === 'production_service') && field === 'name') {
+      if ((selectedEntityType === 'broadcast_rights' || selectedEntityType === 'production_service') && field === 'name') {
         return false;
       }
       // Otherwise show fields that are visible and exist in the data

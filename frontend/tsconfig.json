@@ -19,6 +19,12 @@
     "ignoreDeprecations": "5.0",
     "esModuleInterop": true,
     "allowSyntheticDefaultImports": true,
+    "baseUrl": ".",
+    "paths": {
+      "vite": [
+        "../node_modules/vite"
+      ]
+    }
     // "typeRoots": ["./node_modules/@types", "./src/types"]
   },
   "include": ["src", "src/jest-setup.ts"],

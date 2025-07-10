@@ -575,7 +575,7 @@ class ChatService:
         await self.db.refresh(conversation)
         return conversation
         
-    async def update_multiple_conversation_orders(self, user_id: UUID, conversation_orders: List[Dict[UUID, int]]) -> List[Conversation]:
+    async def update_multiple_conversation_orders(self, user_id: UUID, conversation_orders: List[Dict[str, Any]]) -> List[Conversation]:
         """Update the order of multiple conversations at once."""
         conversations = []
         

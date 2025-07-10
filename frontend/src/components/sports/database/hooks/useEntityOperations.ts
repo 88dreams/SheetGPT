@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react';
 import { sportsDatabaseService } from '../../../../services';
-import { EntityType } from '../../../../services/SportsDatabaseService';
+import { EntityType } from '../../../../types/sports';
 
 type NotificationFn = (type: 'success' | 'error' | 'info', message: string) => void;
 
@@ -143,7 +143,7 @@ export function useEntityOperations(
     if (selectedIds.length === 0) return;
 
     // Special validation for broadcast rights to prevent misidentified IDs
-    if (entityType === 'broadcast') {
+    if (entityType === 'broadcast_rights') {
       const entitiesWithSameId = entities.filter(entity => 
         selectedIds.includes(entity.id as string) && 
         entity.broadcast_company_id === entity.id

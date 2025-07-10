@@ -1,19 +1,21 @@
 // Define entity types
-export type EntityType = 
-  | 'league' 
-  | 'team' 
-  | 'player' // player is often synonymous with person in sports contexts
-  | 'game' 
-  | 'stadium' 
-  | 'broadcast' 
-  | 'brand'
-  | 'game_broadcast'
-  | 'league_executive'
-  | 'division_conference'
-  | 'person' // Added based on linter error
-  | 'production_company' // Added based on linter error
-  | 'production_service' // This is the standard one
-  ;
+export type EntityType =
+| 'league'
+| 'division_conference'
+| 'team'
+| 'player'
+| 'game'
+| 'stadium'
+| 'broadcast_rights'
+| 'production_service'
+| 'brand'
+| 'game_broadcast'
+| 'league_executive'
+| 'person'
+| 'production_company'
+| 'contact'
+| 'creator'
+| 'management';
 
 export interface EntityTypeInfo {
   id: EntityType;
@@ -30,7 +32,7 @@ export const ENTITY_TYPES: readonly EntityTypeInfo[] = [
   { id: 'player', name: 'Player', description: 'Athletes who play for teams', requiredFields: ['name', 'team_id', 'position', 'tags'] },
   { id: 'game', name: 'Game', description: 'Individual games between teams', requiredFields: ['name', 'league_id', 'home_team_id', 'away_team_id', 'stadium_id', 'date', 'season_year', 'season_type', 'tags'] },
   { id: 'stadium', name: 'Stadium', description: 'Venues where games are played', requiredFields: ['name', 'city', 'country', 'tags'] },
-  { id: 'broadcast', name: 'Broadcast Rights', description: 'Media rights for leagues, teams, or games', requiredFields: ['broadcast_company_id', 'entity_type', 'entity_id', 'territory', 'tags'] }, // Note: league_id is optional for broadcast rights
+  { id: 'broadcast_rights', name: 'Broadcast Rights', description: 'Media rights for leagues, teams, or games', requiredFields: ['broadcast_company_id', 'entity_type', 'entity_id', 'territory', 'tags'] }, // Note: league_id is optional for broadcast rights
   { id: 'production_service', name: 'Production Service', description: 'Production services for broadcasts', requiredFields: ['production_company_id', 'entity_type', 'entity_id', 'service_type', 'start_date', 'tags'] },
   { id: 'brand', name: 'Brand', description: 'Brand information', requiredFields: ['name', 'industry', 'tags'] },
   { id: 'game_broadcast', name: 'Game Broadcast', description: 'Broadcast information for specific games', requiredFields: ['name', 'game_id', 'broadcast_company_id', 'broadcast_type', 'territory', 'tags'] },

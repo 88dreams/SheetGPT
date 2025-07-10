@@ -22,7 +22,7 @@ export function useInlineEdit({ selectedEntityType, handleUpdateEntity }: UseInl
     setEditingId(entity.id);
     
     // For broadcast rights entities, only use the broadcast company name part
-    if (selectedEntityType === 'broadcast' && typeof entity.name === 'string' && entity.name.includes(' - ')) {
+    if (selectedEntityType === 'broadcast_rights' && typeof entity.name === 'string' && entity.name.includes(' - ')) {
       setEditValue(entity.name.split(' - ')[0]);
     } else {
       setEditValue(entity.name);
@@ -43,7 +43,7 @@ export function useInlineEdit({ selectedEntityType, handleUpdateEntity }: UseInl
   const saveEdit = useCallback(async (id: string) => {
     if (editValue.trim()) {
       try {
-        if (selectedEntityType === 'broadcast') {
+        if (selectedEntityType === 'broadcast_rights') {
           // For broadcast rights, try to preserve the territory part
           const entities = document.querySelectorAll(`tr[data-entity-id="${id}"]`);
           if (entities.length > 0) {

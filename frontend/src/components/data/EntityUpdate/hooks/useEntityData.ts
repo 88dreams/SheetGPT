@@ -2,7 +2,8 @@ import { useState, useEffect, useMemo } from 'react';
 import { useApiClient } from '../../../../hooks/useApiClient';
 import { DivisionConference, League, Stadium } from '../../../../types/sports';
 import { useCommonEntityData } from '../../../../hooks/useRelationshipData';
-import { EntityType } from '../../../../services/SportsDatabaseService';
+import SportsDatabaseService from '../../../../services/SportsDatabaseService';
+import { EntityType } from '../../../../types/sports';
 import { fingerprint } from '../../../../utils/fingerprint';
 
 // Map string entity types to the EntityType enum type

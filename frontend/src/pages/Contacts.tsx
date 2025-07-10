@@ -55,6 +55,16 @@ const ContactsPage: React.FC = () => {
   const [selectedFileForImport, setSelectedFileForImport] = useState<File | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   
+  // Trigger an initial refresh on mount to load contacts
+  useEffect(() => {
+    // Add a small delay to ensure the API client is ready
+    const timer = setTimeout(() => {
+      setRefreshKey(prev => prev + 1);
+    }, 100); // 100ms delay
+    
+    return () => clearTimeout(timer); // Cleanup timer on unmount
+  }, []);
+
   // Add event listener for empty state "Import Contacts" button
   useEffect(() => {
     const handleImportClick = () => {
@@ -147,7 +157,7 @@ const ContactsPage: React.FC = () => {
         actions={
           <div className="flex space-x-2">
             <Button
-              onClick={() => setView('list')}
+              onClick={() => { setView('list'); setRefreshKey(prev => prev + 1); }}
               type={view === 'list' ? 'primary' : 'default'}
               icon={<FaAddressBook className="mr-1" />}
               style={{ display: 'inline-flex', alignItems: 'center', flexDirection: 'row' }}

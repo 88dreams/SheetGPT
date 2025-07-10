@@ -7,7 +7,6 @@ sqlalchemy>=2.0.23
 alembic>=1.12.1
 psycopg2-binary>=2.9.9
 asyncpg>=0.29.0
-greenlet>=3.0.0
 
 # Authentication & Security
 python-jose[cryptography]>=3.3.0
@@ -52,3 +51,7 @@ anthropic>=0.46.0
 # LinkedIn Integration
 fuzzywuzzy>=0.18.0
 python-Levenshtein>=0.27.1
+
+# Added from the code block
+bcrypt
+psutil

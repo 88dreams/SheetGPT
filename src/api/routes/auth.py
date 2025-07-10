@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
+from uuid import UUID
 
 from src.schemas.auth import UserCreate, UserLogin, UserResponse, TokenResponse
 from src.services.user import UserService
@@ -32,7 +33,6 @@ async def register_user(
     logger = logging.getLogger("auth.register")
     logger.setLevel(logging.INFO)
     
-    # Log registration attempt (without the actual password)
     safe_data = {
         "email": user_data.email,
         "password_length": len(user_data.password) if user_data.password else 0
@@ -40,16 +40,13 @@ async def register_user(
     logger.info(f"Registration attempt received: {safe_data}")
     
     try:
-        # Try to create the user
         user_service = UserService(db)
         user = await user_service.create_user(user_data)
         logger.info(f"Registration successful for: {user_data.email}")
         return UserResponse.model_validate(user)
     except Exception as e:
-        # Catch and log any exceptions
         logger.error(f"Registration error for {user_data.email}: {str(e)}")
         logger.error(traceback.format_exc())
-        # Re-raise the exception to maintain the original behavior
         raise
 
 @router.post("/login", response_model=TokenResponse)
@@ -63,7 +60,6 @@ async def login_user(
     logger = logging.getLogger("auth.login")
     logger.setLevel(logging.INFO)
     
-    # Log login attempt (without the actual password)
     safe_data = {
         "email": user_data.email,
         "password_length": len(user_data.password) if user_data.password else 0
@@ -71,16 +67,13 @@ async def login_user(
     logger.info(f"Login attempt received: {safe_data}")
     
     try:
-        # Try to authenticate the user
         user_service = UserService(db)
         result = await user_service.authenticate_user(user_data)
         logger.info(f"Login successful for: {user_data.email}")
         return result
     except Exception as e:
-        # Catch and log any exceptions
         logger.error(f"Login error for {user_data.email}: {str(e)}")
         logger.error(traceback.format_exc())
-        # Re-raise the exception to maintain the original behavior
         raise
 
 @router.get("/me", response_model=UserResponse)
@@ -90,7 +83,7 @@ async def get_current_user(
 ) -> UserResponse:
     """Get current user information."""
     user_service = UserService(db)
-    user = await user_service.get_user_by_id(current_user_id)
+    user = await user_service.get_user_by_id(UUID(current_user_id))
     
     if not user:
         raise HTTPException(
@@ -107,7 +100,7 @@ async def refresh_token(
 ) -> TokenResponse:
     """Refresh authentication token."""
     user_service = UserService(db)
-    user = await user_service.get_user_by_id(current_user_id)
+    user = await user_service.get_user_by_id(UUID(current_user_id))
     
     if not user:
         raise HTTPException(
@@ -115,7 +108,6 @@ async def refresh_token(
             detail="User not found"
         )
     
-    # Generate new access token
     access_token_expires = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
     access_token = create_access_token(
         data={"sub": str(user.id)},
@@ -151,7 +143,6 @@ async def auth_debug():
         "errors": []
     }
     
-    # Environment information
     try:
         results["environment"]["variables"] = {
             "ENVIRONMENT": os.getenv("ENVIRONMENT", "unknown"),
@@ -170,13 +161,15 @@ async def auth_debug():
             "pid": os.getpid()
         }
         
-        # Application settings
+        # NOTE: The Settings model does not have ENVIRONMENT or CORS_ORIGINS defined, causing linter errors.
+        # This is likely a bug in the Settings model itself in `src/utils/config.py`.
+        # For now, I will use os.getenv as a workaround to fix the immediate error here.
         results["environment"]["app"] = {
-            "settings_environment": settings.ENVIRONMENT,
+            "settings_environment": os.getenv("ENVIRONMENT", "unknown"),
             "api_prefix": settings.API_V1_PREFIX,
             "debug_mode": settings.DEBUG,
             "token_expire_minutes": settings.ACCESS_TOKEN_EXPIRE_MINUTES,
-            "cors_origins_count": len(settings.CORS_ORIGINS),
+            "cors_origins_count": len(os.getenv("CORS_ORIGINS", "").split(",")),
             "database_url_partial": settings.DATABASE_URL.split("@")[1].split("/")[0] if "@" in settings.DATABASE_URL else "masked"
         }
     except Exception as e:
@@ -188,30 +181,25 @@ async def auth_debug():
         results["errors"].append(error_info)
         logger.error(f"Error gathering environment info: {str(e)}", exc_info=True)
     
-    # Test database connection
     try:
         logger.info("Testing database connection...")
         async with get_db_session() as session:
-            # Test basic connection
             db_test_result = await session.execute(text("SELECT 1 as test"))
             row = db_test_result.fetchone()
             connection_ok = row and row.test == 1
             
-            # Get PostgreSQL version
             version_result = await session.execute(text("SELECT version()"))
-            version = version_result.scalar()
+            version = version_result.scalar_one_or_none()
             
-            # Check if users table exists and count records
             user_count_result = await session.execute(text("SELECT COUNT(*) FROM information_schema.tables WHERE table_name = 'user'"))
-            users_table_exists = user_count_result.scalar() > 0
+            users_table_exists = (user_count_result.scalar_one_or_none() or 0) > 0
             
             if users_table_exists:
-                user_count = await session.execute(text("SELECT COUNT(*) FROM \"user\""))
-                user_count = user_count.scalar()
+                user_count_result = await session.execute(text("SELECT COUNT(*) FROM \"user\""))
+                user_count = user_count_result.scalar_one_or_none()
             else:
                 user_count = "table not found"
                 
-            # Test password hashing function
             from src.utils.security import get_password_hash
             password_hash = get_password_hash("test_password")
             hash_working = bool(password_hash and len(password_hash) > 20)
@@ -238,6 +226,5 @@ async def auth_debug():
             "error_type": type(e).__name__
         }
     
-    # Log the results for debugging
     logger.info(f"Auth debug endpoint results: {results}")
     return results

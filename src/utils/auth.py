@@ -20,7 +20,7 @@ async def get_current_user(
         Dict[str, Any]: User information as a dictionary
     """
     user_service = UserService(db)
-    user = await user_service.get_user_by_id(current_user_id)
+    user = user_service.get_user_by_id(current_user_id)
     
     if not user:
         raise HTTPException(

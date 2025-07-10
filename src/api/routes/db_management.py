@@ -244,10 +244,10 @@ async def apply_database_migrations_route(
         # Here, we just translate to an HTTP response.
         error_detail = f"Failed to apply migrations: {str(e)}"
         # Check if it's an exception from the service with a more specific message
-        if hasattr(e, 'message') and isinstance(e.message, str):
-            error_detail = e.message 
-        elif hasattr(e, 'detail') and isinstance(e.detail, str): # For HTTPExceptions re-raised
+        if isinstance(e, HTTPException):
             error_detail = e.detail
+        # The check for a custom 'message' attribute is removed as the service
+        # raises generic exceptions. str(e) is the standard way to get the error message.
 
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, 
@@ -404,7 +404,7 @@ async def execute_database_query(
             else:
                 results, generated_sql = await query_service.execute_natural_language_query(query_text, limit=limit)
         else: # Direct SQL
-            is_valid, validated_sql, error_msg = await query_service.validate_and_correct_sql(query_text)
+            is_valid, validated_sql, error_msg = await query_service.validate_sql_query(query_text)
             
             if not is_valid:
                 return {

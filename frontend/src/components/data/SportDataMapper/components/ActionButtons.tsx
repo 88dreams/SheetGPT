@@ -1,7 +1,8 @@
 import React from 'react';
+import { EntityType } from '../../../../types/sports';
 
 interface ActionButtonsProps {
-  selectedEntityType: string | null;
+  selectedEntityType: EntityType | null;
   isSaving: boolean;
   isBatchImporting: boolean;
   onSaveToDatabase: () => void;

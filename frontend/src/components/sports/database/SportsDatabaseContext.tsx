@@ -4,8 +4,8 @@ import { useNavigate } from 'react-router-dom';
 import { useNotification } from '../../../contexts/NotificationContext';
 import { useDataFlow } from '../../../contexts/DataFlowContext';
 import { useAuth } from '../../../hooks/useAuth';
-import { sportsDatabaseService } from '../../../services';
-import { EntityType, BaseEntity } from '../../../services/SportsDatabaseService';
+import sportsDatabaseService from '../../../services/SportsDatabaseService';
+import { EntityType, BaseEntity } from '../../../types/sports';
 import { FilterConfig } from '../EntityFilter';
 import { FaSort, FaSortUp, FaSortDown } from 'react-icons/fa';
 import { 
@@ -296,7 +296,7 @@ export const SportsDatabaseProvider: React.FC<SportsDatabaseProviderProps> = ({ 
       }
       
       // For production services, add extra logging
-      if (selectedEntityType === 'production_service' || selectedEntityType === 'broadcast') {
+      if (selectedEntityType === 'production_service' || selectedEntityType === 'broadcast_rights') {
         console.log(`[${requestId}] Entity details:`, {
           type: selectedEntityType,
           page: currentPage,

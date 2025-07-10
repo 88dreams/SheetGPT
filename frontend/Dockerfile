@@ -11,6 +11,9 @@ COPY package.json yarn.lock ./
 # 3. Copy the frontend-specific code into its workspace directory
 COPY frontend/ ./frontend/
 
+# Enable Corepack to manage Yarn versions
+RUN corepack enable
+
 # 4. Install all dependencies for the entire monorepo using yarn.
 # --frozen-lockfile ensures that the exact versions from yarn.lock are used.
 RUN yarn install --frozen-lockfile

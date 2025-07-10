@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
-import { EntityType } from '../services/SportsDatabaseService';
+import sportsService from '../services/sportsService';
+import { EntityType } from '../types/sports';
 import { relationshipLoader, COMMON_ENTITY_SETS, COMMON_RELATIONSHIPS } from '../utils/relationshipLoader';
 import { createMemoEqualityFn } from '../utils/fingerprint';
 

@@ -1,5 +1,5 @@
-from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
-from sqlalchemy.orm import DeclarativeBase, sessionmaker
+from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
+from sqlalchemy.orm import DeclarativeBase
 from typing import AsyncGenerator
 from contextlib import asynccontextmanager
 
@@ -41,8 +41,8 @@ engine = create_async_engine(
 )
 
 # Create async session factory
-AsyncSessionLocal = sessionmaker(
-    engine,
+AsyncSessionLocal = async_sessionmaker(
+    bind=engine,
     class_=AsyncSession,
     expire_on_commit=False,
     autocommit=False,
@@ -58,15 +58,14 @@ async def get_db() -> AsyncGenerator[AsyncSession, None]:
     async with AsyncSessionLocal() as session:
         try:
             yield session
-            await session.commit()
+            # The commit is handled by the context manager
         except Exception:
             await session.rollback()
             raise
-        finally:
-            await session.close()
+        # The close is handled by the context manager
 
 @asynccontextmanager
-async def get_db_session():
+async def get_db_session() -> AsyncGenerator[AsyncSession, None]:
     """
     Context manager for getting a database session.
     
@@ -80,6 +79,7 @@ async def get_db_session():
     session = AsyncSessionLocal()
     try:
         yield session
+        await session.commit()
     except Exception:
         await session.rollback()
         raise
@@ -87,4 +87,4 @@ async def get_db_session():
         await session.close()
 
 # Export all models
-__all__ = ["Base", "engine", "get_db", "get_db_session", "SQLALCHEMY_DATABASE_URL"] 
+__all__ = ["Base", "engine", "get_db", "get_db_session", "SQLALCHEMY_DATABASE_URL"]

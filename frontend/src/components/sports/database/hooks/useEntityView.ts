@@ -1,5 +1,6 @@
 import { useState, useCallback } from 'react';
-import SportsDatabaseService, { EntityType } from '../../../../services/SportsDatabaseService';
+import SportsDatabaseService from '../../../../services/SportsDatabaseService';
+import { EntityType } from '../../../../types/sports';
 
 export function useEntityView(entityType: EntityType) {
   // Persist view mode in localStorage
@@ -20,11 +21,16 @@ export function useEntityView(entityType: EntityType) {
     player: 0,
     game: 0,
     stadium: 0,
-    broadcast: 0,
-    production: 0,
+    broadcast_rights: 0,
+    person: 0,
+    production_company: 0,
+    production_service: 0,
     brand: 0,
     game_broadcast: 0,
-    league_executive: 0
+    league_executive: 0,
+    contact: 0,
+    creator: 0,
+    management: 0
   });
 
   // Function to fetch counts for all entity types
@@ -37,11 +43,16 @@ export function useEntityView(entityType: EntityType) {
         player: 0,
         game: 0,
         stadium: 0,
-        broadcast: 0,
-        production: 0,
+        broadcast_rights: 0,
+        person: 0,
+        production_company: 0,
+        production_service: 0,
         brand: 0,
         game_broadcast: 0,
-        league_executive: 0
+        league_executive: 0,
+        contact: 0,
+        creator: 0,
+        management: 0
       };
 
       // Fetch counts for each entity type

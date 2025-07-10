@@ -3,7 +3,11 @@ import { useSportsDatabase } from './SportsDatabaseContext';
 import LoadingSpinner from '../../common/LoadingSpinner';
 import { EntitySummary } from './SportsDatabaseContext';
 import { EyeIcon } from '@heroicons/react/24/outline';
-import SportsDatabaseService, { EntityType } from '../../../services/SportsDatabaseService';
+import SportsDatabaseService from '../../../services/SportsDatabaseService';
+import { EntityType } from '../../../types/sports';
+import { Tabs } from 'antd';
+import FieldView from '../../data/SportDataMapper/components/FieldView';
+import EntityList from './EntityList';
 
 interface Entity {
   id: string;
@@ -25,8 +29,8 @@ const ENTITY_TYPES: Array<{ id: EntityType; name: string; description: string }>
   { id: 'player', name: 'Players', description: 'Team players' },
   { id: 'game', name: 'Games', description: 'Scheduled games' },
   { id: 'stadium', name: 'Stadiums', description: 'Venues and stadiums' },
-  { id: 'broadcast', name: 'Broadcast Rights', description: 'Media broadcast rights' },
-  { name: 'Production Services', id: 'production', description: 'Production services' },
+  { id: 'broadcast_rights', name: 'Broadcast Rights', description: 'Media broadcast rights' },
+  { name: 'Production Services', id: 'production_service', description: 'Production services' },
   { id: 'brand', name: 'Brands', description: 'Brand information' },
   { id: 'game_broadcast', name: 'Game Broadcasts', description: 'Game broadcast details' },
   { id: 'league_executive', name: 'League Executives', description: 'League executive personnel' }

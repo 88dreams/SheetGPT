@@ -13,6 +13,7 @@ from starlette.exceptions import HTTPException
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 from starlette.middleware.sessions import SessionMiddleware
 from typing import Dict, Any, List
+from starlette.middleware.base import BaseHTTPMiddleware
 
 from src.api.middleware.security import (
     add_security_headers, 
@@ -50,6 +51,16 @@ app = FastAPI(
     redoc_url="/api/redoc" if ENVIRONMENT != "production" else None,  # Disable redoc in production
     openapi_url="/api/openapi.json" if ENVIRONMENT != "production" else None,  # Disable OpenAPI in production
 )
+
+# A simple middleware to print every request path
+class DebugRequestMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request: Request, call_next):
+        print(f"DEBUG MIDDLEWARE: Received request for path: {request.url.path}")
+        response = await call_next(request)
+        return response
+
+# Add the new debug middleware at the very top
+app.add_middleware(DebugRequestMiddleware)
 
 # Configure CORS with environment-specific origins
 if ENVIRONMENT == "production":
@@ -366,11 +377,13 @@ async def health_check() -> Dict[str, Any]:
     db_connection = {"status": "unknown", "details": None}
     try:
         # Simple database connectivity check
-        from sqlalchemy import text
-        from src.utils.database import get_engine
+        from sqlalchemy import text, create_engine
+        from src.utils.database import SQLALCHEMY_DATABASE_URL
         
+        sync_engine = create_engine(SQLALCHEMY_DATABASE_URL)
+
         start_time = datetime.utcnow()
-        with get_engine().connect() as conn:
+        with sync_engine.connect() as conn:
             result = conn.execute(text("SELECT 1"))
             db_healthy = result.scalar() == 1
             
@@ -439,8 +452,12 @@ async def health_check() -> Dict[str, Any]:
         overall_status = "unhealthy"
     if memory_info.get("status") == "error":
         overall_status = "degraded"
+    
+    percent_used = float(disk_info.get("percent_used", 0))
+    free_gb = float(disk_info.get("free_gb", 0))
+
     if disk_info.get("status") == "error" or (
-        disk_info.get("percent_used", 0) > 90 and disk_info.get("free_gb", 0) < 1
+        percent_used > 90 and free_gb < 1
     ):
         overall_status = "degraded"
     

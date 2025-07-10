@@ -3,7 +3,7 @@ import { useNotification } from '../../../../../contexts/NotificationContext';
 import { saveCsvFile } from '../utils/csvExport';
 import sportsService from '../../../../../services/sportsService';
 import { useSportsDatabase } from '../../SportsDatabaseContext';
-import { EntityType } from '../../../../../services/SportsDatabaseService';
+import { EntityType } from '../../../../../types/sports';
 
 interface PaginatedResponse<T> {
   items: T[];

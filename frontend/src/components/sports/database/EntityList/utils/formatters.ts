@@ -8,7 +8,7 @@ export function formatCellValue(value: any, field: string, entityType?: EntityTy
   if (value === null || value === undefined) return 'N/A';
   
   // Special case for name field in broadcast entities - strip out the territory part
-  if (field === 'name' && entityType === 'broadcast' && typeof value === 'string') {
+  if (field === 'name' && entityType === 'broadcast_rights' && typeof value === 'string') {
     const parts = value.split(' - ');
     if (parts.length > 1) {
       return parts[0]; // Only show the broadcast company name part
@@ -16,8 +16,8 @@ export function formatCellValue(value: any, field: string, entityType?: EntityTy
   }
   
   // For production services or broadcast rights, don't use the name field at all
-  if (field === 'name' && (entityType === 'production' || entityType === 'broadcast')) {
-    return entityType === 'production' ? 'See Production Company' : 'See Broadcast Company';
+  if (field === 'name' && (entityType === 'production_service' || entityType === 'broadcast_rights')) {
+    return entityType === 'production_service' ? 'See Production Company' : 'See Broadcast Company';
   }
   
   // Remove (Brand) text from company names
@@ -94,7 +94,7 @@ export function isSortableRelationshipField(field: string, entities: any[]): boo
  */
 export function getDisplayValue(entity: any, field: string, entityType?: EntityType, showFullUuids: boolean = false): string {
   // Special case for territory field in broadcast entities
-  if (field === 'territory' && entityType === 'broadcast') {
+  if (field === 'territory' && entityType === 'broadcast_rights') {
     // If the territory value is directly in the field, use it
     if (entity.territory) {
       return formatCellValue(entity.territory, field, entityType, showFullUuids);
@@ -110,7 +110,7 @@ export function getDisplayValue(entity: any, field: string, entityType?: EntityT
   }
   
   // Special case for production services entity name field
-  if (field === 'entity_name' && entityType === 'production' && !entity.entity_name && entity.entity_type) {
+  if (field === 'entity_name' && entityType === 'production_service' && !entity.entity_name && entity.entity_type) {
     // If entity_name is missing but we have entity_type and entity_id, construct a display name
     if (entity.entity_id) {
       // For special entity types like Championship/Playoffs that might use string entity_id
@@ -146,8 +146,8 @@ export function getEntityTypeName(entityType: EntityType): string {
     { id: 'player', name: 'Players' },
     { id: 'game', name: 'Games' },
     { id: 'stadium', name: 'Stadiums' },
-    { id: 'broadcast', name: 'Broadcast Rights' },
-    { id: 'production', name: 'Production Services' },
+    { id: 'broadcast_rights', name: 'Broadcast Rights' },
+    { id: 'production_service', name: 'Production Services' },
     { id: 'brand', name: 'Brand Relationships' },
     { id: 'game_broadcast', name: 'Game Broadcasts' },
     { id: 'league_executive', name: 'League Executives' }

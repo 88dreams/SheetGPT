@@ -98,7 +98,7 @@ export const mockEntity = (entityType: EntityType, namePattern: string): Entity 
       return { ...baseEntityPart, city: 'MockCity', country: 'MockCountry' } as Entity;
     case 'division_conference':
       return { ...baseEntityPart, league_id: 'league_mock', type: 'Conference' } as Entity; 
-    case 'broadcast': // This maps to BroadcastRights usually
+    case 'broadcast_rights': // This maps to BroadcastRights usually
       return { 
         ...baseEntityPart, 
         broadcast_company_id: 'bc_mock', 
@@ -108,7 +108,7 @@ export const mockEntity = (entityType: EntityType, namePattern: string): Entity 
         start_date: '2023-01-01', // Added missing field
         end_date: '2024-01-01'     // Added missing field
       } as Entity;
-    case 'production': // This might map to ProductionService
+    case 'production_service': // This might map to ProductionService
       return { 
         ...baseEntityPart, 
         production_company_id: 'pc_mock', 

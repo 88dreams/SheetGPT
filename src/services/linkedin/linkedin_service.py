@@ -7,7 +7,8 @@ import aiohttp
 import json
 from datetime import datetime, timedelta
 from typing import Dict, Any, Optional, List
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select, delete, update
 
 from ...models.linkedin import LinkedInAccount
 from ...schemas.linkedin import LinkedInAccountCreate, LinkedInAccountUpdate
@@ -42,7 +43,7 @@ class LinkedInClient:
             self.session = None
 
     async def get_authorization_url(
-        self, redirect_uri: str, state: str, scope: List[str] = None
+        self, redirect_uri: str, state: str, scope: Optional[List[str]] = None
     ) -> str:
         """
         Generate the LinkedIn authorization URL for OAuth flow.
@@ -411,7 +412,7 @@ class LinkedInService:
     """
     Service for LinkedIn integration functionality.
     """
-    def __init__(self, db: Session):
+    def __init__(self, db: AsyncSession):
         self.db = db
 
     async def get_linkedin_account(self, user_id: str) -> Optional[LinkedInAccount]:
@@ -424,12 +425,8 @@ class LinkedInService:
         Returns:
             LinkedInAccount object if found, None otherwise
         """
-        from sqlalchemy import select
-        
-        # Use proper AsyncSession query pattern
-        result = await self.db.execute(
-            select(LinkedInAccount).where(LinkedInAccount.user_id == user_id)
-        )
+        stmt = select(LinkedInAccount).where(LinkedInAccount.user_id == user_id)
+        result = await self.db.execute(stmt)
         return result.scalars().first()
 
     async def create_or_update_linkedin_account(
@@ -445,10 +442,8 @@ class LinkedInService:
             The created or updated LinkedInAccount object
         """
         # Check if account already exists
-        from sqlalchemy import select
-        result = await self.db.execute(
-            select(LinkedInAccount).where(LinkedInAccount.user_id == account_data.user_id)
-        )
+        stmt = select(LinkedInAccount).where(LinkedInAccount.user_id == account_data.user_id)
+        result = await self.db.execute(stmt)
         existing = result.scalars().first()
         
         # Encrypt tokens before storing
@@ -459,11 +454,18 @@ class LinkedInService:
         
         if existing:
             # Update existing account
-            existing.linkedin_id = account_data.linkedin_id
-            existing.access_token = encrypted_access_token
-            existing.refresh_token = encrypted_refresh_token
-            existing.expires_at = account_data.expires_at
-            existing.updated_at = datetime.now()
+            update_stmt = (
+                update(LinkedInAccount)
+                .where(LinkedInAccount.id == existing.id)
+                .values(
+                    linkedin_id=account_data.linkedin_id,
+                    access_token=encrypted_access_token,
+                    refresh_token=encrypted_refresh_token,
+                    expires_at=account_data.expires_at,
+                    updated_at=datetime.now()
+                )
+            )
+            await self.db.execute(update_stmt)
             await self.db.commit()
             await self.db.refresh(existing)
             return existing
@@ -494,28 +496,33 @@ class LinkedInService:
         Returns:
             The updated LinkedInAccount object if found, None otherwise
         """
-        account = self.db.query(LinkedInAccount).filter(
-            LinkedInAccount.id == account_id
-        ).first()
+        stmt = select(LinkedInAccount).where(LinkedInAccount.id == account_id)
+        result = await self.db.execute(stmt)
+        account = result.scalars().first()
         
         if not account:
             return None
             
+        values_to_update = {}
         if update_data.access_token:
-            account.access_token = encrypt_token(update_data.access_token)
+            values_to_update["access_token"] = encrypt_token(update_data.access_token)
             
         if update_data.refresh_token:
-            account.refresh_token = encrypt_token(update_data.refresh_token)
+            values_to_update["refresh_token"] = encrypt_token(update_data.refresh_token)
             
         if update_data.expires_at:
-            account.expires_at = update_data.expires_at
+            values_to_update["expires_at"] = update_data.expires_at
             
         if update_data.last_synced:
-            account.last_synced = update_data.last_synced
+            values_to_update["last_synced"] = update_data.last_synced
         
-        account.updated_at = datetime.now()
-        self.db.commit()
-        self.db.refresh(account)
+        if values_to_update:
+            values_to_update["updated_at"] = datetime.now()
+            update_stmt = update(LinkedInAccount).where(LinkedInAccount.id == account_id).values(**values_to_update)
+            await self.db.execute(update_stmt)
+            await self.db.commit()
+            await self.db.refresh(account)
+            
         return account
 
     async def update_last_synced(self, account_id: int) -> Optional[LinkedInAccount]:
@@ -528,19 +535,19 @@ class LinkedInService:
         Returns:
             The updated LinkedInAccount object if found, None otherwise
         """
-        account = self.db.query(LinkedInAccount).filter(
-            LinkedInAccount.id == account_id
-        ).first()
-        
-        if not account:
-            return None
-            
-        account.last_synced = datetime.now()
-        self.db.commit()
-        self.db.refresh(account)
-        return account
+        stmt = update(LinkedInAccount).where(LinkedInAccount.id == account_id).values(last_synced=datetime.now())
+        await self.db.execute(stmt)
+        await self.db.commit()
 
-    def delete_linkedin_account(self, user_id: str) -> bool:
+        # To return the updated object, we need to fetch it again
+        return await self.get_linkedin_account_by_id(account_id)
+
+    async def get_linkedin_account_by_id(self, account_id: int) -> Optional[LinkedInAccount]:
+        stmt = select(LinkedInAccount).where(LinkedInAccount.id == account_id)
+        result = await self.db.execute(stmt)
+        return result.scalars().first()
+
+    async def delete_linkedin_account(self, user_id: str) -> bool:
         """
         Delete a user's LinkedIn account and all related data.
         
@@ -550,15 +557,14 @@ class LinkedInService:
         Returns:
             True if account was deleted, False if not found
         """
-        account = self.db.query(LinkedInAccount).filter(
-            LinkedInAccount.user_id == user_id
-        ).first()
+        account = await self.get_linkedin_account(user_id)
         
         if not account:
             return False
             
-        self.db.delete(account)
-        self.db.commit()
+        delete_stmt = delete(LinkedInAccount).where(LinkedInAccount.id == account.id)
+        await self.db.execute(delete_stmt)
+        await self.db.commit()
         return True
 
     async def get_client_for_user(self, user_id: str) -> Optional[LinkedInClient]:
@@ -627,6 +633,6 @@ class LinkedInService:
         Returns:
             List of LinkedInAccount objects that need refreshing
         """
-        return self.db.query(LinkedInAccount).filter(
-            LinkedInAccount.last_synced < cutoff_time
-        ).all()
+        stmt = select(LinkedInAccount).where(LinkedInAccount.last_synced < cutoff_time)
+        result = await self.db.execute(stmt)
+        return list(result.scalars().all())

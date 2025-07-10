@@ -89,7 +89,7 @@ export function useColumnVisibility(entityType: EntityType, columnsConfigArray: 
       activeVisibilityState = { ...initialDefaults }; // Start with general defaults, then override if specific entity type matches
 
       let entitySpecificDefaultsApplied = false;
-      if (entityType === 'broadcast') {
+      if (entityType === 'broadcast_rights') {
         const broadcastVisibleByDefault = ['broadcast_company_name', 'entity_name', 'league_name', 'league_sport', 'territory', 'start_date', 'end_date'];
         availableFields.forEach(fieldKey => {
           activeVisibilityState[fieldKey] = broadcastVisibleByDefault.includes(fieldKey);

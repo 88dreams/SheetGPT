@@ -1,5 +1,6 @@
 import { api } from './api';
-import sportsDatabaseService, { EntityType } from '../services/SportsDatabaseService';
+import sportsDatabaseService from '../services/SportsDatabaseService';
+import { EntityType } from '../types/sports';
 
 export async function handleSaveToDatabase(entityType: EntityType, data: any): Promise<any> {
   try {

@@ -62,14 +62,14 @@ export const AdvancedEditForm: React.FC<AdvancedEditFormProps> = ({
                 isEditing={isEditing} 
               />;
       
-      case 'broadcast':
+      case 'broadcast_rights':
         return <BroadcastFields 
                 entity={entity as BroadcastRights} 
                 onChange={handleFieldChange} 
                 isEditing={isEditing} 
               />;
       
-      case 'production':
+      case 'production_service':
         return <ProductionFields 
                 entity={entity as ProductionService} 
                 onChange={handleFieldChange} 

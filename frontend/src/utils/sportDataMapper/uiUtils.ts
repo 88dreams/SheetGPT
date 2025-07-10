@@ -55,9 +55,9 @@ export const getEntityTypeColorClass = (entityType: EntityType): string => {
       return 'bg-purple-100 text-purple-800';
     case 'stadium':
       return 'bg-red-100 text-red-800';
-    case 'broadcast':
+    case 'broadcast_rights':
       return 'bg-indigo-100 text-indigo-800';
-    case 'production':
+    case 'production_service':
       return 'bg-pink-100 text-pink-800';
     case 'brand':
       return 'bg-orange-100 text-orange-800';
@@ -85,9 +85,9 @@ export const getEntityTypeBorderClass = (entityType: EntityType): string => {
       return 'border-purple-300';
     case 'stadium':
       return 'border-red-300';
-    case 'broadcast':
+    case 'broadcast_rights':
       return 'border-indigo-300';
-    case 'production':
+    case 'production_service':
       return 'border-pink-300';
     case 'brand':
       return 'border-orange-300';

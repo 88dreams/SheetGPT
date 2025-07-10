@@ -1,6 +1,6 @@
 import { apiCache } from './apiCache';
 import sportsService from '../services/sportsService';
-import { EntityType } from '../services/SportsDatabaseService';
+import { EntityType } from '../types/sports';
 import { FilterConfig } from '../components/sports/EntityFilter';
 
 /**
@@ -42,7 +42,7 @@ export const COMMON_RELATIONSHIPS: Record<EntityType, RelationshipConfig[]> = {
     {
       entityType: 'league',
       idField: 'id',
-      relatedEntityType: 'broadcast',
+      relatedEntityType: 'broadcast_rights',
       filterField: 'entity_id',
       name: 'broadcast_rights'
     }
@@ -64,7 +64,7 @@ export const COMMON_RELATIONSHIPS: Record<EntityType, RelationshipConfig[]> = {
     {
       entityType: 'division_conference',
       idField: 'id',
-      relatedEntityType: 'broadcast',
+      relatedEntityType: 'broadcast_rights',
       filterField: 'entity_id',
       name: 'broadcast_rights'
     }
@@ -100,7 +100,7 @@ export const COMMON_RELATIONSHIPS: Record<EntityType, RelationshipConfig[]> = {
     {
       entityType: 'team',
       idField: 'id',
-      relatedEntityType: 'broadcast',
+      relatedEntityType: 'broadcast_rights',
       filterField: 'entity_id',
       name: 'broadcast_rights'
     }
@@ -165,74 +165,74 @@ export const COMMON_RELATIONSHIPS: Record<EntityType, RelationshipConfig[]> = {
       name: 'host_broadcaster'
     }
   ],
-  broadcast: [
+  broadcast_rights: [
     {
-      entityType: 'broadcast',
+      entityType: 'broadcast_rights',
       idField: 'broadcast_company_id',
       relatedEntityType: 'brand',
       filterField: 'id',
       name: 'broadcast_company'
     },
     {
-      entityType: 'broadcast',
+      entityType: 'broadcast_rights',
       idField: 'entity_id',
       relatedEntityType: 'league',
       filterField: 'id',
       name: 'league'
     },
     {
-      entityType: 'broadcast',
+      entityType: 'broadcast_rights',
       idField: 'entity_id',
       relatedEntityType: 'division_conference',
       filterField: 'id',
       name: 'division_conference'
     },
     {
-      entityType: 'broadcast',
+      entityType: 'broadcast_rights',
       idField: 'entity_id',
       relatedEntityType: 'team',
       filterField: 'id',
       name: 'team'
     },
     {
-      entityType: 'broadcast',
+      entityType: 'broadcast_rights',
       idField: 'entity_id',
       relatedEntityType: 'game',
       filterField: 'id',
       name: 'game'
     }
   ],
-  production: [
+  production_service: [
     {
-      entityType: 'production',
+      entityType: 'production_service',
       idField: 'production_company_id',
       relatedEntityType: 'brand',
       filterField: 'id',
-      name: 'production_company'
+      name: 'game'
     },
     {
-      entityType: 'production',
+      entityType: 'production_service',
       idField: 'entity_id',
       relatedEntityType: 'league',
       filterField: 'id',
       name: 'league'
     },
     {
-      entityType: 'production',
+      entityType: 'production_service',
       idField: 'entity_id',
       relatedEntityType: 'division_conference',
       filterField: 'id',
       name: 'division_conference'
     },
     {
-      entityType: 'production',
+      entityType: 'production_service',
       idField: 'entity_id',
       relatedEntityType: 'team',
       filterField: 'id',
       name: 'team'
     },
     {
-      entityType: 'production',
+      entityType: 'production_service',
       idField: 'entity_id',
       relatedEntityType: 'game',
       filterField: 'id',
@@ -243,14 +243,14 @@ export const COMMON_RELATIONSHIPS: Record<EntityType, RelationshipConfig[]> = {
     {
       entityType: 'brand',
       idField: 'id',
-      relatedEntityType: 'broadcast',
+      relatedEntityType: 'broadcast_rights',
       filterField: 'broadcast_company_id',
       name: 'broadcast_rights'
     },
     {
       entityType: 'brand',
       idField: 'id',
-      relatedEntityType: 'production',
+      relatedEntityType: 'production_service',
       filterField: 'production_company_id',
       name: 'production_services'
     }
@@ -286,7 +286,12 @@ export const COMMON_RELATIONSHIPS: Record<EntityType, RelationshipConfig[]> = {
       filterField: 'id',
       name: 'league'
     }
-  ]
+  ],
+  contact: [],
+  creator: [],
+  management: [],
+  person: [],
+  production_company: []
 };
 
 /**
@@ -297,7 +302,7 @@ export const COMMON_ENTITY_SETS: Record<string, EntityType[]> = {
   FORM_BASICS: ['league', 'division_conference', 'team', 'stadium', 'brand'],
   
   // Media related entities
-  MEDIA_ENTITIES: ['brand', 'broadcast', 'production', 'game_broadcast'],
+  MEDIA_ENTITIES: ['brand', 'broadcast_rights', 'production_service', 'game_broadcast'],
   
   // League view related entities
   LEAGUE_VIEW: ['league', 'division_conference', 'team', 'league_executive'],
@@ -489,7 +494,7 @@ export class RelationshipLoader {
     const entityTypes = COMMON_ENTITY_SETS[setName];
     if (!entityTypes) {
       console.error(`RelationshipLoader: Unknown entity set "${setName}"`);
-      const allPossibleEntityTypes: EntityType[] = ['league', 'division_conference', 'team', 'player', 'game', 'stadium', 'broadcast', 'production', 'brand', 'game_broadcast', 'league_executive'];
+      const allPossibleEntityTypes: EntityType[] = ['league', 'division_conference', 'team', 'player', 'game', 'stadium', 'broadcast_rights', 'production_service', 'brand', 'game_broadcast', 'league_executive'];
       return Object.fromEntries(allPossibleEntityTypes.map(et => [et, []])) as Record<EntityType, any[]>;
     }
     

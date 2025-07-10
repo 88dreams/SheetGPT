@@ -31,12 +31,25 @@ class LinkedInAccountUpdate(BaseModel):
 class LinkedInAccount(LinkedInAccountBase):
     """Schema for LinkedIn account responses."""
     id: int
-    last_synced: datetime
+    last_synced: Optional[datetime]
     created_at: datetime
     updated_at: datetime
 
     class Config:
         orm_mode = True
+
+
+class LinkedInAccountForBackgroundTask(BaseModel):
+    """Schema for representing a LinkedIn account in background tasks."""
+    id: int
+    user_id: UUID
+    linkedin_id: str
+    access_token: str
+    refresh_token: Optional[str] = None
+    expires_at: datetime
+    last_synced: Optional[datetime] = None
+    created_at: datetime
+    updated_at: datetime
 
 
 class LinkedInConnectionBase(BaseModel):

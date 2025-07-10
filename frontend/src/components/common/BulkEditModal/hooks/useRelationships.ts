@@ -1,7 +1,8 @@
-import { useCallback, useState, useMemo, useEffect } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { FieldDefinition, RelatedEntitiesMap } from '../types';
 import { apiClient } from '../../../../utils/apiClient';
-import SportsDatabaseService, { EntityType } from '../../../../services/SportsDatabaseService';
+import { EntityType } from '../../../../types/sports';
+import SportsDatabaseService from '../../../../services/SportsDatabaseService';
 import { useCommonEntityData } from '../../../../hooks/useRelationshipData';
 import { fingerprint } from '../../../../utils/fingerprint';
 

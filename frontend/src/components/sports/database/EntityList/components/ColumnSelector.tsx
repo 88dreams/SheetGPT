@@ -35,8 +35,8 @@ const ColumnSelector: React.FC<ColumnSelectorProps> = ({
         {Object.keys(entities[0] || {})
           // Filter out the name field for broadcast rights and production services
           .filter(field => !(
-            (selectedEntityType === 'broadcast' && field === 'name') || 
-            (selectedEntityType === 'production' && field === 'name')
+            (selectedEntityType === 'broadcast_rights' && field === 'name') || 
+            (selectedEntityType === 'production_service' && field === 'name')
           ))
           .sort((a, b) => {
             // Sort core fields first

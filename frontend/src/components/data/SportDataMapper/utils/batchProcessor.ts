@@ -150,13 +150,11 @@ export const processEntityRecord = async (
         api
       );
       
-      // If this is a production service entity, check for duplicates before saving
-      if (entityType === 'production') {
+      // If this is a production entity, check for duplicates before saving
+      let isDuplicate = false;
+      if (entityType === 'production_service') {
         try {
-          // Import checkDuplicateProductionService function
           const { checkDuplicateProductionService } = await import('./importUtils');
-          
-          // Check for duplicate
           const existingService = await checkDuplicateProductionService(databaseMappedData);
           
           if (existingService) {
@@ -181,7 +179,7 @@ export const processEntityRecord = async (
       }
       
       // If this is a broadcast entity, check for duplicates before saving
-      if (entityType === 'broadcast') {
+      if (entityType === 'broadcast_rights') {
         try {
           // Import checkDuplicateBroadcastRight function
           const { checkDuplicateBroadcastRight } = await import('./importUtils');
@@ -243,7 +241,7 @@ export const processEntityRecord = async (
           }
           
           // For entity name not found, don't retry unless entity type is broadcast
-          if (errorMessage.includes('not found') && entityType !== 'broadcast') {
+          if (errorMessage.includes('not found') && entityType !== 'broadcast_rights') {
             console.warn('Entity not found, not retrying:', errorMessage);
             return { success: false, error: errorMessage };
           }

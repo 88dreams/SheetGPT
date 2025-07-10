@@ -63,8 +63,8 @@ async def google_auth(request: Request):
 
 @router.get("/auth/callback")
 async def google_auth_callback(
-    code: str,
-    error: str = None,
+    code: Optional[str] = None,
+    error: Optional[str] = None,
     db: AsyncSession = Depends(get_db)
 ) -> Dict[str, str]:
     """Handle Google OAuth callback."""
@@ -72,6 +72,12 @@ async def google_auth_callback(
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Authorization failed: {error}"
+        )
+    
+    if not code:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Authorization code not found in callback."
         )
 
     try:
@@ -102,7 +108,7 @@ async def check_auth_status() -> Dict[str, bool]:
         )
 
 @router.get("/auth/token")
-async def get_auth_token() -> Dict[str, str]:
+async def get_auth_token() -> Dict[str, Any]:
     """Get the OAuth access token for Google APIs."""
     try:
         # Ensure we're using the most recent token
@@ -608,11 +614,11 @@ async def create_spreadsheet(
             
             result = await sheets_service.create_spreadsheet_with_template(
                 title=data.title or "Exported Data",
-                template_name=data.template_name,
+                template_name=data.template_name or "default",
                 data=export_data,
                 user_id=user_id,
                 folder_id=data.folder_id,
-                use_drive_picker=data.use_drive_picker
+                use_drive_picker=data.use_drive_picker or False
             )
 
             print(f"DEBUG: Spreadsheet creation result: {result}")

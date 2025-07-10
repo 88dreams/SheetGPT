@@ -1,7 +1,10 @@
-import { EntityType, validateEntityData, enhancedMapToDatabaseFieldNames, isValidUUID } from '../../../../utils/sportDataMapper';
+import { EntityType } from '../../../../types/sports';
+import { validateEntityData } from '../../../../utils/sportDataMapper/validationUtils';
+import { enhancedMapToDatabaseFieldNames } from '../../../../utils/sportDataMapper/mappingUtils';
+import { isValidUUID } from '../../../../utils/sportDataMapper/entityTypes';
 import { api } from '../../../../utils/api';
 import { sportsService } from '../../../../services/sportsService';
-import sportsDatabaseService, { EntityType as DbEntityType } from '../../../../services/SportsDatabaseService';
+import sportsDatabaseService from '../../../../services/SportsDatabaseService';
 
 // NEW HELPER FUNCTION
 const extractInitialMappedFields = (
@@ -118,7 +121,7 @@ const detectEntityType = (
   if (sourceRecordIsArray) {
     const hasField = (fieldName: string) => Object.keys(mappedFields).includes(fieldName) || Object.keys(mappings).includes(fieldName);
     const isBroadcastData = hasField('broadcast_company_id') || hasField('territory');
-    if (isBroadcastData) return 'broadcast';
+    if (isBroadcastData) return 'broadcast_rights';
     const isLeagueData = hasField('sport') || hasField('founded_year') || hasField('nickname') ||
                          Object.entries(mappings).some(([field, sourcePos]) => field === 'sport' && sourcePos === '2');
     if (isLeagueData) return 'league';
@@ -319,7 +322,7 @@ const enhanceDataForEntityType = (
     case 'brand':
       finalEnhancedData = _enhanceBrandData(finalEnhancedData);
       break;
-    case 'broadcast':
+    case 'broadcast_rights':
       finalEnhancedData = _enhanceBroadcastData(finalEnhancedData); // Use new refactored version
       break;
     default:
@@ -354,7 +357,7 @@ export const transformMappedData = (
   // This specific pre-fill for broadcast might need re-evaluation.
   // If entity_type and entity_id for broadcast are critical and often not directly mapped,
   // this heuristic might still be valuable, or extractInitialMappedFields should be smarter for broadcasts.
-  if (entityType === 'broadcast' && sourceRecordIsArray && Array.isArray(sourceRecord)){
+  if (entityType === 'broadcast_rights' && sourceRecordIsArray && Array.isArray(sourceRecord)){
       const hasEntityTypeMapping = Object.keys(mappings).some(f => f === 'entity_type');
       const hasEntityIdMapping = Object.keys(mappings).some(f => f === 'entity_id');
       if (!hasEntityTypeMapping && !dataForEnhancement.entity_type) {
@@ -423,7 +426,7 @@ async function resolveReferencesForEntity(
 ): Promise<void> { // Returns void as it mutates processedData directly
   console.log(`Resolving references for ${entityType}...`);
   switch (entityType) {
-    case 'broadcast':
+    case 'broadcast_rights':
       await _resolveBroadcastEntityReferences(processedData);
       break;
     case 'team':
@@ -452,7 +455,7 @@ async function _saveBroadcastRecord(data: Record<string, any>): Promise<boolean>
 
 // NEW HELPER for creating or updating standard entities
 async function _createOrUpdateStandardEntity(
-  entityType: DbEntityType, // Use the more specific DbEntityType here
+  entityType: EntityType, // Use the more specific DbEntityType here
   data: Record<string, any>,
   isUpdateMode: boolean
 ): Promise<boolean> {
@@ -526,14 +529,14 @@ export const saveEntityToDatabase = async (
     console.log('Frontend: processedData AFTER resolveReferencesForEntity:', JSON.stringify(processedData, null, 2));
     
     // Step 3: Call appropriate save/update helper
-    if (entityType === 'broadcast') {
+    if (entityType === 'broadcast_rights') {
       return await _saveBroadcastRecord(processedData);
     } else {
       // For all other standard entities (team, league, brand, division_conference etc.)
       // Ensure entityType is a valid DbEntityType for _createOrUpdateStandardEntity
       const validDbEntityTypes = ['league', 'team', 'brand', 'division_conference', 'stadium', 'person', 'game', 'production_company', 'production_service', 'player'] as const;
       if (validDbEntityTypes.includes(entityType as any)) {
-        return await _createOrUpdateStandardEntity(entityType as DbEntityType, processedData, isUpdateMode);
+        return await _createOrUpdateStandardEntity(entityType as EntityType, processedData, isUpdateMode);
       } else {
         console.error(`SaveV3: Unknown or non-standard entity type for generic save: ${entityType}`);
         throw new Error(`Cannot save entity of unknown type: ${entityType}`);
@@ -741,7 +744,7 @@ async function _resolveBroadcastEntityReferences(processedData: Record<string, a
       for (const typeToTry of typesToTry) {
         if (foundEntity) break;
         try {
-          const entityLookup = await api.sports.lookup(typeToTry as DbEntityType, entityName);
+          const entityLookup = await api.sports.lookup(typeToTry as EntityType, entityName);
           if (entityLookup && entityLookup.id) {
             processedData.entity_type = typeToTry;
             processedData.entity_id = entityLookup.id;
@@ -757,7 +760,7 @@ async function _resolveBroadcastEntityReferences(processedData: Record<string, a
         for (const raceType of racingEntityTypes) {
           if (foundRacingEntity) break;
           try {
-            const raceEntityLookup = await api.sports.lookup(raceType as DbEntityType, entityName);
+            const raceEntityLookup = await api.sports.lookup(raceType as EntityType, entityName);
             if (raceEntityLookup && raceEntityLookup.id) {
               processedData.entity_type = raceType;
               processedData.entity_id = raceEntityLookup.id;

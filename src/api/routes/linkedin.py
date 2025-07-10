@@ -9,29 +9,19 @@ from fastapi import APIRouter, Depends, HTTPException, Request, BackgroundTasks
 from fastapi.responses import RedirectResponse
 from sqlalchemy.orm import Session
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select
 from starlette.status import HTTP_401_UNAUTHORIZED, HTTP_403_FORBIDDEN, HTTP_404_NOT_FOUND
 from uuid import UUID
 
 from ...schemas.linkedin import (
     LinkedInStatusResponse,
     BrandConnectionResponse,
-    LinkedInAccountCreate
+    LinkedInAccountForBackgroundTask
 )
 
-# Import services with fallbacks
-from ...services.linkedin.linkedin_service import LinkedInClient
-try:
-    from ...services.linkedin import LinkedInService, ConnectionService
-except ImportError:
-    from ...services.linkedin.linkedin_service import LinkedInService
-    
-    # Create a mock ConnectionService if the real one is not available
-    class ConnectionService:
-        def __init__(self, db):
-            self.db = db
-            
-        def get_user_connections_count(self, user_id):
-            return 0  # Mock value
+from ...services.linkedin.linkedin_service import LinkedInService, LinkedInClient
+from ...services.linkedin.connection_service import ConnectionService
+
 from ...models.linkedin import LinkedInAccount
 from ...utils.database import get_db
 from ...utils.security import (
@@ -48,7 +38,7 @@ router = APIRouter(tags=["linkedin"])
 
 async def process_linkedin_connections(
     account_id: int,
-    db
+    db: AsyncSession
 ) -> None:
     """
     Background task to fetch and process LinkedIn connections.
@@ -67,18 +57,17 @@ async def process_linkedin_connections(
             logger.error(f"LinkedIn account {account_id} not found")
             return
             
-        # Create a simple object to hold the account data
-        account = type('AccountObject', (), {
-            'id': account_data[0],
-            'user_id': account_data[1],
-            'linkedin_id': account_data[2],
-            'access_token': account_data[3],
-            'refresh_token': account_data[4],
-            'expires_at': account_data[5],
-            'last_synced': account_data[6],
-            'created_at': account_data[7],
-            'updated_at': account_data[8]
-        })
+        account = LinkedInAccountForBackgroundTask(
+            id=account_data[0],
+            user_id=account_data[1],
+            linkedin_id=account_data[2],
+            access_token=account_data[3],
+            refresh_token=account_data[4],
+            expires_at=account_data[5],
+            last_synced=account_data[6],
+            created_at=account_data[7],
+            updated_at=account_data[8]
+        )
         
         if not account:
             logger.error(f"LinkedIn account {account_id} not found")
@@ -182,7 +171,7 @@ async def get_user_from_token_param(
 @router.get("/auth")
 async def initiate_linkedin_auth(
     request: Request,
-    db: Session = Depends(get_db)
+    db: AsyncSession = Depends(get_db)
 ):
     """
     Initiate LinkedIn OAuth flow using r_liteprofile scope.
@@ -283,7 +272,7 @@ async def initiate_linkedin_auth(
 @router.get("/auth_alt")
 async def initiate_linkedin_auth_alternative(
     request: Request,
-    db: Session = Depends(get_db)
+    db: AsyncSession = Depends(get_db)
 ):
     """
     Alternative LinkedIn OAuth flow using standard LinkedIn scopes.
@@ -337,7 +326,7 @@ async def initiate_linkedin_auth_alternative(
 @router.get("/auth_minimal")
 async def initiate_linkedin_auth_minimal(
     request: Request,
-    db: Session = Depends(get_db)
+    db: AsyncSession = Depends(get_db)
 ):
     """
     Minimal LinkedIn OAuth flow with just one basic scope.
@@ -391,7 +380,7 @@ async def initiate_linkedin_auth_minimal(
 @router.get("/dev_mode")
 async def initiate_linkedin_auth_dev_mode(
     request: Request,
-    db: Session = Depends(get_db)
+    db: AsyncSession = Depends(get_db)
 ):
     """
     Development mode LinkedIn auth that bypasses the actual LinkedIn OAuth flow.
@@ -482,8 +471,8 @@ async def linkedin_callback(
     request: Request,
     code: Optional[str] = None,
     state: Optional[str] = None,
-    background_tasks: BackgroundTasks = None,
-    db: Session = Depends(get_db)
+    background_tasks: BackgroundTasks = BackgroundTasks(),
+    db: AsyncSession = Depends(get_db)
 ):
     """
     Handle LinkedIn OAuth callback with simplified approach.
@@ -608,21 +597,24 @@ async def linkedin_callback(
             else:
                 logger.info("No user_id found in session")
         
-        # If still no user ID, try to get from database as last resort
+        # If still no user ID, try to get from DB as last resort
         if not user_id:
             try:
                 from src.models.models import User
                 
                 # Log database info for debugging
-                all_users = db.query(User).all()
+                all_users_result = await db.execute(select(User))
+                all_users = all_users_result.scalars().all()
+
                 logger.info(f"Found {len(all_users)} users in database")
                 
                 if all_users:
                     for user in all_users:
                         logger.info(f"User in DB: {user.id} | {user.email}")
                 
-                # Get first active user as fallback - only use in development 
-                first_user = db.query(User).first()
+                # Get first active user as fallback - only use in development
+                first_user_result = await db.execute(select(User).limit(1))
+                first_user = first_user_result.scalars().first()
                 if first_user:
                     user_id = str(first_user.id)
                     logger.info(f"SUCCESS: Using first user from database as last resort: {user_id} | {first_user.email}")
@@ -710,8 +702,8 @@ async def linkedin_callback(
         # Generate encrypted tokens
         encrypted_access_token = encrypt_token(token_data["access_token"])
         encrypted_refresh_token = None
-        if token_data.get("refresh_token"):
-            encrypted_refresh_token = encrypt_token(token_data.get("refresh_token"))
+        if "refresh_token" in token_data and token_data["refresh_token"]:
+            encrypted_refresh_token = encrypt_token(token_data["refresh_token"])
             
         # Check if account already exists using SQLAlchemy text object
         from sqlalchemy import text
@@ -725,36 +717,36 @@ async def linkedin_callback(
             account_id = existing_result[0]
             await db.execute(
                 text(f"UPDATE linkedin_accounts SET linkedin_id = '{linkedin_id}', access_token = '{encrypted_access_token}', "
-                f"refresh_token = '{encrypted_refresh_token}', expires_at = '{expires_at.isoformat()}', "
+                f"refresh_token = '{encrypted_refresh_token or ''}', expires_at = '{expires_at.isoformat()}', "
                 f"updated_at = '{datetime.now().isoformat()}' WHERE id = {account_id}")
             )
             await db.commit()
             logger.info(f"Updated existing LinkedIn account: {account_id}")
             
-            # Define account structure to match what was expected
             account = type('AccountObject', (), {'id': account_id})
         else:
             # Create new account using raw SQL to avoid any ORM-related issues
             new_account_query = await db.execute(
                 text(f"INSERT INTO linkedin_accounts (user_id, linkedin_id, access_token, refresh_token, expires_at, created_at, updated_at) "
-                f"VALUES ('{user_id}', '{linkedin_id}', '{encrypted_access_token}', '{encrypted_refresh_token}', "
+                f"VALUES ('{user_id}', '{linkedin_id}', '{encrypted_access_token}', '{encrypted_refresh_token or ''}', "
                 f"'{expires_at.isoformat()}', '{datetime.now().isoformat()}', '{datetime.now().isoformat()}') RETURNING id")
             )
             new_account_id = new_account_query.scalar()
             await db.commit()
             logger.info(f"Created new LinkedIn account: {new_account_id}")
             
-            # Define account structure to match what was expected
-            account = type('AccountObject', (), {'id': new_account_id})
-        logger.info(f"Created/updated LinkedIn account: {account.id}")
+            account_id = new_account_id
+
+        logger.info(f"Created/updated LinkedIn account: {account_id}")
         
         # Add background task to process connections
-        background_tasks.add_task(
-            process_linkedin_connections,
-            account.id,
-            db
-        )
-        logger.info("Added background task to process connections")
+        if background_tasks and account_id is not None:
+            background_tasks.add_task(
+                process_linkedin_connections,
+                account_id,
+                db
+            )
+            logger.info("Added background task to process connections")
         
         # Redirect to frontend settings page on port 5173
         return RedirectResponse(url="http://localhost:5173/sheetgpt/settings?linkedin=connected")
@@ -767,7 +759,7 @@ async def linkedin_callback(
 @router.get("/status", response_model=LinkedInStatusResponse)
 async def get_linkedin_status(
     request: Request,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     current_user_id: Optional[UUID] = None
 ):
     """
@@ -933,6 +925,7 @@ async def get_linkedin_status(
         
         # Get profile info
         profile_name = f"LinkedIn User {account_row[2]}"  # Default name using LinkedIn ID
+        last_synced = account_row[6]
         
         # Try to get more detailed profile info
         try:
@@ -995,7 +988,7 @@ async def get_linkedin_status(
             is_connected=True,
             profile_name=profile_name,
             connection_count=connection_count,
-            last_synced=account.last_synced if hasattr(account, 'last_synced') else None
+            last_synced=last_synced
         )
     except Exception as e:
         # Catch any other exceptions and return not connected
@@ -1009,7 +1002,7 @@ async def get_linkedin_status(
 @router.delete("/disconnect")
 async def disconnect_linkedin(
     current_user_id: UUID = Depends(get_current_user_id),
-    db: Session = Depends(get_db)
+    db: AsyncSession = Depends(get_db)
 ):
     """
     Disconnect LinkedIn account for the current user.
@@ -1031,7 +1024,7 @@ async def disconnect_linkedin(
 async def sync_linkedin_connections(
     request: Request,
     background_tasks: BackgroundTasks,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     current_user_id: Optional[UUID] = None
 ):
     """
@@ -1105,7 +1098,7 @@ async def sync_linkedin_connections(
 @router.post("/sync-direct")
 async def sync_linkedin_direct(
     request: Request,
-    db: Session = Depends(get_db)
+    db: AsyncSession = Depends(get_db)
 ):
     """
     Directly process LinkedIn connections without background tasks.
@@ -1206,7 +1199,7 @@ async def sync_linkedin_direct(
 async def get_brand_connections(
     request: Request,
     min_connections: int = 0,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     current_user_id: Optional[UUID] = None
 ):
     """
@@ -1301,7 +1294,7 @@ async def get_brand_connections(
 async def get_brand_connection(
     brand_id: UUID,
     request: Request,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     current_user_id: Optional[UUID] = None
 ):
     """

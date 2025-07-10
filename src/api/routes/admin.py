@@ -53,7 +53,7 @@ async def clean_database(current_user: dict = Depends(get_current_user)):
         try:
             async with get_db_session() as session:
                 # Delete all records from the table
-                result = await session.execute(sqlalchemy.text(f"DELETE FROM {table};"))
+                await session.execute(sqlalchemy.text(f"DELETE FROM {table};"))
                 await session.commit()
                 results[table] = "Success"
         except Exception as e:
@@ -73,12 +73,12 @@ async def clean_database(current_user: dict = Depends(get_current_user)):
                 );
                 """
                 result = await session.execute(sqlalchemy.text(check_query))
-                exists = result.scalar()
+                exists = result.scalar_one_or_none()
                 
                 # If table exists, delete records with a fresh session
                 if exists:
                     async with get_db_session() as delete_session:
-                        result = await delete_session.execute(sqlalchemy.text(f"DELETE FROM {table};"))
+                        await delete_session.execute(sqlalchemy.text(f"DELETE FROM {table};"))
                         await delete_session.commit()
                         results[table] = "Success"
         except Exception as e:
@@ -92,8 +92,8 @@ async def clean_database(current_user: dict = Depends(get_current_user)):
     # Get user count with a fresh session
     try:
         async with get_db_session() as session:
-            user_count = await session.execute(sqlalchemy.text("SELECT COUNT(*) FROM users;"))
-            counts["users"] = user_count.scalar()
+            user_count_result = await session.execute(sqlalchemy.text("SELECT COUNT(*) FROM users;"))
+            counts["users"] = user_count_result.scalar_one_or_none()
     except Exception as e:
         counts["users"] = f"Error: {str(e)}"
     
@@ -101,8 +101,8 @@ async def clean_database(current_user: dict = Depends(get_current_user)):
     for table in tables + [table for table in sports_tables if results.get(table) == "Success"]:
         try:
             async with get_db_session() as session:
-                count_query = await session.execute(sqlalchemy.text(f"SELECT COUNT(*) FROM {table};"))
-                counts[table] = count_query.scalar()
+                count_result = await session.execute(sqlalchemy.text(f"SELECT COUNT(*) FROM {table};"))
+                counts[table] = count_result.scalar_one_or_none()
         except Exception as e:
             counts[table] = f"Error: {str(e)}"
     
@@ -119,4 +119,4 @@ async def clean_database(current_user: dict = Depends(get_current_user)):
     if success:
         return {"message": "Database cleaned successfully", "details": details}
     else:
-        return {"message": "Database cleaned with some errors", "details": details} 
+        return {"message": "Database cleaned with some errors", "details": details}

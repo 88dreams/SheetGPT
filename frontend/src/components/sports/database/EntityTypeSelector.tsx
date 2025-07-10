@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useSportsDatabase } from './SportsDatabaseContext';
-import { EntityType } from '../../../services/SportsDatabaseService';
+import { EntityType } from '../../../types/sports';
 import { FaEdit } from 'react-icons/fa';
 
 // Define the market categories

@@ -45,6 +45,12 @@ const DataTable: React.FC<DataTableProps> = ({ dataId }) => {
   const [showFullUuids, setShowFullUuids] = useState(false);
   const { showNotification } = useNotification();
   
+  // State for reordered headers
+  const [reorderedHeaders, setReorderedHeaders] = useState<string[]>([]);
+  
+  // State for reordered row indices
+  const [reorderedRowIndices, setReorderedRowIndices] = useState<number[]>([]);
+
   // Fetch data
   const { data, isLoading, error } = useQuery<StructuredData | null, Error>({
     queryKey: ['structured-data', dataId],
@@ -300,9 +306,8 @@ const DataTable: React.FC<DataTableProps> = ({ dataId }) => {
     }
   };
 
-  // Use drag and drop for headers with localStorage persistence
+  // Use drag and drop for headers
   const {
-    reorderedItems: reorderedHeaders,
     draggedItem: draggedHeader,
     dragOverItem: dragOverHeader,
     handleDragStart: handleHeaderDragStart,
@@ -310,13 +315,12 @@ const DataTable: React.FC<DataTableProps> = ({ dataId }) => {
     handleDrop: handleHeaderDrop,
     handleDragEnd: handleHeaderDragEnd
   } = useDragAndDrop<string>({ 
-    items: headers,
-    storageKey: `dataTable_${dataId}_columnOrder` // Persist ordering
+    items: reorderedHeaders,
+    onReorder: setReorderedHeaders
   });
 
   // Use drag and drop for rows
   const {
-    reorderedItems: reorderedRowIndices,
     draggedItem: draggedRowIndex,
     dragOverItem: dragOverRowIndex,
     handleDragStart: handleRowDragStart,
@@ -324,7 +328,8 @@ const DataTable: React.FC<DataTableProps> = ({ dataId }) => {
     handleDrop: handleRowDrop,
     handleDragEnd: handleRowDragEnd
   } = useDragAndDrop<number>({ 
-    items: Array.from({ length: rows.length }, (_, i) => i)
+    items: reorderedRowIndices,
+    onReorder: setReorderedRowIndices
   });
 
   // Sort function for the data

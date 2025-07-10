@@ -280,10 +280,10 @@ export function useImportProcess(notificationHandler: ImportNotificationHandler)
           case 'stadium':
             response = await api.sports.updateStadium(entityData.id, entityData);
             break;
-          case 'broadcast':
+          case 'broadcast_rights':
             response = await api.sports.updateBroadcastRights(entityData.id, entityData);
             break;
-          case 'production':
+          case 'production_service':
             response = await api.sports.updateProductionService(entityData.id, entityData);
             break;
           case 'brand':
@@ -319,10 +319,10 @@ export function useImportProcess(notificationHandler: ImportNotificationHandler)
           case 'stadium':
             response = await api.sports.createStadium(entityData);
             break;
-          case 'broadcast':
+          case 'broadcast_rights':
             response = await api.sports.createBroadcastRightsWithErrorHandling(entityData);
             break;
-          case 'production':
+          case 'production_service':
             response = await api.sports.createProductionService(entityData);
             break;
           case 'brand':
@@ -399,7 +399,7 @@ export function useImportProcess(notificationHandler: ImportNotificationHandler)
       }
       
       // If this is a production_service entity, check for duplicates before saving
-      if (entityType === 'production') {
+      if (entityType === 'production_service') {
         const existingService = await checkDuplicateProductionService(processedData);
         
         if (existingService) {
@@ -420,7 +420,7 @@ export function useImportProcess(notificationHandler: ImportNotificationHandler)
       }
       
       // If this is a broadcast entity, check for duplicates before saving
-      if (entityType === 'broadcast') {
+      if (entityType === 'broadcast_rights') {
         const existingRight = await checkDuplicateBroadcastRight(processedData);
         
         if (existingRight) {
@@ -581,7 +581,7 @@ export function useImportProcess(notificationHandler: ImportNotificationHandler)
     }
     
     // Check for duplicates if needed based on entity type
-    if (entityType === 'production') {
+    if (entityType === 'production_service') {
       const existingService = await checkDuplicateProductionService(processedData);
       if (existingService) {
         // Return existing service to indicate it was skipped
@@ -589,7 +589,7 @@ export function useImportProcess(notificationHandler: ImportNotificationHandler)
       }
     }
     
-    if (entityType === 'broadcast') {
+    if (entityType === 'broadcast_rights') {
       const existingRight = await checkDuplicateBroadcastRight(processedData);
       if (existingRight) {
         // Return existing right to indicate it was skipped

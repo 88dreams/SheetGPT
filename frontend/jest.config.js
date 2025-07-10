@@ -13,7 +13,6 @@ export default {
     '^.+\\.tsx?$': ['ts-jest', {
       useESM: true,
       tsconfig: 'tsconfig.test.json',
-      isolatedModules: true // Skip type checking
     }],
   },
   extensionsToTreatAsEsm: ['.ts', '.tsx'],

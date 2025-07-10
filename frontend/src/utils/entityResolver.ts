@@ -1,4 +1,4 @@
-import { EntityType } from '../services/SportsDatabaseService';
+import { EntityType } from '../types/sports';
 import apiClient from './apiClient';
 import { createMemoEqualityFn } from './fingerprint';
 

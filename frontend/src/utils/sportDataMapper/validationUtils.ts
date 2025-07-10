@@ -22,7 +22,7 @@ export const validateEntityData = (
   const errors: string[] = [];
   
   // Common validation for all entities except those that don't require name field
-  if (entityType !== 'broadcast' && entityType !== 'production' && !data.name) {
+  if (entityType !== 'broadcast_rights' && entityType !== 'production_service' && !data.name) {
     errors.push('Name is required');
     console.warn(`${entityType} validation error: Name is required`);
   }
@@ -196,7 +196,7 @@ export const validateEntityData = (
       }
       break;
       
-    case 'broadcast':
+    case 'broadcast_rights':
       // Check required fields
       if (!data.broadcast_company_id) {
         errors.push('Broadcast Company ID or Name is required');

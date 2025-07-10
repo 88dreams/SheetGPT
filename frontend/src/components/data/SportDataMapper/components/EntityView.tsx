@@ -1,7 +1,7 @@
 import React from 'react';
 import { DndProvider } from 'react-dnd';
 import { HTML5Backend } from 'react-dnd-html5-backend';
-import { EntityType } from '../../../../utils/sportDataMapper/entityTypes';
+import { EntityType } from '../../../../types/sports';
 import { 
   EntityTypeSelector, 
   FieldMappingArea, 
@@ -78,10 +78,9 @@ const EntityView: React.FC<EntityViewProps> = ({
           {/* Field Mapping Area */}
           <DndProvider backend={HTML5Backend}>
             <FieldMappingArea
-              selectedEntityType={selectedEntityType}
+              entityType={selectedEntityType}
               sourceFields={sourceFields}
-              sourceFieldValues={sourceFieldValues}
-              mappingsByEntityType={mappingsByEntityType}
+              mappedFields={mappingsByEntityType[selectedEntityType] || {}}
               showFieldHelp={showFieldHelp}
               onFieldMapping={onFieldMapping}
               onRemoveMapping={onRemoveMapping}

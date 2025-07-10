@@ -4,6 +4,7 @@ export interface BaseEntity {
   created_at?: string;
   updated_at?: string;
   deleted_at?: string;
+  [key: string]: any;
 }
 
 export interface Stadium extends BaseEntity {
@@ -175,4 +176,22 @@ export interface EntityChange {
   newValue: string | number | null;
   timestamp: string;
   user?: string;
-} 
+}
+
+export type EntityType = 
+  | 'league'
+  | 'division_conference'
+  | 'team'
+  | 'player'
+  | 'game'
+  | 'stadium'
+  | 'broadcast_rights'
+  | 'production_service'
+  | 'brand'
+  | 'game_broadcast'
+  | 'league_executive'
+  | 'person'
+  | 'production_company'
+  | 'contact'
+  | 'creator'
+  | 'management'; 

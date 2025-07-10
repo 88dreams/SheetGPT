@@ -83,7 +83,6 @@ class UserService:
         )
 
     async def get_user_by_id(self, user_id: UUID) -> Optional[User]:
-        """Get user by ID."""
         query = select(User).where(User.id == user_id)
         result = await self.db.execute(query)
-        return result.scalar_one_or_none() 
+        return result.scalar_one_or_none()

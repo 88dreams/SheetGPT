@@ -28,7 +28,8 @@ import {
 import type { ImportResults } from './utils/batchProcessor';
 
 // Import API services
-import sportsDatabaseService, { EntityType as DbEntityType } from '../../../services/SportsDatabaseService';
+import sportsDatabaseService from '../../../services/SportsDatabaseService';
+import { EntityType as DbEntityType } from '../../../types/sports';
 
 // Define props interface
 interface SportDataMapperProps {

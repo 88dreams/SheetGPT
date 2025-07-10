@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { EntityType } from '../../services/SportsDatabaseService';
+import { EntityType } from '../../types/sports';
 import { FaFilter, FaTimes, FaSearch } from 'react-icons/fa';
 
 export interface FilterConfig {
@@ -55,17 +55,19 @@ const FIELD_OPTIONS: Record<EntityType, { label: string; value: string; type: 's
     { label: 'City', value: 'city', type: 'string' },
     { label: 'Country', value: 'country', type: 'string' },
     { label: 'Capacity', value: 'capacity', type: 'number' },
-    { label: 'Sport', value: 'sport', type: 'string' }
+    { label: 'Sport', value: 'sport', type: 'string' },
+    { label: 'Is Exclusive', value: 'is_exclusive', type: 'boolean' },
+    { label: 'Company', value: 'broadcast_company_id', type: 'string' }
   ],
-  broadcast: [
+  broadcast_rights: [
     { label: 'Name', value: 'name', type: 'string' },
     { label: 'Territory', value: 'territory', type: 'string' },
     { label: 'Start Date', value: 'start_date', type: 'date' },
     { label: 'End Date', value: 'end_date', type: 'date' },
-    { label: 'Is Exclusive', value: 'is_exclusive', type: 'boolean' }
+    { label: 'Is Exclusive', value: 'is_exclusive', type: 'boolean' },
+    { label: 'Company', value: 'broadcast_company_id', type: 'string' }
   ],
-  production: [
-    { label: 'Name', value: 'name', type: 'string' },
+  production_service: [
     { label: 'Service Type', value: 'service_type', type: 'string' },
     { label: 'Start Date', value: 'start_date', type: 'date' },
     { label: 'End Date', value: 'end_date', type: 'date' }
@@ -84,7 +86,12 @@ const FIELD_OPTIONS: Record<EntityType, { label: string; value: string; type: 's
     { label: 'Position', value: 'position', type: 'string' },
     { label: 'Start Date', value: 'start_date', type: 'date' },
     { label: 'End Date', value: 'end_date', type: 'date' }
-  ]
+  ],
+  contact: [{ label: 'Last Name', value: 'last_name', type: 'string' }],
+  creator: [{ label: 'Genre', value: 'genre', type: 'string' }],
+  management: [{ label: 'Industry', value: 'industry', type: 'string' }],
+  person: [{ label: 'Last Name', value: 'last_name', type: 'string' }],
+  production_company: [{ label: 'Name', value: 'name', type: 'string' }],
 };
 
 // Operator options by field type
@@ -232,6 +239,8 @@ const EntityFilter: React.FC<EntityFilterProps> = ({
     }
   };
 
+  const selectedFilters = FIELD_OPTIONS[entityType] || [];
+
   return (
     <div className="mb-4">
       <div className="flex justify-between items-center mb-2">
@@ -301,7 +310,7 @@ const EntityFilter: React.FC<EntityFilterProps> = ({
                 onChange={(e) => setNewFilter({ field: e.target.value })}
               >
                 <option value="">Select field</option>
-                {FIELD_OPTIONS[entityType].map((field) => (
+                {selectedFilters.map((field) => (
                   <option key={field.value} value={field.value}>
                     {field.label}
                   </option>

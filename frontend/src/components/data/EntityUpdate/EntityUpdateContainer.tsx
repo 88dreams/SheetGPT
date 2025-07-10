@@ -14,8 +14,8 @@ const SUPPORTED_ENTITY_TYPES: EntityType[] = [
   'league', 
   'team', 
   'division_conference',
-  'broadcast',
-  'production',
+  'broadcast_rights',
+  'production_service',
   'brand'
 ];
 
@@ -38,9 +38,9 @@ export const EntityUpdateContainer: React.FC = () => {
     } else if ('league_id' in entity && 'type' in entity) {
       return 'division_conference';
     } else if ('broadcast_company_id' in entity && 'entity_type' in entity) {
-      return 'broadcast';
+      return 'broadcast_rights';
     } else if ('production_company_id' in entity && 'entity_type' in entity) {
-      return 'production';
+      return 'production_service';
     } else if ('industry' in entity) {
       return 'brand';
     }

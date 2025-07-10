@@ -25,7 +25,8 @@ import {
 } from '../components';
 
 // Import API services
-import sportsDatabaseService, { EntityType as DbEntityType } from '../../../../services/SportsDatabaseService';
+import sportsDatabaseService from '../../../../services/SportsDatabaseService';
+import { EntityType } from '../../../../types/sports';
 
 // Define props interface
 interface SportDataMapperV2Props {
@@ -73,11 +74,11 @@ const SportDataMapperV2: React.FC<SportDataMapperV2Props> = ({
       try {
         // Fetch league and stadium counts
         const leagueResponse = await sportsDatabaseService.getEntities({ 
-          entityType: 'league' as unknown as DbEntityType,
+          entityType: 'league' as unknown as EntityType,
           limit: 1
         });
         const stadiumResponse = await sportsDatabaseService.getEntities({ 
-          entityType: 'stadium' as unknown as DbEntityType,
+          entityType: 'stadium' as unknown as EntityType,
           limit: 1
         });
         

@@ -61,13 +61,13 @@ export const QuickEditForm: React.FC<QuickEditFormProps> = ({
       {entityType === 'stadium' && <StadiumFields entity={entity as Stadium} onChange={handleFieldChange} isEditing={isEditing} />}
       {entityType === 'league' && <LeagueFields entity={entity as League} onChange={handleFieldChange} isEditing={isEditing} />}
       {entityType === 'division_conference' && <DivisionConferenceFields entity={entity as DivisionConference} onChange={handleFieldChange} isEditing={isEditing} />}
-      {entityType === 'broadcast' && <BroadcastFields entity={entity as BroadcastRights} onChange={handleFieldChange} isEditing={isEditing} />}
-      {entityType === 'production' && <ProductionFields entity={entity as ProductionService} onChange={handleFieldChange} isEditing={isEditing} />}
+      {entityType === 'broadcast_rights' && <BroadcastFields entity={entity as BroadcastRights} onChange={handleFieldChange} isEditing={isEditing} />}
+      {entityType === 'production_service' && <ProductionFields entity={entity as ProductionService} onChange={handleFieldChange} isEditing={isEditing} />}
       {entityType === 'brand' && <BrandFields entity={entity as Brand} onChange={handleFieldChange} isEditing={isEditing} />}
       {entityType === 'player' && <PlayerFields entity={entity as Player} onChange={handleFieldChange} isEditing={isEditing} />}
       
       {/* Generic fallback for other entity types */}
-      {!['team', 'stadium', 'league', 'division_conference', 'broadcast', 'production', 'brand', 'player'].includes(entityType) &&
+      {!['team', 'stadium', 'league', 'division_conference', 'broadcast_rights', 'production_service', 'brand', 'player'].includes(entityType) &&
         renderGenericFields()
       }
     </Form>

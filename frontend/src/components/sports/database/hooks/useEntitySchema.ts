@@ -1,5 +1,5 @@
 import { useCallback } from 'react';
-import { EntityType } from '../../../../services/SportsDatabaseService';
+import { EntityType } from '../../../../types/sports';
 import { EntityField } from '../SportsDatabaseContext';
 
 export function useEntitySchema() {
@@ -113,7 +113,7 @@ export function useEntitySchema() {
           );
           break;
 
-        case 'broadcast':
+        case 'broadcast_rights':
           fields.push(
             { name: 'broadcast_company_id', required: true, type: 'string', description: 'ID of the broadcasting company' },
             { name: 'broadcast_company_name', required: true, type: 'string', description: 'Name of the broadcasting company' },

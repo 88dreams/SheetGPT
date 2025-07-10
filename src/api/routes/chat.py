@@ -29,12 +29,12 @@ async def create_conversation(
 ) -> ConversationListItem:
     """Create a new conversation."""
     chat_service = ChatService(db)
-    conversation = await chat_service.create_conversation(
+    new_conversation = await chat_service.create_conversation(
         user_id=current_user_id,
         title=conversation.title,
         description=conversation.description
     )
-    return ConversationListItem.model_validate(conversation)
+    return ConversationListItem.model_validate(new_conversation)
 
 @router.get("/conversations", response_model=ConversationList)
 async def list_conversations(
@@ -182,7 +182,7 @@ async def create_message(
         print(f"HTTPException during pre-stream setup: {str(he.detail)}")
         raise he
     except Exception as e:
-        print(f"Unexpected error in create_message before streaming: {str(e)}", exc_info=True)
+        print(f"Unexpected error in create_message before streaming: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Server error before initiating chat stream: {str(e)}"
@@ -315,7 +315,6 @@ async def update_conversation_orders(
         # Convert to the format expected by the service
         order_data = [{"id": item.id, "order": item.order} for item in conversation_orders]
         
-        # Update the orders
         updated_conversations = await chat_service.update_multiple_conversation_orders(
             user_id=current_user_id,
             conversation_orders=order_data

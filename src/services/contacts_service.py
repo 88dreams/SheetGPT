@@ -174,8 +174,8 @@ class ContactsService:
                 ContactBrandAssociation.brand_id == brand_id
             )
         
-        # Get total count before pagination
-        count_query = select(func.count()).select_from(query.subquery())
+        # Get total count before pagination, ensuring distinct contacts are counted
+        count_query = select(func.count(Contact.id.distinct())).select_from(query.subquery())
         total_count = await self.db.execute(count_query)
         total_count = total_count.scalar()
         
@@ -201,7 +201,7 @@ class ContactsService:
         result = await self.db.execute(query)
         contacts = result.scalars().all()
         
-        return contacts, total_count
+        return list(contacts), total_count or 0
     
     async def associate_with_brand(
         self, 
@@ -1207,13 +1207,13 @@ class ContactsService:
         contact_for_row: Optional[Contact] = None
         
         # Extract data using known contact field keys (as mapped by frontend)
-        first_name = contact_payload.get("first_name", "").strip()
-        last_name = contact_payload.get("last_name", "").strip()
-        email = contact_payload.get("email", "").strip()
-        company = contact_payload.get("company", "").strip()
-        position = contact_payload.get("position", "").strip()
-        linkedin_url = contact_payload.get("linkedin_url", "").strip()
-        connected_on_str = contact_payload.get("connected_on", "").strip()
+        first_name = (contact_payload.get("first_name") or "").strip()
+        last_name = (contact_payload.get("last_name") or "").strip()
+        email = (contact_payload.get("email") or "").strip()
+        company = (contact_payload.get("company") or "").strip()
+        position = (contact_payload.get("position") or "").strip()
+        linkedin_url = (contact_payload.get("linkedin_url") or "").strip()
+        connected_on_str = (contact_payload.get("connected_on") or "").strip()
         notes = contact_payload.get("notes") # Notes are not stripped
 
         if not first_name or not last_name:

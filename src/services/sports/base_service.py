@@ -1,6 +1,6 @@
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.exc import SQLAlchemyError
-from typing import List, Optional, Dict, Any, Type, Generic, TypeVar, Union, cast
+from typing import List, Optional, Dict, Any, Type, Generic, TypeVar, Union, cast, Protocol
 from uuid import UUID
 import logging
 from sqlalchemy import select, delete, update, func, or_
@@ -14,16 +14,22 @@ from src.utils.errors import (
     handle_database_errors
 )
 from src.services.sports.utils import normalize_entity_type
+from src.models.base import TimestampedBase
 
 logger = logging.getLogger(__name__)
 
-# Generic type for model classes
-T = TypeVar('T')
+class NameIdNicknameModel(Protocol):
+    id: Any
+    name: Any
+    nickname: Any
 
-class BaseEntityService(Generic[T]):
+# Generic type for model classes, bound to a base with common attributes
+ModelType = TypeVar('ModelType', bound=NameIdNicknameModel)
+
+class BaseEntityService(Generic[ModelType]):
     """Base service for common CRUD operations on sports entities."""
     
-    def __init__(self, model_class: Type[T]):
+    def __init__(self, model_class: Type[ModelType]):
         """Initialize with the model class this service handles."""
         self.model_class = model_class
         self.entity_type = self._get_entity_type_from_model()
@@ -123,7 +129,8 @@ class BaseEntityService(Generic[T]):
         else:
             # Default to sorting by id if the requested column doesn't exist
             logger.warning(f"Sort column '{sort_by}' does not exist on {self.entity_type}, using default 'id'")
-            query = query.order_by(self.model_class.id.asc())
+            if hasattr(self.model_class, 'id'):
+                query = query.order_by(self.model_class.id.asc())
                 
         # Add pagination
         query = query.offset((page - 1) * limit).limit(limit)
@@ -140,7 +147,7 @@ class BaseEntityService(Generic[T]):
         }
     
     @handle_database_errors
-    async def get_entity(self, db: AsyncSession, entity_id: UUID, raise_not_found: bool = True) -> Optional[T]:
+    async def get_entity(self, db: AsyncSession, entity_id: UUID, raise_not_found: bool = True) -> Optional[ModelType]:
         """
         Get a specific entity by ID.
         
@@ -155,17 +162,19 @@ class BaseEntityService(Generic[T]):
         Raises:
             EntityNotFoundError: If entity doesn't exist and raise_not_found is True
         """
-        result = await db.execute(select(self.model_class).where(self.model_class.id == entity_id))
-        entity = result.scalars().first()
-        
-        if entity is None and raise_not_found:
-            # Use standardized entity not found error
-            raise EntityNotFoundError(entity_type=self.entity_type, entity_id=str(entity_id))
+        if hasattr(self.model_class, 'id'):
+            result = await db.execute(select(self.model_class).where(self.model_class.id == entity_id))
+            entity = result.scalars().first()
             
-        return entity
+            if entity is None and raise_not_found:
+                # Use standardized entity not found error
+                raise EntityNotFoundError(entity_type=self.entity_type, entity_id=str(entity_id))
+                
+            return entity
+        return None
     
     @handle_database_errors
-    async def get_entity_by_name(self, db: AsyncSession, name: str, raise_not_found: bool = True) -> Optional[T]:
+    async def get_entity_by_name(self, db: AsyncSession, name: str, raise_not_found: bool = True) -> Optional[ModelType]:
         """
         Get an entity by name (case-insensitive), checking nickname if available.
         
@@ -190,7 +199,10 @@ class BaseEntityService(Generic[T]):
         search_term_lower = name.lower()
         logger.debug(f"[BaseEntityService.get_entity_by_name] Lowercased search term: '{search_term_lower}'")
 
-        conditions = [func.lower(self.model_class.name) == search_term_lower]
+        conditions = []
+        if hasattr(self.model_class, 'name'):
+            conditions.append(func.lower(self.model_class.name) == search_term_lower)
+        
         logger.debug(f"[BaseEntityService.get_entity_by_name] Initial condition: name == '{search_term_lower}'")
 
         if hasattr(self.model_class, 'nickname'):
@@ -223,7 +235,7 @@ class BaseEntityService(Generic[T]):
         return entity
         
     @handle_database_errors
-    async def find_entity(self, db: AsyncSession, search_term: str, raise_not_found: bool = False) -> Optional[T]:
+    async def find_entity(self, db: AsyncSession, search_term: str, raise_not_found: bool = False) -> Optional[ModelType]:
         """
         Find an entity by partial name/nickname match or exact ID match.
         
@@ -305,7 +317,7 @@ class BaseEntityService(Generic[T]):
     @handle_database_errors
     async def create_entity(self, db: AsyncSession, data: Dict[str, Any], 
                            validate_fields: bool = True,
-                           update_if_exists: bool = False) -> T:
+                           update_if_exists: bool = False) -> Optional[ModelType]:
         """
         Create a new entity or update if it exists.
         
@@ -347,7 +359,7 @@ class BaseEntityService(Generic[T]):
     
     @handle_database_errors
     async def update_entity(self, db: AsyncSession, entity_id: UUID, data: Dict[str, Any], 
-                           validate_fields: bool = True) -> T:
+                           validate_fields: bool = True) -> Optional[ModelType]:
         """
         Update an entity.
         
@@ -408,7 +420,7 @@ class BaseEntityService(Generic[T]):
     @handle_database_errors
     async def bulk_create(self, db: AsyncSession, entities_data: List[Dict[str, Any]],
                          validate_fields: bool = True,
-                         update_if_exists: bool = False) -> List[T]:
+                         update_if_exists: bool = False) -> List[ModelType]:
         """
         Create multiple entities at once.
         
@@ -453,17 +465,19 @@ class BaseEntityService(Generic[T]):
             raise ValidationError(f"Fields {invalid_fields} do not exist on {self.entity_type} model")
         
         # Use SQLAlchemy update statement for efficiency
-        stmt = update(self.model_class).where(
-            self.model_class.id.in_(entity_ids)
-        ).values(**common_data)
-        
-        result = await db.execute(stmt)
-        await db.commit()
-        
-        return result.rowcount
+        if hasattr(self.model_class, 'id'):
+            stmt = update(self.model_class).where(
+                self.model_class.id.in_(entity_ids)
+            ).values(**common_data)
+            
+            result = await db.execute(stmt)
+            await db.commit()
+            
+            return result.rowcount
+        return 0
 
     @handle_database_errors
-    async def get_all_models(self, db: AsyncSession, filters: Optional[Dict[str, Any]] = None) -> List[T]:
+    async def get_all_models(self, db: AsyncSession, filters: Optional[Dict[str, Any]] = None) -> List[ModelType]:
         """
         Get all entity model instances, with optional filtering.
         
@@ -488,4 +502,4 @@ class BaseEntityService(Generic[T]):
             query = query.order_by(self.model_class.id.asc())
             
         result = await db.execute(query)
-        return result.scalars().all()
+        return list(result.scalars().all())

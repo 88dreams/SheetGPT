@@ -40,6 +40,7 @@ from src.utils.errors import (
 )
 from src.services.sports.league_service import LeagueService
 from src.services.sports.utils import normalize_entity_type
+from src.services.sports.game_service import GameService
 
 router = APIRouter()
 sports_service = SportsService()
@@ -601,7 +602,8 @@ async def get_players(
     current_user: Dict = Depends(get_current_user)
 ):
     """Get all players, optionally filtered by team."""
-    players_from_db = await sports_service.get_players(db, team_id)
+    player_service = PlayerService()
+    players_from_db = await player_service.get_players(db, team_id)
     response_players = []
     for player in players_from_db:
         player_data = player.__dict__ # Convert SQLAlchemy model to dict
@@ -677,7 +679,8 @@ async def get_games(
     current_user: Dict = Depends(get_current_user)
 ):
     """Get all games, optionally filtered by league, team, or season."""
-    return await sports_service.get_games(db, league_id, team_id, season_year)
+    game_service = GameService()
+    return await game_service.get_games(db, league_id, team_id, season_year)
 
 @router.post("/games", response_model=GameResponse, status_code=status.HTTP_201_CREATED)
 async def create_game(
@@ -686,7 +689,8 @@ async def create_game(
     current_user: Dict = Depends(get_current_user)
 ):
     """Create a new game."""
-    return await sports_service.create_game(db, game)
+    game_service = GameService()
+    return await game_service.create_game(db, game)
 
 @router.get("/games/{game_id}", response_model=GameResponse)
 async def get_game(
@@ -695,7 +699,8 @@ async def get_game(
     current_user: Dict = Depends(get_current_user)
 ):
     """Get a specific game by ID."""
-    game = await sports_service.get_game(db, game_id)
+    game_service = GameService()
+    game = await game_service.get_game(db, game_id)
     if not game:
         raise HTTPException(status_code=404, detail="Game not found")
     return game
@@ -708,7 +713,8 @@ async def update_game(
     current_user: Dict = Depends(get_current_user)
 ):
     """Update a specific game."""
-    game = await sports_service.update_game(db, game_id, game_update)
+    game_service = GameService()
+    game = await game_service.update_game(db, game_id, game_update)
     if not game:
         raise HTTPException(status_code=404, detail="Game not found")
     return game
@@ -720,7 +726,8 @@ async def delete_game(
     current_user: Dict = Depends(get_current_user)
 ):
     """Delete a specific game."""
-    success = await sports_service.delete_game(db, game_id)
+    game_service = GameService()
+    success = await game_service.delete_game(db, game_id)
     if not success:
         raise HTTPException(status_code=404, detail="Game not found")
     return None

@@ -29,7 +29,7 @@ class BrandService(BaseEntityService[Brand]):
             query = query.where(Brand.company_type == company_type)
             
         result = await db.execute(query)
-        return result.scalars().all()
+        return list(result.scalars().all())
     
     async def create_brand(self, db: AsyncSession, brand: Union[BrandCreate, Dict[str, Any]]) -> Brand:
         """Create a new brand or update if it already exists."""

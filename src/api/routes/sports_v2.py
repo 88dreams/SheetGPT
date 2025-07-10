@@ -3,6 +3,7 @@ from typing import Dict, List, Any, Optional, Union
 from uuid import UUID
 from sqlalchemy.ext.asyncio import AsyncSession
 from pydantic import ValidationError, BaseModel
+import json
 
 from src.utils.database import get_db
 from src.utils.auth import get_current_user
@@ -157,14 +158,24 @@ async def resolve_references(
         try:
             entity_type = ref_data.get("type", key)
             name = ref_data.get("name")
-            context = ref_data.get("context", {})
+            context = ref_data.get("context")
             
             if not name:
                 errors[key] = {"error": "Missing name field"}
                 continue
-                
+            
+            parsed_context = None
+            if isinstance(context, str):
+                try:
+                    parsed_context = json.loads(context)
+                except json.JSONDecodeError:
+                    errors[key] = {"error": "Invalid context JSON"}
+                    continue
+            elif isinstance(context, dict):
+                parsed_context = context
+
             entity_id = await sports_facade.resolve_entity_reference(
-                db, entity_type, name, context
+                db, entity_type, name, parsed_context
             )
             
             result[key] = str(entity_id)

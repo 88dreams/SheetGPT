@@ -26,7 +26,7 @@ class DivisionConferenceService(BaseEntityService[DivisionConference]):
             query = query.where(DivisionConference.league_id == league_id)
             
         result = await db.execute(query)
-        return result.scalars().all()
+        return list(result.scalars().all())
     
     async def create_division_conference(self, db: AsyncSession, division_conference: DivisionConferenceCreate) -> DivisionConference:
         """Create new division/conference or update if it already exists."""

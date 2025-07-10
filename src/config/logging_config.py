@@ -96,9 +96,10 @@ if ENVIRONMENT == "production":
             
             # Add exception info if present
             if record.exc_info:
+                exc_type, exc_value, exc_traceback = record.exc_info
                 log_data["exception"] = {
-                    "type": record.exc_info[0].__name__,
-                    "message": str(record.exc_info[1]),
+                    "type": exc_type.__name__ if exc_type else "UnknownException",
+                    "message": str(exc_value),
                     "traceback": self.formatException(record.exc_info)
                 }
                 

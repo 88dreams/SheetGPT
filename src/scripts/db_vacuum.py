@@ -16,6 +16,7 @@ import os
 import time
 from datetime import datetime
 from typing import Dict, Any, List
+from uuid import UUID
 
 # Add the project root to the Python path
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
@@ -51,8 +52,12 @@ class DatabaseVacuumService:
         
         # Get database size before vacuum
         before_size = await self._get_database_size()
-        self.stats["total_size_before"] = before_size["total_size"]
-        print(f"Database size before maintenance: {before_size['size_pretty']}")
+        if before_size:
+            self.stats["total_size_before"] = before_size.get("total_size", 0)
+            print(f"Database size before maintenance: {before_size.get('size_pretty', 'N/A')}")
+        else:
+            self.stats["total_size_before"] = 0
+            print("Could not determine database size before maintenance.")
         
         # Run table maintenance operations
         await self._print_table_stats()
@@ -73,8 +78,12 @@ class DatabaseVacuumService:
         
         # Get database size after vacuum
         after_size = await self._get_database_size()
-        self.stats["total_size_after"] = after_size["total_size"]
-        print(f"Database size after maintenance: {after_size['size_pretty']}")
+        if after_size:
+            self.stats["total_size_after"] = after_size.get("total_size", 0)
+            print(f"Database size after maintenance: {after_size.get('size_pretty', 'N/A')}")
+        else:
+            self.stats["total_size_after"] = self.stats["total_size_before"] # Assume no change if size can't be fetched
+            print("Could not determine database size after maintenance.")
         
         # Calculate space saved
         bytes_saved = self.stats["total_size_before"] - self.stats["total_size_after"]
@@ -128,8 +137,8 @@ class DatabaseVacuumService:
         size_data = result.fetchone()
         
         return {
-            "total_size": size_data.total_size,
-            "size_pretty": size_data.size_pretty
+            "total_size": size_data.total_size if size_data else 0,
+            "size_pretty": size_data.size_pretty if size_data else "N/A"
         }
     
     async def _print_table_stats(self):

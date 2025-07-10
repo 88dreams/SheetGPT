@@ -2,11 +2,14 @@ from datetime import datetime, date
 from sqlalchemy import String, Boolean, ForeignKey, JSON, Text, Integer, Date, DateTime, Time, Numeric, Float, Enum, UniqueConstraint, Index
 from sqlalchemy.dialects.postgresql import UUID as SQLUUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
-from typing import Optional, List
+from typing import Optional, List, TYPE_CHECKING
 from uuid import UUID, uuid4
 import enum
 
 from src.models.base import TimestampedBase
+
+if TYPE_CHECKING:
+    from src.models.models import User
 
 class League(TimestampedBase):
     """Model for sports leagues."""
@@ -41,11 +44,11 @@ class League(TimestampedBase):
         String(100),
         nullable=False
     )
-    broadcast_start_date: Mapped[Optional[datetime.date]] = mapped_column(
+    broadcast_start_date: Mapped[Optional[date]] = mapped_column(
         Date,
         nullable=True
     )
-    broadcast_end_date: Mapped[Optional[datetime.date]] = mapped_column(
+    broadcast_end_date: Mapped[Optional[date]] = mapped_column(
         Date,
         nullable=True
     )
@@ -447,11 +450,11 @@ class BroadcastRights(TimestampedBase):
         String(100),
         nullable=False
     )
-    start_date: Mapped[datetime.date] = mapped_column(
+    start_date: Mapped[date] = mapped_column(
         Date,
         nullable=False
     )
-    end_date: Mapped[datetime.date] = mapped_column(
+    end_date: Mapped[date] = mapped_column(
         Date,
         nullable=False
     )
@@ -460,6 +463,8 @@ class BroadcastRights(TimestampedBase):
         default=False,
         nullable=False
     )
+    name: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    nickname: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
 
     # Relationships
     broadcaster: Mapped["Brand"] = relationship(
@@ -502,11 +507,11 @@ class ProductionService(TimestampedBase):
         String(100),
         nullable=False
     )
-    start_date: Mapped[datetime.date] = mapped_column(
+    start_date: Mapped[date] = mapped_column(
         Date,
         nullable=False
     )
-    end_date: Mapped[datetime.date] = mapped_column(
+    end_date: Mapped[date] = mapped_column(
         Date,
         nullable=False
     )
@@ -547,6 +552,11 @@ class Brand(TimestampedBase):
     name: Mapped[str] = mapped_column(
         String(100),
         nullable=False,
+        index=True
+    )
+    nickname: Mapped[Optional[str]] = mapped_column(
+        String(50),
+        nullable=True,
         index=True
     )
     industry: Mapped[str] = mapped_column(
@@ -667,7 +677,7 @@ class TeamOwnership(TimestampedBase):
         Numeric(5, 2),
         nullable=True
     )
-    acquisition_date: Mapped[Optional[datetime.date]] = mapped_column(
+    acquisition_date: Mapped[Optional[date]] = mapped_column(
         Date,
         nullable=True
     )
@@ -701,11 +711,11 @@ class LeagueExecutive(TimestampedBase):
         String(100),
         nullable=False
     )
-    start_date: Mapped[Optional[datetime.date]] = mapped_column(
+    start_date: Mapped[Optional[date]] = mapped_column(
         Date,
         nullable=True
     )
-    end_date: Mapped[Optional[datetime.date]] = mapped_column(
+    end_date: Mapped[Optional[date]] = mapped_column(
         Date,
         nullable=True
     )
@@ -819,7 +829,7 @@ class Contact(TimestampedBase):
         String(100),
         nullable=True
     )
-    connected_on: Mapped[Optional[datetime.date]] = mapped_column(
+    connected_on: Mapped[Optional[date]] = mapped_column(
         Date,
         nullable=True
     )
@@ -882,11 +892,11 @@ class ContactBrandAssociation(TimestampedBase):
         nullable=False,
         default="employed_at"
     )
-    start_date: Mapped[Optional[datetime.date]] = mapped_column(
+    start_date: Mapped[Optional[date]] = mapped_column(
         Date,
         nullable=True
     )
-    end_date: Mapped[Optional[datetime.date]] = mapped_column(
+    end_date: Mapped[Optional[date]] = mapped_column(
         Date,
         nullable=True
     )

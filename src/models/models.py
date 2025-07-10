@@ -1,12 +1,15 @@
 from datetime import datetime
 from sqlalchemy import String, Boolean, ForeignKey, JSON, Text, Integer
 from sqlalchemy.orm import Mapped, mapped_column, relationship
-from typing import Optional, List
+from typing import Optional, List, TYPE_CHECKING
 from uuid import UUID, uuid4
 from sqlalchemy.dialects import postgresql
 import sqlalchemy as sa
 
 from src.models.base import TimestampedBase
+
+if TYPE_CHECKING:
+    from src.models.sports_models import Contact
 
 class User(TimestampedBase):
     """User model for authentication and tracking."""

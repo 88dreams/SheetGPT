@@ -57,7 +57,9 @@ def run_alembic_command(cmd, **kwargs):
             command.revision(alembic_cfg, message=message, autogenerate=autogenerate)
         elif cmd == 'merge':
             message = kwargs.get('message', '')
-            revisions = kwargs.get('revisions', None)
+            revisions = kwargs.get('revisions')
+            if not revisions:
+                raise ValueError("The 'merge' command requires at least one revision ID.")
             command.merge(alembic_cfg, message=message, revisions=revisions)
         elif cmd == 'stamp':
             revision = kwargs.get('revision', 'head')
@@ -80,7 +82,7 @@ if __name__ == "__main__":
     parser.add_argument('--revision', help='Revision identifier for upgrade/downgrade/stamp commands')
     parser.add_argument('--message', help='Message for revision or merge command')
     parser.add_argument('--autogenerate', action='store_true', help='Autogenerate migrations')
-    parser.add_argument('--revisions', nargs='+', help='Revisions to merge (for merge command)')
+    parser.add_argument('--revisions', nargs='+', help='Revisions to merge (for merge command)', required=False)
     parser.add_argument('--sql', action='store_true', help='Don\'t emit SQL to database (for stamp command)')
     parser.add_argument('--tag', help='Arbitrary tag name (for stamp command)')
     

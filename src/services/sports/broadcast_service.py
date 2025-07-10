@@ -63,7 +63,7 @@ class BroadcastCompanyService(BaseEntityService[Brand]):
         )
     
     @handle_database_errors
-    async def create_broadcast_company(self, db: AsyncSession, company_data: Union[BroadcastCompanyCreate, Dict[str, Any]]) -> Brand:
+    async def create_broadcast_company(self, db: AsyncSession, company_data: Union[BroadcastCompanyCreate, Dict[str, Any]]) -> Optional[Brand]:
         """
         Create a new broadcast company brand or update if it already exists.
         
@@ -75,8 +75,8 @@ class BroadcastCompanyService(BaseEntityService[Brand]):
             The created or updated brand
         """
         # Convert to dict if it's a Pydantic model
-        if hasattr(company_data, "dict"):
-            data = company_data.dict(exclude_unset=True)
+        if isinstance(company_data, BroadcastCompanyCreate):
+            data = company_data.model_dump(exclude_unset=True)
         else:
             data = company_data
         
@@ -90,7 +90,7 @@ class BroadcastCompanyService(BaseEntityService[Brand]):
         return await super().create_entity(db, data, update_if_exists=True)
     
     @handle_database_errors
-    async def get_broadcast_company(self, db: AsyncSession, company_id: UUID) -> Brand:
+    async def get_broadcast_company(self, db: AsyncSession, company_id: UUID) -> Optional[Brand]:
         """
         Get a broadcast company by ID.
         
@@ -107,7 +107,7 @@ class BroadcastCompanyService(BaseEntityService[Brand]):
         return await super().get_entity(db, company_id)
     
     @handle_database_errors
-    async def get_broadcast_company_by_name(self, db: AsyncSession, name: str) -> Brand:
+    async def get_broadcast_company_by_name(self, db: AsyncSession, name: str) -> Optional[Brand]:
         """
         Get a broadcast company by name (case-insensitive).
         
@@ -171,7 +171,7 @@ class BroadcastCompanyService(BaseEntityService[Brand]):
         return None
     
     @handle_database_errors
-    async def update_broadcast_company(self, db: AsyncSession, company_id: UUID, company_update: Union[BroadcastCompanyUpdate, Dict[str, Any]]) -> Brand:
+    async def update_broadcast_company(self, db: AsyncSession, company_id: UUID, company_update: Union[BroadcastCompanyUpdate, Dict[str, Any]]) -> Optional[Brand]:
         """
         Update a broadcast company.
         
@@ -187,8 +187,8 @@ class BroadcastCompanyService(BaseEntityService[Brand]):
             EntityNotFoundError: If brand doesn't exist
         """
         # Convert to dict if it's a Pydantic model
-        if hasattr(company_update, "dict"):
-            update_data = company_update.dict(exclude_unset=True)
+        if isinstance(company_update, BroadcastCompanyUpdate):
+            update_data = company_update.model_dump(exclude_unset=True)
         else:
             update_data = company_update
             
@@ -271,7 +271,7 @@ class BroadcastRightsService(BaseEntityService[BroadcastRights]):
     
     @handle_database_errors
     async def create_broadcast_rights(self, db: AsyncSession, 
-                                     rights_data: Union[BroadcastRightsCreate, Dict[str, Any]]) -> BroadcastRights:
+                                     rights_data: Union[BroadcastRightsCreate, Dict[str, Any]]) -> Optional[BroadcastRights]:
         """
         Create new broadcast rights.
         
@@ -286,26 +286,32 @@ class BroadcastRightsService(BaseEntityService[BroadcastRights]):
             ValidationError: If validation fails
         """
         # Convert to dict if it's a Pydantic model
-        if hasattr(rights_data, "dict"):
-            data = rights_data.dict()
+        if isinstance(rights_data, BroadcastRightsCreate):
+            data = rights_data.model_dump()
         else:
             data = rights_data
             
         # Validate broadcast company exists (now a Brand)
-        await EntityValidator.validate_broadcast_company(db, data["broadcast_company_id"])
+        broadcast_company_id = data.get("broadcast_company_id")
+        if broadcast_company_id:
+            await EntityValidator.validate_broadcast_company(db, broadcast_company_id)
         
         # Validate division/conference if provided
-        if data.get("division_conference_id"):
-            await EntityValidator.validate_division_conference(db, data["division_conference_id"])
+        division_conference_id = data.get("division_conference_id")
+        if division_conference_id:
+            await EntityValidator.validate_division_conference(db, division_conference_id)
         
         # Validate that the entity exists
-        await EntityValidator.validate_entity_type_and_id(db, data["entity_type"], data["entity_id"])
+        entity_type = data.get("entity_type")
+        entity_id = data.get("entity_id")
+        if entity_type and entity_id:
+            await EntityValidator.validate_entity_type_and_id(db, entity_type, entity_id)
         
         # Use the enhanced create_entity method
         return await super().create_entity(db, data)
     
     @handle_database_errors
-    async def get_broadcast_right(self, db: AsyncSession, rights_id: UUID) -> BroadcastRights:
+    async def get_broadcast_right(self, db: AsyncSession, rights_id: UUID) -> Optional[BroadcastRights]:
         """
         Get broadcast rights by ID.
         
@@ -324,7 +330,7 @@ class BroadcastRightsService(BaseEntityService[BroadcastRights]):
     @handle_database_errors
     async def update_broadcast_rights(self, db: AsyncSession, 
                                      rights_id: UUID, 
-                                     rights_update: Union[BroadcastRightsUpdate, Dict[str, Any]]) -> BroadcastRights:
+                                     rights_update: Union[BroadcastRightsUpdate, Dict[str, Any]]) -> Optional[BroadcastRights]:
         """
         Update broadcast rights.
         
@@ -344,22 +350,32 @@ class BroadcastRightsService(BaseEntityService[BroadcastRights]):
         db_rights = await self.get_entity(db, rights_id)
         
         # Convert to dict if it's a Pydantic model
-        if hasattr(rights_update, "dict"):
-            update_data = rights_update.dict(exclude_unset=True)
+        if isinstance(rights_update, BroadcastRightsUpdate):
+            update_data = rights_update.model_dump(exclude_unset=True)
         else:
             update_data = rights_update
         
         # Perform validations for updated fields
         if 'broadcast_company_id' in update_data:
-            await EntityValidator.validate_broadcast_company(db, update_data['broadcast_company_id'])
+            broadcast_company_id = update_data.get('broadcast_company_id')
+            if broadcast_company_id:
+                await EntityValidator.validate_broadcast_company(db, broadcast_company_id)
             
-        if 'division_conference_id' in update_data and update_data['division_conference_id'] is not None:
-            await EntityValidator.validate_division_conference(db, update_data['division_conference_id'])
+        if 'division_conference_id' in update_data and update_data.get('division_conference_id') is not None:
+            division_conference_id = update_data.get('division_conference_id')
+            if division_conference_id:
+                await EntityValidator.validate_division_conference(db, division_conference_id)
             
         if 'entity_type' in update_data and 'entity_id' in update_data:
-            await EntityValidator.validate_entity_type_and_id(db, update_data['entity_type'], update_data['entity_id'])
+            entity_type = update_data.get('entity_type')
+            entity_id = update_data.get('entity_id')
+            if entity_type and entity_id:
+                await EntityValidator.validate_entity_type_and_id(db, entity_type, entity_id)
         elif 'entity_id' in update_data:
-            await EntityValidator.validate_entity_type_and_id(db, db_rights.entity_type, update_data['entity_id'])
+            entity_type = db_rights.entity_type if db_rights else None
+            entity_id = update_data.get('entity_id')
+            if entity_type and entity_id:
+                await EntityValidator.validate_entity_type_and_id(db, entity_type, entity_id)
         
         # Use the enhanced update_entity method
         return await super().update_entity(db, rights_id, update_data)

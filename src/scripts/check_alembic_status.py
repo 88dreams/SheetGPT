@@ -1,17 +1,16 @@
 import os
 import sys
 from pathlib import Path
+import types
 
 # Add the project root to the Python path
 sys.path.append(str(Path(__file__).parent.parent.parent))
 
-# Create mock sports models to prevent circular dependency issues
-class MockSportsModels:
-    def __getattr__(self, name):
-        return None
+# Create a mock module to prevent circular dependency issues
+mock_sports_models = types.ModuleType("sports_models")
 
 # Temporarily modify sys.modules to prevent sports_models from being imported
-sys.modules['src.models.sports_models'] = MockSportsModels()
+sys.modules['src.models.sports_models'] = mock_sports_models
 
 # Import alembic components
 from alembic.config import Config

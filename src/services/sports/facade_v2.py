@@ -35,10 +35,27 @@ from src.services.sports.league_executive_service import LeagueExecutiveService
 from src.services.sports.division_conference_service import DivisionConferenceService
 
 from src.services.sports.utils import normalize_entity_type, get_model_for_entity_type
-from src.services.sports.entity_resolver import EntityResolver, EntityResolutionError
 from src.services.sports.entity_name_resolver import EntityNameResolver
 
 logger = logging.getLogger(__name__)
+
+class EntityResolutionError(Exception):
+    """Custom exception for entity resolution errors."""
+    def __init__(self, message: str, entity_type: str, name_or_id: str, context: Optional[Dict[str, Any]] = None):
+        self.message = message
+        self.entity_type = entity_type
+        self.name_or_id = name_or_id
+        self.context = context or {}
+        super().__init__(self.message)
+
+    def to_dict(self):
+        return {
+            "error": "entity_resolution_error",
+            "message": self.message,
+            "entity_type": self.entity_type,
+            "name_or_id": self.name_or_id,
+            "context": self.context,
+        }
 
 class SportsFacadeV2:
     """
@@ -74,7 +91,6 @@ class SportsFacadeV2:
         self.stadium_service = StadiumService()
         
         # Initialize resolver
-        self.entity_resolver = EntityResolver(fuzzy_threshold=0.8)
         self.name_resolver = EntityNameResolver()
     
     async def get_entities(
@@ -201,42 +217,6 @@ class SportsFacadeV2:
         result["items"] = final_items
         return result
     
-    async def resolve_entity(
-        self, 
-        db: AsyncSession, 
-        entity_type: str, 
-        name_or_id: Union[str, UUID],
-        context: Optional[Dict[str, Any]] = None
-    ) -> Dict[str, Any]:
-        """
-        Resolve an entity by name or ID with smart fallback and fuzzy matching.
-        
-        Args:
-            db: Database session
-            entity_type: The entity type to resolve
-            name_or_id: Entity name or ID
-            context: Optional context for resolution (related entities, etc.)
-            
-        Returns:
-            The resolved entity as a dictionary
-            
-        Raises:
-            EntityResolutionError: If entity resolution fails
-        """
-        return await self.entity_resolver.resolve_entity(db, entity_type, name_or_id, context)
-    
-    async def resolve_entity_reference(
-        self, 
-        db: AsyncSession, 
-        entity_type: str, 
-        name_or_id: Union[str, UUID],
-        context: Optional[Dict[str, Any]] = None
-    ) -> UUID:
-        """
-        Resolve an entity to just its ID, useful for foreign key references.
-        """
-        return await self.entity_resolver.resolve_entity_reference(db, entity_type, name_or_id, context)
-    
     def _model_to_dict(self, model: Any) -> Dict[str, Any]:
         """Convert a model instance to a dictionary."""
         result = {}
@@ -357,34 +337,29 @@ class SportsFacadeV2:
         entity_type: Optional[str] = None, 
         entity_id: Optional[UUID] = None, 
         company_id: Optional[UUID] = None
-    ) -> List[BroadcastRights]:
+    ) -> Dict[str, Any]:
         """Get all broadcast rights, optionally filtered."""
         broadcast_rights_service = BroadcastRightsService()
-        return await broadcast_rights_service.get_broadcast_rights(db, entity_type, entity_id, company_id)
+        return await broadcast_rights_service.get_broadcast_rights(db, entity_type=entity_type, entity_id=entity_id, company_id=company_id)
     
-    async def create_broadcast_rights(self, db: AsyncSession, rights: BroadcastRightsCreate) -> BroadcastRights:
+    async def create_broadcast_rights(self, db: AsyncSession, rights: BroadcastRightsCreate) -> Optional[BroadcastRights]:
         """Create new broadcast rights."""
         broadcast_rights_service = BroadcastRightsService()
         
-        # Resolve references if they're provided as names
-        if isinstance(rights.entity_id, str) and not self.entity_resolver._is_valid_uuid(rights.entity_id):
-            # Try to resolve entity ID from name
-            entity_context = {}
-            rights.entity_id = await self.entity_resolver.resolve_entity_reference(
-                db, 
-                rights.entity_type, 
-                rights.entity_id, 
-                entity_context
-            )
-            
-        if isinstance(rights.broadcast_company_id, str) and not self.entity_resolver._is_valid_uuid(rights.broadcast_company_id):
-            # Try to resolve broadcast company ID from name
-            rights.broadcast_company_id = await self.entity_resolver.resolve_entity_reference(
-                db, 
-                'broadcast_company', 
-                rights.broadcast_company_id
-            )
-            
+        # Manually resolve references if they're provided as names
+        # This logic should ideally be in a dedicated resolver class
+        if isinstance(rights.entity_id, str):
+            try:
+                rights.entity_id = UUID(rights.entity_id)
+            except ValueError:
+                raise EntityResolutionError("Invalid UUID format for entity_id", "unknown", str(rights.entity_id))
+
+        if isinstance(rights.broadcast_company_id, str):
+            try:
+                rights.broadcast_company_id = UUID(rights.broadcast_company_id)
+            except ValueError:
+                raise EntityResolutionError("Invalid UUID format for broadcast_company_id", "broadcast_company", str(rights.broadcast_company_id))
+
         return await broadcast_rights_service.create_broadcast_rights(db, rights)
     
     async def get_broadcast_right(self, db: AsyncSession, rights_id: UUID) -> Optional[BroadcastRights]:
@@ -401,25 +376,18 @@ class SportsFacadeV2:
         """Update broadcast rights."""
         broadcast_rights_service = BroadcastRightsService()
         
-        # Resolve references if they're provided as names
-        if hasattr(rights_update, 'entity_id') and rights_update.entity_id and isinstance(rights_update.entity_id, str) and not self.entity_resolver._is_valid_uuid(rights_update.entity_id):
-            # Try to resolve entity ID from name
-            entity_context = {}
-            rights_update.entity_id = await self.entity_resolver.resolve_entity_reference(
-                db, 
-                rights_update.entity_type, 
-                rights_update.entity_id, 
-                entity_context
-            )
-            
-        if hasattr(rights_update, 'broadcast_company_id') and rights_update.broadcast_company_id and isinstance(rights_update.broadcast_company_id, str) and not self.entity_resolver._is_valid_uuid(rights_update.broadcast_company_id):
-            # Try to resolve broadcast company ID from name
-            rights_update.broadcast_company_id = await self.entity_resolver.resolve_entity_reference(
-                db, 
-                'broadcast_company', 
-                rights_update.broadcast_company_id
-            )
-            
+        if hasattr(rights_update, 'entity_id') and rights_update.entity_id and isinstance(rights_update.entity_id, str):
+            try:
+                rights_update.entity_id = UUID(rights_update.entity_id)
+            except ValueError:
+                raise EntityResolutionError("Invalid UUID format for entity_id", "unknown", str(rights_update.entity_id))
+
+        if hasattr(rights_update, 'broadcast_company_id') and rights_update.broadcast_company_id and isinstance(rights_update.broadcast_company_id, str):
+            try:
+                rights_update.broadcast_company_id = UUID(rights_update.broadcast_company_id)
+            except ValueError:
+                raise EntityResolutionError("Invalid UUID format for broadcast_company_id", "broadcast_company", str(rights_update.broadcast_company_id))
+
         return await broadcast_rights_service.update_broadcast_rights(db, rights_id, rights_update)
     
     async def delete_broadcast_rights(self, db: AsyncSession, rights_id: UUID) -> bool:
@@ -434,10 +402,10 @@ class SportsFacadeV2:
         entity_type: Optional[str] = None, 
         entity_id: Optional[UUID] = None, 
         company_id: Optional[UUID] = None
-    ) -> List[ProductionService]:
+    ) -> Dict[str, Any]:
         """Get all production services, optionally filtered."""
         production_service_service = ProductionServiceService()
-        return await production_service_service.get_production_services(db, entity_type, entity_id, company_id)
+        return await production_service_service.get_production_services(db, entity_type=entity_type, entity_id=entity_id, company_id=company_id)
     
     async def create_production_service(
         self, 
@@ -447,25 +415,18 @@ class SportsFacadeV2:
         """Create a new production service."""
         production_service_service = ProductionServiceService()
         
-        # Resolve references if they're provided as names
-        if isinstance(service.entity_id, str) and not self.entity_resolver._is_valid_uuid(service.entity_id):
-            # Try to resolve entity ID from name
-            entity_context = {}
-            service.entity_id = await self.entity_resolver.resolve_entity_reference(
-                db, 
-                service.entity_type, 
-                service.entity_id, 
-                entity_context
-            )
-            
-        if isinstance(service.production_company_id, str) and not self.entity_resolver._is_valid_uuid(service.production_company_id):
-            # Try to resolve production company ID from name
-            service.production_company_id = await self.entity_resolver.resolve_entity_reference(
-                db, 
-                'production_company', 
-                service.production_company_id
-            )
-            
+        if isinstance(service.entity_id, str):
+            try:
+                service.entity_id = UUID(service.entity_id)
+            except ValueError:
+                raise EntityResolutionError("Invalid UUID format for entity_id", "unknown", str(service.entity_id))
+
+        if isinstance(service.production_company_id, str):
+            try:
+                service.production_company_id = UUID(service.production_company_id)
+            except ValueError:
+                raise EntityResolutionError("Invalid UUID format for production_company_id", "production_company", str(service.production_company_id))
+
         return await production_service_service.create_production_service(db, service)
     
     async def get_production_service(self, db: AsyncSession, service_id: UUID) -> Optional[ProductionService]:
@@ -482,25 +443,18 @@ class SportsFacadeV2:
         """Update a production service."""
         production_service_service = ProductionServiceService()
         
-        # Resolve references if they're provided as names
-        if hasattr(service_update, 'entity_id') and service_update.entity_id and isinstance(service_update.entity_id, str) and not self.entity_resolver._is_valid_uuid(service_update.entity_id):
-            # Try to resolve entity ID from name
-            entity_context = {}
-            service_update.entity_id = await self.entity_resolver.resolve_entity_reference(
-                db, 
-                service_update.entity_type, 
-                service_update.entity_id, 
-                entity_context
-            )
-            
-        if hasattr(service_update, 'production_company_id') and service_update.production_company_id and isinstance(service_update.production_company_id, str) and not self.entity_resolver._is_valid_uuid(service_update.production_company_id):
-            # Try to resolve production company ID from name
-            service_update.production_company_id = await self.entity_resolver.resolve_entity_reference(
-                db, 
-                'production_company', 
-                service_update.production_company_id
-            )
-            
+        if hasattr(service_update, 'entity_id') and service_update.entity_id and isinstance(service_update.entity_id, str):
+            try:
+                service_update.entity_id = UUID(service_update.entity_id)
+            except ValueError:
+                raise EntityResolutionError("Invalid UUID format for entity_id", "unknown", str(service_update.entity_id))
+
+        if hasattr(service_update, 'production_company_id') and service_update.production_company_id and isinstance(service_update.production_company_id, str):
+            try:
+                service_update.production_company_id = UUID(service_update.production_company_id)
+            except ValueError:
+                raise EntityResolutionError("Invalid UUID format for production_company_id", "production_company", str(service_update.production_company_id))
+
         return await production_service_service.update_production_service(db, service_id, service_update)
     
     async def delete_production_service(self, db: AsyncSession, service_id: UUID) -> bool:

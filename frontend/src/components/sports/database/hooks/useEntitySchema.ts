@@ -21,6 +21,7 @@ export function useEntitySchema() {
       fields.push(
         { name: 'id', required: false, type: 'string', description: 'Unique identifier (auto-generated)' },
         { name: 'name', required: true, type: 'string', description: 'Name of the entity' },
+        { name: 'tags', required: false, type: 'string', description: 'Comma-separated tags for categorization' },
         { name: 'created_at', required: false, type: 'datetime', description: 'Creation timestamp (auto-generated)' },
         { name: 'updated_at', required: false, type: 'datetime', description: 'Last update timestamp (auto-generated)' },
         { name: 'deleted_at', required: false, type: 'datetime', description: 'Deletion timestamp (if soft deleted)' }
@@ -219,70 +220,8 @@ export function useEntitySchema() {
     // Get the fields data
     const fieldsData = getEntityFieldsData(entityType);
     
-    // Define the valid fields for each entity type based on database models
-    const validFieldsByEntityType: Record<string, string[]> = {
-      // League fields
-      league: ['id', 'name', 'created_at', 'updated_at', 'deleted_at', 'nickname', 'sport', 'country', 'broadcast_start_date', 'broadcast_end_date'],
-      
-      // Division/Conference fields
-      division_conference: ['id', 'name', 'created_at', 'updated_at', 'deleted_at', 'league_id', 'league_name', 'league_sport', 'nickname', 'type', 'region', 'description'],
-      
-      // Team fields
-      team: ['id', 'name', 'created_at', 'updated_at', 'deleted_at', 'league_id', 'league_name', 'league_sport', 'division_conference_id', 'division_conference_name', 'stadium_id', 'stadium_name', 'city', 'state', 'country', 'founded_year'],
-      
-      // Player fields
-      player: ['id', 'name', 'created_at', 'updated_at', 'deleted_at', 'team_id', 'team_name', 'position', 'jersey_number', 'college', 'sport', 'sponsor_id', 'sponsor_name'],
-      
-      // Stadium fields
-      stadium: ['id', 'name', 'created_at', 'updated_at', 'deleted_at', 'city', 'state', 'country', 'capacity', 
-                'owner', 'naming_rights_holder', 'host_broadcaster', 'host_broadcaster_id', 'host_broadcaster_name', 'sport'],
-      
-      // Game fields
-      game: ['id', 'name', 'created_at', 'updated_at', 'deleted_at', 'league_id', 'league_name', 'home_team_id', 'home_team_name', 'away_team_id', 'away_team_name', 
-             'stadium_id', 'stadium_name', 'date', 'time', 'home_score', 'away_score', 'status', 'season_year', 'season_type'],
-      
-      // Broadcast Rights fields
-      broadcast: ['id', 'name', 'created_at', 'updated_at', 'deleted_at', 'broadcast_company_id', 'broadcast_company_name', 'entity_type', 'entity_id',
-                  'entity_name', 'division_conference_id', 'division_conference_name', 'territory', 'start_date', 'end_date', 'is_exclusive',
-                  'league_id', 'league_name', 'league_sport'],
-      
-      // Production fields (using production_service as key to match EntityType)
-      production_service: ['id', 'name', 'created_at', 'updated_at', 'deleted_at', 'production_company_id', 'production_company_name', 
-                   'secondary_brand_id', 'secondary_brand_name', 'entity_type', 'entity_id', 'entity_name',
-                   'service_type', 'start_date', 'end_date',
-                   'league_id', 'league_name', 'league_sport'],
-      
-      // Brand fields
-      brand: ['id', 'name', 'created_at', 'updated_at', 'deleted_at', 'industry', 'company_type', 'country', 'partner', 'partner_name', 'partner_relationship', 'relationship_display', 'representative_entity_type'],
-      
-      // Game Broadcast fields
-      game_broadcast: ['id', 'name', 'created_at', 'updated_at', 'deleted_at', 'game_id', 'game_name', 'broadcast_company_id', 'broadcast_company_name', 
-                       'production_company_id', 'production_company_name', 'broadcast_type', 'territory', 'start_time', 'end_time'],
-      
-      // League Executive fields
-      league_executive: ['id', 'name', 'created_at', 'updated_at', 'deleted_at', 'league_id', 'league_name', 'position', 'start_date', 'end_date'],
-      
-      // New entity types
-      creator: ['id', 'name', 'first_name', 'last_name', 'genre', 'platform', 'url', 'followers', 'management_id', 'notes', 'tags', 'created_at', 'updated_at'],
-      management: ['id', 'name', 'first_name', 'last_name', 'industry', 'url', 'founded_year', 'notes', 'tags', 'created_at', 'updated_at'],
-
-      // Additional models for completeness (ensure these keys match EntityType if used elsewhere for field generation)
-      broadcast_company: ['id', 'name', 'created_at', 'updated_at', 'deleted_at', 'type', 'country'],
-      production_company: ['id', 'name', 'created_at', 'updated_at', 'deleted_at'],
-      team_record: ['id', 'name', 'created_at', 'updated_at', 'deleted_at', 'team_id', 'season_year', 'wins', 'losses', 
-                   'ties', 'playoff_result'],
-      team_ownership: ['id', 'name', 'created_at', 'updated_at', 'deleted_at', 'team_id', 'owner_name', 
-                      'ownership_percentage', 'acquisition_date']
-    };
-    
-    // Filter fields to only include those valid for this entity type
-    const filteredFieldsData = fieldsData.filter(field => {
-      const validFieldsForType = validFieldsByEntityType[entityType] || [];
-      return validFieldsForType.includes(field.name);
-    });
-    
     // Convert the fields to the EntityField format
-    return filteredFieldsData.map((field: FieldData) => ({
+    return fieldsData.map((field: FieldData) => ({
       fieldName: field.name,
       fieldType: field.type,
       required: field.required,

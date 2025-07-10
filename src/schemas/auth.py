@@ -1,4 +1,5 @@
 from pydantic import BaseModel, EmailStr, Field
+from typing import Optional
 
 class UserCreate(BaseModel):
     """Schema for user registration."""
@@ -24,4 +25,9 @@ class TokenResponse(BaseModel):
     """Schema for token response."""
     access_token: str
     token_type: str = "bearer"
-    expires_in: int 
+    expires_in: int
+    refresh_token: Optional[str] = None
+
+class RefreshTokenRequest(BaseModel):
+    """Schema for refresh token request."""
+    refresh_token: str 

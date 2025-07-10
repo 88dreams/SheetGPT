@@ -26,7 +26,7 @@ export default function useDataManagement() {
    * Extract source fields from structured data
    * Enhanced with better header extraction and array data handling
    */
-  const extractSourceFields = useCallback((data: any, setDataValidity: (isValid: boolean) => void) => {
+  const extractSourceFields = useCallback((data: any, setDataValidity: (isValid: boolean) => void): string[] | undefined => {
     console.log('useDataManagement: Extracting source fields from data', JSON.stringify(data, null, 2).substring(0, 500) + '...');
     console.log('useDataManagement: Data type:', typeof data, Array.isArray(data) ? 'is array' : 'not array');
     console.log('useDataManagement: Data structure:', {
@@ -294,6 +294,7 @@ export default function useDataManagement() {
     });
     
     console.log('useDataManagement: Extracted source fields:', fieldsToUse.length);
+    return fieldsToUse;
   }, [lastFingerprints]);
   
   /**
@@ -334,210 +335,11 @@ export default function useDataManagement() {
     // Create a new mapped data object based on the current record
     const newMappedData: Record<string, any> = {};
     
-    // Special handling for Stadium entity with array data
-    if (isStadiumEntity && Array.isArray(currentRecord)) {
-      console.log("Special stadium entity mapping with array data");
-      
-      // Stadium pattern maps for commonly used field names
-      const patternMap: Record<string, string[]> = {
-        'name': ['stadium', 'arena', 'venue', 'track', 'park', 'field'],
-        'city': ['city', 'location', 'town'],
-        'state': ['state', 'province', 'region'],
-        'country': ['country', 'nation'],
-        'capacity': ['capacity', 'seats', 'size']
-      };
-      
-      // Map common stadium fields by pattern
-      Object.entries(patternMap).forEach(([targetField, patterns]) => {
-        // Find the index of the source field that matches one of our patterns
-        const matchIndex = sourceFields.findIndex(field => 
-          patterns.some(pattern => field.toLowerCase().includes(pattern))
-        );
-        
-        if (matchIndex >= 0 && matchIndex < currentRecord.length) {
-          const value = currentRecord[matchIndex];
-          if (value !== undefined) {
-            newMappedData[targetField] = value;
-            console.log(`Stadium auto-mapping: ${targetField} → ${value} (from ${sourceFields[matchIndex]})`);
-          }
-        }
-      });
-      
-      // Auto-prefill country if we found a value but couldn't detect country
-      if (!newMappedData.country && (newMappedData.city || newMappedData.state)) {
-        // Default to US if we have state information that looks like a US state
-        const usStateAbbreviations = ['AL', 'AK', 'AZ', 'AR', 'CA', 'CO', 'CT', 'DE', 'FL', 'GA', 
-                                     'HI', 'ID', 'IL', 'IN', 'IA', 'KS', 'KY', 'LA', 'ME', 'MD', 
-                                     'MA', 'MI', 'MN', 'MS', 'MO', 'MT', 'NE', 'NV', 'NH', 'NJ', 
-                                     'NM', 'NY', 'NC', 'ND', 'OH', 'OK', 'OR', 'PA', 'RI', 'SC', 
-                                     'SD', 'TN', 'TX', 'UT', 'VT', 'VA', 'WA', 'WV', 'WI', 'WY'];
-                                     
-        const usStateNames = ['Alabama', 'Alaska', 'Arizona', 'Arkansas', 'California', 'Colorado', 
-                             'Connecticut', 'Delaware', 'Florida', 'Georgia', 'Hawaii', 'Idaho', 
-                             'Illinois', 'Indiana', 'Iowa', 'Kansas', 'Kentucky', 'Louisiana', 
-                             'Maine', 'Maryland', 'Massachusetts', 'Michigan', 'Minnesota', 
-                             'Mississippi', 'Missouri', 'Montana', 'Nebraska', 'Nevada', 
-                             'New Hampshire', 'New Jersey', 'New Mexico', 'New York', 
-                             'North Carolina', 'North Dakota', 'Ohio', 'Oklahoma', 'Oregon', 
-                             'Pennsylvania', 'Rhode Island', 'South Carolina', 'South Dakota', 
-                             'Tennessee', 'Texas', 'Utah', 'Vermont', 'Virginia', 'Washington', 
-                             'West Virginia', 'Wisconsin', 'Wyoming'];
-        
-        if (newMappedData.state && 
-            (usStateAbbreviations.includes(newMappedData.state) || 
-             usStateNames.some(state => newMappedData.state.includes(state)))) {
-          newMappedData.country = 'USA';
-          console.log('Stadium auto-mapping: Added USA as country based on US state match');
-        }
-      }
-    }
-    
     // Apply the mappings to the current record, using enhanced array handling
     Object.entries(mappings).forEach(([targetField, sourceField]) => {
-      // Skip if we already mapped this field with special Stadium handling
-      if (isStadiumEntity && newMappedData[targetField] !== undefined) {
-        console.log(`Stadium field ${targetField} already mapped with special handling - skipping regular mapping`);
-        return;
-      }
-      
-      let value;
-      let valueFound = false;
-      
-      if (Array.isArray(currentRecord)) {
-        // ENHANCED ARRAY HANDLING: Try multiple strategies to find the value
-        
-        // Check if this is a Stadium field which might need special handling
-        const isStadiumField = isStadiumEntity && 
-                              (targetField === 'name' || 
-                               targetField === 'city' || 
-                               targetField === 'state' || 
-                               targetField === 'country' || 
-                               targetField === 'capacity');
-        
-        if (isStadiumField) {
-          console.log(`Stadium field mapping for ${sourceField} → ${targetField}`);
-          
-          // Strategy S1: Try pattern-based mapping for Stadium fields
-          const patternMap: Record<string, string[]> = {
-            'name': ['stadium', 'arena', 'venue', 'track', 'park', 'field'],
-            'city': ['city', 'location', 'town'],
-            'state': ['state', 'province', 'region'],
-            'country': ['country', 'nation'],
-            'capacity': ['capacity', 'seats', 'size']
-          };
-          
-          // Check if any of our source fields match patterns for this target field
-          if (patternMap[targetField]) {
-            const patterns = patternMap[targetField];
-            let bestMatchIndex = -1;
-            
-            // Find best match for this pattern in source fields
-            sourceFields.forEach((field, index) => {
-              if (patterns.some(pattern => field.toLowerCase().includes(pattern))) {
-                bestMatchIndex = index;
-              }
-            });
-            
-            if (bestMatchIndex >= 0 && bestMatchIndex < currentRecord.length) {
-              value = currentRecord[bestMatchIndex];
-              valueFound = true;
-              console.log(`Stadium Strategy: Found ${targetField} at pattern-matched position ${bestMatchIndex}:`, value);
-            }
-          }
-        }
-        
-        // Use standard strategies if stadium special handling didn't work
-        if (!valueFound) {
-          // Strategy 1: Use sourceFields array for position mapping (most reliable)
-          const sourceIndex = sourceFields.indexOf(sourceField);
-          if (sourceIndex >= 0 && sourceIndex < currentRecord.length) {
-            value = currentRecord[sourceIndex];
-            valueFound = true;
-            console.log(`Strategy 1: Found array value for ${targetField} at sourceFields index ${sourceIndex}:`, value);
-          }
-          
-          // Strategy 2: Try numeric index if the sourceField looks like a number
-          if (!valueFound) {
-            const index = parseInt(sourceField, 10);
-            if (!isNaN(index) && index >= 0 && index < currentRecord.length) {
-              value = currentRecord[index];
-              valueFound = true;
-              console.log(`Strategy 2: Found array value for ${targetField} using numeric index ${index}:`, value);
-            }
-          }
-          
-          // Strategy 3: Check if record has __headers__ and use that for indexing
-          if (!valueFound && currentRecord['__headers__'] && Array.isArray(currentRecord['__headers__'])) {
-            const headerIndex = currentRecord['__headers__'].indexOf(sourceField);
-            if (headerIndex >= 0 && headerIndex < currentRecord.length) {
-              value = currentRecord[headerIndex];
-              valueFound = true;
-              console.log(`Strategy 3: Found array value for ${targetField} using __headers__ index ${headerIndex}:`, value);
-            }
-          }
-          
-          // Strategy 4: Check if the parent has headers and use that for indexing
-          if (!valueFound && currentRecord['__parent__'] && currentRecord['__parent__'].headers) {
-            const parentHeaders = currentRecord['__parent__'].headers;
-            if (Array.isArray(parentHeaders)) {
-              const headerIndex = parentHeaders.indexOf(sourceField);
-              if (headerIndex >= 0 && headerIndex < currentRecord.length) {
-                value = currentRecord[headerIndex];
-                valueFound = true;
-                console.log(`Strategy 4: Found array value for ${targetField} using parent.headers index ${headerIndex}:`, value);
-              }
-            }
-          }
-          
-          // Strategy 5: Try direct property access as fallback (unusual for arrays but possible)
-          if (!valueFound && sourceField in currentRecord) {
-            value = currentRecord[sourceField];
-            valueFound = true;
-            console.log(`Strategy 5: Found array value for ${targetField} using direct property access:`, value);
-          }
-          
-          // Strategy 6: Look for the sourceField in the dataToImport.__headers__ as fallback
-          if (!valueFound && dataToImport['__headers__'] && Array.isArray(dataToImport['__headers__'])) {
-            const headerIndex = dataToImport['__headers__'].indexOf(sourceField);
-            if (headerIndex >= 0 && headerIndex < currentRecord.length) {
-              value = currentRecord[headerIndex];
-              valueFound = true;
-              console.log(`Strategy 6: Found array value for ${targetField} using dataToImport.__headers__ index ${headerIndex}:`, value);
-            }
-          }
-          
-          // Strategy 7: For case-insensitive matching
-          if (!valueFound && typeof sourceField === 'string') {
-            const sourceFieldLower = sourceField.toLowerCase();
-            
-            // Check if sourceField is a case-insensitive match for any property name in currentRecord
-            Object.keys(currentRecord).forEach(key => {
-              if (typeof key === 'string' && key.toLowerCase() === sourceFieldLower) {
-                value = currentRecord[key];
-                valueFound = true;
-                console.log(`Strategy 7: Found array value for ${targetField} using case-insensitive match on key ${key}:`, value);
-              }
-            });
-          }
-        }
-        
-        if (!valueFound) {
-          console.warn(`Could not find source field "${sourceField}" for target field "${targetField}" in array record`);
-        }
-      } else {
-        // Traditional object property access
-        value = currentRecord[sourceField];
-        if (value !== undefined) {
-          valueFound = true;
-          console.log(`Found object value for ${targetField} using property ${sourceField}:`, value);
-        } else {
-          console.warn(`Object property "${sourceField}" not found for target field "${targetField}"`);
-        }
-      }
-      
-      // Only add defined values
-      if (value !== undefined) {
-        newMappedData[targetField] = value;
+      const sourceIndex = sourceFields.indexOf(sourceField);
+      if (sourceIndex > -1 && Array.isArray(currentRecord) && sourceIndex < currentRecord.length) {
+        newMappedData[targetField] = currentRecord[sourceIndex];
       }
     });
     
@@ -587,77 +389,12 @@ export default function useDataManagement() {
     } 
     // ARRAY DATA: Map to field names (most common case)
     else if (Array.isArray(record)) {
-      // Add field names as keys with values from the array
+      // Create a new object mapping ONLY the source fields to their values
       sourceFields.forEach((field, index) => {
         if (index < record.length) {
           newValues[field] = record[index];
         }
       });
-      
-      // Also add numeric indices for direct access
-      for (let i = 0; i < record.length; i++) {
-        newValues[`${i}`] = record[i];
-      }
-      
-      // Store index reference
-      newValues['__recordIndex__'] = recordIndex;
-      
-      // Special handling for Stadium data with better mapping
-      // Look for common stadium field patterns in the field names
-      if (sourceFields.some(field => 
-          field.toLowerCase().includes('stadium') || 
-          field.toLowerCase().includes('arena') || 
-          field.toLowerCase().includes('venue'))) {
-        console.log("Special handling for Stadium data detected");
-        
-        // Find field positions for common stadium fields by pattern matching
-        const findFieldPosition = (patterns: string[]) => {
-          return sourceFields.findIndex(field => 
-            patterns.some(pattern => field.toLowerCase().includes(pattern))
-          );
-        };
-        
-        // Map common stadium fields by pattern
-        const namePosition = findFieldPosition(['stadium', 'arena', 'venue', 'track', 'park', 'field']);
-        const cityPosition = findFieldPosition(['city', 'location', 'town']);
-        const statePosition = findFieldPosition(['state', 'province', 'region']);
-        const countryPosition = findFieldPosition(['country', 'nation']);
-        const capacityPosition = findFieldPosition(['capacity', 'seats', 'size']);
-        
-        console.log("Stadium field positions:", { 
-          name: namePosition, 
-          city: cityPosition, 
-          state: statePosition, 
-          country: countryPosition,
-          capacity: capacityPosition 
-        });
-        
-        // Set stadium fields based on positions
-        if (namePosition >= 0 && namePosition < record.length) {
-          newValues['name'] = record[namePosition];
-          console.log("Stadium name mapped:", newValues['name']);
-        }
-        
-        if (cityPosition >= 0 && cityPosition < record.length) {
-          newValues['city'] = record[cityPosition];
-          console.log("Stadium city mapped:", newValues['city']);
-        }
-        
-        if (statePosition >= 0 && statePosition < record.length) {
-          newValues['state'] = record[statePosition];
-          console.log("Stadium state mapped:", newValues['state']);
-        }
-        
-        if (countryPosition >= 0 && countryPosition < record.length) {
-          newValues['country'] = record[countryPosition];
-          console.log("Stadium country mapped:", newValues['country']);
-        }
-        
-        if (capacityPosition >= 0 && capacityPosition < record.length) {
-          newValues['capacity'] = record[capacityPosition];
-          console.log("Stadium capacity mapped:", newValues['capacity']);
-        }
-      }
       
       console.log("Array record processed, fields:", Object.keys(newValues).length);
     }

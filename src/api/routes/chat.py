@@ -32,7 +32,8 @@ async def create_conversation(
     new_conversation = await chat_service.create_conversation(
         user_id=current_user_id,
         title=conversation.title,
-        description=conversation.description
+        description=conversation.description,
+        tags=conversation.tags
     )
     return ConversationListItem.model_validate(new_conversation)
 

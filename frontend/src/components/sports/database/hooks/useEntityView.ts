@@ -22,15 +22,10 @@ export function useEntityView(entityType: EntityType) {
     game: 0,
     stadium: 0,
     broadcast_rights: 0,
-    person: 0,
-    production_company: 0,
     production_service: 0,
     brand: 0,
     game_broadcast: 0,
     league_executive: 0,
-    contact: 0,
-    creator: 0,
-    management: 0
   });
 
   // Function to fetch counts for all entity types
@@ -44,15 +39,10 @@ export function useEntityView(entityType: EntityType) {
         game: 0,
         stadium: 0,
         broadcast_rights: 0,
-        person: 0,
-        production_company: 0,
         production_service: 0,
         brand: 0,
         game_broadcast: 0,
         league_executive: 0,
-        contact: 0,
-        creator: 0,
-        management: 0
       };
 
       // Fetch counts for each entity type
@@ -66,8 +56,10 @@ export function useEntityView(entityType: EntityType) {
       }
 
       setEntityCounts(counts);
+      return counts;
     } catch (error) {
       console.error('Error fetching entity counts:', error);
+      return null;
     }
   }, []);
 

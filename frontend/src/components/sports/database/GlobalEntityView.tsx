@@ -60,24 +60,22 @@ const GlobalEntityView: React.FC<GlobalEntityViewProps> = ({ className = '' }) =
     const fetchAllEntityMetadata = async () => {
       try {
         console.log("GlobalEntityView: Fetching entity metadata");
-        // First fetch counts to ensure we have the latest data
-        await fetchEntityCounts();
+        const counts = await fetchEntityCounts();
+        if (!counts) return; // Exit if fetching counts failed
         
         const metadata: Record<string, EntityMetadata> = {};
         
         for (const entityType of ENTITY_TYPES) {
-          // Only fetch most recent entity (limit=1) to prevent backend limit issues
-          // Just get the most recent entity to determine last update time
           const result = await SportsDatabaseService.getEntities({
             entityType: entityType.id,
             page: 1,
-            limit: 1, // Keep this at 1 since we only need the most recent entity
+            limit: 1,
             sortBy: 'updated_at',
             sortDirection: 'desc'
           });
           
           metadata[entityType.id] = {
-            count: entityCounts[entityType.id as keyof typeof entityCounts] || 0,
+            count: counts[entityType.id as keyof typeof counts] || 0,
             lastUpdated: result.items?.[0]?.updated_at || null
           };
         }
@@ -89,18 +87,8 @@ const GlobalEntityView: React.FC<GlobalEntityViewProps> = ({ className = '' }) =
       }
     };
 
-    // Call once when component mounts
     fetchAllEntityMetadata();
-    
-    // Set up an interval to refresh data every 60 seconds instead of 30
-    // to reduce API load
-    const refreshInterval = setInterval(() => {
-      fetchAllEntityMetadata();
-    }, 60000); // Increased to 60 seconds
-    
-    // Clean up interval on unmount
-    return () => clearInterval(refreshInterval);
-  }, [fetchEntityCounts]); // Remove entityCounts from dependencies to prevent infinite loop
+  }, [fetchEntityCounts]); // Rerun when the function is available
 
   // Handle view change
   const handleViewEntity = (entityId: EntityType) => {

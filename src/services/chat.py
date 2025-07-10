@@ -164,14 +164,15 @@ class ChatService:
             yield "[PHASE:PROCESSING]\n"
 
     async def create_conversation(
-        self, user_id: UUID, title: str, description: Optional[str] = None
+        self, user_id: UUID, title: str, description: Optional[str] = None, tags: Optional[List[str]] = None
     ) -> Conversation:
         """Create a new conversation."""
         conversation = Conversation(
             user_id=user_id,
             title=title,
             description=description,
-            meta_data={}
+            meta_data={},
+            tags=tags or []
         )
         self.db.add(conversation)
         await self.db.commit()

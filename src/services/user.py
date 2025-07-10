@@ -12,6 +12,8 @@ from src.utils.config import get_settings
 from src.utils.security import verify_password, get_password_hash, create_access_token
 
 settings = get_settings()
+# Define a longer expiry for refresh tokens (e.g., 7 days)
+REFRESH_TOKEN_EXPIRE_MINUTES = settings.REFRESH_TOKEN_EXPIRE_MINUTES if hasattr(settings, 'REFRESH_TOKEN_EXPIRE_MINUTES') else 60 * 24 * 7
 
 class UserService:
     def __init__(self, db: AsyncSession):
@@ -70,14 +72,22 @@ class UserService:
             )
 
         # Create access token
-        expires_delta = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
+        access_token_expires = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
         access_token = create_access_token(
             data={"sub": str(user.id)},
-            expires_delta=expires_delta
+            expires_delta=access_token_expires
+        )
+
+        # Create refresh token
+        refresh_token_expires = timedelta(minutes=settings.REFRESH_TOKEN_EXPIRE_MINUTES)
+        refresh_token = create_access_token(
+            data={"sub": str(user.id)},
+            expires_delta=refresh_token_expires
         )
 
         return TokenResponse(
             access_token=access_token,
+            refresh_token=refresh_token,
             token_type="bearer",
             expires_in=settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60
         )

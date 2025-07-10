@@ -53,12 +53,14 @@ export const chatService = {
     return response;
   },
 
-  createConversation: (data: { title: string; description?: string }): Promise<Conversation> =>
-    request('/chat/conversations', {
+  createConversation: (data: { title: string; description?: string; tags?: string[] }): Promise<Conversation> => {
+    console.log('chatService.createConversation: sending data:', data);
+    return request('/chat/conversations', {
       method: 'POST',
       body: JSON.stringify(data),
       requiresAuth: true
-    }),
+    });
+  },
 
   getConversation: (id: string): Promise<Conversation> =>
     request(`/chat/conversations/${id}`, { requiresAuth: true }),

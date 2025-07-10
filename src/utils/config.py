@@ -13,6 +13,7 @@ class Settings(BaseSettings):
     # Security
     SECRET_KEY: str = ""
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
+    REFRESH_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 7  # 7 days
     ENCRYPTION_KEY: Optional[str] = None
     
     # Database

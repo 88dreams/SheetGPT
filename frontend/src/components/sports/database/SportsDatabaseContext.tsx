@@ -103,7 +103,7 @@ interface SportsDatabaseContextType {
   
   // Entity counts
   entityCounts: Record<EntityType, number>;
-  fetchEntityCounts: () => Promise<void>;
+  fetchEntityCounts: () => Promise<Record<EntityType, number> | null>;
 }
 
 // Create the context with a default undefined value

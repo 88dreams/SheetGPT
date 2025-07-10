@@ -2,10 +2,10 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from uuid import UUID
 
-from src.schemas.auth import UserCreate, UserLogin, UserResponse, TokenResponse
+from src.schemas.auth import UserCreate, UserLogin, UserResponse, TokenResponse, RefreshTokenRequest
 from src.services.user import UserService
 from src.utils.database import get_db
-from src.utils.security import get_current_user_id, create_access_token
+from src.utils.security import get_current_user_id, create_access_token, decode_token_and_get_user_id
 from datetime import timedelta, datetime
 from src.utils.config import get_settings
 
@@ -95,16 +95,24 @@ async def get_current_user(
 
 @router.post("/refresh", response_model=TokenResponse)
 async def refresh_token(
-    current_user_id: UUID = Depends(get_current_user_id),
+    token_data: RefreshTokenRequest,
     db: AsyncSession = Depends(get_db)
 ) -> TokenResponse:
     """Refresh authentication token."""
+    user_id = decode_token_and_get_user_id(token_data.refresh_token)
+    if not user_id:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid refresh token",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
     user_service = UserService(db)
-    user = await user_service.get_user_by_id(current_user_id)
+    user = await user_service.get_user_by_id(user_id)
     
     if not user:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
+            status_code=status.HTTP_401_UNAUTHORIZED,
             detail="User not found"
         )
     

@@ -332,6 +332,7 @@ const SportDataMapperContainer: React.FC<SportDataMapperProps> = ({ isOpen, onCl
           {viewMode === 'entity' && (
             <div>
               <EntityView
+                key={dataToImport.length}
                 {...entityViewProps}
                 onEntityTypeSelect={handleEntityTypeSelect}
                 setIsUpdateMode={setIsUpdateMode}

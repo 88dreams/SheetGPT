@@ -189,9 +189,4 @@ export type EntityType =
   | 'production_service'
   | 'brand'
   | 'game_broadcast'
-  | 'league_executive'
-  | 'person'
-  | 'production_company'
-  | 'contact'
-  | 'creator'
-  | 'management'; 
+  | 'league_executive'; 

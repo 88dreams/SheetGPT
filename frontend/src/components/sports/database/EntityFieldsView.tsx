@@ -15,6 +15,8 @@ const EntityFieldsView: React.FC<EntityFieldsViewProps> = ({ className = '' }) =
     renderSortIcon 
   } = useSportsDatabase();
 
+  const { sortDirection } = useSportsDatabase();
+
   // Get entity type name for display - memoized to avoid recreating on each render
   const entityTypeName = useMemo(() => {
     const entityTypes = [
@@ -46,10 +48,10 @@ const EntityFieldsView: React.FC<EntityFieldsViewProps> = ({ className = '' }) =
     const aValue = a[sortField as keyof EntityField] ?? '';
     const bValue = b[sortField as keyof EntityField] ?? '';
     
-    if (aValue < bValue) return -1;
-    if (aValue > bValue) return 1;
+    if (aValue < bValue) return sortDirection === 'asc' ? -1 : 1;
+    if (aValue > bValue) return sortDirection === 'asc' ? 1 : -1;
     return 0;
-  }), [fields, sortField]);
+  }), [fields, sortField, sortDirection]);
 
   return (
     <div className={`border rounded-lg p-4 ${className}`}>

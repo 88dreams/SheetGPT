@@ -80,6 +80,7 @@ const EntityView: React.FC<EntityViewProps> = ({
             <FieldMappingArea
               entityType={selectedEntityType}
               sourceFields={sourceFields}
+              sourceFieldValues={sourceFieldValues}
               mappedFields={mappingsByEntityType[selectedEntityType] || {}}
               showFieldHelp={showFieldHelp}
               onFieldMapping={onFieldMapping}

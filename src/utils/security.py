@@ -80,6 +80,21 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -
     )
     return encoded_jwt
 
+def decode_token_and_get_user_id(token: str) -> Optional[UUID]:
+    """Decodes a JWT token and extracts the user ID (sub)."""
+    try:
+        payload = jwt.decode(
+            token,
+            settings.SECRET_KEY,
+            algorithms=["HS256"]
+        )
+        user_id = payload.get("sub")
+        if user_id:
+            return UUID(user_id)
+        return None
+    except (JWTError, ValueError):
+        return None
+
 async def get_current_user_id(token: str = Depends(oauth2_scheme)) -> UUID:
     """Get current user ID from JWT token."""
     credentials_exception = HTTPException(
@@ -88,24 +103,11 @@ async def get_current_user_id(token: str = Depends(oauth2_scheme)) -> UUID:
         headers={"WWW-Authenticate": "Bearer"},
     )
     
-    try:
-        payload = jwt.decode(
-            token,
-            settings.SECRET_KEY,
-            algorithms=["HS256"]
-        )
-        user_id: Optional[str] = payload.get("sub")
-        if user_id is None:
-            raise credentials_exception
-        
-        token_data = TokenData(user_id=UUID(user_id))
-    except (JWTError, ValueError):
+    user_id = decode_token_and_get_user_id(token)
+    if not user_id:
         raise credentials_exception
     
-    if token_data.user_id is None:
-        raise credentials_exception
-
-    return token_data.user_id
+    return user_id
 
 async def get_current_admin_user(
     current_user_id: UUID = Depends(get_current_user_id),

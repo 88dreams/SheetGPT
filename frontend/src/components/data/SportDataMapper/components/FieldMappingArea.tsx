@@ -43,6 +43,7 @@ type LocalEntityType = EntityType | 'creator' | 'management';
 interface FieldMappingAreaProps {
   entityType: EntityType;
   sourceFields: string[];
+  sourceFieldValues: Record<string, any>;
   mappedFields: Record<string, string>;
   showFieldHelp: string | null;
   onFieldMapping: (sourceField: string, targetField: string) => void;
@@ -115,6 +116,7 @@ const formatFieldValue = (value: any): string => {
 const FieldMappingArea: React.FC<FieldMappingAreaProps> = ({
   entityType,
   sourceFields,
+  sourceFieldValues,
   mappedFields,
   showFieldHelp,
   onFieldMapping,
@@ -128,7 +130,6 @@ const FieldMappingArea: React.FC<FieldMappingAreaProps> = ({
   onToggleExcludeRecord,
   isCurrentRecordExcluded
 }) => {
-  const [fieldValuesState, setFieldValuesState] = useState<Record<string, any>>({});
   const [forceUpdateFlag, setForceUpdateFlag] = useState(0);
   const [sortColumn, setSortColumn] = useState<ColumnType | null>(null);
   const [sortDirection, setSortDirection] = useState<SortDirection>(null);
@@ -136,7 +137,6 @@ const FieldMappingArea: React.FC<FieldMappingAreaProps> = ({
   const [sourceFieldsSortDirection, setSourceFieldsSortDirection] = useState<SortDirection>(null);
 
   useEffect(() => {
-    setFieldValuesState(mappedFields || {});
     setForceUpdateFlag(prev => prev + 1);
   }, [currentRecordIndex, mappedFields]);
 
@@ -186,8 +186,8 @@ const FieldMappingArea: React.FC<FieldMappingAreaProps> = ({
       return sourceFieldsSortDirection === 'asc' ? a.localeCompare(b) : b.localeCompare(a);
     }
     if (sourceFieldsSortColumn === 'value') {
-      const aValue = fieldValuesState[a] ?? mappedFields[a];
-      const bValue = fieldValuesState[b] ?? mappedFields[b];
+      const aValue = sourceFieldValues[a];
+      const bValue = sourceFieldValues[b];
       const aStr = String(aValue ?? '');
       const bStr = String(bValue ?? '');
       return sourceFieldsSortDirection === 'asc' ? aStr.localeCompare(bStr) : bStr.localeCompare(aStr);
@@ -239,7 +239,7 @@ const FieldMappingArea: React.FC<FieldMappingAreaProps> = ({
               <FieldItem
                 key={`source-${field}-${currentRecordIndex}-${forceUpdateFlag}`}
                 field={field}
-                value={fieldValuesState[field] ?? mappedFields[field]}
+                value={sourceFieldValues[field]}
                 isSource={true}
                 formatValue={formatFieldValue}
                 id={`source-field-${field}`}
@@ -277,7 +277,7 @@ const FieldMappingArea: React.FC<FieldMappingAreaProps> = ({
                 onFieldMapping={onFieldMapping}
                 onRemoveMapping={onRemoveMapping}
                 onShowFieldHelp={onShowFieldHelp}
-                sourceFieldValues={fieldValuesState}
+                sourceFieldValues={sourceFieldValues}
                 sourceFields={sourceFields}
                 formatFieldValue={formatFieldValue}
               />

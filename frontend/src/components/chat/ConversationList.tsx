@@ -285,7 +285,10 @@ const ConversationList: React.FC<ConversationListProps> = ({
   })
 
   const handleCreateConversation = async (title: string, description?: string) => {
-    await createConversationMutation.mutateAsync({ title, description })
+    console.log('handleCreateConversation called. Active market:', activeMarket);
+    const tags = activeMarket === 'All' ? [] : [activeMarket];
+    console.log('Creating conversation with tags:', tags);
+    await createConversationMutation.mutateAsync({ title, description, tags });
   }
 
   const handleDeleteSelected = () => {
@@ -368,7 +371,7 @@ const ConversationList: React.FC<ConversationListProps> = ({
 
   const filteredConversations = localConversations.filter(conversation => {
     if (activeMarket === 'All') return true;
-    return conversation.tags?.includes(activeMarket);
+    return conversation.tags?.some(tag => tag.toLowerCase() === activeMarket.toLowerCase());
   });
 
   if (isLoading && localConversations.length === 0) {

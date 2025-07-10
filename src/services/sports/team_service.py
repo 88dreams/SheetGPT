@@ -24,7 +24,7 @@ class TeamService(BaseEntityService[Team]):
         if league_id:
             query = query.where(Team.league_id == league_id)
         result = await db.execute(query)
-        return result.scalars().all()
+        return list(result.scalars().all())
     
     async def create_team(self, db: AsyncSession, team: TeamCreate) -> Team:
         """Create a new team or update if it already exists."""
@@ -98,7 +98,7 @@ class TeamService(BaseEntityService[Team]):
                 logger.info(f"Stadium '{stadium_name_to_find_or_create}' not found. Creating new stadium.")
                 stadium_create_data = StadiumCreate(
                     name=stadium_name_to_find_or_create,
-                    city=team.city, # Use team's city
+                    city=team.city if team.city is not None else "", # Use team's city, with a fallback
                     state=team.state, # Use team's state
                     country=team.country # Use team's country
                     # Capacity, owner, etc., would be default or None
@@ -124,12 +124,12 @@ class TeamService(BaseEntityService[Team]):
 
         if db_team:
             # Update existing team
-            for key, value in team.dict().items():
+            for key, value in team.model_dump().items():
                 if value is not None:  # Only update non-None values
                     setattr(db_team, key, value)
         else:
             # Create new team
-            team_data_for_model = team.dict()
+            team_data_for_model = team.model_dump()
             # Remove the temporary field before creating the SQLAlchemy model
             team_data_for_model.pop('stadium_name_to_resolve', None)
             db_team = Team(**team_data_for_model)
@@ -158,7 +158,7 @@ class TeamService(BaseEntityService[Team]):
             return None
         
         # Update team attributes
-        update_data = team_update.dict(exclude_unset=True)
+        update_data = team_update.model_dump(exclude_unset=True)
         
         # Validate league_id if it's being updated
         if 'league_id' in update_data:
@@ -175,7 +175,7 @@ class TeamService(BaseEntityService[Team]):
             ))
             division_conf = division_conf_result.scalars().first()
             
-            if division_conf.league_id != team_league_id:
+            if division_conf and division_conf.league_id != team_league_id:
                 raise ValueError(
                     f"Division/Conference with ID {update_data['division_conference_id']} "
                     f"does not belong to League with ID {team_league_id}"

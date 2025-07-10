@@ -25,14 +25,14 @@ class PlayerService(BaseEntityService[Player]):
         if team_id:
             query = query.where(Player.team_id == team_id)
         result = await db.execute(query)
-        return result.scalars().unique().all()
+        return list(result.scalars().all())
     
     async def create_player(self, db: AsyncSession, player: PlayerCreate) -> Player:
         """Create a new player or update if it already exists."""
-        # Validate that team exists only if team_id is provided
+        # Validate team exists
         if player.team_id:
             await EntityValidator.validate_team(db, player.team_id)
-            
+        
         # Check if a player with the same name already exists
         existing_player = await db.execute(
             select(Player).where(Player.name == player.name)
@@ -41,13 +41,12 @@ class PlayerService(BaseEntityService[Player]):
 
         if db_player:
             # Update existing player
-            update_data = player.model_dump(exclude_unset=True)
-            for key, value in update_data.items():
-                setattr(db_player, key, value)
+            for key, value in player.model_dump().items():
+                if value is not None:  # Only update non-None values
+                    setattr(db_player, key, value)
         else:
             # Create new player
-            create_data = player.model_dump(exclude_none=True)
-            db_player = Player(**create_data)
+            db_player = Player(**player.model_dump())
             db.add(db_player)
         
         try:

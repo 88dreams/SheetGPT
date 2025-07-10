@@ -104,12 +104,11 @@ class DatabaseCleanupService:
         # Make sure all stats are properly serializable
         return self._convert_stats_to_serializable()
         
-    def _convert_stats_to_serializable(self):
+    def _convert_stats_to_serializable(self) -> Dict[str, Any]:
         """Convert any non-serializable objects in stats to serializable types."""
-        serializable_stats = {}
         
         # Helper function to convert a single object
-        def make_serializable(obj):
+        def make_serializable(obj: Any) -> Any:
             if hasattr(obj, "_asdict"):  # For SQLAlchemy Row objects
                 return {k: make_serializable(v) for k, v in obj._asdict().items()}
             elif hasattr(obj, "__dict__"):  # For custom objects
@@ -118,7 +117,7 @@ class DatabaseCleanupService:
             elif isinstance(obj, (list, tuple)):
                 return [make_serializable(item) for item in obj]
             elif isinstance(obj, dict):
-                return {k: make_serializable(v) for k, v in obj.items()}
+                return {str(k): make_serializable(v) for k, v in obj.items()}
             elif isinstance(obj, (datetime, UUID)):
                 return str(obj)
             else:
@@ -126,8 +125,12 @@ class DatabaseCleanupService:
         
         # Convert all stats to serializable objects
         serializable_stats = make_serializable(self.stats)
+
+        if isinstance(serializable_stats, dict):
+            return serializable_stats
         
-        return serializable_stats
+        # If serialization results in a non-dict, wrap it in a dict for consistency
+        return {"error": "Failed to serialize stats to a dictionary.", "value": serializable_stats}
     
     async def fix_entity_duplicates(self):
         """Fix duplicates in core entity tables."""

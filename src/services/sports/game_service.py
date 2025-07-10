@@ -3,20 +3,20 @@ from sqlalchemy.exc import SQLAlchemyError
 from typing import List, Optional, Dict, Any
 from uuid import UUID
 import logging
-from sqlalchemy import select
+from sqlalchemy import select, delete
 
 from src.models.sports_models import Game, League, Team, Stadium
 from src.schemas.sports import GameCreate, GameUpdate
-from src.services.sports.base_service import BaseEntityService
 from src.services.sports.validators import EntityValidator
+from src.utils.errors import EntityNotFoundError, handle_database_errors
 
 logger = logging.getLogger(__name__)
 
-class GameService(BaseEntityService[Game]):
+class GameService:
     """Service for managing games."""
     
     def __init__(self):
-        super().__init__(Game)
+        self.model_class = Game
     
     async def get_games(self, db: AsyncSession, league_id: Optional[UUID] = None, 
                         team_id: Optional[UUID] = None, season_year: Optional[int] = None) -> List[Game]:
@@ -34,7 +34,7 @@ class GameService(BaseEntityService[Game]):
             query = query.where(Game.season_year == season_year)
             
         result = await db.execute(query)
-        return result.scalars().all()
+        return list(result.scalars().all())
     
     async def create_game(self, db: AsyncSession, game: GameCreate) -> Game:
         """Create a new game."""
@@ -53,7 +53,7 @@ class GameService(BaseEntityService[Game]):
         await EntityValidator.validate_team_league_relationship(db, game.away_team_id, game.league_id)
         
         # Create new game
-        db_game = Game(**game.dict())
+        db_game = Game(**game.model_dump())
         db.add(db_game)
         
         try:
@@ -65,21 +65,27 @@ class GameService(BaseEntityService[Game]):
             logger.error(f"Error creating game: {str(e)}")
             raise
     
-    async def get_game(self, db: AsyncSession, game_id: UUID) -> Optional[Game]:
+    @handle_database_errors
+    async def get_game(self, db: AsyncSession, game_id: UUID, raise_not_found: bool = True) -> Optional[Game]:
         """Get a game by ID."""
-        return await super().get_entity(db, game_id)
+        result = await db.execute(select(self.model_class).where(self.model_class.id == game_id))
+        entity = result.scalars().first()
+        
+        if entity is None and raise_not_found:
+            raise EntityNotFoundError(entity_type="game", entity_id=str(game_id))
+            
+        return entity
     
     async def update_game(self, db: AsyncSession, game_id: UUID, game_update: GameUpdate) -> Optional[Game]:
         """Update a game."""
         # First get the game
-        result = await db.execute(select(Game).where(Game.id == game_id))
-        db_game = result.scalars().first()
+        db_game = await self.get_game(db, game_id)
         
         if not db_game:
             return None
         
         # Update game attributes
-        update_data = game_update.dict(exclude_unset=True)
+        update_data = game_update.model_dump(exclude_unset=True)
         
         # Perform validations for updated fields
         if 'league_id' in update_data:
@@ -111,6 +117,12 @@ class GameService(BaseEntityService[Game]):
             logger.error(f"Error updating game: {str(e)}")
             raise
     
+    @handle_database_errors
     async def delete_game(self, db: AsyncSession, game_id: UUID) -> bool:
         """Delete a game."""
-        return await super().delete_entity(db, game_id)
+        entity = await self.get_game(db, game_id)
+        
+        # Delete the entity
+        await db.delete(entity)
+        await db.commit()
+        return True

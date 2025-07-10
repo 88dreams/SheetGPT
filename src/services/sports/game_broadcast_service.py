@@ -35,7 +35,7 @@ class GameBroadcastService(BaseEntityService[GameBroadcast]):
             query = query.where(GameBroadcast.production_company_id == production_company_id)
             
         result = await db.execute(query)
-        return result.scalars().all()
+        return list(result.scalars().all())
     
     async def create_game_broadcast(self, db: AsyncSession, game_broadcast: GameBroadcastCreate) -> GameBroadcast:
         """Create new game broadcast."""

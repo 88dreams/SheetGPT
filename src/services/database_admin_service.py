@@ -2,29 +2,49 @@ import os
 import logging
 import json
 from pathlib import Path
-from typing import List, Dict, Any, Tuple
+from typing import List, Dict, Any, Tuple, TypedDict, Optional, TYPE_CHECKING
 from datetime import datetime, date
-from uuid import UUID # Added for conversation methods
+from uuid import UUID
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
-import asyncio # Added for subprocess
-import subprocess # For Alembic
+import asyncio
+import subprocess
 
-# Assuming DatabaseCleanupService and DatabaseVacuumService will be refactored
-# into proper services or their paths correctly handled. For now, direct import from scripts.
-# This might need adjustment based on final project structure for scripts.
-# If scripts are not directly importable, this part will fail and need rethinking on how to call them.
-try:
+if TYPE_CHECKING:
     from src.scripts.db_cleanup import DatabaseCleanupService
     from src.scripts.db_vacuum import DatabaseVacuumService
-except ImportError as e:
-    logging.getLogger(__name__).warning(f"Could not import script services: {e}. Cleanup/Vacuum operations might fail.")
-    DatabaseCleanupService = None # Placeholder
-    DatabaseVacuumService = None  # Placeholder
+else:
+    try:
+        from src.scripts.db_cleanup import DatabaseCleanupService
+        from src.scripts.db_vacuum import DatabaseVacuumService
+    except ImportError as e:
+        logging.getLogger(__name__).warning(f"Could not import script services: {e}. Cleanup/Vacuum operations might fail.")
+        DatabaseCleanupService = None
+        DatabaseVacuumService = None
 
 logger = logging.getLogger(__name__)
 
 BACKUP_STATUS_KEY = "maintenance_status"
+
+class CleanupStats(TypedDict, total=False):
+    duplicates_found: Dict[str, int]
+    duplicates_removed: Dict[str, int]
+    relationships_repaired: Dict[str, int]
+    name_standardization: Dict[str, int]
+    constraints_added: List[str]
+    errors: List[str]
+    success: bool
+    skipped: bool
+    integrity_issues: Dict[str, Any]
+
+class VacuumStats(TypedDict, total=False):
+    tables: Dict[str, Any]
+    indexes: Dict[str, Any]
+    total_size_before: int
+    total_size_after: int
+    vacuum_time: float
+    reindex_time: float
+    errors: List[str]
 
 class DatabaseAdminService:
     """
@@ -52,25 +72,19 @@ class DatabaseAdminService:
         
         logger.info(f"Creating backup at: {backup_file_path}")
         
-        # Construct the pg_dump command
-        # Using --column-inserts or --inserts makes the dump more verbose but can be more stable for cross-version restores or problematic data.
-        # --no-owner and --no-privileges can make it more portable if restoring to a different user/role setup.
-        # For simplicity and general re-importability, a plain format dump is often sufficient.
-        # We will use --clean to add DROP statements for a cleaner restore.
         pg_dump_command = [
             "pg_dump",
             f"--dbname=postgresql://{db_user}:{db_pass}@{db_host}:{db_port}/{db_name}",
-            "--format=plain",  # Output plain SQL
-            "--clean",         # Add DROP commands before CREATE commands
-            "--no-owner",      # Do not output commands to set ownership of objects
-            "--no-privileges", # Do not output GRANT/REVOKE commands
+            "--format=plain",
+            "--clean",
+            "--no-owner",
+            "--no-privileges",
             f"--file={backup_file_path}"
         ]
         
         try:
-            # Set environment variables for pg_dump if password is not in DSN
             env = os.environ.copy()
-            if db_pass: # pg_dump can use PGPASSWORD or a .pgpass file
+            if db_pass:
                  env["PGPASSWORD"] = db_pass
 
             process = await asyncio.create_subprocess_exec(
@@ -86,9 +100,9 @@ class DatabaseAdminService:
                 logger.error(f"pg_dump failed with exit code {process.returncode}: {error_message}")
                 raise Exception(f"pg_dump failed: {error_message}")
 
-            if stdout: # Should be empty if --file is used correctly
+            if stdout:
                 logger.info(f"pg_dump stdout: {stdout.decode().strip()}")
-            if stderr: # Might contain warnings even on success
+            if stderr:
                 logger.warning(f"pg_dump stderr: {stderr.decode().strip()}")
 
             if not backup_file_path.exists() or backup_file_path.stat().st_size == 0:
@@ -101,7 +115,6 @@ class DatabaseAdminService:
             raise Exception("pg_dump command not found. Please install PostgreSQL client tools.")
         except Exception as e:
             logger.error(f"Error creating database backup with pg_dump: {str(e)}", exc_info=True)
-            # Attempt to remove partial backup file if it exists and is empty or an error occurred
             if backup_file_path.exists() and backup_file_path.stat().st_size == 0:
                 try:
                     backup_file_path.unlink()
@@ -139,23 +152,22 @@ class DatabaseAdminService:
                 )
             """)
             await self.db.execute(create_table_query)
-            await self.db.commit() # Commit table creation immediately
+            await self.db.commit()
             logger.info("Created system_metadata table")
 
     async def _get_maintenance_status_json(self) -> Dict[str, Any]:
         await self._ensure_system_metadata_table()
-        status_query = text("SELECT value FROM system_metadata WHERE key = 'maintenance_status'")
-        status_result = await self.db.execute(status_query)
+        status_query = text("SELECT value FROM system_metadata WHERE key = :key")
+        status_result = await self.db.execute(status_query, {"key": BACKUP_STATUS_KEY})
         status_row = status_result.scalar_one_or_none()
         if status_row:
             if isinstance(status_row, str): return json.loads(status_row)
-            if isinstance(status_row, (dict, list)): return status_row # Already JSONB dict/list
+            if isinstance(status_row, dict): return status_row
             logger.warning(f"Unexpected maintenance status type: {type(status_row)}")
         return {}
 
     async def _update_maintenance_status_json(self, status_data: Dict[str, Any]):
         await self._ensure_system_metadata_table()
-        # Ensure all datetime objects are ISO formatted strings for JSON serialization
         def json_serial(obj):
             if isinstance(obj, (datetime, date)):
                 return obj.isoformat()
@@ -165,15 +177,77 @@ class DatabaseAdminService:
 
         maintenance_json = json.dumps(status_data, default=json_serial)
         
-        # Use consistent JSONB casting for value
         upsert_query = text("""
             INSERT INTO system_metadata (key, value, updated_at)
-            VALUES ('maintenance_status', :value::jsonb, NOW())
+            VALUES (:key, :value::jsonb, NOW())
             ON CONFLICT (key)
             DO UPDATE SET value = :value::jsonb, updated_at = NOW()
         """)
-        await self.db.execute(upsert_query, {"value": maintenance_json})
+        await self.db.execute(upsert_query, {"key": BACKUP_STATUS_KEY, "value": maintenance_json})
         await self.db.commit()
+
+    async def get_schema_summary(self) -> Dict[str, Any]:
+        """Loads and returns the schema summary from the markdown file."""
+        try:
+            schema_path = Path("src/config/database_schema_for_ai.md")
+            if not schema_path.exists():
+                logger.error(f"Schema summary file not found at {schema_path}")
+                return {"error": "Schema summary file not found."}
+
+            with open(schema_path, "r") as f:
+                content = f.read()
+            
+            json_str = content.split("```json")[1].split("```")[0]
+            schema_data = json.loads(json_str)
+            if not isinstance(schema_data, dict):
+                raise TypeError("Schema summary is not a dictionary.")
+            return schema_data
+
+        except (IndexError, json.JSONDecodeError, TypeError) as e:
+            logger.error(f"Error parsing schema summary: {e}", exc_info=True)
+            return {"error": f"Failed to parse schema summary: {e}"}
+        except Exception as e:
+            logger.error(f"An unexpected error occurred while getting schema summary: {e}", exc_info=True)
+            return {"error": "An unexpected error occurred."}
+
+    async def get_database_stats(self) -> Dict[str, Any]:
+        """
+        Gathers various statistics about the database.
+        """
+        if DatabaseVacuumService is None:
+            return {"error": "DatabaseVacuumService not available."}
+        
+        try:
+            vacuum_service = DatabaseVacuumService(self.db)
+            stats = await vacuum_service.get_table_stats()
+            
+            total_live_rows = 0
+            total_dead_rows = 0
+            total_table_size_bytes = 0
+            total_index_size_bytes = 0
+
+            for table_stats in stats.values():
+                if isinstance(table_stats, dict):
+                    total_live_rows += table_stats.get("live_rows", 0)
+                    total_dead_rows += table_stats.get("dead_rows", 0)
+                    total_table_size_bytes += table_stats.get("total_bytes", 0)
+                    
+                    index_stats = table_stats.get("indexes", {})
+                    if isinstance(index_stats, dict):
+                        total_index_size_bytes += sum(v.get("total_bytes", 0) for v in index_stats.values() if isinstance(v, dict))
+
+            return {
+                "total_tables": len(stats),
+                "total_live_rows": total_live_rows,
+                "total_dead_rows": total_dead_rows,
+                "total_table_size_mb": round(total_table_size_bytes / (1024 * 1024), 2),
+                "total_index_size_mb": round(total_index_size_bytes / (1024 * 1024), 2),
+                "total_database_size_mb": round((total_table_size_bytes + total_index_size_bytes) / (1024 * 1024), 2),
+                "detailed_stats": stats
+            }
+        except Exception as e:
+            logger.error(f"Error getting database stats: {str(e)}", exc_info=True)
+            return {"error": str(e)}
 
     async def get_maintenance_status(self) -> Dict[str, Any]:
         try:
@@ -205,12 +279,10 @@ class DatabaseAdminService:
         current_status[f"{operation_key}_time"] = datetime.now().isoformat()
         current_status[f"{operation_key}_results"] = results_data
         
-        # Ensure boolean for completion status
         if results_data.get("status") == "failure":
              current_status[f"{operation_key}_completed"] = False
         elif results_data.get("status") == "success":
             current_status[f"{operation_key}_completed"] = True
-        # else, if 'status' is not present, keep True for backward compatibility or simple cases
 
         await self._update_maintenance_status_json(current_status)
         logger.info(f"Updated {operation_key} status in system_metadata")
@@ -222,11 +294,16 @@ class DatabaseAdminService:
         try:
             cleanup_service = DatabaseCleanupService(self.db, dry_run=True)
             stats = await cleanup_service.run_full_cleanup()
+            
+            duplicates_found = sum(stats.get("duplicates_found", {}).values())
+            relationships_repaired = sum(stats.get("relationships_repaired", {}).values())
+            constraints_needed = len(stats.get("constraints_added", []))
+
             analysis_results = {
-                "duplicates_total": sum(stats.get("duplicates_found", {}).values()),
-                "missing_relationships": sum(stats.get("relationships_repaired", {}).values()),
-                "name_standardizations": sum(count for key, count in stats.get("relationships_repaired", {}).items() if "name_standardization" in key),
-                "constraints_needed": len(stats.get("constraints_added", [])),
+                "duplicates_total": duplicates_found,
+                "missing_relationships": relationships_repaired,
+                "name_standardizations": sum(count for count in stats.get("name_standardization", {}).values() if isinstance(count, int)),
+                "constraints_needed": constraints_needed,
                 "timestamp": datetime.now().isoformat(),
                 "detailed_results": stats
             }
@@ -242,28 +319,33 @@ class DatabaseAdminService:
             return {"success": False, "error": "Cleanup service not available."}
         try:
             cleanup_service = DatabaseCleanupService(self.db, dry_run=False)
-            cleanup_service.api_call = True # To skip interactive prompts
-            os.environ["AUTOMATED_CLEANUP"] = "1" # For backward compatibility if script uses it
+            setattr(cleanup_service, 'api_call', True) # Safely set attribute
+            os.environ["AUTOMATED_CLEANUP"] = "1"
             stats = await cleanup_service.run_full_cleanup()
+
+            duplicates_removed = sum(stats.get("duplicates_removed", {}).values())
+            relationships_fixed = sum(stats.get("relationships_repaired", {}).values())
+            constraints_added = len(stats.get("constraints_added", []))
+            
             fixed_results = {
-                "duplicates_removed": sum(stats.get("duplicates_removed", {}).values()),
-                "relationships_fixed": sum(stats.get("relationships_repaired", {}).values()),
-                "constraints_added": len(stats.get("constraints_added", [])),
+                "duplicates_removed": duplicates_removed,
+                "relationships_fixed": relationships_fixed,
+                "constraints_added": constraints_added,
                 "timestamp": datetime.now().isoformat(),
-                "success": stats.get("success", True) # Assuming script returns success status
+                "success": stats.get("success", True)
             }
             await self._update_specific_maintenance_status("cleanup", fixed_results)
-            # Fallback direct SQL update for cleanup_completed - kept from original for safety but ideally handled by _update_specific_maintenance_status
+            
             try:
-                direct_update = text("UPDATE system_metadata SET value = jsonb_set(COALESCE(value::jsonb, '{}'::jsonb), '{cleanup_completed}', 'true'::jsonb), updated_at = NOW() WHERE key = 'maintenance_status'")
-                await self.db.execute(direct_update)
+                direct_update = text("UPDATE system_metadata SET value = jsonb_set(COALESCE(value::jsonb, '{}'::jsonb), '{cleanup_completed}', 'true'::jsonb), updated_at = NOW() WHERE key = :key")
+                await self.db.execute(direct_update, {"key": BACKUP_STATUS_KEY})
                 await self.db.commit()
             except Exception as e:
                 logger.warning(f"Could not force direct SQL update for cleanup_completed: {str(e)}")
             return {"success": True, **fixed_results}
         except Exception as e:
             logger.error(f"Error in cleanup: {str(e)}", exc_info=True)
-            await self.db.rollback() # Ensure rollback on error during actual cleanup
+            await self.db.rollback()
             return {"success": False, "error": str(e)}
 
     async def run_vacuum(self, skip_reindex: bool = False) -> Dict[str, Any]:
@@ -273,12 +355,16 @@ class DatabaseAdminService:
         try:
             vacuum_service = DatabaseVacuumService(self.db)
             stats = await vacuum_service.run_full_vacuum(include_reindex=not skip_reindex)
+
+            total_size_before = stats.get("total_size_before", 0)
+            total_size_after = stats.get("total_size_after", 0)
+
             vacuum_results = {
-                "space_reclaimed_mb": (stats.get("total_size_before", 0) - stats.get("total_size_after", 0)) / (1024 * 1024),
-                "percent_reduction": ((stats.get("total_size_before", 0) - stats.get("total_size_after", 0)) / stats.get("total_size_before", 1)) * 100 if stats.get("total_size_before", 0) > 0 else 0,
+                "space_reclaimed_mb": (total_size_before - total_size_after) / (1024 * 1024),
+                "percent_reduction": ((total_size_before - total_size_after) / total_size_before) * 100 if total_size_before > 0 else 0,
                 "duration_seconds": stats.get("vacuum_time", 0) + (0 if skip_reindex else stats.get("reindex_time", 0)),
-                "size_before_mb": stats.get("total_size_before", 0) / (1024 * 1024),
-                "size_after_mb": stats.get("total_size_after", 0) / (1024 * 1024),
+                "size_before_mb": total_size_before / (1024 * 1024),
+                "size_after_mb": total_size_after / (1024 * 1024),
                 "skip_reindex": skip_reindex,
                 "detailed_results": stats
             }
@@ -288,16 +374,13 @@ class DatabaseAdminService:
             logger.error(f"Error in vacuum: {str(e)}", exc_info=True)
             return {"success": False, "error": str(e)}
 
-    # TODO: Move conversation archiving/restoring to a dedicated ConversationService?
     async def mark_conversation_archived(self, conversation_id: UUID):
         """Mark a conversation as archived."""
-        # Check if conversation exists and is not deleted
         query_exists = text("SELECT id FROM conversations WHERE id = :id AND deleted_at IS NULL")
         result_exists = await self.db.execute(query_exists, {"id": conversation_id})
         if not result_exists.scalar_one_or_none():
             raise ValueError(f"Conversation {conversation_id} not found or already deleted")
 
-        # Check if is_archived column exists
         check_column_query = text("SELECT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'conversations' AND column_name = 'is_archived')")
         has_is_archived_result = await self.db.execute(check_column_query)
         has_is_archived = has_is_archived_result.scalar_one()
@@ -311,10 +394,8 @@ class DatabaseAdminService:
             logger.warning(f"Cannot archive conversation {conversation_id}: is_archived column does not exist")
             raise ValueError("Archive feature is not available in this version")
 
-    # TODO: Move conversation archiving/restoring to a dedicated ConversationService?
     async def restore_archived_conversation(self, conversation_id: UUID):
         """Restore a previously archived conversation."""
-        # Check if is_archived column exists
         check_column_query = text("SELECT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'conversations' AND column_name = 'is_archived')")
         has_is_archived_result = await self.db.execute(check_column_query)
         has_is_archived = has_is_archived_result.scalar_one()
@@ -323,7 +404,6 @@ class DatabaseAdminService:
             logger.warning(f"Cannot restore conversation {conversation_id}: is_archived column does not exist")
             raise ValueError("Archive feature is not available in this version")
             
-        # Check if conversation exists, is archived and not deleted
         query_exists = text("SELECT id FROM conversations WHERE id = :id AND is_archived = true AND deleted_at IS NULL")
         result_exists = await self.db.execute(query_exists, {"id": conversation_id})
         if not result_exists.scalar_one_or_none():
@@ -337,9 +417,6 @@ class DatabaseAdminService:
     async def run_migrations(self) -> Dict[str, Any]:
         logger.info("Attempting to apply database migrations...")
         try:
-            # Construct the path to alembic_wrapper.py relative to the current file
-            # This assumes database_admin_service.py is in src/services/
-            # and alembic_wrapper.py is in src/scripts/
             current_dir = Path(__file__).parent
             script_path = current_dir.parent / "scripts" / "alembic_wrapper.py"
             
@@ -351,12 +428,11 @@ class DatabaseAdminService:
             
             logger.info(f"Executing migration command: {' '.join(command)}")
 
-            # Using asyncio.create_subprocess_exec for consistency with pg_dump
             process = await asyncio.create_subprocess_exec(
                 *command,
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
-                cwd=current_dir.parent.parent # Run from project root (/app)
+                cwd=current_dir.parent.parent
             )
             
             stdout, stderr = await process.communicate()
@@ -380,4 +456,4 @@ class DatabaseAdminService:
         except Exception as e:
             logger.error(f"Error applying migrations: {str(e)}", exc_info=True)
             await self._update_specific_maintenance_status("migrations", {"status": "failure", "errors": str(e)})
-            raise Exception(f"Failed to apply migrations: {str(e)}") 
+            raise Exception(f"Failed to apply migrations: {str(e)}")

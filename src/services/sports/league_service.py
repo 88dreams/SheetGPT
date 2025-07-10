@@ -49,7 +49,7 @@ class LeagueService(BaseEntityService[League]):
         return await super().get_all_models(db, filters=filters)
     
     @handle_database_errors
-    async def create_league(self, db: AsyncSession, league_data: Union[LeagueCreate, Dict[str, Any]]) -> League:
+    async def create_league(self, db: AsyncSession, league_data: Union[LeagueCreate, Dict[str, Any]]) -> Optional[League]:
         """
         Create a new league or update if it already exists.
         
@@ -61,8 +61,8 @@ class LeagueService(BaseEntityService[League]):
             The created or updated league
         """
         # Convert to dict if it's a Pydantic model
-        if hasattr(league_data, "dict"):
-            data = league_data.dict(exclude_unset=True)
+        if isinstance(league_data, LeagueCreate):
+            data = league_data.model_dump(exclude_unset=True)
         else:
             data = league_data
             
@@ -70,7 +70,7 @@ class LeagueService(BaseEntityService[League]):
         return await super().create_entity(db, data, update_if_exists=True)
     
     @handle_database_errors
-    async def get_league(self, db: AsyncSession, league_id: UUID) -> League:
+    async def get_league(self, db: AsyncSession, league_id: UUID) -> Optional[League]:
         """
         Get a league by ID.
         
@@ -87,7 +87,7 @@ class LeagueService(BaseEntityService[League]):
         return await super().get_entity(db, league_id)
     
     @handle_database_errors
-    async def get_league_by_name(self, db: AsyncSession, name: str) -> League:
+    async def get_league_by_name(self, db: AsyncSession, name: str) -> Optional[League]:
         """
         Get a league by name (case-insensitive).
         
@@ -122,7 +122,7 @@ class LeagueService(BaseEntityService[League]):
         return await super().find_entity(db, search_term, raise_not_found)
     
     @handle_database_errors
-    async def update_league(self, db: AsyncSession, league_id: UUID, league_update: Union[LeagueUpdate, Dict[str, Any]]) -> League:
+    async def update_league(self, db: AsyncSession, league_id: UUID, league_update: Union[LeagueUpdate, Dict[str, Any]]) -> Optional[League]:
         """
         Update a league.
         
@@ -138,8 +138,8 @@ class LeagueService(BaseEntityService[League]):
             EntityNotFoundError: If league doesn't exist
         """
         # Convert to dict if it's a Pydantic model
-        if hasattr(league_update, "dict"):
-            update_data = league_update.dict(exclude_unset=True)
+        if isinstance(league_update, LeagueUpdate):
+            update_data = league_update.model_dump(exclude_unset=True)
         else:
             update_data = league_update
             

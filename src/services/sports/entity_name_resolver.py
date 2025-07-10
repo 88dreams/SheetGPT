@@ -18,6 +18,26 @@ class EntityNameResolver:
     """Resolves related entity names for better display."""
     
     @staticmethod
+    async def get_entity_name_by_id(db: AsyncSession, entity_type: str, entity_id: UUID) -> Optional[str]:
+        """Get the name of a single entity by its type and ID."""
+        model_class = get_model_for_entity_type(entity_type)
+        if not model_class:
+            logger.warning(f"No model class found for entity type: {entity_type}")
+            return None
+
+        # Special handling for games
+        if model_class == Game:
+            return await get_game_display_name(db, entity_id)
+
+        # Standard handling for other models
+        if hasattr(model_class, 'name'):
+            result = await db.execute(select(model_class.name).where(model_class.id == entity_id))
+            return result.scalar_one_or_none()
+        
+        logger.warning(f"Model {model_class.__name__} does not have a 'name' attribute.")
+        return None
+    
+    @staticmethod
     async def add_related_names(db: AsyncSession, entity_type: str, entity: Dict[str, Any]) -> Dict[str, Any]:
         """Add related entity names to an entity dictionary."""
         item_dict = entity.copy()

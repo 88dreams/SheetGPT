@@ -17,7 +17,7 @@ class EntityValidator:
     """Validator for entity relationships and constraints."""
     
     @staticmethod
-    async def validate_league(db: AsyncSession, league_id: UUID) -> Optional[League]:
+    async def validate_league(db: AsyncSession, league_id: UUID) -> League:
         """Validate that a league exists."""
         result = await db.execute(select(League).where(League.id == league_id))
         league = result.scalars().first()
@@ -53,7 +53,7 @@ class EntityValidator:
         return stadium
     
     @staticmethod
-    async def validate_broadcast_company(db: AsyncSession, company_id: UUID) -> Optional[Brand]:
+    async def validate_broadcast_company(db: AsyncSession, company_id: UUID) -> Brand:
         """
         Validate that a broadcast company exists.
         

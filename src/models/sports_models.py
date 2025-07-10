@@ -146,6 +146,11 @@ class Stadium(TimestampedBase):
         unique=True,
         index=True
     )
+    nickname: Mapped[Optional[str]] = mapped_column(
+        String(100),
+        nullable=True,
+        index=True
+    )
     city: Mapped[str] = mapped_column(
         String(100),
         nullable=False
@@ -230,6 +235,11 @@ class Team(TimestampedBase):
         unique=True,
         index=True
     )
+    nickname: Mapped[Optional[str]] = mapped_column(
+        String(50),
+        nullable=True,
+        index=True
+    )
     city: Mapped[Optional[str]] = mapped_column(
         String(100),
         nullable=True
@@ -299,6 +309,11 @@ class Player(TimestampedBase):
     name: Mapped[str] = mapped_column(
         String(100),
         nullable=False
+    )
+    nickname: Mapped[Optional[str]] = mapped_column(
+        String(100),
+        nullable=True,
+        index=True
     )
     position: Mapped[str] = mapped_column(
         String(50),
@@ -516,6 +531,9 @@ class ProductionService(TimestampedBase):
         nullable=False
     )
 
+    name: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    nickname: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+
     secondary_brand_id: Mapped[Optional[UUID]] = mapped_column(
         SQLUUID,
         ForeignKey("brands.id"),
@@ -707,6 +725,11 @@ class LeagueExecutive(TimestampedBase):
         String(100),
         nullable=False
     )
+    nickname: Mapped[Optional[str]] = mapped_column(
+        String(100),
+        nullable=True,
+        index=True
+    )
     position: Mapped[str] = mapped_column(
         String(100),
         nullable=False
@@ -764,6 +787,8 @@ class GameBroadcast(TimestampedBase):
         String(50),
         nullable=True
     )
+    name: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    nickname: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
 
     # Relationships
     game: Mapped["Game"] = relationship(

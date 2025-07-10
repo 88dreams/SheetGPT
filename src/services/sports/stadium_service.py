@@ -21,7 +21,7 @@ class StadiumService(BaseEntityService[Stadium]):
     async def get_stadiums(self, db: AsyncSession) -> List[Stadium]:
         """Get all stadiums."""
         result = await db.execute(select(Stadium))
-        return result.scalars().all()
+        return list(result.scalars().all())
     
     async def create_stadium(self, db: AsyncSession, stadium: StadiumCreate) -> Stadium:
         """Create a new stadium or update if it already exists."""
@@ -37,12 +37,12 @@ class StadiumService(BaseEntityService[Stadium]):
 
         if db_stadium:
             # Update existing stadium
-            for key, value in stadium.dict().items():
+            for key, value in stadium.model_dump().items():
                 if value is not None:  # Only update non-None values
                     setattr(db_stadium, key, value)
         else:
             # Create new stadium
-            db_stadium = Stadium(**stadium.dict())
+            db_stadium = Stadium(**stadium.model_dump())
             db.add(db_stadium)
         
         try:
@@ -68,7 +68,7 @@ class StadiumService(BaseEntityService[Stadium]):
             return None
         
         # Update stadium attributes
-        update_data = stadium_update.dict(exclude_unset=True)
+        update_data = stadium_update.model_dump(exclude_unset=True)
         
         # Validate host_broadcaster_id if it's being updated
         if 'host_broadcaster_id' in update_data and update_data['host_broadcaster_id'] is not None:

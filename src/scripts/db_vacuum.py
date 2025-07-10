@@ -100,12 +100,11 @@ class DatabaseVacuumService:
         # Make sure all stats are properly serializable
         return self._convert_stats_to_serializable()
         
-    def _convert_stats_to_serializable(self):
+    def _convert_stats_to_serializable(self) -> Dict[str, Any]:
         """Convert any non-serializable objects in stats to serializable types."""
-        serializable_stats = {}
         
         # Helper function to convert a single object
-        def make_serializable(obj):
+        def make_serializable(obj: Any) -> Any:
             if hasattr(obj, "_asdict"):  # For SQLAlchemy Row objects
                 return {k: make_serializable(v) for k, v in obj._asdict().items()}
             elif hasattr(obj, "__dict__"):  # For custom objects
@@ -114,7 +113,7 @@ class DatabaseVacuumService:
             elif isinstance(obj, (list, tuple)):
                 return [make_serializable(item) for item in obj]
             elif isinstance(obj, dict):
-                return {k: make_serializable(v) for k, v in obj.items()}
+                return {str(k): make_serializable(v) for k, v in obj.items()}
             elif isinstance(obj, (datetime, UUID)):
                 return str(obj)
             else:
@@ -122,8 +121,12 @@ class DatabaseVacuumService:
         
         # Convert all stats to serializable objects
         serializable_stats = make_serializable(self.stats)
+
+        if isinstance(serializable_stats, dict):
+            return serializable_stats
         
-        return serializable_stats
+        # If serialization results in a non-dict, wrap it in a dict for consistency
+        return {"error": "Failed to serialize stats to a dictionary.", "value": serializable_stats}
     
     async def _get_database_size(self) -> Dict[str, Any]:
         """Get the total size of the database."""
@@ -140,6 +143,40 @@ class DatabaseVacuumService:
             "total_size": size_data.total_size if size_data else 0,
             "size_pretty": size_data.size_pretty if size_data else "N/A"
         }
+    
+    async def get_table_stats(self) -> Dict[str, Dict[str, Any]]:
+        """Get statistics for each table in the database, without printing."""
+        query = text("""
+            SELECT
+                relname as table_name,
+                pg_total_relation_size(c.oid) as total_bytes,
+                pg_table_size(c.oid) as table_bytes,
+                pg_indexes_size(c.oid) as index_bytes,
+                n_live_tup as live_rows,
+                n_dead_tup as dead_rows
+            FROM pg_class c
+            JOIN pg_namespace n ON n.oid = c.relnamespace
+            JOIN pg_stat_user_tables t ON t.relname = c.relname
+            WHERE c.relkind = 'r'
+            AND n.nspname = 'public'
+            ORDER BY pg_total_relation_size(c.oid) DESC;
+        """)
+        
+        result = await self.db.execute(query)
+        tables = result.fetchall()
+        
+        table_stats = {}
+        for table in tables:
+            table_stats[table.table_name] = {
+                "total_bytes": table.total_bytes,
+                "table_bytes": table.table_bytes,
+                "index_bytes": table.index_bytes,
+                "live_rows": table.live_rows,
+                "dead_rows": table.dead_rows,
+                "indexes": {} # Placeholder for more detailed index stats if needed
+            }
+        
+        return table_stats
     
     async def _print_table_stats(self):
         """Print statistics for each table in the database."""

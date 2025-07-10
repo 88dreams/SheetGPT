@@ -10,6 +10,7 @@ import json
 from datetime import datetime
 
 from src.models.models import Conversation, Message, StructuredData, DataColumn
+from src.schemas.chat import ConversationUpdate
 from src.utils.config import get_settings
 from src.config.logging_config import chat_logger
 
@@ -215,7 +216,7 @@ class ChatService:
         messages = result.scalars().all()
         
         # Return empty list if no messages yet
-        return messages
+        return list(messages)
 
     async def get_conversation(self, conversation_id: UUID) -> Conversation:
         """Get a conversation by ID with its messages."""
@@ -374,7 +375,7 @@ class ChatService:
             full_response = ""
             buffer = ""
             async for chunk in message_stream:
-                if chunk.type == "content_block_delta" and chunk.delta.text:
+                if chunk.type == "content_block_delta" and chunk.delta.type == "text_delta":
                     content = chunk.delta.text
                     self.logger.debug(f"Received chunk from Claude: {len(content)} chars")
                     buffer += content

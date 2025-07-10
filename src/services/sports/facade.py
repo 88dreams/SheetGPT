@@ -38,7 +38,7 @@ from src.services.sports.player_service import PlayerService
 from src.services.sports.game_service import GameService
 from src.services.sports.stadium_service import StadiumService
 from src.services.sports.broadcast_service import BroadcastCompanyService, BroadcastRightsService
-from src.services.sports.production_service import ProductionCompanyService, ProductionServiceService
+from src.services.sports.production_service import ProductionServiceService
 from src.services.sports.brand_service import BrandService
 from src.services.sports.game_broadcast_service import GameBroadcastService
 from src.services.sports.league_executive_service import LeagueExecutiveService
@@ -188,82 +188,69 @@ class SportsService:
             raise ValueError(f"Invalid entity type: {entity_type}")
         
         model_class = self.ENTITY_TYPES[entity_type]
-        
+        if not model_class:
+            raise ValueError(f"No model class found for entity type: {entity_type}")
+
         # Get total count
         count_query = select(func.count()).select_from(model_class)
-        total_count = await db.scalar(count_query)
+        total_count_result = await db.execute(count_query)
+        total_count = total_count_result.scalar() or 0
         
         # Check if we're sorting by a relationship field
         relationship_sort = await self.get_relationship_sort_config(entity_type, sort_by)
         
-        # Log the sorting configuration
         logger.info(f"Sorting {entity_type} by {sort_by} ({sort_direction}) - Relationship sort config: {relationship_sort}")
         
         # Handle regular relationship sort (non-polymorphic)
         if relationship_sort and not relationship_sort.get("special_case"):
-            # We're sorting by a relationship field with a direct join
             join_model = relationship_sort.get("join_model")
             join_field = relationship_sort.get("join_field")
             sort_field = relationship_sort.get("sort_field")
 
-            if not all([join_model, join_field, sort_field]):
-                logger.error(f"Invalid relationship sort config for {entity_type} by {sort_by}: {relationship_sort}")
-                # Fallback to default sorting
-            else:
+            if join_model and join_field and sort_field:
                 logger.info(f"Processing relationship sort with join_model={join_model.__name__}, join_field={join_field}, sort_field={sort_field}")
                 
-                # Create a query with the join
                 query = (
                     select(model_class, getattr(join_model, sort_field).label(sort_by))
                     .outerjoin(join_model, getattr(model_class, join_field) == join_model.id)
                 )
                 
-                # Apply sorting on the joined field
-                if sort_direction.lower() == "desc":
-                    query = query.order_by(getattr(join_model, sort_field).desc().nulls_last())
-                else:
-                    query = query.order_by(getattr(join_model, sort_field).asc().nulls_last())
+                sort_order = getattr(join_model, sort_field).desc().nulls_last() if sort_direction.lower() == "desc" else getattr(join_model, sort_field).asc().nulls_last()
+                query = query.order_by(sort_order)
                 
-                # Apply pagination
                 query = query.offset((page - 1) * limit).limit(limit)
                 
-                # Execute query
                 result = await db.execute(query)
                 rows = result.all()
                 
-                # Process the results to include the joined field
                 entities_with_joined = []
                 for row in rows:
-                    entity = row[0]  # The main model
-                    joined_value = row[1]  # The joined value
+                    entity = row[0]
+                    joined_value = row[1]
                     
-                    # Convert to dict and add joined field
                     entity_dict = self._model_to_dict(entity)
                     if entity_dict:
                         entity_dict[sort_by] = joined_value
                         entities_with_joined.append(entity_dict)
                 
-                logger.info(f"Returning {len(entities_with_joined)} entities sorted by relationship field {sort_by}")
-                
-                total_pages = math.ceil(total_count / limit) if total_count and limit > 0 else 0
+                total_pages = math.ceil(total_count / limit) if total_count > 0 else 0
                 return {
                     "items": entities_with_joined,
-                    "total": total_count or 0,
+                    "total": total_count,
                     "page": page,
                     "size": limit,
                     "pages": total_pages
                 }
-            
+            else:
+                logger.error(f"Invalid relationship sort config for {entity_type} by {sort_by}: {relationship_sort}")
+                # Fallback to default sorting, which will be handled below
+
         # Handle special case for polymorphic relationships
         elif relationship_sort and relationship_sort.get("special_case") == "polymorphic":
-            # For polymorphic relationships (where entity_type is in the model), we can't do direct joins
-            # Instead, we retrieve all entities and sort them in memory
             logger.info(f"Processing polymorphic relationship sort for {entity_type} by {sort_by}")
             
-            # Get all entities first (limited to this page + buffer to ensure we have enough after sorting)
-            buffer_limit = limit * 3  # Get 3x the page size to have enough data after sorting
-            query = select(model_class)
-            query = query.offset((page - 1) * limit).limit(buffer_limit)
+            buffer_limit = limit * 3
+            query = select(model_class).offset((page - 1) * limit).limit(buffer_limit)
             
             result = await db.execute(query)
             entities = result.scalars().all()
@@ -271,34 +258,22 @@ class SportsService:
             
             # Process them to add the related names
             processed_entities = await EntityNameResolver.get_entities_with_related_names(
-                db, entity_type, entities_dicts)
+                db, entity_type, [d for d in entities_dicts if d is not None])
             
             # Now sort the processed entities by the requested field
-            def get_sort_key(entity):
+            def get_sort_key(entity: Dict[str, Any]) -> str:
                 value = entity.get(sort_by)
-                # Handle None values for sorting
                 if value is None:
                     return ""
-                
-                # Normalize the value for sorting
-                if isinstance(value, str):
-                    return value.lower()
-                
-                # Handle non-string values
                 return str(value).lower()
             
-            sorted_entities = sorted(
-                processed_entities,
-                key=get_sort_key,
-                reverse=(sort_direction.lower() == "desc")
-            )
+            sorted_entities = sorted(processed_entities, key=get_sort_key, reverse=(sort_direction.lower() == "desc"))
             
-            # Apply pagination to the sorted results
             paginated_entities = sorted_entities[:limit]
             
             logger.info(f"Returning {len(paginated_entities)} entities after in-memory sorting by {sort_by}")
             
-            total_pages = math.ceil(total_count / limit) if total_count and limit > 0 else 0
+            total_pages = math.ceil(total_count / limit) if total_count > 0 else 0
             return {
                 "items": paginated_entities,
                 "total": total_count,
@@ -307,40 +282,39 @@ class SportsService:
                 "pages": total_pages
             }
             
-        else:
-            # Standard handling for direct model fields
-            query = select(model_class)
-            
-            # Add sorting
-            if hasattr(model_class, sort_by):
-                sort_column = getattr(model_class, sort_by)
-                if sort_direction.lower() == "desc":
-                    query = query.order_by(sort_column.desc())
-                else:
-                    query = query.order_by(sort_column.asc())
+        # Standard handling for direct model fields or fallback from failed relationship sort
+        query = select(model_class)
+        
+        sort_attr = getattr(model_class, sort_by, None)
+        if sort_attr:
+            sort_column = sort_attr
+            if sort_direction.lower() == "desc":
+                query = query.order_by(sort_column.desc())
             else:
-                logger.warning(f"Field {sort_by} not found in {entity_type} model, defaulting to id sorting")
-                if sort_direction.lower() == "desc":
-                    query = query.order_by(model_class.id.desc())
-                else:
-                    query = query.order_by(model_class.id.asc())
-                    
-            # Add pagination
-            query = query.offset((page - 1) * limit).limit(limit)
-            
-            result = await db.execute(query)
-            entities = result.scalars().all()
-            
-            logger.info(f"Returning {len(entities)} entities sorted by direct field {sort_by}")
-            
-            total_pages = math.ceil(total_count / limit) if total_count and limit > 0 else 0
-            return {
-                "items": [self._model_to_dict(entity) for entity in entities if entity],
-                "total": total_count,
-                "page": page,
-                "size": limit,
-                "pages": total_pages
-            }
+                query = query.order_by(sort_column.asc())
+        else:
+            logger.warning(f"Field {sort_by} not found in {entity_type} model, defaulting to id sorting")
+            sort_column = getattr(model_class, "id") # Fallback to id
+            if sort_direction.lower() == "desc":
+                query = query.order_by(sort_column.desc())
+            else:
+                query = query.order_by(sort_column.asc())
+                
+        query = query.offset((page - 1) * limit).limit(limit)
+        
+        result = await db.execute(query)
+        entities = result.scalars().all()
+        
+        logger.info(f"Returning {len(entities)} entities sorted by direct field {sort_by}")
+        
+        total_pages = math.ceil(total_count / limit) if total_count > 0 else 0
+        return {
+            "items": [self._model_to_dict(entity) for entity in entities if entity],
+            "total": total_count,
+            "page": page,
+            "size": limit,
+            "pages": total_pages
+        }
     
     def _model_to_dict(self, model_instance: Any) -> Optional[Dict[str, Any]]:
         if not model_instance:
@@ -449,8 +423,9 @@ class SportsService:
             all_entities = all_entities_result.scalars().all()
             
             # 4. Resolve related names to get computed columns
+            entity_dicts = [self._model_to_dict(e) for e in all_entities if e]
             resolved_entities = await EntityNameResolver.get_entities_with_related_names(
-                session, entity_type, [self._model_to_dict(e) for e in all_entities]
+                session, entity_type, [d for d in entity_dicts if d is not None]
             )
 
             # 5. In-memory search across all specified columns (including computed)
@@ -496,9 +471,13 @@ class SportsService:
         """Get all leagues."""
         return await self.league_service.get_leagues(db)
     
-    async def create_league(self, db: AsyncSession, league: LeagueCreate) -> League:
+    async def create_league(self, db: AsyncSession, league: LeagueCreate) -> Optional[League]:
         """Create a new league or update if it already exists."""
         return await self.league_service.create_league(db, league)
+    
+    async def get_league_by_name(self, db: AsyncSession, name: str) -> Optional[League]:
+        """Get a league by name (case-insensitive)."""
+        return await self.league_service.get_league_by_name(db, name)
     
     async def get_league(self, db: AsyncSession, league_id: UUID) -> Optional[League]:
         """Get a league by ID."""
@@ -731,7 +710,7 @@ class SportsService:
                     # '_is_brand' was used in some previous logic, keeping for potential compatibility if other code relies on it.
                     # However, the entity_type 'broadcast_company' itself implies it's a brand.
                     brand_dict['_is_brand'] = True 
-                return brand_dict
+                    return brand_dict
             
             return None # Reached if no brand found and creation also failed or wasn't attempted.
             
@@ -758,13 +737,14 @@ class SportsService:
             if brand:
                 logger.info(f"Found brand '{brand.name}' with ID {brand.id}, marking as production company")
                 brand_dict = self._model_to_dict(brand)
-                brand_dict['_is_brand'] = True
-                if not brand.company_type:
-                    brand.company_type = "Production Company"
-                    try:
-                        await db.commit()
-                    except: # noqa: E722
-                        await db.rollback()
+                if brand_dict:
+                    brand_dict['_is_brand'] = True
+                    if not brand.company_type:
+                        brand.company_type = "Production Company"
+                        try:
+                            await db.commit()
+                        except: # noqa: E722
+                            await db.rollback()
                 return brand_dict
             return None
             
@@ -893,23 +873,22 @@ class SportsService:
         return await brand_service.delete_brand(db, brand_id)
         
     # Production Service methods
-    async def get_production_services(self, db: AsyncSession, entity_type: Optional[str] = None, entity_id: Optional[UUID] = None, company_id: Optional[UUID] = None) -> List[ProductionService]:
+    async def get_production_services(self, db: AsyncSession, entity_type: Optional[str] = None, entity_id: Optional[UUID] = None, company_id: Optional[UUID] = None) -> List[Dict[str, Any]]:
         """Get all production services, optionally filtered."""
         production_service_service = ProductionServiceService()
-        result = await production_service_service.get_production_services(db, entity_type=entity_type, entity_id=entity_id, company_id=company_id)
-        return result.get("items", [])
+        return await production_service_service.get_production_services(db, entity_type=entity_type, entity_id=entity_id, company_id=company_id)
     
-    async def create_production_service(self, db: AsyncSession, service: ProductionServiceCreate) -> ProductionService:
+    async def create_production_service(self, db: AsyncSession, service: ProductionServiceCreate) -> Dict[str, Any]:
         """Create a new production service."""
         production_service_service = ProductionServiceService()
         return await production_service_service.create_production_service(db, service)
     
-    async def get_production_service(self, db: AsyncSession, service_id: UUID) -> Optional[ProductionService]:
+    async def get_production_service(self, db: AsyncSession, service_id: UUID) -> Optional[Dict[str, Any]]:
         """Get a production service by ID."""
         production_service_service = ProductionServiceService()
         return await production_service_service.get_production_service(db, service_id)
     
-    async def update_production_service(self, db: AsyncSession, service_id: UUID, service_update: ProductionServiceUpdate) -> Optional[ProductionService]:
+    async def update_production_service(self, db: AsyncSession, service_id: UUID, service_update: ProductionServiceUpdate) -> Optional[Dict[str, Any]]:
         """Update a production service."""
         production_service_service = ProductionServiceService()
         return await production_service_service.update_production_service(db, service_id, service_update)

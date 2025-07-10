@@ -28,7 +28,7 @@ from src.services.sports.player_service import PlayerService
 from src.services.sports.game_service import GameService
 from src.services.sports.stadium_service import StadiumService
 from src.services.sports.broadcast_service import BroadcastRightsService, BroadcastCompanyService
-from src.services.sports.production_service import ProductionServiceService, ProductionCompanyService
+from src.services.sports.production_service import ProductionServiceService
 from src.services.sports.brand_service import BrandService
 from src.services.sports.game_broadcast_service import GameBroadcastService
 from src.services.sports.league_executive_service import LeagueExecutiveService
@@ -230,9 +230,13 @@ class SportsFacadeV2:
         """Get all leagues."""
         return await self.league_service.get_leagues(db)
     
-    async def create_league(self, db: AsyncSession, league: LeagueCreate) -> League:
+    async def create_league(self, db: AsyncSession, league: LeagueCreate) -> Optional[League]:
         """Create a new league or update if it already exists."""
         return await self.league_service.create_league(db, league)
+    
+    async def get_league_by_name(self, db: AsyncSession, name: str) -> Optional[League]:
+        """Get a league by name (case-insensitive)."""
+        return await self.league_service.get_league_by_name(db, name)
     
     async def get_league(self, db: AsyncSession, league_id: UUID) -> Optional[League]:
         """Get a league by ID."""
@@ -402,7 +406,7 @@ class SportsFacadeV2:
         entity_type: Optional[str] = None, 
         entity_id: Optional[UUID] = None, 
         company_id: Optional[UUID] = None
-    ) -> Dict[str, Any]:
+    ) -> List[Dict[str, Any]]:
         """Get all production services, optionally filtered."""
         production_service_service = ProductionServiceService()
         return await production_service_service.get_production_services(db, entity_type=entity_type, entity_id=entity_id, company_id=company_id)
@@ -411,7 +415,7 @@ class SportsFacadeV2:
         self, 
         db: AsyncSession, 
         service: ProductionServiceCreate
-    ) -> ProductionService:
+    ) -> Dict[str, Any]:
         """Create a new production service."""
         production_service_service = ProductionServiceService()
         
@@ -429,7 +433,7 @@ class SportsFacadeV2:
 
         return await production_service_service.create_production_service(db, service)
     
-    async def get_production_service(self, db: AsyncSession, service_id: UUID) -> Optional[ProductionService]:
+    async def get_production_service(self, db: AsyncSession, service_id: UUID) -> Optional[Dict[str, Any]]:
         """Get a production service by ID."""
         production_service_service = ProductionServiceService()
         return await production_service_service.get_production_service(db, service_id)
@@ -439,7 +443,7 @@ class SportsFacadeV2:
         db: AsyncSession, 
         service_id: UUID, 
         service_update: ProductionServiceUpdate
-    ) -> Optional[ProductionService]:
+    ) -> Optional[Dict[str, Any]]:
         """Update a production service."""
         production_service_service = ProductionServiceService()
         

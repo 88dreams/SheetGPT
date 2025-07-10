@@ -26,7 +26,7 @@ class LeagueExecutiveService(BaseEntityService[LeagueExecutive]):
             query = query.where(LeagueExecutive.league_id == league_id)
             
         result = await db.execute(query)
-        return result.scalars().all()
+        return list(result.scalars().all())
     
     async def create_league_executive(self, db: AsyncSession, executive: LeagueExecutiveCreate) -> LeagueExecutive:
         """Create new league executive."""
@@ -34,7 +34,7 @@ class LeagueExecutiveService(BaseEntityService[LeagueExecutive]):
         await EntityValidator.validate_league(db, executive.league_id)
         
         # Create new league executive
-        db_executive = LeagueExecutive(**executive.dict())
+        db_executive = LeagueExecutive(**executive.model_dump())
         db.add(db_executive)
         
         try:

@@ -62,33 +62,26 @@ SheetGPT combines AI-powered chat (Claude) with structured data management and a
 - **Further Reading:**
   - `docs/development/REFACTORING_GUIDE.md` (Project-specific coding patterns)
 
-## Current Status (May 17, 2025)
+## Current Status (July 2025)
 
-- **Development Environment & Database:** Stable and operational.
+- **Backend Code Health:** A major initiative to resolve all `pyright` type-checking errors and warnings has been completed. The backend now uses modern, fully asynchronous patterns, and obsolete code has been removed.
+- **Development Environment & Database:** Stable and operational. The database has been successfully restored from backup, and all migrations are applied.
 - **Core Functionality:** Key features (Chat, Sports DB, Data Mapping, Export, CSV Contact Import) are functional.
 - **Database Query Page:** 
     - Implemented robust state persistence for query inputs, SQL, and results using `sessionStorage`.
     - Fixed issues with clearing query inputs/results and their persisted state.
 - **NLQ-to-SQL Translation:**
     - Significantly improved by providing a detailed schema context file (`database_schema_for_ai.md`) to the backend LLM (Claude).
-    - This context includes guidelines for case-insensitive queries and better entity resolution.
-    - Addressed backend bugs in `EntityNameResolver` for more accurate data display.
-- **Query Helper UI:** 
-    - Added a new backend endpoint (`/api/v1/db-management/schema-summary`) to serve structured schema info to the frontend.
-    - Implemented a `SchemaContext` for frontend schema access.
-    - Developed an initial "Query Helper / Builder" modal that allows users to select tables, apply basic filters, and generate an NLQ string.
-- **UI Maintenance:** Resolved several Ant Design Modal deprecation warnings (`visible` to `open` prop).
 - See `docs/PROGRESS.md` for a detailed history of updates and fixes.
 
 ## Current Focus
 
-1.  **Enhance Query Helper UI & NLQ Assistance:** 
+1.  **Resolve Frontend TypeScript & Linter Errors:** With the backend now fully typed and stable, the primary focus is on addressing outstanding TypeScript errors and module resolution issues in `frontend/src/`.
+2.  **Enhance Query Helper UI & NLQ Assistance:** 
     - Add schema-aware autocomplete/hints to the main NLQ input.
     - Improve filter capabilities (e.g., operators, value suggestions) in the Query Helper modal.
-2.  **Improve NLQ Ambiguity Handling:** Further explore strategies to detect and resolve ambiguous user queries, potentially by guiding the LLM or enhancing frontend assistance.
-3.  **Resolve Frontend TypeScript & Linter Errors:** Address outstanding TypeScript errors and module resolution issues (Pylance warnings) in `frontend/src/` and backend files.
+3.  **Improve NLQ Ambiguity Handling:** Further explore strategies to detect and resolve ambiguous user queries, potentially by guiding the LLM or enhancing frontend assistance.
 4.  **Continue Frontend Refactoring:** As needed, particularly for `DatabaseQuery.tsx` if further modularization is beneficial.
-5.  **Production Stability & Performance Improvements.**
 
 ## Project Status: Import Source Tag Feature & Database Recovery
 
@@ -145,4 +138,4 @@ The primary goal now is to recover the database to a known good state and then e
 
 ---
 *This document provides a starting point. Please refer to the linked documents for more detail.*
-*Last updated: May 17, 2025*
+*Last updated: July 1, 2025*

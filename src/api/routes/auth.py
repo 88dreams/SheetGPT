@@ -78,12 +78,12 @@ async def login_user(
 
 @router.get("/me", response_model=UserResponse)
 async def get_current_user(
-    current_user_id: str = Depends(get_current_user_id),
+    current_user_id: UUID = Depends(get_current_user_id),
     db: AsyncSession = Depends(get_db)
 ) -> UserResponse:
     """Get current user information."""
     user_service = UserService(db)
-    user = await user_service.get_user_by_id(UUID(current_user_id))
+    user = await user_service.get_user_by_id(current_user_id)
     
     if not user:
         raise HTTPException(
@@ -95,12 +95,12 @@ async def get_current_user(
 
 @router.post("/refresh", response_model=TokenResponse)
 async def refresh_token(
-    current_user_id: str = Depends(get_current_user_id),
+    current_user_id: UUID = Depends(get_current_user_id),
     db: AsyncSession = Depends(get_db)
 ) -> TokenResponse:
     """Refresh authentication token."""
     user_service = UserService(db)
-    user = await user_service.get_user_by_id(UUID(current_user_id))
+    user = await user_service.get_user_by_id(current_user_id)
     
     if not user:
         raise HTTPException(

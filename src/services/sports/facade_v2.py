@@ -9,7 +9,7 @@ from src.models.sports_models import (
     League, Team, Player, Game, Stadium, 
     BroadcastRights, ProductionService,
     Brand, GameBroadcast, LeagueExecutive,
-    DivisionConference
+    DivisionConference, Creator, Management
 )
 from src.schemas.sports import (
     LeagueCreate, LeagueUpdate,
@@ -79,7 +79,9 @@ class SportsFacadeV2:
         "brand": Brand,
         "game_broadcast": GameBroadcast,
         "league_executive": LeagueExecutive,
-        "division_conference": DivisionConference
+        "division_conference": DivisionConference,
+        "creator": Creator,
+        "management": Management
     }
     
     def __init__(self):
@@ -111,6 +113,10 @@ class SportsFacadeV2:
         
         model_class = self.ENTITY_TYPES[normalized_type]
         query = select(model_class)
+        
+        # Handle sorting for Creator and Management, which do not have a 'name' field
+        if normalized_type in ["creator", "management"] and sort_by == "name":
+            sort_by = "last_name"
         
         # Apply filters if provided
         if filters:

@@ -196,6 +196,10 @@ class SportsService:
         total_count_result = await db.execute(count_query)
         total_count = total_count_result.scalar() or 0
         
+        # Handle sorting for Creator and Management, which do not have a 'name' field
+        if entity_type in ["creator", "management"] and sort_by == "name":
+            sort_by = "last_name"
+
         # Check if we're sorting by a relationship field
         relationship_sort = await self.get_relationship_sort_config(entity_type, sort_by)
         

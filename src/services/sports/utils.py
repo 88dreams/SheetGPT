@@ -8,7 +8,7 @@ from src.models.sports_models import (
     League, Team, Player, Game, Stadium, 
     BroadcastRights, ProductionService,
     Brand, GameBroadcast, LeagueExecutive,
-    DivisionConference
+    DivisionConference, Creator, Management
 )
 
 logger = logging.getLogger(__name__)
@@ -29,6 +29,8 @@ ENTITY_TYPES = {
     "game_broadcasts": GameBroadcast,
     "league_executives": LeagueExecutive,
     "divisions_conferences": DivisionConference,
+    "creators": Creator,
+    "managements": Management,
     # Singular forms
     "league": League,
     "team": Team,
@@ -43,6 +45,8 @@ ENTITY_TYPES = {
     "game_broadcast": GameBroadcast,
     "league_executive": LeagueExecutive,
     "division_conference": DivisionConference,
+    "creator": Creator,
+    "management": Management,
     # Additional mappings for frontend entity types
     "broadcast": BroadcastRights,
     "production": ProductionService,

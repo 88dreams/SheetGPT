@@ -54,6 +54,11 @@ src/
    - Includes backend services for SQL validation and correction, potentially using AI assistance.
    - **LLM Selection:** Backend services (e.g., Chat service) are updated to accept a parameter indicating the desired LLM for a given request/session, routing to the appropriate model provider or configuration.
 
+5. **Code Health & Modernization (as of July 2025)**
+   - **Fully Asynchronous:** The entire backend codebase now strictly adheres to modern `async` patterns, using `AsyncSession` for all database operations.
+   - **Static Type-Checking:** The backend is fully type-hinted and passes a strict `pyright` type-checking pass, significantly reducing the potential for runtime errors and improving code maintainability.
+   - **Modern API Patterns:** The code has been updated to use modern SQLAlchemy 2.0 API patterns, and obsolete code has been removed.
+
 ### Frontend (React + TypeScript)
 
 #### Core Structure
@@ -207,13 +212,12 @@ User → api.88gpts.com (Digital Ocean) → Backend API → PostgreSQL
 - Enhanced form fields with resolution feedback
 - Column persistence across sessions with dual storage
 
-## Current Focus Areas (as of May 17, 2025)
+## Current Focus Areas (as of July 2025)
 
-1.  **Query Assistance & NLQ Accuracy:**
+1.  **Resolve Frontend TypeScript & Linter Errors:** With the backend now fully typed and stable, the primary focus is on addressing outstanding TypeScript errors and module resolution issues in `frontend/src/`.
+2.  **Query Assistance & NLQ Accuracy:**
     - Enhance Query Helper UI (schema-aware autocomplete, advanced filters).
     - Improve NLQ ambiguity handling and refine LLM prompting strategies.
-2.  **Development Environment & Code Health:**
-    - Resolve outstanding frontend TypeScript errors and Pylance module resolution issues.
 3.  **Frontend Refactoring & Stability:**
     - Continue refactoring components like `DatabaseQuery.tsx` as needed.
     - Focus on production stability, logging, and performance optimizations.

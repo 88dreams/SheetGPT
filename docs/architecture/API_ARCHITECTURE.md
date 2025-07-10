@@ -13,7 +13,6 @@ src/
 │   ├── sports/       # Sports domain services
 │   ├── chat/         # Claude integration and messaging
 │   └── export/       # Sheets and CSV generation
-├── scripts/          # Database maintenance utilities
 └── utils/            # Shared helper functions
 ```
 
@@ -25,6 +24,11 @@ src/
 - **Data Management**: Structured data operations and transformation
 - **Export**: Google Sheets and CSV export with templating, folder support, and column filtering
 - **Database Query**: Natural language to SQL translation
+
+### Implementation Quality
+- **Fully Asynchronous**: The API is built on a fully asynchronous stack (`FastAPI`, `SQLAlchemy 2.0`, `asyncpg`), ensuring high performance and concurrency.
+- **Statically Typed**: The entire backend codebase is type-hinted and validated with `pyright`, which improves code reliability and reduces runtime errors.
+- **Modern Practices**: The implementation follows modern Python best practices, including the use of up-to-date API patterns for libraries like SQLAlchemy.
 
 ### Production Architecture
 
@@ -766,4 +770,4 @@ function Pagination({
 }
 ```
 
-Updated: May 17, 2025
+Updated: July 1, 2025

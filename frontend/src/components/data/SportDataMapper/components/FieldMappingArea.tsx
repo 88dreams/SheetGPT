@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { EntityType } from '../../../../types/sports';
-import { ENTITY_TYPES } from '../../../../utils/sportDataMapper/entityTypes';
+import { ENTITY_TYPES } from '../utils/importUtils';
 import FieldItem from './FieldItem';
 import FieldHelpTooltip from './FieldHelpTooltip';
 import DroppableField from './DroppableField';
@@ -70,6 +70,7 @@ const getAllEntityFields = (entityType: EntityType | null): { name: string, requ
     'player': ['name', 'position'],
     'game': ['name', 'date', 'home_team_id', 'away_team_id', 'season_year', 'season_type'],
     'stadium': ['name', 'city', 'country'],
+    'broadcast': ['broadcast_company_id', 'entity_type', 'entity_id', 'territory', 'start_date', 'end_date'],
     'broadcast_rights': ['broadcast_company_id', 'entity_type', 'entity_id', 'territory', 'start_date', 'end_date'],
     'game_broadcast': ['game_id', 'broadcast_company_id', 'broadcast_type', 'territory'],
     'brand': ['name', 'industry'],
@@ -89,9 +90,10 @@ const getAllEntityFields = (entityType: EntityType | null): { name: string, requ
     'player': ['id', 'name', 'team_id', 'position', 'jersey_number', 'college', 'sport', 'sponsor_id', 'tags', 'created_at', 'updated_at'],
     'game': ['id', 'name', 'league_id', 'home_team_id', 'away_team_id', 'stadium_id', 'date', 'time', 'home_score', 'away_score', 'status', 'season_year', 'season_type', 'tags', 'created_at', 'updated_at'],
     'stadium': ['id', 'name', 'city', 'state', 'country', 'capacity', 'owner', 'naming_rights_holder', 'host_broadcaster', 'host_broadcaster_id', 'tags', 'created_at', 'updated_at'],
+    'broadcast': ['id', 'name', 'broadcast_company_id', 'entity_type', 'entity_id', 'territory', 'start_date', 'end_date', 'is_exclusive', 'tags', 'created_at', 'updated_at'],
     'broadcast_rights': ['id', 'name', 'broadcast_company_id', 'entity_type', 'entity_id', 'territory', 'start_date', 'end_date', 'is_exclusive', 'tags', 'created_at', 'updated_at'],
     'game_broadcast': ['id', 'name', 'game_id', 'broadcast_company_id', 'production_company_id', 'broadcast_type', 'territory', 'start_time', 'end_time', 'tags', 'created_at', 'updated_at'],
-    'brand': ['id', 'name', 'industry', 'company_type', 'country', 'partner', 'partner_relationship', 'tags', 'created_at', 'updated_at'],
+    'brand': ['id', 'name', 'industry', 'company_type', 'country', 'partner', 'partner_relationship', 'media_department', 'tags', 'created_at', 'updated_at'],
     'league_executive': ['id', 'name', 'league_id', 'position', 'start_date', 'end_date', 'tags', 'created_at', 'updated_at'],
     'person': ['id', 'name', 'role', 'email', 'phone', 'tags', 'created_at', 'updated_at'],
     'production_company': ['id', 'name', 'industry', 'country', 'founded_year', 'tags', 'created_at', 'updated_at'],

@@ -1,4 +1,12 @@
-import { EntityType, isValidUUID } from './entityTypes';
+import { EntityType } from "../../types/sports";
+
+export const isValidUUID = (uuid: string): boolean => {
+  if (!uuid) {
+    return false;
+  }
+  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  return uuidRegex.test(uuid);
+};
 
 /**
  * Validate entity data before sending to the database
@@ -22,7 +30,7 @@ export const validateEntityData = (
   const errors: string[] = [];
   
   // Common validation for all entities except those that don't require name field
-  if (entityType !== 'broadcast_rights' && entityType !== 'production_service' && !data.name) {
+  if (entityType !== 'broadcast' && entityType !== 'production_service' && !data.name) {
     errors.push('Name is required');
     console.warn(`${entityType} validation error: Name is required`);
   }
@@ -196,7 +204,7 @@ export const validateEntityData = (
       }
       break;
       
-    case 'broadcast_rights':
+    case 'broadcast':
       // Check required fields
       if (!data.broadcast_company_id) {
         errors.push('Broadcast Company ID or Name is required');

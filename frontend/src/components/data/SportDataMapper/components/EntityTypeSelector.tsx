@@ -1,6 +1,6 @@
 import React from 'react';
 import { EntityType } from '../../../../types/sports';
-import { ENTITY_TYPES } from '../../../../utils/sportDataMapper/entityTypes';
+import { ENTITY_TYPES } from '../utils/importUtils';
 import { getEntityTypeColorClass } from '../../../../utils/sportDataMapper/uiUtils';
 
 interface EntityTypeSelectorProps {

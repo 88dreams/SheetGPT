@@ -31,7 +31,7 @@ const SidebarWithResizer: React.FC<SidebarWithResizerProps> = ({
     <>
       {/* Sidebar with dynamic width */}
       <div 
-        className="bg-gray-50 border-r border-gray-200 p-4 overflow-y-auto"
+        className="bg-gray-50 border-r border-gray-200 px-1 py-4 overflow-y-auto"
         style={{ width: `${sidebarWidth}%` }}
         ref={sidebarRef}
       >

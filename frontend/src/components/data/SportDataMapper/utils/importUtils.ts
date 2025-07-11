@@ -1,10 +1,48 @@
 import { EntityType } from '../../../../types/sports';
-import { validateEntityData } from '../../../../utils/sportDataMapper/validationUtils';
+import { isValidUUID, validateEntityData } from '../../../../utils/sportDataMapper/validationUtils';
 import { enhancedMapToDatabaseFieldNames } from '../../../../utils/sportDataMapper/mappingUtils';
-import { isValidUUID } from '../../../../utils/sportDataMapper/entityTypes';
 import { api } from '../../../../utils/api';
 import { sportsService } from '../../../../services/sportsService';
 import sportsDatabaseService from '../../../../services/SportsDatabaseService';
+
+export interface EntityTypeInfo {
+  id: EntityType;
+  name: string;
+  description: string;
+  requiredFields: string[];
+}
+
+// Define the entity types available for mapping
+export const ENTITY_TYPES: readonly EntityTypeInfo[] = [
+  { id: 'league', name: 'League', description: 'Sports leagues (e.g., NFL, NBA, MLB)', requiredFields: ['name', 'sport', 'country', 'tags'] },
+  { id: 'division_conference', name: 'Division/Conference', description: 'Divisions or conferences within leagues', requiredFields: ['name', 'league_id', 'type', 'tags'] },
+  { id: 'team', name: 'Team', description: 'Sports teams within leagues', requiredFields: ['name', 'league_id', 'division_conference_id', 'stadium_id', 'city', 'country', 'tags'] },
+  { id: 'player', name: 'Player', description: 'Athletes who play for teams', requiredFields: ['name', 'position', 'tags'] },
+  { id: 'game', name: 'Game', description: 'Individual games between teams', requiredFields: ['name', 'league_id', 'home_team_id', 'away_team_id', 'stadium_id', 'date', 'season_year', 'season_type', 'tags'] },
+  { id: 'stadium', name: 'Stadium', description: 'Venues where games are played', requiredFields: ['name', 'city', 'country', 'tags'] },
+  { id: 'broadcast', name: 'Broadcast Rights', description: 'Media rights for leagues, teams, or games', requiredFields: ['broadcast_company_id', 'entity_type', 'entity_id', 'territory', 'tags'] }, // Note: league_id is optional for broadcast rights
+  { id: 'production_service', name: 'Production Service', description: 'Production services for broadcasts', requiredFields: ['production_company_id', 'entity_type', 'entity_id', 'service_type', 'start_date', 'tags'] },
+  { id: 'brand', name: 'Brand', description: 'Brand information', requiredFields: ['name', 'industry', 'tags'] },
+  { id: 'game_broadcast', name: 'Game Broadcast', description: 'Broadcast information for specific games', requiredFields: ['name', 'game_id', 'broadcast_company_id', 'broadcast_type', 'territory', 'tags'] },
+  { id: 'league_executive', name: 'League Executive', description: 'Executive personnel for leagues', requiredFields: ['name', 'league_id', 'position', 'start_date', 'tags'] }
+] as const;
+
+/**
+ * Get required fields for a specific entity type
+ */
+export const getRequiredFields = (entityType: EntityType): string[] => {
+  const entityTypeInfo = ENTITY_TYPES.find(et => et.id === entityType);
+  return entityTypeInfo?.requiredFields || ['name'];
+};
+
+/*
+ * Check if a UUID string is valid
+ *
+export const isValidUUID = (uuid: string): boolean => {
+  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+  return uuidRegex.test(uuid);
+};
+*/
 
 // NEW HELPER FUNCTION
 const extractInitialMappedFields = (
@@ -121,7 +159,7 @@ const detectEntityType = (
   if (sourceRecordIsArray) {
     const hasField = (fieldName: string) => Object.keys(mappedFields).includes(fieldName) || Object.keys(mappings).includes(fieldName);
     const isBroadcastData = hasField('broadcast_company_id') || hasField('territory');
-    if (isBroadcastData) return 'broadcast_rights';
+    if (isBroadcastData) return 'broadcast';
     const isLeagueData = hasField('sport') || hasField('founded_year') || hasField('nickname') ||
                          Object.entries(mappings).some(([field, sourcePos]) => field === 'sport' && sourcePos === '2');
     if (isLeagueData) return 'league';
@@ -322,7 +360,7 @@ const enhanceDataForEntityType = (
     case 'brand':
       finalEnhancedData = _enhanceBrandData(finalEnhancedData);
       break;
-    case 'broadcast_rights':
+    case 'broadcast':
       finalEnhancedData = _enhanceBroadcastData(finalEnhancedData); // Use new refactored version
       break;
     default:
@@ -357,7 +395,7 @@ export const transformMappedData = (
   // This specific pre-fill for broadcast might need re-evaluation.
   // If entity_type and entity_id for broadcast are critical and often not directly mapped,
   // this heuristic might still be valuable, or extractInitialMappedFields should be smarter for broadcasts.
-  if (entityType === 'broadcast_rights' && sourceRecordIsArray && Array.isArray(sourceRecord)){
+  if (entityType === 'broadcast' && sourceRecordIsArray && Array.isArray(sourceRecord)){
       const hasEntityTypeMapping = Object.keys(mappings).some(f => f === 'entity_type');
       const hasEntityIdMapping = Object.keys(mappings).some(f => f === 'entity_id');
       if (!hasEntityTypeMapping && !dataForEnhancement.entity_type) {
@@ -426,7 +464,7 @@ async function resolveReferencesForEntity(
 ): Promise<void> { // Returns void as it mutates processedData directly
   console.log(`Resolving references for ${entityType}...`);
   switch (entityType) {
-    case 'broadcast_rights':
+    case 'broadcast':
       await _resolveBroadcastEntityReferences(processedData);
       break;
     case 'team':
@@ -529,7 +567,7 @@ export const saveEntityToDatabase = async (
     console.log('Frontend: processedData AFTER resolveReferencesForEntity:', JSON.stringify(processedData, null, 2));
     
     // Step 3: Call appropriate save/update helper
-    if (entityType === 'broadcast_rights') {
+    if (entityType === 'broadcast') {
       return await _saveBroadcastRecord(processedData);
     } else {
       // For all other standard entities (team, league, brand, division_conference etc.)

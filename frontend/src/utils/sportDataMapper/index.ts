@@ -1,8 +1,5 @@
 // Export all utility functions from the sportDataMapper module
 
-// Entity types and constants
-export * from './entityTypes';
-
 // Entity detection
 export * from './entityDetection';
 

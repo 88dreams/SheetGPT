@@ -23,10 +23,24 @@ class MessageBase(BaseModel):
     meta_data: Dict[str, Any] = {}
     tags: Optional[List[str]] = None
 
-class MessageCreate(MessageBase):
+class MessageCreate(BaseModel):
     """Schema for creating a new message."""
-    structured_format: Optional[Dict] = None
+    content: str = Field(..., min_length=1)
+    structured_format: Optional[Dict[str, Any]] = None
     selected_llm: Optional[str] = None
+    tags: Optional[List[str]] = None  #
+    
+    @validator('structured_format', pre=True)
+    def ensure_structured_format_is_dict_or_none(cls, v):
+        if v is not None and not isinstance(v, dict):
+            return None
+        return v
+
+    @validator('tags', pre=True)
+    def ensure_tags_is_list_or_none(cls, v):
+        if v is not None and not isinstance(v, list):
+            return None
+        return v
 
 class MessageResponse(MessageBase):
     """Schema for message responses."""

@@ -1,4 +1,5 @@
-import { EntityType, ENTITY_TYPES } from './entityTypes';
+import { ENTITY_TYPES } from '../../components/data/SportDataMapper/utils/importUtils';
+import { EntityType } from '../../types/sports';
 
 /**
  * Detects the most likely entity type based on the source fields and their values

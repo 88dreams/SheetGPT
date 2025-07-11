@@ -21,15 +21,23 @@ from src.utils.security import get_current_user_id
 
 router = APIRouter()
 
+# Instantiate the service once
+chat_service = ChatService()
+
+def get_chat_service() -> ChatService:
+    """Returns the singleton chat service instance."""
+    return chat_service
+
 @router.post("/conversations", response_model=ConversationListItem)
 async def create_conversation(
     conversation: ConversationCreate,
+    db: AsyncSession = Depends(get_db),
     current_user_id: UUID = Depends(get_current_user_id),
-    db: AsyncSession = Depends(get_db)
+    chat_service: ChatService = Depends(get_chat_service)
 ) -> ConversationListItem:
     """Create a new conversation."""
-    chat_service = ChatService(db)
     new_conversation = await chat_service.create_conversation(
+        db=db,
         user_id=current_user_id,
         title=conversation.title,
         description=conversation.description,
@@ -41,12 +49,13 @@ async def create_conversation(
 async def list_conversations(
     skip: int = 0,
     limit: int = 10,
+    db: AsyncSession = Depends(get_db),
     current_user_id: UUID = Depends(get_current_user_id),
-    db: AsyncSession = Depends(get_db)
+    chat_service: ChatService = Depends(get_chat_service)
 ) -> ConversationList:
     """List user's conversations with pagination."""
-    chat_service = ChatService(db)
     conversations = await chat_service.get_user_conversations(
+        db=db,
         user_id=current_user_id,
         skip=skip,
         limit=limit
@@ -61,18 +70,20 @@ async def list_conversations(
 @router.get("/conversations/{conversation_id}", response_model=ConversationResponse)
 async def get_conversation(
     conversation_id: UUID,
+    db: AsyncSession = Depends(get_db),
     current_user_id: UUID = Depends(get_current_user_id),
-    db: AsyncSession = Depends(get_db)
+    chat_service: ChatService = Depends(get_chat_service)
 ) -> ConversationResponse:
     """Get a specific conversation."""
-    chat_service = ChatService(db)
     try:
-        conversation = await chat_service.get_conversation(conversation_id)
+        conversation = await chat_service.get_conversation(db, conversation_id)
         if conversation.user_id != current_user_id:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Not authorized to access this conversation"
             )
+        # Manually load messages for the response model
+        await db.refresh(conversation, attribute_names=['messages'])
         return ConversationResponse.model_validate(conversation)
     except ValueError as e:
         raise HTTPException(
@@ -84,14 +95,14 @@ async def get_conversation(
 async def create_message(
     conversation_id: UUID,
     message: MessageCreate,
+    db: AsyncSession = Depends(get_db),
     current_user_id: UUID = Depends(get_current_user_id),
-    db: AsyncSession = Depends(get_db)
+    chat_service: ChatService = Depends(get_chat_service)
 ):
     print(f"--- Entered create_message for conversation {conversation_id}, user {current_user_id} ---")
-    chat_service = ChatService(db)
     try:
         # Get conversation and verify ownership
-        conversation = await chat_service.get_conversation(conversation_id)
+        conversation = await chat_service.get_conversation(db, conversation_id)
         if not conversation:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
@@ -120,6 +131,7 @@ async def create_message(
                 
                 # Process the streaming response
                 async for chunk in chat_service.get_chat_response(
+                    db=db,
                     conversation_id=conversation_id,
                     user_message=message.content,
                     structured_format=message.structured_format,
@@ -193,14 +205,14 @@ async def create_message(
 async def update_conversation(
     conversation_id: UUID,
     update_data: ConversationUpdate,
+    db: AsyncSession = Depends(get_db),
     current_user_id: UUID = Depends(get_current_user_id),
-    db: AsyncSession = Depends(get_db)
+    chat_service: ChatService = Depends(get_chat_service)
 ) -> ConversationResponse:
     """Update conversation details."""
-    chat_service = ChatService(db)
     try:
         # Verify conversation ownership by eagerly loading the conversation
-        conversation = await chat_service.get_conversation_by_id(conversation_id)
+        conversation = await chat_service.get_conversation_by_id(db, conversation_id)
         if not conversation:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
@@ -215,6 +227,7 @@ async def update_conversation(
 
         # Update conversation
         updated_conversation = await chat_service.update_conversation(
+            db=db,
             conversation_id=conversation_id,
             update_data=update_data
         )
@@ -228,14 +241,14 @@ async def update_conversation(
 @router.delete("/conversations/{conversation_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_conversation(
     conversation_id: UUID,
+    db: AsyncSession = Depends(get_db),
     current_user_id: UUID = Depends(get_current_user_id),
-    db: AsyncSession = Depends(get_db)
+    chat_service: ChatService = Depends(get_chat_service)
 ):
     """Delete a conversation and all its associated data."""
-    chat_service = ChatService(db)
     try:
         # Verify conversation ownership
-        conversation = await chat_service.get_conversation(conversation_id)
+        conversation = await chat_service.get_conversation(db, conversation_id)
         if not conversation:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
@@ -249,7 +262,7 @@ async def delete_conversation(
             )
 
         # Delete the conversation
-        await chat_service.delete_conversation(conversation_id)
+        await chat_service.delete_conversation(db, conversation_id)
         
         # Return an empty response with 204 status
         return Response(status_code=status.HTTP_204_NO_CONTENT)
@@ -268,14 +281,14 @@ async def delete_conversation(
 async def delete_message(
     conversation_id: UUID,
     message_id: UUID,
+    db: AsyncSession = Depends(get_db),
     current_user_id: UUID = Depends(get_current_user_id),
-    db: AsyncSession = Depends(get_db)
+    chat_service: ChatService = Depends(get_chat_service)
 ):
     """Delete a specific message from a conversation."""
-    chat_service = ChatService(db)
     try:
         # Verify conversation ownership
-        conversation = await chat_service.get_conversation(conversation_id)
+        conversation = await chat_service.get_conversation(db, conversation_id)
         if not conversation:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
@@ -289,7 +302,7 @@ async def delete_message(
             )
 
         # Delete the message
-        await chat_service.delete_message(message_id)
+        await chat_service.delete_message(db, message_id)
         
         # Return an empty response with 204 status
         return Response(status_code=status.HTTP_204_NO_CONTENT)
@@ -307,16 +320,17 @@ async def delete_message(
 @router.post("/conversations/order", response_model=List[ConversationListItem])
 async def update_conversation_orders(
     conversation_orders: List[ConversationOrderUpdate],
+    db: AsyncSession = Depends(get_db),
     current_user_id: UUID = Depends(get_current_user_id),
-    db: AsyncSession = Depends(get_db)
+    chat_service: ChatService = Depends(get_chat_service)
 ) -> List[ConversationListItem]:
     """Update the order of multiple conversations."""
-    chat_service = ChatService(db)
     try:
         # Convert to the format expected by the service
         order_data = [{"id": item.id, "order": item.order} for item in conversation_orders]
         
         updated_conversations = await chat_service.update_multiple_conversation_orders(
+            db=db,
             user_id=current_user_id,
             conversation_orders=order_data
         )

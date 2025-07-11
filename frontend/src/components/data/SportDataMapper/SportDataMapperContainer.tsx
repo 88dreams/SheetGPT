@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { detectEntityType } from '../../../utils/sportDataMapper';
-import { EntityType as MapperEntityType } from '../../../utils/sportDataMapper/entityTypes';
+import { EntityType } from '../../../types/sports';
 import { fingerprint, createMemoEqualityFn } from '../../../utils/fingerprint';
 import { withMemo } from '../../../utils/memoization';
 import { relationshipLoader } from '../../../utils/relationshipLoader';
@@ -29,7 +29,6 @@ import type { ImportResults } from './utils/batchProcessor';
 
 // Import API services
 import sportsDatabaseService from '../../../services/SportsDatabaseService';
-import { EntityType as DbEntityType } from '../../../types/sports';
 
 // Define props interface
 interface SportDataMapperProps {
@@ -101,7 +100,7 @@ const SportDataMapperContainer: React.FC<SportDataMapperProps> = ({ isOpen, onCl
   } = useUiState();
   
   // Local state
-  const [suggestedEntityType, setSuggestedEntityType] = useState<MapperEntityType | null>(null);
+  const [suggestedEntityType, setSuggestedEntityType] = useState<EntityType | null>(null);
   const [leagueAndStadiumExist, setLeagueAndStadiumExist] = useState<boolean>(false);
   const [isUpdateMode, setIsUpdateMode] = useState<boolean>(false);
   
@@ -125,11 +124,11 @@ const SportDataMapperContainer: React.FC<SportDataMapperProps> = ({ isOpen, onCl
       try {
         // Fetch league and stadium counts
         const leagueResponse = await sportsDatabaseService.getEntities({ 
-          entityType: 'league' as unknown as DbEntityType,
+          entityType: 'league' as unknown as EntityType,
           limit: 1
         });
         const stadiumResponse = await sportsDatabaseService.getEntities({ 
-          entityType: 'stadium' as unknown as DbEntityType,
+          entityType: 'stadium' as unknown as EntityType,
           limit: 1
         });
         
@@ -174,7 +173,7 @@ const SportDataMapperContainer: React.FC<SportDataMapperProps> = ({ isOpen, onCl
   }, [dataToImport.length, currentRecordIndex, setCurrentRecordIndex]);
   
   // Memoize the update function to prevent recreation on every render
-  const updateMappedDataForEntityType = useCallback((entityType: MapperEntityType) => {
+  const updateMappedDataForEntityType = useCallback((entityType: EntityType) => {
     hookUpdateMappedDataForEntityType(entityType, mappingsByEntityType, currentRecordIndex);
   }, [hookUpdateMappedDataForEntityType, mappingsByEntityType, currentRecordIndex]);
   
@@ -217,7 +216,7 @@ const SportDataMapperContainer: React.FC<SportDataMapperProps> = ({ isOpen, onCl
   }, [fingerprint(dataToImport[0] || {}), fingerprint(sourceFields), suggestedEntityType]);
   
   // Simple entity type selection handler
-  const handleEntityTypeSelect = useCallback((entityType: MapperEntityType) => {
+  const handleEntityTypeSelect = useCallback((entityType: EntityType) => {
     // Just update the selected entity type
     setSelectedEntityType(entityType);
     console.log(`Selected entity type: ${entityType}`);

@@ -1,4 +1,5 @@
-import { EntityType, ENTITY_TYPES } from './entityTypes';
+import { ENTITY_TYPES } from "../../components/data/SportDataMapper/utils/importUtils";
+import { EntityType } from "../../types/sports";
 
 /**
  * Get a display-friendly name for an entity type
@@ -54,11 +55,11 @@ export const getEntityTypeColorClass = (entityType: EntityType): string => {
     case 'game':
       return 'bg-purple-100 text-purple-800';
     case 'stadium':
-      return 'bg-red-100 text-red-800';
-    case 'broadcast_rights':
-      return 'bg-indigo-100 text-indigo-800';
+      return 'bg-green-100 text-green-800';
+    case 'broadcast':
+      return 'bg-yellow-100 text-yellow-800';
     case 'production_service':
-      return 'bg-pink-100 text-pink-800';
+      return 'bg-gray-100 text-gray-800';
     case 'brand':
       return 'bg-orange-100 text-orange-800';
     case 'game_broadcast':
@@ -84,11 +85,11 @@ export const getEntityTypeBorderClass = (entityType: EntityType): string => {
     case 'game':
       return 'border-purple-300';
     case 'stadium':
-      return 'border-red-300';
-    case 'broadcast_rights':
-      return 'border-indigo-300';
+      return 'border-green-500';
+    case 'broadcast':
+      return 'border-yellow-500';
     case 'production_service':
-      return 'border-pink-300';
+      return 'border-gray-500';
     case 'brand':
       return 'border-orange-300';
     case 'game_broadcast':

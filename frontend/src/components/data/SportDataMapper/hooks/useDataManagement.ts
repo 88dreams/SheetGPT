@@ -1,6 +1,8 @@
 import { useState, useCallback, useMemo } from 'react';
-import { EntityType } from '../../../../utils/sportDataMapper';
+import { EntityType } from '../../../../types/sports';
 import { areEqual, fingerprint } from '../../../../utils/fingerprint';
+
+type SourceRecord = Record<string, any> | any[];
 
 /**
  * Custom hook for managing data in the SportDataMapper component
@@ -8,7 +10,7 @@ import { areEqual, fingerprint } from '../../../../utils/fingerprint';
  */
 export default function useDataManagement() {
   // State for data
-  const [dataToImport, setDataToImport] = useState<any[]>([]);
+  const [dataToImport, setDataToImport] = useState<SourceRecord[]>([]);
   const [sourceFields, setSourceFields] = useState<string[]>([]);
   const [sourceFieldValues, setSourceFieldValues] = useState<Record<string, any>>({});
   const [mappedData, setMappedData] = useState<Record<string, any>>({});
@@ -67,12 +69,12 @@ export default function useDataManagement() {
     }
     // Strategy 2: For column-based data like Excel exports
     else if (data.columns && Array.isArray(data.columns)) {
-      headers = data.columns.map(col => col.name || col.title || col.label || `Column ${col.index || 0}`);
+      headers = data.columns.map((col: any) => col.name || col.title || col.label || `Column ${col.index || 0}`);
       console.log('useDataManagement: Extracted headers from columns:', headers);
     }
     // Strategy 3: For objects with field definitions
     else if (data.fields && Array.isArray(data.fields)) {
-      headers = data.fields.map(field => field.name || field.key || field.id || String(field));
+      headers = data.fields.map((field: any) => field.name || field.key || field.id || String(field));
       console.log('useDataManagement: Extracted headers from fields:', headers);
     }
     
@@ -270,8 +272,8 @@ export default function useDataManagement() {
       initialSourceFieldValues['__headers__'] = fieldsToUse;
       
       // Add parent reference if available
-      if (processedData['__parent__']) {
-        initialSourceFieldValues['__parent__'] = processedData['__parent__'];
+      if (processedData as any ['__parent__']) {
+        initialSourceFieldValues['__parent__'] = (processedData as any)['__parent__'];
       }
     } else {
       // For object records, use the object properties directly
@@ -314,7 +316,6 @@ export default function useDataManagement() {
     
     // Get the mappings for this entity type
     const mappings = mappingsByEntityType[entityType] || {};
-    const mappingsFingerprint = fingerprint(mappings);
     
     // Get the current record
     const currentRecord = dataToImport[currentRecordIndex];
@@ -327,19 +328,27 @@ export default function useDataManagement() {
       mappingsCount: Object.keys(mappings).length,
       isArrayData: Array.isArray(currentRecord),
       isStadiumEntity,
-      hasHeaders: currentRecord['__headers__'] ? 'yes' : 'no',
-      hasParent: currentRecord['__parent__'] ? 'yes' : 'no',
+      hasHeaders: currentRecord && (currentRecord as any)['__headers__'] ? 'yes' : 'no',
+      hasParent: currentRecord && (currentRecord as any)['__parent__'] ? 'yes' : 'no',
       currentRecordSample: JSON.stringify(currentRecord).slice(0, 100) + '...'
     });
     
     // Create a new mapped data object based on the current record
     const newMappedData: Record<string, any> = {};
     
-    // Apply the mappings to the current record, using enhanced array handling
+    // Apply the mappings to the current record
     Object.entries(mappings).forEach(([targetField, sourceField]) => {
-      const sourceIndex = sourceFields.indexOf(sourceField);
-      if (sourceIndex > -1 && Array.isArray(currentRecord) && sourceIndex < currentRecord.length) {
-        newMappedData[targetField] = currentRecord[sourceIndex];
+      if (Array.isArray(currentRecord)) {
+        const sourceIndex = sourceFields.indexOf(sourceField);
+        if (sourceIndex > -1 && sourceIndex < currentRecord.length) {
+          newMappedData[targetField] = currentRecord[sourceIndex];
+        }
+      } else {
+        // Now that currentRecord is a SourceRecord (and not an array),
+        // we can safely index it with a string.
+        if (sourceField in currentRecord) {
+          newMappedData[targetField] = currentRecord[sourceField];
+        }
       }
     });
     
@@ -431,7 +440,7 @@ export default function useDataManagement() {
     console.log(`Updating mapped data for field: ${sourceField} → ${targetField}`);
     
     // Value to be set for the target field
-    let value;
+    let value: any;
     let valueFound = false;
     
     // Handle array data

@@ -12,48 +12,75 @@ from datetime import datetime
 from src.models.models import Conversation, Message, StructuredData, DataColumn
 from src.schemas.chat import ConversationUpdate
 from src.utils.config import get_settings
+from src.utils.database import get_db
 from src.config.logging_config import chat_logger
 
 settings = get_settings()
 
+
 class ChatService:
-    def __init__(self, db: AsyncSession):
-        self.db = db
-        self.anthropic_client = anthropic.AsyncClient(api_key=settings.ANTHROPIC_API_KEY)
-        # Define a mapping for Claude aliases to actual model IDs
-        self.claude_models = {
-            "claude_default": "claude-sonnet-4-20250514", # Your specified Sonnet 4 model
-            "claude_sonnet_3": "claude-3-sonnet-20240229",
-            "claude_opus_3": "claude-3-opus-20240229",
-            "claude_haiku_3": "claude-3-haiku-20240307",
-        }
-        self.default_anthropic_model_name = self.claude_models["claude_default"] # Set default from map
-        
+    _instance = None
+
+    def __new__(cls, *args, **kwargs):
+        if not cls._instance:
+            cls._instance = super(ChatService, cls).__new__(cls)
+        return cls._instance
+
+    def __init__(self):
+        # Prevent re-initialization
+        if hasattr(self, '_initialized'):
+            return
+        self._initialized = True
+
+        self.logger = chat_logger
+        self.logger.info("ChatService initializing...")
+
+        # Initialize Anthropic client
+        self.anthropic_client = None
+        self.claude_models = {}
+        self.default_anthropic_model_name = "claude-sonnet-4-20250514" # Fallback
+        try:
+            self.anthropic_client = anthropic.AsyncClient(api_key=settings.ANTHROPIC_API_KEY)
+            self.claude_models = {
+                "claude_default": "claude-sonnet-4-20250514",
+                "claude_sonnet_3": "claude-3-sonnet-20240229",
+                "claude_opus_3": "claude-3-opus-20240229",
+                "claude_haiku_3": "claude-3-haiku-20240307",
+            }
+            self.default_anthropic_model_name = self.claude_models["claude_default"]
+            self.logger.info("Anthropic client initialized successfully.")
+        except Exception as e:
+            self.logger.error(f"Failed to initialize Anthropic client: {e}", exc_info=True)
+            self.anthropic_client = None
+            self.claude_models = {}
+
+        # Initialize OpenAI client
         self.openai_client = None
+        self.openai_models = {}
+        self.default_openai_model_name = "gpt-3.5-turbo"  # A default placeholder
+
         if settings.OPENAI_API_KEY:
             try:
                 import openai
                 self.openai_client = openai.AsyncOpenAI(api_key=settings.OPENAI_API_KEY)
-                # Define a mapping for OpenAI aliases to actual model IDs
                 self.openai_models = {
                     "chatgpt_3_5_turbo": "gpt-3.5-turbo",
-                    "chatgpt_4_turbo": "gpt-4-turbo-preview", # Or your preferred gpt-4 turbo alias
+                    "chatgpt_4_turbo": "gpt-4-turbo-preview",
                     "chatgpt_4o": "gpt-4o",
                 }
                 self.default_openai_model_name = self.openai_models["chatgpt_3_5_turbo"]
+                self.logger.info("OpenAI client initialized.")
             except ImportError:
-                self.logger.warning("OpenAI library not installed, ChatGPT functionality will be unavailable.")
-                self.openai_models = {}
-                self.default_openai_model_name = "gpt-3.5-turbo" # Fallback even if client fails
+                self.logger.warning("OpenAI library not found. ChatGPT features will be unavailable.")
             except Exception as e:
-                self.logger.error(f"Failed to initialize OpenAI client: {e}")
+                self.logger.error(f"Failed to initialize OpenAI client: {e}", exc_info=True)
+                # Reset to safe defaults
+                self.openai_client = None
                 self.openai_models = {}
-                self.default_openai_model_name = "gpt-3.5-turbo"
         else:
-            self.openai_models = {}
-            self.default_openai_model_name = "gpt-3.5-turbo"
+            self.logger.warning("OPENAI_API_KEY not set. ChatGPT features will be unavailable.")
 
-        self.logger = chat_logger
+        self.logger.info("ChatService initialization complete.")
 
     async def perform_search(self, query: str) -> str:
         """Perform a single web search with basic error handling."""
@@ -164,7 +191,7 @@ class ChatService:
             yield "[PHASE:PROCESSING]\n"
 
     async def create_conversation(
-        self, user_id: UUID, title: str, description: Optional[str] = None, tags: Optional[List[str]] = None
+        self, db: AsyncSession, user_id: UUID, title: str, description: Optional[str] = None, tags: Optional[List[str]] = None
     ) -> Conversation:
         """Create a new conversation."""
         conversation = Conversation(
@@ -174,13 +201,14 @@ class ChatService:
             meta_data={},
             tags=tags or []
         )
-        self.db.add(conversation)
-        await self.db.commit()
-        await self.db.refresh(conversation)
+        db.add(conversation)
+        await db.commit()
+        await db.refresh(conversation)
         return conversation
 
     async def add_message(
         self,
+        db: AsyncSession,
         conversation_id: UUID,
         role: str,
         content: str,
@@ -193,95 +221,106 @@ class ChatService:
             content=content,
             meta_data=meta_data or {}
         )
-        self.db.add(message)
-        await self.db.commit()
-        await self.db.refresh(message)
+        db.add(message)
+        await db.commit()
+        await db.refresh(message)
         return message
 
     async def get_conversation_messages(
-        self, conversation_id: UUID
+        self, db: AsyncSession, conversation_id: UUID
     ) -> List[Message]:
         """Get all messages in a conversation."""
         # First verify the conversation exists
-        conversation = await self.get_conversation(conversation_id)
+        conversation = await db.get(Conversation, conversation_id)
         if not conversation:
             raise ValueError("Conversation not found")
         
-        # Use select statement with join loading
+        # Use select statement to get messages directly
         stmt = (
             select(Message)
             .where(Message.conversation_id == conversation_id)
             .order_by(Message.created_at)
         )
-        result = await self.db.execute(stmt)
+        result = await db.execute(stmt)
         messages = result.scalars().all()
         
         # Return empty list if no messages yet
         return list(messages)
 
-    async def get_conversation(self, conversation_id: UUID) -> Conversation:
-        """Get a conversation by ID with its messages."""
+    async def get_conversation(self, db: AsyncSession, conversation_id: UUID) -> Conversation:
+        """Get a conversation by ID without its messages for efficiency."""
         stmt = (
             select(Conversation)
             .where(Conversation.id == conversation_id)
-            .options(selectinload(Conversation.messages))
         )
-        result = await self.db.execute(stmt)
+        result = await db.execute(stmt)
         conversation = result.scalar_one_or_none()
         
         if not conversation:
             raise ValueError("Conversation not found")
 
+        # To access messages, they should be loaded explicitly where needed
+        # For example: await self.db.refresh(conversation, attribute_names=['messages'])
         return conversation
 
-    async def get_conversation_by_id(self, conversation_id: UUID) -> Optional[Conversation]:
+    async def get_conversation_by_id(self, db: AsyncSession, conversation_id: UUID) -> Optional[Conversation]:
         """Get a conversation by its ID."""
         stmt = select(Conversation).where(Conversation.id == conversation_id).options(selectinload(Conversation.messages))
-        result = await self.db.execute(stmt)
+        result = await db.execute(stmt)
         return result.scalar_one_or_none()
 
     async def get_chat_response(
         self,
+        db: AsyncSession,
         conversation_id: UUID,
         user_message: str,
         structured_format: Optional[Dict] = None,
         selected_llm: Optional[str] = None
     ):
-        """Get streaming response from the selected LLM."""
         try:
-            self.logger.info(f"\n=== New Chat Request ===")
-            self.logger.info(f"User message: {user_message}")
-            self.logger.info(f"Structured format requested: {structured_format is not None}")
-            self.logger.info(f"Selected LLM (parameter name now selected_llm): {selected_llm}")
-            
-            await self.add_message(conversation_id, "user", user_message)
-            messages = await self.get_conversation_messages(conversation_id)
-            recent_messages = messages[-15:]
+            self.logger.info(f"get_chat_response: Starting for conversation {conversation_id}")
+            self.logger.info(f"get_chat_response: User message: '{user_message[:100]}...'")
+            self.logger.info(f"get_chat_response: Structured format requested: {bool(structured_format)}")
+            self.logger.info(f"get_chat_response: Selected LLM alias: {selected_llm}")
 
-            # Determine provider and actual model name from alias
-            llm_provider = "claude" # Default provider
+            await self.add_message(db, conversation_id, "user", user_message)
+            
+            # Now, get the conversation object first
+            conversation = await self.get_conversation(db, conversation_id)
+            if not conversation:
+                self.logger.error(f"Conversation with ID {conversation_id} not found after adding message.")
+                raise ValueError(f"Conversation {conversation_id} not found.")
+
+            # Then, load the messages
+            messages = await self.get_conversation_messages(db, conversation_id)
+            recent_messages = messages[-15:]
+            self.logger.info(f"get_chat_response: Fetched {len(recent_messages)} recent messages")
+
+            llm_provider = "claude"
             actual_model_name = self.default_anthropic_model_name
 
             if selected_llm:
+                self.logger.info(f"get_chat_response: Evaluating selected LLM '{selected_llm}'")
                 if selected_llm.startswith("chatgpt_"):
                     llm_provider = "chatgpt"
+                    self.logger.info(f"get_chat_response: LLM is a ChatGPT model. Current openai_models: {self.openai_models.keys()}")
                     actual_model_name = self.openai_models.get(selected_llm, self.default_openai_model_name)
                 elif selected_llm.startswith("claude_"):
                     llm_provider = "claude"
                     actual_model_name = self.claude_models.get(selected_llm, self.default_anthropic_model_name)
-                # If alias doesn't match known prefixes, it defaults to Claude with its default model
-
-            self.logger.info(f"LLM provider: {llm_provider}, Model: {actual_model_name}")
+            
+            self.logger.info(f"get_chat_response: Determined provider: '{llm_provider}', Model: '{actual_model_name}'")
 
             if llm_provider == 'chatgpt':
+                self.logger.info("get_chat_response: Entering ChatGPT processing block.")
                 if not self.openai_client:
-                    self.logger.error("OpenAI client not available for ChatGPT request.")
+                    self.logger.error("get_chat_response: OpenAI client is not available. Aborting.")
                     yield "[ERROR] OpenAI client not configured or library not installed.\n"
-                    yield "[STREAM_END]\n"; yield "__STREAM_COMPLETE__"; return
-
-                self.logger.info(f"Processing with ChatGPT (OpenAI model: {actual_model_name})")
+                    yield "[STREAM_END]\n"
+                    yield "__STREAM_COMPLETE__"
+                    return
                 
-                # Base system prompt for ChatGPT
+                self.logger.info("get_chat_response: Preparing messages for OpenAI.")
                 openai_system_prompt_parts = [
                     "You are a helpful assistant.",
                     "When providing a natural language response followed by structured data, you MUST follow these rules:",
@@ -299,15 +338,18 @@ class ChatService:
                     ])
                 
                 openai_system_prompt = "\n".join(openai_system_prompt_parts)
-                self.logger.info(f"OpenAI System Prompt: {openai_system_prompt}")
+                self.logger.info(f"get_chat_response: OpenAI System Prompt: {openai_system_prompt}")
                 
                 openai_messages = []
                 if openai_system_prompt:
                     openai_messages.append({"role": "system", "content": openai_system_prompt})
                 for msg in recent_messages:
-                    if msg.role in ["user", "assistant"]:
+                    if msg.role in ["user", "assistant"] and hasattr(msg, 'content'):
                         openai_messages.append({"role": msg.role, "content": msg.content})
-                
+                self.logger.info(f"get_chat_response: Prepared {len(openai_messages)} messages for OpenAI.")
+
+                yield "[RESPONSE_START]\n"
+                full_openai_response = ""
                 try:
                     stream = await self.openai_client.chat.completions.create(
                         model=actual_model_name,
@@ -315,25 +357,27 @@ class ChatService:
                         stream=True,
                         temperature=0.5,
                     )
-                    full_openai_response = ""
+                    
                     async for chunk in stream:
-                        if (chunk.choices and 
-                            len(chunk.choices) > 0 and 
-                            chunk.choices[0].delta and 
-                            chunk.choices[0].delta.content):
-                            content_piece = chunk.choices[0].delta.content
-                            full_openai_response += content_piece
-                            yield content_piece
-                    await self.add_message(conversation_id, "assistant", full_openai_response)
-                    self.logger.info("ChatGPT stream complete.")
+                        content = chunk.choices[0].delta.content or ""
+                        if content:
+                            full_openai_response += content
+                            yield content
+                    
+                    await self.add_message(db, conversation_id, "assistant", full_openai_response)
+                    self.logger.info("ChatGPT response received and sent.")
 
                 except Exception as e:
-                    self.logger.error(f"Error during OpenAI API call: {e}")
+                    self.logger.error(f"Error during OpenAI API call: {e}", exc_info=True)
                     yield f"[ERROR] OpenAI API call failed: {str(e)}\n"
                 
-                yield "[STREAM_END]\n"; yield "__STREAM_COMPLETE__"; return
+                self.logger.info("get_chat_response: Response complete - sending finalization marker (ChatGPT)")
+                yield "[STREAM_END]\n"
+                self.logger.info("get_chat_response: Sending stream complete marker (ChatGPT)")
+                yield "__STREAM_COMPLETE__"
+                return
 
-            self.logger.info(f"Processing with Claude (Anthropic model: {actual_model_name})")
+            self.logger.info(f"get_chat_response: Processing with Claude (Anthropic model: {actual_model_name})")
             system_prompt = """You are a researcher for sports, and esports-related data and metadata.
                 1. Use [SEARCH]query[/SEARCH] tags for web searches
                 2. Wait for search results before continuing
@@ -352,15 +396,15 @@ class ChatService:
                     1. Add a line containing only '---DATA---'
                     2. Then provide data in this exact format: {json.dumps(structured_format)}
                     3. Ensure all required fields are present and properly formatted"""
-            self.logger.info(f"System instructions (Claude): {system_prompt}")
+            self.logger.info(f"get_chat_response: System instructions (Claude): {system_prompt}")
             
             anthropic_messages = []
             for msg in recent_messages:
                 if msg.role in ["user", "assistant"]:
                     anthropic_messages.append({"role": msg.role, "content": msg.content})
             
-            self.logger.info(f"Sending request to Claude API with {len(anthropic_messages)} messages")
-            if anthropic_messages: self.logger.info(f"Last message (Claude): {anthropic_messages[-1]['content'][:100]}...")
+            self.logger.info(f"get_chat_response: Sending request to Claude API with {len(anthropic_messages)} messages")
+            if anthropic_messages: self.logger.info(f"get_chat_response: Last message (Claude): {anthropic_messages[-1]['content'][:100]}...")
             
             yield "[RESPONSE_START]\n"
             
@@ -411,11 +455,11 @@ class ChatService:
                         await asyncio.sleep(0.1)
             
             if buffer: full_response += buffer; yield buffer
-            self.logger.info("Claude stream complete, saving response")
-            await self.add_message(conversation_id, "assistant", full_response)
+            self.logger.info("get_chat_response: Claude stream complete, saving response")
+            await self.add_message(db, conversation_id, "assistant", full_response)
             
             if "---DATA---" in full_response:
-                self.logger.info("Processing structured data")
+                self.logger.info("get_chat_response: Processing structured data")
                 try:
                     _, data_part = full_response.split("---DATA---")
                     data = json.loads(data_part.strip())
@@ -427,40 +471,36 @@ class ChatService:
                         data=data,
                         meta_data={"format": structured_format} if structured_format else {}
                     )
-                    self.db.add(structured_data)
-                    await self.db.commit()
-                    self.logger.info("Structured data saved")
+                    db.add(structured_data)
+                    await db.commit()
+                    self.logger.info("get_chat_response: Structured data saved")
                     
                 except Exception as e:
                     error_msg = f"\nError processing structured data: {str(e)}\n"
-                    self.logger.error(f"Structured data error: {str(e)}")
+                    self.logger.error(f"get_chat_response: Structured data error: {str(e)}")
                     yield error_msg
             
-            self.logger.info("Response complete - sending finalization marker (Claude)")
+            self.logger.info("get_chat_response: Response complete - sending finalization marker (Claude)")
             yield "[PHASE:COMPLETE]\n"; await asyncio.sleep(0.5)
-            self.logger.info("Sending final stream end marker (Claude)")
+            self.logger.info("get_chat_response: Sending final stream end marker (Claude)")
             yield "[STREAM_END]\n"; await asyncio.sleep(0.5)
-            self.logger.info("Sending stream complete marker (Claude)")
+            self.logger.info("get_chat_response: Sending stream complete marker (Claude)")
             yield "__STREAM_COMPLETE__"
             
-        except Exception as e:
-            self.logger.error(f"Error in chat response: {str(e)}", exc_info=True)
-            await self.add_message(
-                conversation_id,
-                "assistant",
-                f"I apologize, but I encountered an error: {str(e)}"
-            )
-            yield f"[ERROR] {str(e)}\n"
+        except BaseException as e:
+            self.logger.error(f"A critical error occurred in get_chat_response: {str(e)}", exc_info=True)
+            yield f"[ERROR] A critical server error occurred: {str(e)}\n"
             yield "[STREAM_END]\n"
             yield "__STREAM_COMPLETE__"
 
     async def update_conversation(
         self,
+        db: AsyncSession,
         conversation_id: UUID,
         update_data: "ConversationUpdate"
     ) -> Conversation:
         """Update a conversation with new data."""
-        conversation = await self.get_conversation_by_id(conversation_id)
+        conversation = await self.get_conversation_by_id(db, conversation_id)
         if not conversation:
             raise ValueError("Conversation not found")
 
@@ -469,12 +509,13 @@ class ChatService:
         if update_data.tags is not None:
             conversation.tags = update_data.tags
         
-        await self.db.commit()
-        await self.db.refresh(conversation)
+        await db.commit()
+        await db.refresh(conversation)
         return conversation
 
     async def get_user_conversations(
         self,
+        db: AsyncSession,
         user_id: UUID,
         skip: int = 0,
         limit: int = 10
@@ -489,7 +530,7 @@ class ChatService:
             .offset(skip)
             .limit(limit)
         )
-        result = await self.db.execute(stmt)
+        result = await db.execute(stmt)
         ordered_conversations = list(result.scalars().all())
         
         # If we have ordered conversations and they match our limit, return them
@@ -514,7 +555,7 @@ class ChatService:
                 .order_by(Conversation.updated_at.desc())
                 .limit(additional_needed)
             )
-            result = await self.db.execute(stmt)
+            result = await db.execute(stmt)
             unordered_conversations = list(result.scalars().all())
             
             # Combine both sets
@@ -528,17 +569,17 @@ class ChatService:
             .offset(skip)
             .limit(limit)
         )
-        result = await self.db.execute(stmt)
+        result = await db.execute(stmt)
         return list(result.scalars().all())
 
-    async def delete_conversation(self, conversation_id: UUID) -> None:
+    async def delete_conversation(self, db: AsyncSession, conversation_id: UUID) -> None:
         """Delete a conversation and all its associated messages."""
         # Get conversation with a single query
         stmt = (
             select(Conversation)
             .where(Conversation.id == conversation_id)
         )
-        result = await self.db.execute(stmt)
+        result = await db.execute(stmt)
         conversation = result.scalar_one_or_none()
         
         if not conversation:
@@ -546,38 +587,38 @@ class ChatService:
         
         # Delete the conversation - this will cascade delete all related records
         # due to the cascade="all, delete-orphan" setting in the model
-        await self.db.delete(conversation)
-        await self.db.commit()
+        await db.delete(conversation)
+        await db.commit()
 
-    async def delete_message(self, message_id: UUID) -> None:
+    async def delete_message(self, db: AsyncSession, message_id: UUID) -> None:
         """Delete a specific message from a conversation."""
         # Get message with a single query
         stmt = (
             select(Message)
             .where(Message.id == message_id)
         )
-        result = await self.db.execute(stmt)
+        result = await db.execute(stmt)
         message = result.scalar_one_or_none()
         
         if not message:
             raise ValueError("Message not found")
         
         # Delete the message
-        await self.db.delete(message)
-        await self.db.commit()
+        await db.delete(message)
+        await db.commit()
         
-    async def update_conversation_order(self, conversation_id: UUID, new_order: int) -> Conversation:
+    async def update_conversation_order(self, db: AsyncSession, conversation_id: UUID, new_order: int) -> Conversation:
         """Update the order of a conversation."""
-        conversation = await self.db.get(Conversation, conversation_id)
+        conversation = await db.get(Conversation, conversation_id)
         if not conversation:
             raise ValueError("Conversation not found")
         
         conversation.order = new_order
-        await self.db.commit()
-        await self.db.refresh(conversation)
+        await db.commit()
+        await db.refresh(conversation)
         return conversation
         
-    async def update_multiple_conversation_orders(self, user_id: UUID, conversation_orders: List[Dict[str, Any]]) -> List[Conversation]:
+    async def update_multiple_conversation_orders(self, db: AsyncSession, user_id: UUID, conversation_orders: List[Dict[str, Any]]) -> List[Conversation]:
         """Update the order of multiple conversations at once."""
         conversations = []
         
@@ -586,7 +627,7 @@ class ChatService:
             new_order = order_data["order"]
             
             # Verify the conversation belongs to the user
-            conversation = await self.db.get(Conversation, conversation_id)
+            conversation = await db.get(Conversation, conversation_id)
             if not conversation:
                 raise ValueError(f"Conversation {conversation_id} not found")
                 
@@ -598,25 +639,26 @@ class ChatService:
             conversations.append(conversation)
         
         # Commit all changes at once
-        await self.db.commit()
+        await db.commit()
         
         # Refresh all conversations
         for conversation in conversations:
-            await self.db.refresh(conversation)
+            await db.refresh(conversation)
             
         return conversations
 
     async def update_conversation_tags(
         self,
+        db: AsyncSession,
         conversation_id: UUID,
         new_tags: List[str]
     ) -> Conversation:
         """Update the tags of a conversation."""
-        conversation = await self.db.get(Conversation, conversation_id)
+        conversation = await db.get(Conversation, conversation_id)
         if not conversation:
             raise ValueError("Conversation not found")
         
         conversation.tags = new_tags
-        await self.db.commit()
-        await self.db.refresh(conversation)
+        await db.commit()
+        await db.refresh(conversation)
         return conversation 

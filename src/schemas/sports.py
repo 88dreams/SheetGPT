@@ -1,7 +1,7 @@
 from pydantic import BaseModel, Field, validator, model_validator
 from typing import List, Optional, Dict, Any, Union
 from uuid import UUID
-from datetime import date, datetime
+from datetime import date as DateType, datetime
 
 # Base schemas for League
 class LeagueBase(BaseModel):
@@ -9,8 +9,8 @@ class LeagueBase(BaseModel):
     sport: str
     country: str
     nickname: Optional[str] = None
-    broadcast_start_date: Optional[date] = None
-    broadcast_end_date: Optional[date] = None
+    broadcast_start_date: Optional[DateType] = None
+    broadcast_end_date: Optional[DateType] = None
     tags: Optional[List[str]] = None
 
 class LeagueCreate(LeagueBase):
@@ -21,8 +21,8 @@ class LeagueUpdate(BaseModel):
     sport: Optional[str] = None
     country: Optional[str] = None
     nickname: Optional[str] = None
-    broadcast_start_date: Optional[date] = None
-    broadcast_end_date: Optional[date] = None
+    broadcast_start_date: Optional[DateType] = None
+    broadcast_end_date: Optional[DateType] = None
     tags: Optional[List[str]] = None
 
 class LeagueResponse(LeagueBase):
@@ -211,7 +211,7 @@ class GameBase(BaseModel):
     home_team_id: UUID
     away_team_id: UUID
     stadium_id: UUID
-    date: date
+    date: DateType
     time: Optional[str] = None
     home_score: Optional[int] = None
     away_score: Optional[int] = None
@@ -228,7 +228,7 @@ class GameUpdate(BaseModel):
     home_team_id: Optional[UUID] = None
     away_team_id: Optional[UUID] = None
     stadium_id: Optional[UUID] = None
-    date: Optional[date] = None
+    date: Optional[DateType] = None
     time: Optional[str] = None
     home_score: Optional[int] = None
     away_score: Optional[int] = None
@@ -287,8 +287,8 @@ class BroadcastRightsBase(BaseModel):
     entity_id: UUID
     broadcast_company_id: UUID
     territory: str
-    start_date: date
-    end_date: date
+    start_date: DateType
+    end_date: DateType
     is_exclusive: bool = False
     division_conference_id: Optional[UUID] = None
     tags: Optional[List[str]] = None
@@ -301,8 +301,8 @@ class BroadcastRightsUpdate(BaseModel):
     entity_id: Optional[UUID] = None
     broadcast_company_id: Optional[UUID] = None
     territory: Optional[str] = None
-    start_date: Optional[date] = None
-    end_date: Optional[date] = None
+    start_date: Optional[DateType] = None
+    end_date: Optional[DateType] = None
     is_exclusive: Optional[bool] = None
     division_conference_id: Optional[UUID] = None
     tags: Optional[List[str]] = None
@@ -360,8 +360,8 @@ class ProductionServiceBase(BaseModel):
     entity_id: Union[UUID, str]  # Allow either UUID or string
     production_company_id: UUID
     service_type: str
-    start_date: date
-    end_date: date
+    start_date: DateType
+    end_date: DateType
     secondary_brand_id: Optional[UUID] = None
     tags: Optional[List[str]] = None
 
@@ -393,8 +393,8 @@ class ProductionServiceUpdate(BaseModel):
     entity_id: Optional[UUID] = None
     production_company_id: Optional[UUID] = None
     service_type: Optional[str] = None
-    start_date: Optional[date] = None
-    end_date: Optional[date] = None
+    start_date: Optional[DateType] = None
+    end_date: Optional[DateType] = None
     secondary_brand_id: Optional[UUID] = None
     tags: Optional[List[str]] = None
 
@@ -428,6 +428,7 @@ class BrandBase(BaseModel):
     partner: Optional[str] = None
     partner_relationship: Optional[str] = None
     representative_entity_type: Optional[str] = None
+    media_department: Optional[str] = None
     tags: Optional[List[str]] = None
 
     class Config:
@@ -444,12 +445,14 @@ class BrandUpdate(BaseModel):
     partner: Optional[str] = None
     partner_relationship: Optional[str] = None
     representative_entity_type: Optional[str] = None
+    media_department: Optional[str] = None
     tags: Optional[List[str]] = None
 
 class BrandRead(BrandBase):
     id: UUID
     created_at: datetime
     updated_at: datetime
+    media_department: Optional[str] = None
 
 # BrandRelationship schemas have been removed
 # The functionality has been integrated into the Brand model with partner fields
@@ -497,8 +500,8 @@ class LeagueExecutiveBase(BaseModel):
     league_id: UUID
     name: str
     position: str
-    start_date: Optional[date] = None
-    end_date: Optional[date] = None
+    start_date: Optional[DateType] = None
+    end_date: Optional[DateType] = None
     tags: Optional[List[str]] = None
 
 class LeagueExecutiveCreate(LeagueExecutiveBase):
@@ -508,8 +511,8 @@ class LeagueExecutiveUpdate(BaseModel):
     league_id: Optional[UUID] = None
     name: Optional[str] = None
     position: Optional[str] = None
-    start_date: Optional[date] = None
-    end_date: Optional[date] = None
+    start_date: Optional[DateType] = None
+    end_date: Optional[DateType] = None
     tags: Optional[List[str]] = None
 
 class LeagueExecutiveResponse(LeagueExecutiveBase):

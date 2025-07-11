@@ -160,7 +160,8 @@ export function useEntitySchema() {
             { name: 'partner_name', required: false, type: 'string', description: 'Resolved name of the partner entity' },
             { name: 'partner_relationship', required: false, type: 'string', description: 'Type of relationship with partner (Sponsor, Partner, etc.)' },
             { name: 'relationship_display', required: false, type: 'string', description: 'Formatted display of the relationship' },
-            { name: 'representative_entity_type', required: false, type: 'string', description: 'If this brand record acts as a proxy for another entity type (e.g., Team, League) for contact linking.' }
+            { name: 'representative_entity_type', required: false, type: 'string', description: 'If this brand record acts as a proxy for another entity type (e.g., Team, League) for contact linking.' },
+            { name: 'media_department', required: false, type: 'string', description: 'The media department of the brand.' }
           );
           break;
 
@@ -186,30 +187,6 @@ export function useEntitySchema() {
             { name: 'position', required: true, type: 'string', description: 'Executive position' },
             { name: 'start_date', required: true, type: 'date', description: 'Start date of position' },
             { name: 'end_date', required: false, type: 'date', description: 'End date of position' }
-          );
-          break;
-
-        case 'creator':
-          fields.push(
-            { name: 'first_name', required: true, type: 'string', description: 'First name of the creator' },
-            { name: 'last_name', required: true, type: 'string', description: 'Last name of the creator' },
-            { name: 'genre', required: true, type: 'string', description: 'Primary genre of the creator' },
-            { name: 'platform', required: true, type: 'string', description: 'Primary platform of the creator' },
-            { name: 'url', required: false, type: 'string', description: 'URL to the creator\'s primary platform' },
-            { name: 'followers', required: false, type: 'number', description: 'Number of followers' },
-            { name: 'management_id', required: false, type: 'string', description: 'ID of the management entity' },
-            { name: 'notes', required: false, type: 'string', description: 'Notes about the creator' }
-          );
-          break;
-        
-        case 'management':
-          fields.push(
-            { name: 'first_name', required: false, type: 'string', description: 'First name if the manager is an individual' },
-            { name: 'last_name', required: false, type: 'string', description: 'Last name if the manager is an individual' },
-            { name: 'industry', required: true, type: 'string', description: 'Industry of the management entity' },
-            { name: 'url', required: false, type: 'string', description: 'URL for the management entity' },
-            { name: 'founded_year', required: false, type: 'number', description: 'Year the management entity was founded' },
-            { name: 'notes', required: false, type: 'string', description: 'Notes about the management entity' }
           );
           break;
       }

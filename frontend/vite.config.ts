@@ -34,7 +34,7 @@ export default defineConfig({
     },
     proxy: {
       '/api': {
-        target: 'http://backend:8000',
+        target: 'https://backend:8000',
         changeOrigin: true,
         secure: false,
         ws: true,

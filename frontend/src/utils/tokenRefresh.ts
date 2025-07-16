@@ -170,3 +170,5 @@ export async function ensureValidToken(): Promise<boolean> {
   // Token is valid and not expiring soon
   return true;
 }
+
+// Rewriting file to remove potential BOM

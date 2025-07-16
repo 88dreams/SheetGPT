@@ -27,9 +27,22 @@ config = context.config
 # Get settings from our application config
 settings = get_settings()
 
-# Use the database URL from settings directly
+# Sanitize the database URL for asyncpg (remove sslmode and supply SSL context).
 database_url = settings.DATABASE_URL
-print(f"Using database URL: {database_url}")
+connect_args = {}
+
+if database_url.startswith("postgresql+asyncpg"):
+    if "sslmode=require" in database_url:
+        # Remove the param because asyncpg.connect doesn't accept it
+        database_url = database_url.replace("?sslmode=require", "").replace("&sslmode=require", "")
+
+    # Provide an SSL context so the connection is still encrypted
+    ssl_context = ssl.create_default_context()
+    ssl_context.check_hostname = False
+    ssl_context.verify_mode = ssl.CERT_NONE
+    connect_args = {"ssl": ssl_context}
+
+print(f"Using Alembic DB URL: {database_url}")
 
 # Interpret the config file for Python logging.
 # This line sets up loggers basically.
@@ -66,6 +79,7 @@ async def run_migrations_online() -> None:
     connectable = create_async_engine(
         database_url,
         poolclass=pool.NullPool,
+        connect_args=connect_args,
     )
 
     async with connectable.connect() as connection:

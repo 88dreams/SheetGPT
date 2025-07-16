@@ -2,6 +2,7 @@ import asyncio
 from logging.config import fileConfig
 import os
 import sys
+import ssl
 from typing import Optional
 
 from sqlalchemy import pool
@@ -27,22 +28,20 @@ config = context.config
 # Get settings from our application config
 settings = get_settings()
 
-# Sanitize the database URL for asyncpg (remove sslmode and supply SSL context).
+# Build a database URL compatible with asyncpg (sslmode not accepted)
 database_url = settings.DATABASE_URL
 connect_args = {}
 
-if database_url.startswith("postgresql+asyncpg"):
-    if "sslmode=require" in database_url:
-        # Remove the param because asyncpg.connect doesn't accept it
-        database_url = database_url.replace("?sslmode=require", "").replace("&sslmode=require", "")
+if database_url.startswith("postgresql+asyncpg") and "sslmode=require" in database_url:
+    # Strip the parameter and provide SSL context explicitly
+    database_url = database_url.replace("?sslmode=require", "").replace("&sslmode=require", "")
 
-    # Provide an SSL context so the connection is still encrypted
     ssl_context = ssl.create_default_context()
     ssl_context.check_hostname = False
     ssl_context.verify_mode = ssl.CERT_NONE
     connect_args = {"ssl": ssl_context}
 
-print(f"Using Alembic DB URL: {database_url}")
+print(f"Using Alembic database URL: {database_url}")
 
 # Interpret the config file for Python logging.
 # This line sets up loggers basically.

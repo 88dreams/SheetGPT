@@ -22,33 +22,42 @@ depends_on = None
 
 
 def upgrade():
-    # Step 1: Ensure all broadcast_companies have corresponding brands
+    # Step 1: Check if the broadcast_companies table exists.
+    # If not, we can skip the data migration steps as there's nothing to copy.
     # ---------------------------------------------------------------
-    # First, this creates brands for any broadcast_companies that don't have one.
-    # This is unlikely to be needed since we're already using brands, but included
-    # as a safety check.
-    op.execute('''
-    INSERT INTO brands (id, name, industry, company_type, country, created_at, updated_at)
-    SELECT bc.id, bc.name, 'Media', 'Broadcaster', bc.country, bc.created_at, bc.updated_at
-    FROM broadcast_companies bc
-    LEFT JOIN brands b ON bc.id = b.id
-    WHERE b.id IS NULL
-    ''')
-    
-    # Step 2: Update any broadcast_company_type field values
+    conn = op.get_bind()
+    result = conn.execute(sa.text("SELECT EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'broadcast_companies')"))
+    table_exists = result.scalar()
+
+    if table_exists:
+        print("Found 'broadcast_companies' table, proceeding with data migration.")
+        # Step 1.1: Ensure all broadcast_companies have corresponding brands
+        # ---------------------------------------------------------------
+        # This creates brands for any broadcast_companies that don't have one.
+        op.execute('''
+        INSERT INTO brands (id, name, industry, company_type, country, created_at, updated_at)
+        SELECT bc.id, bc.name, 'Media', 'Broadcaster', bc.country, bc.created_at, bc.updated_at
+        FROM broadcast_companies bc
+        LEFT JOIN brands b ON bc.id = b.id
+        WHERE b.id IS NULL
+        ''')
+        
+        # Step 1.2: Update any broadcast_company_type field values
+        # ---------------------------------------------------------------
+        # If any brands exist without company_type set, but they have an entry in 
+        # broadcast_companies, set their company_type to 'Broadcaster'
+        op.execute('''
+        UPDATE brands
+        SET company_type = 'Broadcaster'
+        WHERE id IN (SELECT id FROM broadcast_companies)
+        AND (company_type IS NULL OR company_type = '')
+        ''')
+    else:
+        print("'broadcast_companies' table not found, skipping data migration steps.")
+
+    # Step 2: Create temporary tables for foreign key references
+    # (These steps can run regardless of whether the source table existed)
     # ---------------------------------------------------------------
-    # If any brands exist without company_type set, but they have an entry in 
-    # broadcast_companies, set their company_type to 'Broadcaster'
-    op.execute('''
-    UPDATE brands
-    SET company_type = 'Broadcaster'
-    WHERE id IN (SELECT id FROM broadcast_companies)
-    AND (company_type IS NULL OR company_type = '')
-    ''')
-    
-    # Step 3: Create temporary tables for foreign key references
-    # ---------------------------------------------------------------
-    # We'll create temporary tables to hold the references, then update foreign keys
     
     # Create temp table for stadium references
     op.execute('''
@@ -68,39 +77,34 @@ def upgrade():
     SELECT id, broadcast_company_id FROM broadcast_rights WHERE broadcast_company_id IS NOT NULL
     ''')
     
-    # Step 4: Update foreign keys to reference brands directly
+    # Step 3: Update foreign keys to reference brands directly
     # ---------------------------------------------------------------
     
-    # 4.1 Drop constraints from stadiums
+    # 3.1 Drop constraints from stadiums
     op.execute('ALTER TABLE stadiums DROP CONSTRAINT IF EXISTS stadiums_host_broadcaster_id_fkey')
     
-    # 4.2 Drop constraints from game_broadcasts
+    # 3.2 Drop constraints from game_broadcasts
     op.execute('ALTER TABLE game_broadcasts DROP CONSTRAINT IF EXISTS game_broadcasts_broadcast_company_id_fkey')
     
-    # 4.3 Drop constraints from broadcast_rights
+    # 3.3 Drop constraints from broadcast_rights
     op.execute('ALTER TABLE broadcast_rights DROP CONSTRAINT IF EXISTS broadcast_rights_broadcast_company_id_fkey')
     
-    # 4.4 Add new constraints to stadiums
+    # 3.4 Add new constraints to stadiums
     op.execute('ALTER TABLE stadiums ADD CONSTRAINT stadiums_host_broadcaster_id_fkey FOREIGN KEY (host_broadcaster_id) REFERENCES brands(id)')
     
-    # 4.5 Add new constraints to game_broadcasts
+    # 3.5 Add new constraints to game_broadcasts
     op.execute('ALTER TABLE game_broadcasts ADD CONSTRAINT game_broadcasts_broadcast_company_id_fkey FOREIGN KEY (broadcast_company_id) REFERENCES brands(id)')
     
-    # 4.6 Add new constraints to broadcast_rights
+    # 3.6 Add new constraints to broadcast_rights
     op.execute('ALTER TABLE broadcast_rights ADD CONSTRAINT broadcast_rights_broadcast_company_id_fkey FOREIGN KEY (broadcast_company_id) REFERENCES brands(id)')
     
-    # Step 5: Add useful indexes and rename fields for clarity
+    # Step 4: Add useful indexes and rename fields for clarity
     # ---------------------------------------------------------------
     
-    # 5.1 Add index on brands.company_type if not exists (may already be created)
+    # 4.1 Add index on brands.company_type if not exists (may already be created)
     op.execute('CREATE INDEX IF NOT EXISTS ix_brands_company_type ON brands(company_type)')
     
-    # 5.2 Rename broadcast_company_id in relevant tables to broadcaster_id (optional)
-    # Note: Commenting this out as it would require more extensive code changes
-    # op.alter_column('broadcast_rights', 'broadcast_company_id', new_column_name='broadcaster_id')
-    # op.alter_column('game_broadcasts', 'broadcast_company_id', new_column_name='broadcaster_id')
-    
-    # Step 6: Clean up temporary tables
+    # Step 5: Clean up temporary tables
     # ---------------------------------------------------------------
     op.execute('DROP TABLE temp_stadium_broadcaster_refs')
     op.execute('DROP TABLE temp_game_broadcasts_refs')

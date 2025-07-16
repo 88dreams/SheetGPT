@@ -17,3 +17,10 @@
   # 4. Set NODE_ENV to "development" to force installation of devDependencies
   #    which are required for the build command.
   NODE_ENV = "development" 
+
+# Redirects for the React SPA running in a sub-path.
+# This is crucial for handling client-side routing correctly on Netlify.
+[[redirects]]
+  from = "/sheetgpt/*"
+  to = "/sheetgpt/index.html"
+  status = 200 

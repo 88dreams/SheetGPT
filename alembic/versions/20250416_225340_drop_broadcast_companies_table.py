@@ -1,4 +1,3 @@
-
 """Drop broadcast_companies table after migrating to unified Brand model
 
 Revision ID: 20250416_225340_drop_bc
@@ -20,8 +19,10 @@ depends_on = None
 
 
 def upgrade() -> None:
-    # Drop the broadcast_companies table since we've migrated all references to the brands table
-    op.drop_table('broadcast_companies')
+    # Drop the broadcast_companies table if it exists.
+    # This prevents an error if a previous migration failed or if the
+    # database was restored from a state where the table never existed.
+    op.execute('DROP TABLE IF EXISTS broadcast_companies')
 
 
 def downgrade() -> None:

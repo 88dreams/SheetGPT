@@ -20,10 +20,10 @@ depends_on = None
 
 def upgrade() -> None:
     # First drop the foreign key constraint in game_broadcasts that references production_companies
-    op.drop_constraint('game_broadcasts_production_company_id_fkey', 'game_broadcasts', type_='foreignkey')
+    op.execute('ALTER TABLE game_broadcasts DROP CONSTRAINT IF EXISTS game_broadcasts_production_company_id_fkey')
     
     # Now drop the production_companies table
-    op.drop_table('production_companies')
+    op.execute('DROP TABLE IF EXISTS production_companies')
 
 
 def downgrade() -> None:

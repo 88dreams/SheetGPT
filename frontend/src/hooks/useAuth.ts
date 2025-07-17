@@ -256,33 +256,6 @@ export function useAuth() {
         timestamp: new Date().toISOString()
       });
       
-      // DEVELOPMENT FALLBACK - bypass authentication issues during development
-      // This should be removed in production
-      if (import.meta.env.DEV && (email.includes('@') && password.length > 0)) {
-        console.warn('DEVELOPMENT MODE: Using fallback authentication');
-        const mockToken = 'dev_mock_token_' + Date.now();
-        localStorage.setItem('auth_token', mockToken);
-        
-        const mockUser = {
-          email: email,
-          is_active: true,
-          is_superuser: true,
-          is_admin: true
-        };
-        
-        if (isMounted.current) {
-          setAuthState({
-            user: mockUser,
-            isAuthenticated: true,
-            isLoading: false,
-            isReady: true
-          });
-          lastAuthCheck.current = Date.now();
-        }
-        
-        return true;
-      }
-      
       if (isMounted.current) {
         localStorage.removeItem('auth_token');
         setAuthState(prev => ({ 

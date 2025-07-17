@@ -19,8 +19,12 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
-    op.rename_table('corporates', 'corporate')
+    op.execute("""
+        ALTER TABLE IF EXISTS corporates RENAME TO corporate;
+    """)
 
 
 def downgrade() -> None:
-    op.rename_table('corporate', 'corporates') 
+    op.execute("""
+        ALTER TABLE IF EXISTS corporate RENAME TO corporates;
+    """) 

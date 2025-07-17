@@ -19,198 +19,187 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
-    op.create_table('leagues',
-        sa.Column('id', sa.UUID(), nullable=False),
-        sa.Column('name', sa.String(length=100), nullable=False),
-        sa.Column('nickname', sa.String(length=20), nullable=True),
-        sa.Column('sport', sa.String(length=50), nullable=False),
-        sa.Column('country', sa.String(length=100), nullable=False),
-        sa.Column('broadcast_start_date', sa.Date(), nullable=True),
-        sa.Column('broadcast_end_date', sa.Date(), nullable=True),
-        sa.Column('created_at', sa.DateTime(timezone=True), nullable=False, server_default=sa.text('now()')),
-        sa.Column('updated_at', sa.DateTime(timezone=True), nullable=False, server_default=sa.text('now()')),
-        sa.Column('deleted_at', sa.DateTime(timezone=True), nullable=True),
-        sa.PrimaryKeyConstraint('id', name=op.f('pk_leagues'))
-    )
-    op.create_table('divisions_conferences',
-        sa.Column('id', sa.UUID(), nullable=False),
-        sa.Column('league_id', sa.UUID(), nullable=False), # FK will be added later
-        sa.Column('name', sa.String(length=100), nullable=False),
-        sa.Column('nickname', sa.String(length=20), nullable=True),
-        sa.Column('type', sa.String(length=50), nullable=False),
-        sa.Column('region', sa.String(length=100), nullable=True),
-        sa.Column('description', sa.Text(), nullable=True),
-        sa.Column('created_at', sa.DateTime(timezone=True), nullable=False, server_default=sa.text('now()')),
-        sa.Column('updated_at', sa.DateTime(timezone=True), nullable=False, server_default=sa.text('now()')),
-        sa.Column('deleted_at', sa.DateTime(timezone=True), nullable=True),
-        sa.PrimaryKeyConstraint('id', name=op.f('pk_divisions_conferences'))
-    )
-    op.create_table('stadiums',
-        sa.Column('id', sa.UUID(), nullable=False),
-        sa.Column('name', sa.String(length=100), nullable=False),
-        sa.Column('city', sa.String(length=100), nullable=False),
-        sa.Column('state', sa.String(length=100), nullable=True),
-        sa.Column('country', sa.String(length=100), nullable=False),
-        sa.Column('capacity', sa.Integer(), nullable=True),
-        sa.Column('owner', sa.String(length=100), nullable=True),
-        sa.Column('naming_rights_holder', sa.String(length=100), nullable=True),
-        sa.Column('host_broadcaster', sa.String(length=100), nullable=True),
-        sa.Column('host_broadcaster_id', sa.UUID(), nullable=True), # FK will be added later
-        sa.Column('created_at', sa.DateTime(timezone=True), nullable=False, server_default=sa.text('now()')),
-        sa.Column('updated_at', sa.DateTime(timezone=True), nullable=False, server_default=sa.text('now()')),
-        sa.Column('deleted_at', sa.DateTime(timezone=True), nullable=True),
-        sa.PrimaryKeyConstraint('id', name=op.f('pk_stadiums'))
-    )
-    op.create_table('brands',
-        sa.Column('id', sa.UUID(), nullable=False),
-        sa.Column('name', sa.String(length=100), nullable=False),
-        sa.Column('industry', sa.String(length=100), nullable=False),
-        sa.Column('company_type', sa.String(length=50), nullable=True),
-        sa.Column('country', sa.String(length=100), nullable=True),
-        sa.Column('partner', sa.String(length=100), nullable=True),
-        sa.Column('partner_relationship', sa.String(length=100), nullable=True),
-        sa.Column('representative_entity_type', sa.String(length=50), nullable=True),
-        sa.Column('created_at', sa.DateTime(timezone=True), nullable=False, server_default=sa.text('now()')),
-        sa.Column('updated_at', sa.DateTime(timezone=True), nullable=False, server_default=sa.text('now()')),
-        sa.Column('deleted_at', sa.DateTime(timezone=True), nullable=True),
-        sa.PrimaryKeyConstraint('id', name=op.f('pk_brands'))
-    )
-    op.create_table('teams',
-        sa.Column('id', sa.UUID(), nullable=False),
-        sa.Column('league_id', sa.UUID(), nullable=False), # FK later
-        sa.Column('division_conference_id', sa.UUID(), nullable=False), # FK later
-        sa.Column('stadium_id', sa.UUID(), nullable=False), # FK later
-        sa.Column('name', sa.String(length=100), nullable=False),
-        sa.Column('city', sa.String(length=100), nullable=False),
-        sa.Column('state', sa.String(length=100), nullable=True),
-        sa.Column('country', sa.String(length=100), nullable=False),
-        sa.Column('founded_year', sa.Integer(), nullable=True),
-        sa.Column('created_at', sa.DateTime(timezone=True), nullable=False, server_default=sa.text('now()')),
-        sa.Column('updated_at', sa.DateTime(timezone=True), nullable=False, server_default=sa.text('now()')),
-        sa.Column('deleted_at', sa.DateTime(timezone=True), nullable=True),
-        sa.PrimaryKeyConstraint('id', name=op.f('pk_teams'))
-    )
-    op.create_table('players',
-        sa.Column('id', sa.UUID(), nullable=False),
-        sa.Column('team_id', sa.UUID(), nullable=False), # FK later
-        sa.Column('name', sa.String(length=100), nullable=False),
-        sa.Column('position', sa.String(length=50), nullable=False),
-        sa.Column('jersey_number', sa.Integer(), nullable=True),
-        sa.Column('college', sa.String(length=100), nullable=True),
-        sa.Column('created_at', sa.DateTime(timezone=True), nullable=False, server_default=sa.text('now()')),
-        sa.Column('updated_at', sa.DateTime(timezone=True), nullable=False, server_default=sa.text('now()')),
-        sa.Column('deleted_at', sa.DateTime(timezone=True), nullable=True),
-        sa.PrimaryKeyConstraint('id', name=op.f('pk_players'))
-    )
-    op.create_table('games',
-        sa.Column('id', sa.UUID(), nullable=False),
-        sa.Column('league_id', sa.UUID(), nullable=False), # FK later
-        sa.Column('home_team_id', sa.UUID(), nullable=False), # FK later
-        sa.Column('away_team_id', sa.UUID(), nullable=False), # FK later
-        sa.Column('stadium_id', sa.UUID(), nullable=False), # FK later
-        sa.Column('date', sa.Date(), nullable=False),
-        sa.Column('time', sa.String(length=10), nullable=True),
-        sa.Column('home_score', sa.Integer(), nullable=True),
-        sa.Column('away_score', sa.Integer(), nullable=True),
-        sa.Column('status', sa.String(length=50), nullable=False, default='Scheduled'),
-        sa.Column('season_year', sa.Integer(), nullable=False),
-        sa.Column('season_type', sa.String(length=50), nullable=False, default='Regular Season'),
-        sa.Column('created_at', sa.DateTime(timezone=True), nullable=False, server_default=sa.text('now()')),
-        sa.Column('updated_at', sa.DateTime(timezone=True), nullable=False, server_default=sa.text('now()')),
-        sa.Column('deleted_at', sa.DateTime(timezone=True), nullable=True),
-        sa.PrimaryKeyConstraint('id', name=op.f('pk_games'))
-    )
-    op.create_table('broadcast_rights',
-        sa.Column('id', sa.UUID(), nullable=False),
-        sa.Column('entity_type', sa.String(length=50), nullable=False),
-        sa.Column('entity_id', sa.UUID(), nullable=False), # Polymorphic, FKs handled by specific types or later logic
-        sa.Column('broadcast_company_id', sa.UUID(), nullable=False), # FK later
-        sa.Column('division_conference_id', sa.UUID(), nullable=True), # FK later
-        sa.Column('territory', sa.String(length=100), nullable=False),
-        sa.Column('start_date', sa.Date(), nullable=False),
-        sa.Column('end_date', sa.Date(), nullable=False),
-        sa.Column('is_exclusive', sa.Boolean(), nullable=False, default=False),
-        sa.Column('created_at', sa.DateTime(timezone=True), nullable=False, server_default=sa.text('now()')),
-        sa.Column('updated_at', sa.DateTime(timezone=True), nullable=False, server_default=sa.text('now()')),
-        sa.Column('deleted_at', sa.DateTime(timezone=True), nullable=True),
-        sa.PrimaryKeyConstraint('id', name=op.f('pk_broadcast_rights'))
-    )
-    op.create_table('production_services',
-        sa.Column('id', sa.UUID(), nullable=False),
-        sa.Column('entity_type', sa.String(length=50), nullable=False),
-        sa.Column('entity_id', sa.UUID(), nullable=False), # Polymorphic
-        sa.Column('production_company_id', sa.UUID(), nullable=False), # FK later
-        sa.Column('service_type', sa.String(length=100), nullable=False),
-        sa.Column('start_date', sa.Date(), nullable=False),
-        sa.Column('end_date', sa.Date(), nullable=False),
-        sa.Column('secondary_brand_id', sa.UUID(), nullable=True), # FK later
-        sa.Column('created_at', sa.DateTime(timezone=True), nullable=False, server_default=sa.text('now()')),
-        sa.Column('updated_at', sa.DateTime(timezone=True), nullable=False, server_default=sa.text('now()')),
-        sa.Column('deleted_at', sa.DateTime(timezone=True), nullable=True),
-        sa.PrimaryKeyConstraint('id', name=op.f('pk_production_services'))
-    )
-    op.create_table('team_records',
-        sa.Column('id', sa.UUID(), nullable=False),
-        sa.Column('team_id', sa.UUID(), nullable=False), # FK later
-        sa.Column('season_year', sa.Integer(), nullable=False),
-        sa.Column('wins', sa.Integer(), nullable=False, default=0),
-        sa.Column('losses', sa.Integer(), nullable=False, default=0),
-        sa.Column('ties', sa.Integer(), nullable=False, default=0),
-        sa.Column('playoff_result', sa.String(length=100), nullable=True),
-        sa.Column('created_at', sa.DateTime(timezone=True), nullable=False, server_default=sa.text('now()')),
-        sa.Column('updated_at', sa.DateTime(timezone=True), nullable=False, server_default=sa.text('now()')),
-        sa.Column('deleted_at', sa.DateTime(timezone=True), nullable=True),
-        sa.PrimaryKeyConstraint('id', name=op.f('pk_team_records'))
-    )
-    op.create_table('team_ownerships',
-        sa.Column('id', sa.UUID(), nullable=False),
-        sa.Column('team_id', sa.UUID(), nullable=False), # FK later
-        sa.Column('owner_name', sa.String(length=100), nullable=False),
-        sa.Column('ownership_percentage', sa.Numeric(precision=5, scale=2), nullable=True),
-        sa.Column('acquisition_date', sa.Date(), nullable=True),
-        sa.Column('created_at', sa.DateTime(timezone=True), nullable=False, server_default=sa.text('now()')),
-        sa.Column('updated_at', sa.DateTime(timezone=True), nullable=False, server_default=sa.text('now()')),
-        sa.Column('deleted_at', sa.DateTime(timezone=True), nullable=True),
-        sa.PrimaryKeyConstraint('id', name=op.f('pk_team_ownerships'))
-    )
-    op.create_table('league_executives',
-        sa.Column('id', sa.UUID(), nullable=False),
-        sa.Column('league_id', sa.UUID(), nullable=False), # FK later
-        sa.Column('name', sa.String(length=100), nullable=False),
-        sa.Column('position', sa.String(length=100), nullable=False),
-        sa.Column('start_date', sa.Date(), nullable=True),
-        sa.Column('end_date', sa.Date(), nullable=True),
-        sa.Column('created_at', sa.DateTime(timezone=True), nullable=False, server_default=sa.text('now()')),
-        sa.Column('updated_at', sa.DateTime(timezone=True), nullable=False, server_default=sa.text('now()')),
-        sa.Column('deleted_at', sa.DateTime(timezone=True), nullable=True),
-        sa.PrimaryKeyConstraint('id', name=op.f('pk_league_executives'))
-    )
-    op.create_table('game_broadcasts',
-        sa.Column('id', sa.UUID(), nullable=False),
-        sa.Column('game_id', sa.UUID(), nullable=False), # FK later
-        sa.Column('broadcast_company_id', sa.UUID(), nullable=False), # FK later
-        sa.Column('production_company_id', sa.UUID(), nullable=True), # FK later
-        sa.Column('broadcast_type', sa.String(length=50), nullable=False),
-        sa.Column('territory', sa.String(length=100), nullable=False),
-        sa.Column('start_time', sa.String(length=50), nullable=True),
-        sa.Column('end_time', sa.String(length=50), nullable=True),
-        sa.Column('created_at', sa.DateTime(timezone=True), nullable=False, server_default=sa.text('now()')),
-        sa.Column('updated_at', sa.DateTime(timezone=True), nullable=False, server_default=sa.text('now()')),
-        sa.Column('deleted_at', sa.DateTime(timezone=True), nullable=True),
-        sa.PrimaryKeyConstraint('id', name=op.f('pk_game_broadcasts'))
-    )
+    op.execute("""
+    CREATE TABLE IF NOT EXISTS leagues (
+        id UUID PRIMARY KEY,
+        name VARCHAR,
+        nickname VARCHAR,
+        sport VARCHAR,
+        country VARCHAR,
+        broadcast_start_date DATE,
+        broadcast_end_date DATE,
+        created_at TIMESTAMP WITHOUT TIME ZONE,
+        updated_at TIMESTAMP WITHOUT TIME ZONE,
+        deleted_at TIMESTAMP WITHOUT TIME ZONE
+    );
+    CREATE TABLE IF NOT EXISTS divisions_conferences (
+        id UUID PRIMARY KEY,
+        league_id UUID,
+        name VARCHAR,
+        nickname VARCHAR,
+        type VARCHAR,
+        region VARCHAR,
+        description TEXT,
+        created_at TIMESTAMP WITHOUT TIME ZONE,
+        updated_at TIMESTAMP WITHOUT TIME ZONE,
+        deleted_at TIMESTAMP WITHOUT TIME ZONE
+    );
+    CREATE TABLE IF NOT EXISTS stadiums (
+        id UUID PRIMARY KEY,
+        name VARCHAR,
+        city VARCHAR,
+        state VARCHAR,
+        country VARCHAR,
+        capacity INTEGER,
+        owner VARCHAR,
+        naming_rights_holder VARCHAR,
+        host_broadcaster VARCHAR,
+        host_broadcaster_id UUID,
+        created_at TIMESTAMP WITHOUT TIME ZONE,
+        updated_at TIMESTAMP WITHOUT TIME ZONE,
+        deleted_at TIMESTAMP WITHOUT TIME ZONE
+    );
+    CREATE TABLE IF NOT EXISTS brands (
+        id UUID PRIMARY KEY,
+        name VARCHAR,
+        industry VARCHAR,
+        company_type VARCHAR,
+        country VARCHAR,
+        partner VARCHAR,
+        partner_relationship VARCHAR,
+        representative_entity_type VARCHAR,
+        created_at TIMESTAMP WITHOUT TIME ZONE,
+        updated_at TIMESTAMP WITHOUT TIME ZONE,
+        deleted_at TIMESTAMP WITHOUT TIME ZONE
+    );
+    CREATE TABLE IF NOT EXISTS teams (
+        id UUID PRIMARY KEY,
+        league_id UUID,
+        division_conference_id UUID,
+        stadium_id UUID,
+        name VARCHAR,
+        city VARCHAR,
+        state VARCHAR,
+        country VARCHAR,
+        founded_year INTEGER,
+        created_at TIMESTAMP WITHOUT TIME ZONE,
+        updated_at TIMESTAMP WITHOUT TIME ZONE,
+        deleted_at TIMESTAMP WITHOUT TIME ZONE
+    );
+    CREATE TABLE IF NOT EXISTS players (
+        id UUID PRIMARY KEY,
+        team_id UUID,
+        name VARCHAR,
+        position VARCHAR,
+        jersey_number INTEGER,
+        college VARCHAR,
+        created_at TIMESTAMP WITHOUT TIME ZONE,
+        updated_at TIMESTAMP WITHOUT TIME ZONE,
+        deleted_at TIMESTAMP WITHOUT TIME ZONE
+    );
+    CREATE TABLE IF NOT EXISTS games (
+        id UUID PRIMARY KEY,
+        league_id UUID,
+        home_team_id UUID,
+        away_team_id UUID,
+        stadium_id UUID,
+        date DATE,
+        time VARCHAR,
+        home_score INTEGER,
+        away_score INTEGER,
+        status VARCHAR,
+        season_year INTEGER,
+        season_type VARCHAR,
+        created_at TIMESTAMP WITHOUT TIME ZONE,
+        updated_at TIMESTAMP WITHOUT TIME ZONE,
+        deleted_at TIMESTAMP WITHOUT TIME ZONE
+    );
+    CREATE TABLE IF NOT EXISTS broadcast_companies (
+        id UUID PRIMARY KEY,
+        name VARCHAR,
+        created_at TIMESTAMP WITHOUT TIME ZONE,
+        updated_at TIMESTAMP WITHOUT TIME ZONE
+    );
+    CREATE TABLE IF NOT EXISTS production_companies (
+        id UUID PRIMARY KEY,
+        name VARCHAR,
+        created_at TIMESTAMP WITHOUT TIME ZONE,
+        updated_at TIMESTAMP WITHOUT TIME ZONE
+    );
+    CREATE TABLE IF NOT EXISTS game_broadcasts (
+        id UUID PRIMARY KEY,
+        game_id UUID,
+        broadcast_company_id UUID,
+        production_company_id UUID,
+        broadcast_type VARCHAR,
+        territory VARCHAR,
+        start_time VARCHAR,
+        end_time VARCHAR,
+        created_at TIMESTAMP WITHOUT TIME ZONE,
+        updated_at TIMESTAMP WITHOUT TIME ZONE,
+        deleted_at TIMESTAMP WITHOUT TIME ZONE
+    );
+    CREATE TABLE IF NOT EXISTS broadcast_rights (
+        id UUID PRIMARY KEY,
+        entity_type VARCHAR,
+        entity_id UUID,
+        broadcast_company_id UUID,
+        division_conference_id UUID,
+        territory VARCHAR,
+        start_date DATE,
+        end_date DATE,
+        is_exclusive BOOLEAN,
+        created_at TIMESTAMP WITHOUT TIME ZONE,
+        updated_at TIMESTAMP WITHOUT TIME ZONE,
+        deleted_at TIMESTAMP WITHOUT TIME ZONE
+    );
+    CREATE TABLE IF NOT EXISTS team_records (
+        id UUID PRIMARY KEY,
+        team_id UUID,
+        season_year INTEGER,
+        wins INTEGER,
+        losses INTEGER,
+        ties INTEGER,
+        playoff_result VARCHAR,
+        created_at TIMESTAMP WITHOUT TIME ZONE,
+        updated_at TIMESTAMP WITHOUT TIME ZONE,
+        deleted_at TIMESTAMP WITHOUT TIME ZONE
+    );
+    CREATE TABLE IF NOT EXISTS team_ownerships (
+        id UUID PRIMARY KEY,
+        team_id UUID,
+        owner_name VARCHAR,
+        ownership_percentage NUMERIC,
+        acquisition_date DATE,
+        created_at TIMESTAMP WITHOUT TIME ZONE,
+        updated_at TIMESTAMP WITHOUT TIME ZONE,
+        deleted_at TIMESTAMP WITHOUT TIME ZONE
+    );
+    CREATE TABLE IF NOT EXISTS league_executives (
+        id UUID PRIMARY KEY,
+        league_id UUID,
+        name VARCHAR,
+        position VARCHAR,
+        start_date DATE,
+        end_date DATE,
+        created_at TIMESTAMP WITHOUT TIME ZONE,
+        updated_at TIMESTAMP WITHOUT TIME ZONE,
+        deleted_at TIMESTAMP WITHOUT TIME ZONE
+    );
+    """)
 
 def downgrade() -> None:
-    op.drop_table('game_broadcasts')
-    op.drop_table('league_executives')
-    op.drop_table('team_ownerships')
-    op.drop_table('team_records')
-    op.drop_table('production_services')
-    op.drop_table('broadcast_rights')
-    op.drop_table('games')
-    op.drop_table('players')
-    op.drop_table('teams')
-    op.drop_table('brands')
-    op.drop_table('stadiums')
-    op.drop_table('divisions_conferences')
-    op.drop_table('leagues') 
+    op.execute("DROP TABLE IF EXISTS league_executives;")
+    op.execute("DROP TABLE IF EXISTS team_ownerships;")
+    op.execute("DROP TABLE IF EXISTS team_records;")
+    op.execute("DROP TABLE IF EXISTS broadcast_rights;")
+    op.execute("DROP TABLE IF EXISTS game_broadcasts;")
+    op.execute("DROP TABLE IF EXISTS production_companies;")
+    op.execute("DROP TABLE IF EXISTS broadcast_companies;")
+    op.execute("DROP TABLE IF EXISTS games;")
+    op.execute("DROP TABLE IF EXISTS players;")
+    op.execute("DROP TABLE IF EXISTS teams;")
+    op.execute("DROP TABLE IF EXISTS brands;")
+    op.execute("DROP TABLE IF EXISTS stadiums;")
+    op.execute("DROP TABLE IF EXISTS divisions_conferences;")
+    op.execute("DROP TABLE IF EXISTS leagues;") 

@@ -49,12 +49,28 @@ def upgrade() -> None:
     op.execute('CREATE INDEX IF NOT EXISTS ix_users_email ON users (email)')
 
     # Add columns and foreign keys using Alembic's helpers, which are generally safe
+    # For constraints, we drop them if they exist first to avoid errors.
+    op.execute('ALTER TABLE contact_brand_associations DROP CONSTRAINT IF EXISTS uq_contact_brand')
+    op.create_unique_constraint('uq_contact_brand', 'contact_brand_associations', ['contact_id', 'brand_id'])
+
+    op.execute('ALTER TABLE divisions_conferences DROP CONSTRAINT IF EXISTS uq_division_conference_name_per_league')
+    op.create_unique_constraint('uq_division_conference_name_per_league', 'divisions_conferences', ['league_id', 'name'])
+
+    op.execute('ALTER TABLE leagues DROP CONSTRAINT IF EXISTS uq_leagues_name')
+    op.create_unique_constraint('uq_leagues_name', 'leagues', ['name'])
+    
+    op.execute('ALTER TABLE stadiums DROP CONSTRAINT IF EXISTS uq_stadiums_name')
+    op.create_unique_constraint('uq_stadiums_name', 'stadiums', ['name'])
+
+    op.execute('ALTER TABLE teams DROP CONSTRAINT IF EXISTS uq_teams_name')
+    op.create_unique_constraint('uq_teams_name', 'teams', ['name'])
+
+
     op.add_column('brands', sa.Column('tags', postgresql.JSONB(astext_type=sa.Text()), server_default='[]', nullable=True))
     op.add_column('broadcast_rights', sa.Column('tags', postgresql.JSONB(astext_type=sa.Text()), server_default='[]', nullable=True))
     op.create_foreign_key(None, 'broadcast_rights', 'brands', ['broadcast_company_id'], ['id'])
     op.create_foreign_key(None, 'broadcast_rights', 'divisions_conferences', ['division_conference_id'], ['id'])
     op.add_column('contact_brand_associations', sa.Column('tags', postgresql.JSONB(astext_type=sa.Text()), server_default='[]', nullable=True))
-    op.create_unique_constraint('uq_contact_brand', 'contact_brand_associations', ['contact_id', 'brand_id'])
     op.create_foreign_key(None, 'contact_brand_associations', 'contacts', ['contact_id'], ['id'])
     op.create_foreign_key(None, 'contact_brand_associations', 'brands', ['brand_id'], ['id'])
     op.add_column('contacts', sa.Column('tags', postgresql.JSONB(astext_type=sa.Text()), server_default='[]', nullable=True))
@@ -67,7 +83,6 @@ def upgrade() -> None:
     op.add_column('data_columns', sa.Column('tags', postgresql.JSONB(astext_type=sa.Text()), server_default='[]', nullable=True))
     op.create_foreign_key(None, 'data_columns', 'structured_data', ['structured_data_id'], ['id'])
     op.add_column('divisions_conferences', sa.Column('tags', postgresql.JSONB(astext_type=sa.Text()), server_default='[]', nullable=True))
-    op.create_unique_constraint('uq_division_conference_name_per_league', 'divisions_conferences', ['league_id', 'name'])
     op.create_foreign_key(None, 'divisions_conferences', 'leagues', ['league_id'], ['id'])
     op.add_column('game_broadcasts', sa.Column('tags', postgresql.JSONB(astext_type=sa.Text()), server_default='[]', nullable=True))
     op.create_foreign_key(None, 'game_broadcasts', 'brands', ['broadcast_company_id'], ['id'])
@@ -81,7 +96,6 @@ def upgrade() -> None:
     op.add_column('league_executives', sa.Column('tags', postgresql.JSONB(astext_type=sa.Text()), server_default='[]', nullable=True))
     op.create_foreign_key(None, 'league_executives', 'leagues', ['league_id'], ['id'])
     op.add_column('leagues', sa.Column('tags', postgresql.JSONB(astext_type=sa.Text()), server_default='[]', nullable=True))
-    op.create_unique_constraint('uq_leagues_name', 'leagues', ['name'])
     op.add_column('messages', sa.Column('tags', postgresql.JSONB(astext_type=sa.Text()), server_default='[]', nullable=True))
     op.create_foreign_key(None, 'messages', 'conversations', ['conversation_id'], ['id'])
     op.add_column('players', sa.Column('tags', postgresql.JSONB(astext_type=sa.Text()), server_default='[]', nullable=True))
@@ -90,7 +104,6 @@ def upgrade() -> None:
     op.create_foreign_key(None, 'production_services', 'brands', ['secondary_brand_id'], ['id'])
     op.create_foreign_key(None, 'production_services', 'brands', ['production_company_id'], ['id'])
     op.add_column('stadiums', sa.Column('tags', postgresql.JSONB(astext_type=sa.Text()), server_default='[]', nullable=True))
-    op.create_unique_constraint('uq_stadiums_name', 'stadiums', ['name'])
     op.create_foreign_key(None, 'stadiums', 'brands', ['host_broadcaster_id'], ['id'])
     op.add_column('structured_data', sa.Column('tags', postgresql.JSONB(astext_type=sa.Text()), server_default='[]', nullable=True))
     op.create_foreign_key(None, 'structured_data', 'conversations', ['conversation_id'], ['id'])
@@ -99,7 +112,6 @@ def upgrade() -> None:
     op.add_column('team_records', sa.Column('tags', postgresql.JSONB(astext_type=sa.Text()), server_default='[]', nullable=True))
     op.create_foreign_key(None, 'team_records', 'teams', ['team_id'], ['id'])
     op.add_column('teams', sa.Column('tags', postgresql.JSONB(astext_type=sa.Text()), server_default='[]', nullable=True))
-    op.create_unique_constraint('uq_teams_name', 'teams', ['name'])
     op.create_foreign_key(None, 'teams', 'stadiums', ['stadium_id'], ['id'])
     op.create_foreign_key(None, 'teams', 'leagues', ['league_id'], ['id'])
     op.create_foreign_key(None, 'teams', 'divisions_conferences', ['division_conference_id'], ['id'])
@@ -107,7 +119,7 @@ def upgrade() -> None:
 
     for table_name in TABLES_WITH_TAGS:
         op.execute(f"UPDATE {table_name} SET tags = '[\"SPORTS\"]' WHERE tags IS NULL")
-        
+
 def downgrade() -> None:
     # The downgrade path is complex and less critical for this fix.
     # We will leave it as is for now.

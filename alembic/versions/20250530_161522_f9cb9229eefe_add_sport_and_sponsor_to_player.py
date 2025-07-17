@@ -20,24 +20,25 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
-    # ### commands for adding sport and sponsor_id to players table ###
-    op.add_column('players', sa.Column('sport', sa.String(length=100), nullable=True))
-    op.add_column('players', sa.Column('sponsor_id', postgresql.UUID(as_uuid=True), nullable=True))
-    op.create_index(op.f('ix_players_sport'), 'players', ['sport'], unique=False)
-    op.create_index(op.f('ix_players_sponsor_id'), 'players', ['sponsor_id'], unique=False)
-    op.create_foreign_key(
-        'fk_players_sponsor_id_brands',
-        'players', 'brands',
-        ['sponsor_id'], ['id']
-    )
-    # ### end Alembic commands ###
+    op.execute("ALTER TABLE players ADD COLUMN IF NOT EXISTS sport VARCHAR(255);")
+    op.execute("ALTER TABLE players ADD COLUMN IF NOT EXISTS sponsor_brand_id UUID;")
+    op.execute("""
+        DO $$
+        BEGIN
+            IF NOT EXISTS (
+                SELECT 1 FROM pg_constraint
+                WHERE conname = 'fk_players_sponsor_brand_id'
+            ) THEN
+                ALTER TABLE players
+                ADD CONSTRAINT fk_players_sponsor_brand_id
+                FOREIGN KEY (sponsor_brand_id) REFERENCES brands(id);
+            END IF;
+        END;
+        $$;
+    """)
 
 
 def downgrade() -> None:
-    # ### commands for reverting sport and sponsor_id from players table ###
-    op.drop_constraint('fk_players_sponsor_id_brands', 'players', type_='foreignkey')
-    op.drop_index(op.f('ix_players_sponsor_id'), table_name='players')
-    op.drop_index(op.f('ix_players_sport'), table_name='players')
-    op.drop_column('players', 'sponsor_id')
-    op.drop_column('players', 'sport')
-    # ### end Alembic commands ### 
+    op.execute("ALTER TABLE players DROP CONSTRAINT IF EXISTS fk_players_sponsor_brand_id;")
+    op.execute("ALTER TABLE players DROP COLUMN IF EXISTS sponsor_brand_id;")
+    op.execute("ALTER TABLE players DROP COLUMN IF EXISTS sport;") 

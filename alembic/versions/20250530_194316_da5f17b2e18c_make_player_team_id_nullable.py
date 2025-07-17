@@ -20,12 +20,8 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
-    op.alter_column('players', 'team_id',
-               existing_type=postgresql.UUID(as_uuid=True),
-               nullable=True)
+    op.execute("ALTER TABLE players ALTER COLUMN team_id DROP NOT NULL;")
 
 
 def downgrade() -> None:
-    op.alter_column('players', 'team_id',
-               existing_type=postgresql.UUID(as_uuid=True),
-               nullable=False) 
+    op.execute("ALTER TABLE players ALTER COLUMN team_id SET NOT NULL;") 

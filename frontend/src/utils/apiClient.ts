@@ -9,12 +9,18 @@ const isDocker = window.location.hostname !== 'localhost' && window.location.hos
 // IMPORTANT: All mock data and development fallbacks have been removed
 // In Docker, we use the VITE_API_URL environment variable or a relative URL
 const getApiUrl = () => {
-  if (process.env.NODE_ENV === 'development') {
-    // For local dev, we target the backend service directly on port 8000 with HTTPS
+  // Vite exposes env variables on the import.meta.env object
+  if (import.meta.env.VITE_API_URL) {
+    return import.meta.env.VITE_API_URL;
+  }
+
+  // Fallback for local development if the .env file is not configured
+  if (import.meta.env.DEV) {
     return 'https://localhost:8000';
   }
-  // For production/other envs, use the Vite env variable.
-  return process.env.VITE_API_URL || '';
+
+  // Default for production or other environments if VITE_API_URL is not set
+  return '';
 };
 
 const API_URL = getApiUrl();
@@ -118,7 +124,7 @@ apiClient.interceptors.request.use(
                         isRefreshing = false;
                         
                         // Reject pending requests
-                        processPendingRequests(error);
+                        processPendingRequests(error instanceof Error ? error : new Error('Token refresh failed'));
                         
                         // If refresh failed and this is not a public route, redirect to login
                         if (config.url !== '/auth/me') {

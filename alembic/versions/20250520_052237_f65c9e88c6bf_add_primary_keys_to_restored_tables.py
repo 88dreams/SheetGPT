@@ -9,6 +9,7 @@ from typing import Sequence, Union
 
 from alembic import op
 import sqlalchemy as sa
+from sqlalchemy.engine import reflection
 
 
 # revision identifiers, used by Alembic.
@@ -26,8 +27,16 @@ TABLES_WITH_UUID_PK = [
 ]
 
 def upgrade() -> None:
+    conn = op.get_bind()
+    inspector = reflection.Inspector.from_engine(conn)
+
     for table_name in TABLES_WITH_UUID_PK:
-        op.create_primary_key(f'pk_{table_name}', table_name, ['id'])
+        pk_constraint = inspector.get_pk_constraint(table_name)
+        if not pk_constraint or not pk_constraint.get('constrained_columns'):
+            print(f"Table '{table_name}' has no primary key. Adding one.")
+            op.create_primary_key(f'pk_{table_name}', table_name, ['id'])
+        else:
+            print(f"Table '{table_name}' already has a primary key. Skipping.")
 
 
 def downgrade() -> None:

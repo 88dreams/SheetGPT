@@ -15,6 +15,9 @@
   # 4. Set NODE_ENV to "production" to ensure Vite builds correctly.
   NODE_ENV = "production" 
 
+  # 5. Force Yarn to install devDependencies, which are needed for the build command.
+  YARN_FLAGS = "--production=false"
+
 # Redirects for the React SPA running in a sub-path.
 # This is crucial for handling client-side routing correctly on Netlify.
 [[redirects]]

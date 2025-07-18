@@ -45,7 +45,8 @@ SheetGPT can be deployed to the following environments:
 
 The local development environment uses Docker Compose to create a consistent and isolated development experience.
 
-### Requirements
+### Requirements - Local Development
+
 - Docker and Docker Compose
 - Git
 - Node.js 16+ (optional, for running scripts outside of containers)
@@ -54,24 +55,27 @@ The local development environment uses Docker Compose to create a consistent and
 ### Setup Steps
 
 1. Clone the repository:
+
    ```bash
    git clone https://github.com/yourusername/sheetgpt.git
    cd sheetgpt
    ```
 
 2. Start the development environment:
+
    ```bash
    docker-compose up --build -d
    ```
 
 3. Initialize the database:
+
    ```bash
    docker cp init_db.py sheetgpt-backend-1:/app/ && docker exec -it sheetgpt-backend-1 python /app/init_db.py
    ```
 
 4. Access the application:
-   - Frontend: http://localhost:3000
-   - Backend API: http://localhost:8000
+   - Frontend: `http://localhost:3000`
+   - Backend API: `http://localhost:8000`
 
 ### Environment Configuration
 
@@ -84,7 +88,8 @@ The development environment uses the `.env` files for configuration. You can cus
 
 For production deployment, SheetGPT can be deployed to AWS using various services.
 
-### Requirements
+### Requirements - AWS Cloud Deployment
+
 - AWS Account
 - AWS CLI configured
 - Terraform (optional, for infrastructure as code)
@@ -107,7 +112,7 @@ The AWS deployment uses the following services:
 
 See the detailed [AWS Deployment Guide](AWS_DEPLOYMENT.md) for step-by-step instructions.
 
-### Environment Configuration
+### Environment Configuration - AWS Cloud Deployment
 
 AWS deployments use environment variables configured in the ECS task definitions:
 
@@ -136,39 +141,45 @@ AWS deployments use environment variables configured in the ECS task definitions
 
 SheetGPT can be deployed to your own hardware using Docker or directly installing dependencies.
 
-### Requirements
+### Requirements - Self-Hosted Server Deployment
+
 - Linux server (Ubuntu 20.04+ recommended)
 - Docker and Docker Compose
 - PostgreSQL database
 - Nginx web server
 - Let's Encrypt SSL certificate
 
-### Setup Steps
+### Setup Steps - Self-Hosted Server Deployment
 
 1. Install Docker and Docker Compose:
+
    ```bash
    sudo apt update
    sudo apt install docker.io docker-compose
    ```
 
 2. Clone the repository:
+
    ```bash
    git clone https://github.com/yourusername/sheetgpt.git
    cd sheetgpt
    ```
 
 3. Configure environment variables:
+
    ```bash
    cp .env.example .env
    # Edit .env with your configuration
    ```
 
 4. Start the application:
+
    ```bash
    docker-compose -f docker-compose.prod.yml up -d
    ```
 
 5. Configure Nginx as reverse proxy:
+
    ```nginx
    server {
        listen 80;
@@ -189,12 +200,13 @@ SheetGPT can be deployed to your own hardware using Docker or directly installin
    ```
 
 6. Set up SSL with Let's Encrypt:
+
    ```bash
    sudo apt install certbot python3-certbot-nginx
    sudo certbot --nginx -d your-domain.com
    ```
 
-### Maintenance
+### Maintenance - Self-Hosted Server Deployment
 
 For self-hosted deployments, regularly perform maintenance:
 
@@ -208,18 +220,19 @@ For self-hosted deployments, regularly perform maintenance:
 
 For organizations that require keeping sensitive data on-premises while benefiting from cloud services, a hybrid deployment is possible.
 
-### Architecture
+### Architecture - Hybrid Deployment
 
 1. **Frontend**: Deployed to AWS S3 + CloudFront or similar cloud service
 2. **Backend API**: Deployed on-premises with secure network configuration
 3. **Database**: On-premises PostgreSQL instance with regular backups
 4. **API Gateway**: Cloud-based gateway that routes requests to on-premises backend
 
-### Configuration
+### Configuration - Hybrid Deployment
 
 The key to hybrid deployment is properly configuring CORS and authentication:
 
 1. **CORS Configuration**: Frontend in cloud needs to access API on-premises
+
    ```python
    # Backend CORS configuration
    app.add_middleware(
@@ -234,7 +247,7 @@ The key to hybrid deployment is properly configuring CORS and authentication:
 2. **Secure Communication**: Set up VPN or direct connect between cloud and on-premises
 3. **Authentication**: Use JWT tokens with secure transmission
 
-## Production Environment Configuration
+## Production Environment Configuration - Production Environment Configuration
 
 The production environment uses the following configuration settings for optimal performance, security, and reliability.
 
@@ -285,7 +298,7 @@ The following environment variables are configured in the production and develop
 | `REFRESH_TOKEN_EXPIRE_DAYS` | 7 | 3 | No | Refresh token expiration |
 | `ANTHROPIC_API_KEY` | Test key | Production key | Yes | Claude API key |
 | `ENVIRONMENT` | "development" | "production" | Yes | Environment name |
-| `CORS_ORIGINS` | "*" | "https://88gpts.com" | Yes | Allowed CORS origins |
+| `CORS_ORIGINS` | "*" | "`https://88gpts.com`" | Yes | Allowed CORS origins |
 | `GOOGLE_SHEETS_CREDENTIALS_PATH` | Local path | DO path | No | Google credentials path |
 | `GOOGLE_SHEETS_TOKEN_PATH` | Local path | DO path | No | Google token path |
 | `GOOGLE_DRIVE_ENABLE_FOLDERS` | true | true | No | Google Drive folder support |
@@ -300,7 +313,7 @@ The following environment variables are configured in the production and develop
 
 | Variable | Development | Production | Required | Description |
 |----------|-------------|------------|----------|-------------|
-| `VITE_API_URL` | "/api" | "https://api.88gpts.com" | Yes | Backend API URL |
+| `VITE_API_URL` | "/api" | "`https://api.88gpts.com`" | Yes | Backend API URL |
 | `VITE_GOOGLE_CLIENT_ID` | Test ID | Production ID | No | Google OAuth client ID |
 | `VITE_ENABLE_SERVICE_WORKER` | false | true | No | PWA service worker |
 | `NODE_ENV` | "development" | "production" | Yes | Node environment |
@@ -350,18 +363,21 @@ Before deploying to any environment, run through this checklist:
 ## Troubleshooting Deployment Issues
 
 ### Database Connection Issues
+
 - Verify connection string is correct
 - Check network connectivity between application and database
 - Ensure database user has correct permissions
 - Check database firewall rules
 
 ### Frontend/Backend Integration Issues
+
 - Verify API URL is correctly set in frontend environment
 - Check CORS configuration
 - Monitor network requests in browser devtools
 - Verify authentication flow is working
 
 ### Container Deployment Issues
+
 - Check container logs
 - Verify container has access to required resources
 - Ensure volume mounts are correctly configured

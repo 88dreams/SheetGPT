@@ -2,13 +2,13 @@
 
 This document outlines the API endpoints for the sports database functionality.
 
-> **PRODUCTION DEPLOYMENT**: The sports database API is deployed in production at [api.88gpts.com](https://api.88gpts.com) with comprehensive error handling, rate limiting, and cross-domain authentication. All production requests should use the base URL `https://api.88gpts.com` instead of relative paths.
+> **PRODUCTION DEPLOYMENT**: The sports database API is deployed in production at `https://api.88gpts.com/api/v1/sports/` with comprehensive error handling, rate limiting, and cross-domain authentication. All production requests should use the base URL `https://api.88gpts.com` instead of relative paths.
 
 ## Production Environment Configuration
 
 In production, all sports database API endpoints have the following characteristics:
 
-- **Base URL**: https://api.88gpts.com/api/v1/sports/
+- **Base URL**: `https://api.88gpts.com/api/v1/sports/`
 - **Authentication**: JWT token required in Authorization header
 - **Rate Limiting**: 100 requests per minute per authenticated user
 - **CORS**: Configured to allow requests only from 88gpts.com domains
@@ -16,6 +16,7 @@ In production, all sports database API endpoints have the following characterist
 - **Compression**: All responses are automatically compressed (gzip)
 - **Error Handling**: Standardized error responses with proper HTTP status codes
 - **Logging**: All requests are logged with unique request IDs for troubleshooting
+
 - **Request Timeout**: 30-second timeout for all database operations
 
 ### Production Request Headers
@@ -28,11 +29,14 @@ Origin: https://88gpts.com
 Accept: application/json
 Accept-Encoding: gzip, deflate
 Content-Type: application/json
-```
+```text
+
 
 ## Entity Management Endpoints
 
+
 ### Leagues
+
 
 - `GET /api/v1/sports/leagues` - Get all leagues
 - `GET /api/v1/sports/leagues/{league_id}` - Get a specific league by ID
@@ -41,6 +45,7 @@ Content-Type: application/json
 - `DELETE /api/v1/sports/leagues/{league_id}` - Delete a league
 
 ### Teams
+
 
 - `GET /api/v1/sports/teams` - Get all teams
 - `GET /api/v1/sports/teams/{team_id}` - Get a specific team by ID
@@ -51,6 +56,7 @@ Content-Type: application/json
 
 ### Players
 
+
 - `GET /api/v1/sports/players` - Get all players
 - `GET /api/v1/sports/players/{player_id}` - Get a specific player by ID
 - `POST /api/v1/sports/players` - Create a new player
@@ -60,23 +66,28 @@ Content-Type: application/json
 
 ### Games
 
+
 - `GET /api/v1/sports/games` - Get all games
 - `GET /api/v1/sports/games/{game_id}` - Get a specific game by ID
 - `POST /api/v1/sports/games` - Create a new game
 - `PUT /api/v1/sports/games/{game_id}` - Update a game
 - `DELETE /api/v1/sports/games/{game_id}` - Delete a game
+
 - `GET /api/v1/sports/games?team_id={team_id}` - Get games for a specific team
 - `GET /api/v1/sports/games?league_id={league_id}` - Get games for a specific league
 
 ### Stadiums
 
+
 - `GET /api/v1/sports/stadiums` - Get all stadiums
+
 - `GET /api/v1/sports/stadiums/{stadium_id}` - Get a specific stadium by ID
 - `POST /api/v1/sports/stadiums` - Create a new stadium
 - `PUT /api/v1/sports/stadiums/{stadium_id}` - Update a stadium
 - `DELETE /api/v1/sports/stadiums/{stadium_id}` - Delete a stadium
 
 ### Broadcast Companies
+
 
 - `GET /api/v1/sports/broadcast-companies` - Get all broadcast companies
 - `GET /api/v1/sports/broadcast-companies/{id}` - Get a specific broadcast company by ID
@@ -86,6 +97,7 @@ Content-Type: application/json
 
 ### Broadcast Rights
 
+
 - `GET /api/v1/sports/broadcast-rights` - Get all broadcast rights
 - `GET /api/v1/sports/broadcast-rights/{id}` - Get specific broadcast rights by ID
 - `POST /api/v1/sports/broadcast-rights` - Create new broadcast rights
@@ -94,27 +106,39 @@ Content-Type: application/json
 
 ### Production Companies
 
+
 - `GET /api/v1/sports/production-companies` - Get all production companies
 - `GET /api/v1/sports/production-companies/{id}` - Get a specific production company by ID
 - `POST /api/v1/sports/production-companies` - Create a new production company
 - `PUT /api/v1/sports/production-companies/{id}` - Update a production company
 - `DELETE /api/v1/sports/production-companies/{id}` - Delete a production company
 
+
 ### Production Services
 
+
 - `GET /api/v1/sports/production-services` - Get all production services
+
 - `GET /api/v1/sports/production-services/{id}` - Get a specific production service by ID
 - `POST /api/v1/sports/production-services` - Create a new production service
+
 - `PUT /api/v1/sports/production-services/{id}` - Update a production service
+
 - `DELETE /api/v1/sports/production-services/{id}` - Delete a production service
 
 ### Brands
 
+
 - `GET /api/v1/sports/brands` - Get all brands
+
 - `GET /api/v1/sports/brands/{id}` - Get a specific brand by ID
+
 - `POST /api/v1/sports/brands` - Create a new brand
+
 - `PUT /api/v1/sports/brands/{id}` - Update a brand
+
 - `DELETE /api/v1/sports/brands/{id}` - Delete a brand
+
 
 > **Note**: The Brand model now includes `partner` and `partner_relationship` fields that allow direct relationship specification without requiring a separate brand relationship entity. Brand relationships are now managed directly through the Brand endpoints.
 
@@ -122,19 +146,25 @@ Content-Type: application/json
 
 ## Generic Entity Endpoints
 
+
 ### Get Entities
+
 `GET /api/v1/sports/entities/{entity_type}`
 
 Gets a paginated list of entities of a specific type.
 
 **Query Parameters**:
+
 - `page`: Page number (default: 1, min: 1)
+
 - `limit`: Number of items per page (default: 50, min: 1, max: 100)
+
 - `sort_by`: Field to sort by (default: "id")
 - `sort_direction`: Sort direction ("asc" or "desc", default: "asc")
 - `filters`: JSON string of filter configurations (optional)
 
 **Response Format**:
+
 ```json
 {
   "items": [
@@ -149,27 +179,36 @@ Gets a paginated list of entities of a specific type.
   "page_size": 50,
   "total_pages": 2
 }
-```
+```text
+
 
 **Response Fields**:
+
 - `items`: Array of entities for the current page
 - `total`: Total number of entities matching the query
 - `page`: Current page number
+
 - `page_size`: Number of items per page
+
 - `total_pages`: Total number of pages available
 
 ### Advanced Filtering
 
+
 The `/api/v1/sports/entities/{entity_type}` endpoint supports advanced filtering capabilities:
 
 **Query Parameters**:
+
 - `filters`: JSON string of filter configurations
 - `page`: Page number for pagination (default: 1)
 - `limit`: Number of items per page (default: 50, max: 100)
 - `sort_by`: Field to sort by (default: "id")
+
 - `sort_direction`: Sort direction ("asc" or "desc", default: "asc")
 
+
 **Filter Format**:
+
 ```json
 [
   {
@@ -183,38 +222,51 @@ The `/api/v1/sports/entities/{entity_type}` endpoint supports advanced filtering
     "value": 1980
   }
 ]
-```
+```text
+
 
 **Supported Operators**:
+
 - String fields: "eq" (equals), "neq" (not equals), "contains", "startswith", "endswith"
 - Number fields: "eq" (equals), "neq" (not equals), "gt" (greater than), "lt" (less than)
 - Date fields: "eq" (equals), "neq" (not equals), "gt" (greater than), "lt" (less than)
+
 - Boolean fields: "eq" (equals), "neq" (not equals)
 
+
 **Example Request**:
-```
+
+```text
 GET /api/v1/sports/entities/team?filters=[{"field":"name","operator":"contains","value":"New York"},{"field":"founded_year","operator":"gt","value":1980}]&sort_by=name&sort_direction=asc&page=1&limit=10
-```
+```text
+
 
 This request will return teams with "New York" in their name that were founded after 1980, sorted by name in ascending order, and limited to 10 results per page.
 
 ## Batch Import
 
+
 - `POST /api/v1/sports/batch/import` - Import multiple entities of the same type
+
 
 ## Field Mapping and Validation
 
+
 - `GET /api/v1/sports/fields/{entity_type}` - Get available fields for an entity type
+
 - `POST /api/v1/sports/validate/{entity_type}` - Validate entity data without saving
 
 ## Export Endpoints
 
+
 ### Google Sheets Export
+
 `POST /api/v1/export/sheets`
 
 Exports data to Google Sheets with advanced features for column selection and folder organization.
 
 **Request Body:**
+
 ```json
 {
   "data": "Array of data objects (required)",
@@ -224,17 +276,26 @@ Exports data to Google Sheets with advanced features for column selection and fo
   "visible_columns": ["Array of column keys to include (optional)"],
   "format": "Boolean to apply formatting (default: true)"
 }
-```
+```text
+
 
 **Parameters:**
+
 - `data`: Array of objects to export
+
 - `sheet_name`: Name for the Google Sheet
+
 - `folder_id`: Specific Google Drive folder ID to export to
+
 - `folder_name`: Folder name to export to (will be created if it doesn't exist)
+
 - `visible_columns`: Array of column keys to include in export (omit to include all columns)
+
 - `format`: Whether to apply formatting to the sheet (colors, column widths, etc.)
 
+
 **Response:**
+
 ```json
 {
   "success": true,
@@ -245,9 +306,11 @@ Exports data to Google Sheets with advanced features for column selection and fo
   "folder_id": "abcd1234...",
   "folder_url": "https://drive.google.com/drive/folders/abcd1234..."
 }
-```
+```text
+
 
 **Fallback CSV Response (when Google auth fails):**
+
 ```json
 {
   "success": true,
@@ -255,23 +318,29 @@ Exports data to Google Sheets with advanced features for column selection and fo
   "data": "CSV data as string",
   "filename": "export_20250326.csv"
 }
-```
+```text
+
 
 ### Preview Export
+
 `GET /api/v1/export/preview/{data_id}`
 
 Preview how data will be formatted for export without actually exporting.
 
 ### Export Templates
+
 `GET /api/v1/export/templates`
 
 Get available export templates for different entity types.
 
 ## Request and Response Examples
 
+
 ### Create League
 
+
 **Request:**
+
 ```http
 POST /api/v1/sports/leagues
 Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
@@ -284,9 +353,11 @@ Content-Type: application/json
   "founded_year": 1920,
   "description": "Professional American football league"
 }
-```
+```text
+
 
 **Response:**
+
 ```json
 {
   "id": "123e4567-e89b-12d3-a456-426614174000",
@@ -298,11 +369,14 @@ Content-Type: application/json
   "created_at": "2024-05-15T10:30:00Z",
   "updated_at": "2024-05-15T10:30:00Z"
 }
-```
+```text
+
 
 ### Create Team
 
+
 **Request:**
+
 ```http
 POST /api/v1/sports/teams
 Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
@@ -317,9 +391,11 @@ Content-Type: application/json
   "league_id": "123e4567-e89b-12d3-a456-426614174000",
   "stadium_id": "523e4567-e89b-12d3-a456-426614174004"
 }
-```
+```text
+
 
 **Response:**
+
 ```json
 {
   "id": "423e4567-e89b-12d3-a456-426614174003",
@@ -333,11 +409,14 @@ Content-Type: application/json
   "created_at": "2024-05-15T11:15:00Z",
   "updated_at": "2024-05-15T11:15:00Z"
 }
-```
+```text
+
 
 ### Batch Import Teams
 
+
 **Request:**
+
 ```http
 POST /api/v1/sports/batch/import
 Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
@@ -370,9 +449,11 @@ Content-Type: application/json
     }
   ]
 }
-```
+```text
+
 
 **Response:**
+
 ```json
 {
   "success_count": 2,
@@ -405,17 +486,22 @@ Content-Type: application/json
     }
   ]
 }
-```
+```text
+
 
 ### Get Available Fields for Entity Type
 
+
 **Request:**
+
 ```http
 GET /api/v1/sports/fields/team
 Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
-```
+```text
+
 
 **Response:**
+
 ```json
 {
   "fields": [
@@ -479,11 +565,14 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
     }
   ]
 }
-```
+```text
+
 
 ### Validate Entity Data
 
+
 **Request:**
+
 ```http
 POST /api/v1/sports/validate/team
 Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
@@ -498,9 +587,11 @@ Content-Type: application/json
   "stadium_name": "AT&T Stadium",
   "founded_year": 1960
 }
-```
+```text
+
 
 **Response:**
+
 ```json
 {
   "is_valid": true,
@@ -515,11 +606,14 @@ Content-Type: application/json
   },
   "errors": []
 }
-```
+```text
+
 
 ## Error Responses
 
+
 **Validation Error:**
+
 ```json
 {
   "detail": [
@@ -530,40 +624,50 @@ Content-Type: application/json
     }
   ]
 }
-```
+```text
+
 
 **Not Found Error:**
+
 ```json
 {
   "detail": "Resource not found"
 }
-```
+```text
+
 
 **Permission Error:**
+
 ```json
 {
   "detail": "Not authorized to access this resource"
 }
-```
+```text
+
 
 **Database Error:**
+
 ```json
 {
   "detail": "Database operation failed"
 }
-```
+```text
+
 
 ## Authentication
 
+
 All endpoints require authentication using a JWT token in the Authorization header:
 
-```
+```text
 Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
-```
+```text
+
 
 To obtain a token, use the `/api/v1/auth/login` endpoint with valid credentials.
 
 ### Cross-Domain Authentication in Production
+
 
 In the production environment with separate domains for frontend (88gpts.com) and backend (api.88gpts.com), these authentication considerations apply:
 
@@ -587,7 +691,8 @@ Accept: application/json
     "email": "user@example.com",
     "password": "securePassword123"
 }
-```
+```text
+
 
 Example token refresh in production:
 
@@ -597,16 +702,20 @@ Origin: https://88gpts.com
 Content-Type: application/json
 Accept: application/json
 Authorization: Bearer {refresh_token}
-```
+```text
+
 
 ## Team Endpoints
 
+
 ### Create Team
+
 `POST /api/v1/sports/teams`
 
 Creates a new team. Supports both UUID and name-based references for leagues and stadiums.
 
 **Request Body:**
+
 ```json
 {
   "name": "string (required)",
@@ -617,11 +726,13 @@ Creates a new team. Supports both UUID and name-based references for leagues and
   "country": "string (required)",
   "founded_year": "number (optional)"
 }
-```
+```text
+
 
 **Examples:**
 
 Using names:
+
 ```json
 {
   "name": "Utah Jazz",
@@ -632,9 +743,11 @@ Using names:
   "country": "USA",
   "founded_year": 1974
 }
-```
+```text
+
 
 Using UUIDs:
+
 ```json
 {
   "name": "Utah Jazz",
@@ -645,12 +758,15 @@ Using UUIDs:
   "country": "USA",
   "founded_year": 1974
 }
-```
+```text
+
 
 **Notes:**
+
 - If a league name is provided instead of UUID, the system will:
   1. Look up the league by name
   2. Create a new league if it doesn't exist
   3. Use the resulting UUID
+
 - Same behavior applies for stadium references
-- The system maintains referential integrity while allowing flexible input 
+- The system maintains referential integrity while allowing flexible input

@@ -17,9 +17,12 @@ const queryClient = new QueryClient({
   },
 })
 
+const isProduction = window.location.hostname.includes('88gpts.com');
+const basePath = isProduction ? '/sheetgpt' : '/';
+
 ReactDOM.createRoot(document.getElementById('root') as HTMLElement).render(
   <React.StrictMode>
-    <BrowserRouter basename={import.meta.env.VITE_BASE_PATH || '/'}>
+    <BrowserRouter basename={basePath}>
       <QueryClientProvider client={queryClient}>
         <ReactQueryDevtools initialIsOpen={false} />
         <App />

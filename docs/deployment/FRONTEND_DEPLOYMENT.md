@@ -37,6 +37,7 @@ The application uses a distributed architecture:
 #### Frontend Modifications
 
 1. **React Router Configuration**:
+
    ```jsx
    <BrowserRouter basename="/sheetgpt">
      <QueryClientProvider client={queryClient}>
@@ -46,6 +47,7 @@ The application uses a distributed architecture:
    ```
 
 2. **Vite Configuration**:
+
    ```js
    export default defineConfig({
      plugins: [react()],
@@ -55,6 +57,7 @@ The application uses a distributed architecture:
    ```
 
 3. **Netlify Redirects**:
+
    ```toml
    # Handle static assets correctly
    [[redirects]]
@@ -72,6 +75,7 @@ The application uses a distributed architecture:
 #### Backend Modifications
 
 1. **CORS Configuration**:
+
    ```python
    # CORS settings - allow frontend domain and local development
    CORS_ORIGINS: List[str] = [

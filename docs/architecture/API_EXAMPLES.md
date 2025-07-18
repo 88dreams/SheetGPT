@@ -6,10 +6,10 @@
 
 These examples use relative URLs but in production, the full URL should be used:
 
-```
+```sh
 Development: /api/v1/auth/login
 Production: https://api.88gpts.com/api/v1/auth/login
-```
+```http
 
 Production environment features:
 
@@ -28,11 +28,13 @@ Production requests should include these additional headers:
 Origin: https://88gpts.com
 X-Request-Source: frontend
 Accept-Encoding: gzip, deflate
-```
+
+```http
 
 ## Authentication Endpoints
 
 ### 1. User Registration
+
 ```http
 POST /api/v1/auth/register
 Content-Type: application/json
@@ -41,16 +43,20 @@ Content-Type: application/json
     "email": "user@example.com",
     "password": "securePassword123"
 }
-```
+
+```http
+
 
 Response (201 Created):
+
 ```json
 {
     "email": "user@example.com",
     "is_active": true,
     "is_admin": false
 }
-```
+
+```http
 
 ### 2. User Login
 ```http
@@ -61,35 +67,45 @@ Content-Type: application/json
     "email": "user@example.com",
     "password": "securePassword123"
 }
-```
-
+```http
 Response (200 OK):
+
 ```json
 {
     "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
     "token_type": "bearer",
     "expires_in": 1800
 }
-```
+
+```http
 
 ### 3. Get Current User
+
 ```http
 GET /api/v1/auth/me
 Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
-```
+
+```http
 
 Response (200 OK):
+
 ```json
 {
     "email": "user@example.com",
     "is_active": true,
     "is_admin": false
 }
-```
+
+```http
 
 ## Chat Endpoints
 
+
+
 ### 1. Create New Conversation
+
+
+
 ```http
 POST /api/v1/chat/conversations
 Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
@@ -99,9 +115,11 @@ Content-Type: application/json
     "title": "Data Analysis Discussion",
     "description": "Analyzing sales data for Q1 2024"
 }
-```
+
+```http
 
 Response (201 Created):
+
 ```json
 {
     "id": "123e4567-e89b-12d3-a456-426614174000",
@@ -113,15 +131,19 @@ Response (201 Created):
     "messages": [],
     "meta_data": {}
 }
-```
+
+```http
 
 ### 2. List Conversations
+
 ```http
 GET /api/v1/chat/conversations?skip=0&limit=10
 Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
-```
+
+```http
 
 Response (200 OK):
+
 ```json
 {
     "items": [
@@ -140,15 +162,25 @@ Response (200 OK):
     "skip": 0,
     "limit": 10
 }
-```
+
+```http
+
+
 
 ### 3. Get Specific Conversation
+
+
+
 ```http
 GET /api/v1/chat/conversations/123e4567-e89b-12d3-a456-426614174000
 Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
-```
+
+```http
+
+
 
 Response (200 OK):
+
 ```json
 {
     "id": "123e4567-e89b-12d3-a456-426614174000",
@@ -169,9 +201,15 @@ Response (200 OK):
     ],
     "meta_data": {}
 }
-```
+
+```http
+
+
 
 ### 4. Send Message
+
+
+
 ```http
 POST /api/v1/chat/conversations/123e4567-e89b-12d3-a456-426614174000/messages
 Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
@@ -189,9 +227,13 @@ Content-Type: application/json
         }
     }
 }
-```
+
+```http
+
+
 
 Response (200 OK):
+
 ```json
 {
     "message": "Based on the sales data, I can provide the following analysis...",
@@ -204,9 +246,15 @@ Response (200 OK):
         }
     }
 }
-```
+
+```http
+
+
 
 ### 5. Update Conversation
+
+
+
 ```http
 PATCH /api/v1/chat/conversations/123e4567-e89b-12d3-a456-426614174000
 Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
@@ -216,9 +264,13 @@ Content-Type: application/json
     "title": "Q1 2024 Sales Analysis",
     "description": "Detailed analysis of Q1 2024 sales performance"
 }
-```
+
+```http
+
+
 
 Response (200 OK):
+
 ```json
 {
     "id": "123e4567-e89b-12d3-a456-426614174000",
@@ -230,17 +282,29 @@ Response (200 OK):
     "messages": [...],
     "meta_data": {}
 }
-```
+
+```http
+
+
 
 ## Sports Database Endpoints
 
+
+
 ### 1. Get Leagues
+
+
+
 ```http
 GET /api/v1/sports/leagues
 Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
-```
+
+```http
+
+
 
 Response (200 OK):
+
 ```json
 [
     {
@@ -260,9 +324,15 @@ Response (200 OK):
         "description": "Professional basketball league"
     }
 ]
-```
+
+```http
+
+
 
 ### 2. Create League
+
+
+
 ```http
 POST /api/v1/sports/leagues
 Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
@@ -275,9 +345,13 @@ Content-Type: application/json
     "founded_year": 1993,
     "description": "Professional soccer league in the US and Canada"
 }
-```
+
+```http
+
+
 
 Response (201 Created):
+
 ```json
 {
     "id": "323e4567-e89b-12d3-a456-426614174002",
@@ -287,15 +361,25 @@ Response (201 Created):
     "founded_year": 1993,
     "description": "Professional soccer league in the US and Canada"
 }
-```
+
+```http
+
+
 
 ### 3. Get Teams by League
+
+
+
 ```http
 GET /api/v1/sports/teams?league_id=123e4567-e89b-12d3-a456-426614174000
 Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
-```
+
+```http
+
+
 
 Response (200 OK):
+
 ```json
 [
     {
@@ -325,9 +409,15 @@ Response (200 OK):
         "secondary_color": "#B3995D"
     }
 ]
-```
+
+```http
+
+
 
 ### 4. Batch Import Teams
+
+
+
 ```http
 POST /api/v1/sports/batch/import
 Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
@@ -360,9 +450,13 @@ Content-Type: application/json
         }
     ]
 }
-```
+
+```http
+
+
 
 Response (200 OK):
+
 ```json
 {
     "success_count": 2,
@@ -395,15 +489,25 @@ Response (200 OK):
         }
     ]
 }
-```
+
+```http
+
+
 
 ### 5. Get Available Fields for Entity Type
+
+
+
 ```http
 GET /api/v1/sports/fields/team
 Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
-```
+
+```http
+
+
 
 Response (200 OK):
+
 ```json
 {
     "fields": [
@@ -473,9 +577,15 @@ Response (200 OK):
         }
     ]
 }
-```
+
+```http
+
+
 
 ### 6. Validate Entity Data
+
+
+
 ```http
 POST /api/v1/sports/validate/team
 Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
@@ -490,9 +600,13 @@ Content-Type: application/json
     "stadium_name": "AT&T Stadium",
     "founded_year": 1960
 }
-```
+
+```http
+
+
 
 Response (200 OK):
+
 ```json
 {
     "is_valid": true,
@@ -507,17 +621,29 @@ Response (200 OK):
     },
     "errors": []
 }
-```
+
+```http
+
+
 
 ## Export Service Endpoints
 
+
+
 ### 1. Get Export Preview
+
+
+
 ```http
 GET /api/v1/export/preview/123e4567-e89b-12d3-a456-426614174012?template_name=default
 Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
-```
+
+```http
+
+
 
 Response (200 OK):
+
 ```json
 {
     "columns": ["Team", "City", "State", "Founded Year"],
@@ -529,43 +655,75 @@ Response (200 OK):
         ["Dallas Cowboys", "Dallas", "Texas", 1960]
     ]
 }
-```
+
+```http
+
+
 
 ### 2. Start Google OAuth Flow
+
+
+
 ```http
 GET /api/v1/export/auth/google
 Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
-```
+
+```http
+
+
 
 Response: Redirects to Google OAuth consent screen
 
 ### 3. OAuth Callback
+
+
+
 ```http
 GET /api/v1/export/auth/callback?code={auth_code}
-```
+
+```http
+
+
 
 Response (200 OK):
+
 ```json
 {
     "status": "success",
     "message": "Google Sheets authorization successful"
 }
-```
+
+```http
+
+
 
 ### 4. Check Authorization Status
+
+
+
 ```http
 GET /api/v1/export/auth/status
 Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
-```
+
+```http
+
+
 
 Response (200 OK):
+
 ```json
 {
     "authenticated": true
 }
-```
+
+```http
+
+
 
 ### 5. Create New Spreadsheet
+
+
+
 ```http
 POST /api/v1/export/sheets
 Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
@@ -591,9 +749,13 @@ Content-Type: application/json
     "format": true,
     "folder_name": "Sports Database Exports"
 }
-```
+
+```http
+
+
 
 Response (200 OK):
+
 ```json
 {
     "success": true,
@@ -604,9 +766,15 @@ Response (200 OK):
     "folder_id": "1Y2Z3456-abcdef",
     "folder_url": "https://drive.google.com/drive/folders/1Y2Z3456-abcdef"
 }
-```
+
+```http
+
+
 
 ### 5a. Export with Specific Folder ID
+
+
+
 ```http
 POST /api/v1/export/sheets
 Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
@@ -618,9 +786,15 @@ Content-Type: application/json
     "folder_id": "1Y2Z3456-abcdef",
     "visible_columns": ["name", "city", "state", "founded_year", "league_sport"]
 }
-```
+
+```http
+
+
 
 ### 5b. Export with CSV Fallback (Authentication Error Response)
+
+
+
 ```json
 {
     "success": true,
@@ -628,9 +802,15 @@ Content-Type: application/json
     "data": "name,city,state,founded_year\nKansas City Chiefs,Kansas City,Missouri,1960\nSan Francisco 49ers,San Francisco,California,1946",
     "filename": "NFL_Teams_20250326.csv"
 }
-```
+
+```http
+
+
 
 ### 6. Update Spreadsheet Values
+
+
+
 ```http
 PUT /api/v1/export/sheets/1Xpfp4pRCC-6R_HlnXA7bQqrGbusi6q4gUUG93WJQqio
 Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
@@ -643,23 +823,37 @@ Content-Type: application/json
         ["Green Bay Packers", 1919]
     ]
 }
-```
+
+```http
+
+
 
 Response (200 OK):
+
 ```json
 {
     "status": "success",
     "message": "Updated 4 cells"
 }
-```
+
+```http
+
+
 
 ### 7. Read Spreadsheet Values
+
+
+
 ```http
 GET /api/v1/export/sheets/1Xpfp4pRCC-6R_HlnXA7bQqrGbusi6q4gUUG93WJQqio/values/Sheet1!A1:B2
 Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
-```
+
+```http
+
+
 
 Response (200 OK):
+
 ```json
 {
     "status": "success",
@@ -668,26 +862,44 @@ Response (200 OK):
         ["Green Bay Packers", 1919]
     ]
 }
-```
+
+```http
+
+
 
 ## Template Management
 
+
+
 ### 1. List Templates
+
+
+
 ```http
 GET /api/v1/export/templates
 Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
-```
+
+```http
+
+
 
 Response (200 OK):
+
 ```json
 [
     "default",
     "sports_teams",
     "financial_summary"
 ]
-```
+
+```http
+
+
 
 ### 2. Create Template
+
+
+
 ```http
 POST /api/v1/export/templates
 Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
@@ -734,17 +946,27 @@ Content-Type: application/json
         }
     }
 }
-```
+
+```http
+
+
 
 Response (200 OK):
+
 ```json
 {
     "status": "success",
     "message": "Template 'sports_teams' created successfully"
 }
-```
+
+```http
+
+
 
 ### 3. Apply Template to Existing Spreadsheet
+
+
+
 ```http
 POST /api/v1/export/sheets/1Xpfp4pRCC-6R_HlnXA7bQqrGbusi6q4gUUG93WJQqio/template
 Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
@@ -754,20 +976,32 @@ Content-Type: application/json
     "template_name": "sports_teams",
     "data_range": "A1:F20"
 }
-```
+
+```http
+
+
 
 Response (200 OK):
+
 ```json
 {
     "status": "success",
     "message": "Template 'sports_teams' applied successfully",
     "spreadsheet_id": "1Xpfp4pRCC-6R_HlnXA7bQqrGbusi6q4gUUG93WJQqio"
 }
-```
+
+```http
+
+
 
 ## Admin Endpoints
 
+
+
 ### 1. Clean Database
+
+
+
 ```http
 POST /api/v1/admin/clean-database
 Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
@@ -777,9 +1011,13 @@ Content-Type: application/json
     "preserve_users": true,
     "tables": ["structured_data", "sports_entities"]
 }
-```
+
+```http
+
+
 
 Response (200 OK):
+
 ```json
 {
     "success": true,
@@ -789,11 +1027,19 @@ Response (200 OK):
     },
     "message": "Database cleaned successfully"
 }
-```
+
+```http
+
+
 
 ## Database Management Endpoints (Updated/New Examples)
 
+
+
 ### Query Database (NLQ or SQL)
+
+
+
 ```http
 POST /api/v1/db-management/query
 Authorization: Bearer <your_jwt_token>
@@ -804,8 +1050,12 @@ Content-Type: application/json
     "natural_language": true,
     "translate_only": false
 }
-```
+
+```http
+
+
 Response (200 OK):
+
 ```json
 {
     "success": true,
@@ -815,9 +1065,15 @@ Response (200 OK):
     ],
     "generated_sql": "SELECT leagues.id, leagues.name, leagues.sport FROM leagues WHERE LOWER(leagues.sport) = LOWER('Football') AND leagues.deleted_at IS NULL ORDER BY leagues.name LIMIT 100"
 }
-```
+
+```http
+
+
 
 ### Translate NLQ to SQL Only
+
+
+
 ```http
 POST /api/v1/db-management/query
 Authorization: Bearer <your_jwt_token>
@@ -828,22 +1084,36 @@ Content-Type: application/json
     "natural_language": true,
     "translate_only": true
 }
-```
+
+```http
+
+
 Response (200 OK):
+
 ```json
 {
     "success": true,
     "results": [],
     "generated_sql": "SELECT t.id, t.name AS team_name, l.name AS league_name, dc.name AS conference_name FROM teams t JOIN leagues l ON t.league_id = l.id JOIN divisions_conferences dc ON t.division_conference_id = dc.id WHERE dc.name ILIKE 'SEC' AND t.deleted_at IS NULL AND l.deleted_at IS NULL AND dc.deleted_at IS NULL ORDER BY t.name LIMIT 100"
 }
-```
+
+```http
+
+
 
 ### Get Database Schema Summary (for UI Helpers)
+
+
+
 ```http
 GET /api/v1/db-management/schema-summary
 Authorization: Bearer <your_jwt_token>
-```
+
+```http
+
+
 Response (200 OK):
+
 ```json
 {
     "tables": [
@@ -880,46 +1150,82 @@ Response (200 OK):
         // ... other tables
     ]
 }
-```
+
+```http
+
+
 
 ### Get Database Statistics (Admin)
+
+
+
 ```http
 GET /api/v1/db-management/stats
 Authorization: Bearer <admin_jwt_token>
-```
+
+```http
+
+
 Response (200 OK):
+
 ```json
 {
     "total_leagues": 25,
     "total_teams": 500,
     // ... other stats
 }
-```
+
+```http
+
+
 
 ## Error Responses
 
+
+
 ### 1. Authentication Error
+
+
+
 ```json
 {
     "detail": "Could not validate credentials"
 }
-```
+
+```http
+
+
 
 ### 2. Not Found Error
+
+
+
 ```json
 {
     "detail": "Resource not found"
 }
-```
+
+```http
+
+
 
 ### 3. Permission Error
+
+
+
 ```json
 {
     "detail": "Not authorized to access this resource"
 }
-```
+
+```http
+
+
 
 ### 4. Validation Error
+
+
+
 ```json
 {
     "detail": [
@@ -930,10 +1236,16 @@ Response (200 OK):
         }
     ]
 }
-```
+
+```http
+
+
 
 ### 5. Database Error
+
+
+
 ```json
 {
     "detail": "Database operation failed"
-} 
+}

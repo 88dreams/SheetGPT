@@ -83,6 +83,7 @@ chmod +x ./run-tests.sh
 ```
 
 This script will:
+
 1. Build the frontend-test Docker image
 2. Run the tests in a Docker container
 3. Report the test results

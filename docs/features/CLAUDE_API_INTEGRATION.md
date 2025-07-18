@@ -18,7 +18,7 @@ SheetGPT leverages Claude 3.7 Sonnet for these key AI capabilities:
 ### Core Integration
 
 - **Model**: `claude-3-7-sonnet-20250219`
-- **Streaming**: Server-Sent Events with sentence-based chunking and phase markers 
+- **Streaming**: Server-Sent Events with sentence-based chunking and phase markers
 - **Error Handling**: Exponential backoff retry with session preservation
 - **Security**: API keys stored in environment variables, not exposed to clients
 - **Cross-Domain**: Chat streaming works across domains (Netlify frontend to Digital Ocean backend)
@@ -31,28 +31,32 @@ SheetGPT leverages Claude 3.7 Sonnet for these key AI capabilities:
 ### Key Features
 
 #### Virtual Entity Support
+
 - Championship and Playoffs entities with consistent IDs
 - Deterministic UUID generation for stable references
 - Schema validation for both UUID and string-based entity IDs
 
 #### Entity Resolution
+
 - Special character handling in entity names (parentheses, abbreviations)
 - Multi-stage lookup: exact → partial → creation
 - Hierarchical traversal (League → Division → Team)
 - Entity type normalization with fallbacks
 
 #### Smart Date Processing
+
 - Year-only format detection with intelligent defaults:
   - Start dates: "2020" → "2020-01-01"
   - End dates: "2020" → "2020-12-31"
 
 #### Natural Language to SQL
+
 - **Claude AI Translation**: Converts user questions to SQL.
 - **Rich Schema Context**: Employs a detailed, manually curated schema description file (`/workspace/src/config/database_schema_for_ai.md`) which is passed to Claude. This file includes:
-    - Table structures (columns, data types).
-    - Descriptions of tables and columns, explaining their purpose and relationships.
-    - Specific SQL generation guidelines (e.g., for case-insensitivity, handling specific entities like "NCAA Division I football", join strategies).
-    - This rich context significantly improves the accuracy and relevance of generated SQL.
+    -Table structures (columns, data types).
+    -Descriptions of tables and columns, explaining their purpose and relationships.
+    -Specific SQL generation guidelines (e.g., for case-insensitivity, handling specific entities like "NCAA Division I football", join strategies).
+    -This rich context significantly improves the accuracy and relevance of generated SQL.
 - **Dynamic Schema Information (Fallback)**: The system can also dynamically query database metadata as a fallback or supplement to the static schema file.
 - **Relationship-Aware Generation**: Aims to correctly infer and implement necessary joins based on the schema and question.
 - **Security Validation**: Includes backend checks and AI-assisted validation to prevent unsafe SQL operations and correct common SQL errors.
@@ -60,6 +64,7 @@ SheetGPT leverages Claude 3.7 Sonnet for these key AI capabilities:
 - **Preview Mode (Conceptual)**: (If applicable, or remove if not current) SQL validation with preview.
 
 #### Optimized Streaming
+
 - Sentence-level chunking for smooth rendering
 - Client-side phase markers for UI feedback
 - Efficient buffer management

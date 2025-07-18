@@ -62,7 +62,7 @@ This document outlines the technical specifications for integrating LinkedIn con
 
 ### System Components
 
-```
+```text
 ┌───────────────────┐     ┌────────────────────┐     ┌────────────────┐
 │                   │     │                    │     │                │
 │  SheetGPT         │     │  LinkedIn          │     │  LinkedIn      │
@@ -119,6 +119,7 @@ This document outlines the technical specifications for integrating LinkedIn con
 ### New Database Tables
 
 #### `linkedin_accounts`
+
 ```sql
 CREATE TABLE linkedin_accounts (
     id SERIAL PRIMARY KEY,
@@ -134,6 +135,7 @@ CREATE TABLE linkedin_accounts (
 ```
 
 #### `linkedin_connections`
+
 ```sql
 CREATE TABLE linkedin_connections (
     id SERIAL PRIMARY KEY,
@@ -150,6 +152,7 @@ CREATE TABLE linkedin_connections (
 ```
 
 #### `brand_connections`
+
 ```sql
 CREATE TABLE brand_connections (
     id SERIAL PRIMARY KEY,
@@ -165,6 +168,7 @@ CREATE TABLE brand_connections (
 ### Pydantic Models
 
 #### LinkedInAccount
+
 ```python
 class LinkedInAccount(BaseModel):
     id: int
@@ -185,6 +189,7 @@ class LinkedInAccountCreate(BaseModel):
 ```
 
 #### LinkedInConnection
+
 ```python
 class LinkedInConnection(BaseModel):
     id: int
@@ -207,6 +212,7 @@ class LinkedInConnectionCreate(BaseModel):
 ```
 
 #### BrandConnection
+
 ```python
 class BrandConnection(BaseModel):
     id: int
@@ -411,21 +417,25 @@ async def linkedin_callback(
 ### New UI Components
 
 #### LinkedIn Connection Button
+
 - Placed in user settings or profile area
 - Shows connection status (Connected/Disconnected)
 - Initiates OAuth flow when clicked
 
 #### Connection Badge Component
+
 - Appears on brand cards in listings
 - Shows connection degree (1st/2nd) and count
 - Uses different colors for different connection types
 
 #### Connection Details Panel
+
 - Appears in brand detail view
 - Shows aggregated connection information
 - Lists 1st-degree connections by name (if available)
 
 #### Connection Filter Component
+
 - Added to brand filters section
 - Allows filtering by connection degree
 - Provides sorting by connection count
@@ -433,7 +443,8 @@ async def linkedin_callback(
 ### UI Mockups
 
 1. **Brand List with Connection Badges**
-```
+
+```text
 ┌────────────────────────────────────────────────────┐
 │ Brands                                     Filter ▼ │
 ├────────────────────────────────────────────────────┤
@@ -467,8 +478,9 @@ async def linkedin_callback(
 └────────────────────────────────────────────────────┘
 ```
 
-2. **Brand Detail with Connection Panel**
-```
+2.**Brand Detail with Connection Panel**
+
+```text
 ┌────────────────────────────────────────────────────┐
 │ ESPN                                        Edit ▼ │
 ├────────────────────────────────────────────────────┤
@@ -495,8 +507,9 @@ async def linkedin_callback(
 └────────────────────────────────────────────────────┘
 ```
 
-3. **Settings Page with LinkedIn Integration**
-```
+3.**Settings Page with LinkedIn Integration**
+
+```text
 ┌────────────────────────────────────────────────────┐
 │ User Settings                                      │
 ├────────────────────────────────────────────────────┤
@@ -1020,6 +1033,7 @@ We've created a setup script to simplify the configuration process. Run:
 ```
 
 This script will:
+
 - Generate an encryption key for securely storing tokens
 - Prompt you for LinkedIn Client ID and Secret
 - Update your environment variables
@@ -1464,7 +1478,7 @@ class ContactsService:
         return score
 ```
 
-#### Frontend Implementation
+#### Frontend Implementation - LinkedInCSVImport.tsx
 
 The frontend implementation includes three main components:
 
@@ -1627,7 +1641,7 @@ export default LinkedInCSVImport;
 
 The CSV import approach offers several advantages over direct API integration:
 
-1. **Complete Data Access**: 
+1. **Complete Data Access**:
    - LinkedIn's API severely restricts access to connections data
    - CSV export provides comprehensive connection information including company and position
 

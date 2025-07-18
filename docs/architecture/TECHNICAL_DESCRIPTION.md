@@ -7,7 +7,8 @@ This document provides a concise overview of SheetGPT's architecture and impleme
 ### Backend (FastAPI + PostgreSQL)
 
 #### Core Organization
-```
+
+```sh
 src/
 ├── api/               # Domain-specific endpoints
 ├── models/            # SQLAlchemy models
@@ -62,7 +63,8 @@ src/
 ### Frontend (React + TypeScript)
 
 #### Core Structure
-```
+
+```sh
 frontend/
 ├── components/          # UI components
 │   ├── chat/            # Chat interface
@@ -76,20 +78,23 @@ frontend/
 ├── hooks/               # Custom React hooks
 ├── pages/               # Route components
 └── services/            # API clients
+└── fields/            # Reusable form field partials for each entity
 ```
 
-#### Key Features
+#### Frontend Key Features
 
 1. **Component Architecture**
    - Single-responsibility hooks for focused concerns
    - Modular component organization:
-     ```
+
+     ```tsx
      ComponentName/
      ├── index.tsx          # Main component
      ├── components/        # UI elements
      ├── hooks/             # State management
      └── utils/             # Helpers
      ```
+
    - Dual storage persistence (localStorage/sessionStorage)
    - Optimized rendering with strategic memoization
 
@@ -121,6 +126,7 @@ frontend/
    - **LLM Selection in Chat:** The chat interface now includes UI elements allowing users to choose from different configured Large Language Models for their conversations.
 
 #### Build & Dependency Management (Updated June 2025)
+
 - **Yarn Workspaces:** The frontend is managed as a Yarn workspace, with the primary `package.json` and `yarn.lock` located at the project root. The root `package.json` defines `frontend` in its `workspaces` array.
 - **Docker Build (`frontend/Dockerfile` with root context):
   - The `docker-compose.yml` (and `docker-compose.override.yml`) sets the `build.context` for the `frontend` service to `.` (project root) and `dockerfile` to `frontend/Dockerfile`.
@@ -135,43 +141,48 @@ frontend/
 - **Local Development:** NVM (Node Version Manager) is recommended for managing Node.js (18.x required by project) to ensure consistency when running `yarn install` locally and generating/updating the root `yarn.lock`.
 
 #### Notable Fixes
+
 - **Pagination:** Resolved issue where paginated entity lists (e.g., Brands) did not update correctly on page change by disabling `keepPreviousData` in the relevant `useQuery` configuration within `SportsDatabaseContext`.
 
 ## Key Data Flow Patterns
 
 1. **Natural Language to SQL**
-   ```
-   User NLQ → Detailed Schema Context (from MD file) + Specialized Guidance → Claude AI → 
-   Generated SQL → AI-Assisted Validation/Correction → Execution → 
+
+   ```sh
+   User NLQ → Detailed Schema Context (from MD file) + Specialized Guidance → Claude AI →
+   Generated SQL → AI-Assisted Validation/Correction → Execution →
    Name Resolution (if needed) → Display Results to User
    ```
 
 2. **Entity Resolution System**
-   ```
-   Reference → Multi-type Search → Exact/Fuzzy Name Lookup → 
+
+   ```sh
+   Reference → Multi-type Search → Exact/Fuzzy Name Lookup →
    Smart Fallback → Deterministic UUID → Relationship Traversal
    ```
 
 3. **Universal Brand System**
-   ```
-   Company Detection → Brand Lookup → Type Classification → 
+
+   ```sh
+   Company Detection → Brand Lookup → Type Classification →
    Partner Resolution → Direct Relationships
    ```
 
 4. **SportDataMapper Data Flow**
-   ```
-   Data Source → Field Detection → Entity Type Inference → 
-   Drag-Drop Mapping → Field Validation → Record Navigation → 
+
+   ```sh
+   Data Source → Field Detection → Entity Type Inference →
+   Drag-Drop Mapping → Field Validation → Record Navigation →
    Entity Creation with Relationships
    ```
 
 ## Production Architecture
 
-```
+```sh
 User → 88gpts.com/sheetgpt (Netlify) → Frontend Application
                 ↓
                 API Requests with JWT
-                ↓ 
+                ↓
 User → api.88gpts.com (Digital Ocean) → Backend API → PostgreSQL
 ```
 
@@ -199,6 +210,7 @@ User → api.88gpts.com (Digital Ocean) → Backend API → PostgreSQL
 ## Recent Optimizations
 
 ### Performance Improvements
+
 - Fingerprinting utility for stable object references (70-80% reduction in API calls)
 - Relationship loading utilities with batching (75-90% fewer requests)
 - React.memo with custom equality functions (60-85% reduction in render counts)
@@ -206,6 +218,7 @@ User → api.88gpts.com (Digital Ocean) → Backend API → PostgreSQL
 - API caching with intelligent invalidation
 
 ### UI Enhancements
+
 - Standardized export dialog with consistent layout
 - Manual search submission for better control
 - Dual-level filtering with accurate result counts
@@ -214,14 +227,14 @@ User → api.88gpts.com (Digital Ocean) → Backend API → PostgreSQL
 
 ## Current Focus Areas (as of July 2025)
 
-1.  **Resolve Frontend TypeScript & Linter Errors:** With the backend now fully typed and stable, the primary focus is on addressing outstanding TypeScript errors and module resolution issues in `frontend/src/`.
-2.  **Query Assistance & NLQ Accuracy:**
+1. **Resolve Frontend TypeScript & Linter Errors:** With the backend now fully typed and stable, the primary focus is on addressing outstanding TypeScript errors and module resolution issues in `frontend/src/`.
+2. **Query Assistance & NLQ Accuracy:**
     - Enhance Query Helper UI (schema-aware autocomplete, advanced filters).
     - Improve NLQ ambiguity handling and refine LLM prompting strategies.
-3.  **Frontend Refactoring & Stability:**
+3. **Frontend Refactoring & Stability:**
     - Continue refactoring components like `DatabaseQuery.tsx` as needed.
     - Focus on production stability, logging, and performance optimizations.
-4.  **New Feature Development (as prioritized):**
+4. **New Feature Development (as prioritized):**
     - Data visualization capabilities.
     - Mobile responsiveness enhancements.
 
@@ -231,80 +244,82 @@ User → api.88gpts.com (Digital Ocean) → Backend API → PostgreSQL
 
 **Overall Progress:** Mostly complete, pending database recovery and final verification.
 
-### Completed Tasks:
+### Completed Tasks
 
-**1. Database and Model Changes:**
-    *   Added `import_source_tag: Mapped[Optional[str]]` to `Contact` model (`src/models/sports_models.py`).
-    *   Troubleshot and successfully generated an Alembic migration (`58e7409c6c41...`) after resolving `env.py` model loading issues.
-    *   Manually edited the migration to include only `add_column` for `import_source_tag` and `create_index` for `ix_contacts_import_source_tag`.
-    *   Successfully applied this migration (before database loss).
+**1. Database and Model Changes**
+    - Added `import_source_tag: Mapped[Optional[str]]` to `Contact` model (`src/models/sports_models.py`).
+    - Troubleshot and successfully generated an Alembic migration (`58e7409c6c41...`) after resolving `env.py` model loading issues.
+    - Manually edited the migration to include only `add_column` for `import_source_tag` and `create_index` for `ix_contacts_import_source_tag`.
+    - Successfully applied this migration (before database loss).
 
-**2. Backend API and Service Changes:**
-    *   Modified `ContactsService.import_linkedin_csv` to accept and use `import_source_tag` (`src/services/contacts_service.py`).
-    *   Updated API endpoint `/api/v1/contacts/import/linkedin` to accept `import_source_tag` as Form data (`src/api/routes/contacts.py`).
+**2. Backend API and Service Changes**
+    - Modified `ContactsService.import_linkedin_csv` to accept and use `import_source_tag` (`src/services/contacts_service.py`).
+    - Updated API endpoint `/api/v1/contacts/import/linkedin` to accept `import_source_tag` as Form data (`src/api/routes/contacts.py`).
 
-**3. Frontend UI Changes (Import Form):**
-    *   In `frontend/src/components/common/LinkedInCSVImport.tsx`:
-        *   Added state and input field for `importSourceTag`.
-        *   Updated `handleFileSelect` to include `import_source_tag` in `FormData`.
-        *   Resolved linter errors related to `apiClient.post` config.
+**3. Frontend UI Changes (Import Form)**
+    - In `frontend/src/components/common/LinkedInCSVImport.tsx`:
+        - Added state and input field for `importSourceTag`.
+        - Updated `handleFileSelect` to include `import_source_tag` in `FormData`.
+        - Resolved linter errors related to `apiClient.post` config.
 
-**4. Frontend UI Changes (Displaying the Tag):**
-    *   Updated `Contact` interface in `frontend/src/pages/Contacts.tsx`.
-    *   In `frontend/src/components/common/ContactsList.tsx`:
-        *   Updated local `Contact` interface.
-        *   Added column definition and rendering for "Import Tag".
-        *   Made tag column visible by default.
-        *   Fixed linter error by removing unsupported `timeout` from `apiClient.post`.
+**4. Frontend UI Changes (Displaying the Tag)**
+    - Updated `Contact` interface in `frontend/src/pages/Contacts.tsx`.
+    - In `frontend/src/components/common/ContactsList.tsx`:
+        - Updated local `Contact` interface.
+        - Added column definition and rendering for "Import Tag".
+        - Made tag column visible by default.
+        - Fixed linter error by removing unsupported `timeout` from `apiClient.post`.
 
-**5. Backend Schema for API Response:**
-    *   Added `import_source_tag: Optional[str] = None` to `ContactBase` Pydantic schema in `src/schemas/contacts.py`.
+**5. Backend Schema for API Response**
+    - Added `import_source_tag: Optional[str] = None` to `ContactBase` Pydantic schema in `src/schemas/contacts.py`.
 
-**6. Bulk Tagging Feature for Existing Contacts:**
-    *   **Backend:**
-        *   Added `bulk_update_contacts_tag` method to `ContactsService`.
-        *   Added `BulkUpdateTagRequest` Pydantic model.
-        *   Added `POST /api/v1/contacts/bulk-update-tag` API endpoint.
-    *   **Frontend:**
-        *   Added "Bulk Update Tags" button and modal form in `ContactsPage.tsx`.
-        *   Implemented `handleBulkTagOk` to call the new API.
+**6. Bulk Tagging Feature for Existing Contacts**
+    - **Backend**
+        - Added `bulk_update_contacts_tag` method to `ContactsService`.
+        - Added `BulkUpdateTagRequest` Pydantic model.
+        - Added `POST /api/v1/contacts/bulk-update-tag` API endpoint.
+    - **Frontend**
+        - Added "Bulk Update Tags" button and modal form in `ContactsPage.tsx`.
+        - Implemented `handleBulkTagOk` to call the new API.
 
-**7. Selective Contact Retagging (NEW):**
-    *   **Backend:**
-        *   Added `BulkUpdateSpecificContactsTagRequest` Pydantic schema for request body (`src/schemas/contacts.py`).
-        *   Implemented `ContactsService.bulk_update_specific_contacts_tag` to update tags for a provided list of contact IDs (`src/services/contacts_service.py`).
-        *   Created new API endpoint `POST /api/v1/contacts/bulk-update-specific-tags` (`src/api/routes/contacts.py`).
-        *   Corrected `status` import in `contacts.py` API routes.
-    *   **Frontend (`ContactsList.tsx`):**
-        *   Added state management for selected contact IDs.
-        *   Implemented checkboxes in the table for individual contact selection and a header checkbox for select/deselect all visible.
-        *   Added a "Retag Selected (N)" button, enabled when contacts are selected.
-        *   Implemented a modal for users to input the new tag.
-        *   Ensured the contacts list directly refetches data after a successful retag operation for immediate UI update.
-    *   **Bug Fix (Related to Contacts List):**
-        *   Corrected a bug where custom column order (from `localStorage`) could cause data cells to misalign with their headers. Refactored `<tbody>` rendering in `ContactsList.tsx` to iterate over `columnOrder` for data cells, ensuring consistent alignment with headers.
+**7. Selective Contact Retagging (NEW)**
+    - **Backend**
+        - Added `BulkUpdateSpecificContactsTagRequest` Pydantic schema for request body (`src/schemas/contacts.py`).
+        - Implemented `ContactsService.bulk_update_specific_contacts_tag` to update tags for a provided list of contact IDs (`src/services/contacts_service.py`).
+        - Created new API endpoint `POST /api/v1/contacts/bulk-update-specific-tags` (`src/api/routes/contacts.py`).
+        - Corrected `status` import in `contacts.py` API routes.
+    - **Frontend (`ContactsList.tsx`)**
+        - Added state management for selected contact IDs.
+        - Implemented checkboxes in the table for individual contact selection and a header checkbox for select/deselect all visible.
+        - Added a "Retag Selected (N)" button, enabled when contacts are selected.
+        - Implemented a modal for users to input the new tag.
+        - Ensured the contacts list directly refetches data after a successful retag operation for immediate UI update.
+    - **Bug Fix (Related to Contacts List)**
+        - Corrected a bug where custom column order (from `localStorage`) could cause data cells to misalign with their headers. Refactored `<tbody>` rendering in `ContactsList.tsx` to iterate over `columnOrder` for data cells, ensuring consistent alignment with headers.
 
-**8. Database Issue Identification:**
-    *   Investigated login failure.
-    *   Discovered an empty database (no tables, including `alembic_version`).
-    *   Identified the cause: `docker-compose down -v` deleted the `postgres-data` volume.
+**8. Database Issue Identification**
+    - Investigated login failure.
+    - Discovered an empty database (no tables, including `alembic_version`).
+    - Identified the cause: `docker-compose down -v` deleted the `postgres-data` volume.
 
-### Current Status & Next Steps:
+### Current Status & Next Steps
 
-**A. Database Restore & Migration:**
+**A. Database Restore & Migration**
     1.  **Services Started:** `db`, `backend`, `frontend` services started via `docker-compose up -d`.
     2.  **Backup Copied:** Backup file `backup_20250515_173015.sql` copied into the `db` container at `/tmp/backup_20250515_173015.sql`.
     3.  **Restore from Backup:** Execute `psql` in the `db` container to restore the backup.
-        *   `docker-compose -p sheetgpt -f docker-compose.yml -f docker-compose.dev.yml exec -T db psql -U postgres -d postgres -f /tmp/backup_20250515_173015.sql`
+        - `docker-compose -p sheetgpt -f docker-compose.yml -f docker-compose.dev.yml exec -T db psql -U postgres -d postgres -f /tmp/backup_20250515_173015.sql`
     4.  **Determine Alembic State:** Check the `alembic_version` table post-restore to find the last applied migration from the backup.
-        *   `docker-compose -p sheetgpt -f docker-compose.yml -f docker-compose.dev.yml exec -T db psql -U postgres -d postgres -c "TABLE alembic_version;"`
+        - `docker-compose -p sheetgpt -f docker-compose.yml -f docker-compose.dev.yml exec -T db psql -U postgres -d postgres -c "TABLE alembic_version;"`
     5.  **Apply Missing Migrations:** Run `alembic upgrade head` (or to a specific version if needed) to apply subsequent migrations, including the one for `import_source_tag`.
-        *   `docker-compose -p sheetgpt -f docker-compose.yml -f docker-compose.dev.yml exec backend python src/scripts/alembic_wrapper.py upgrade head`
+        - `docker-compose -p sheetgpt -f docker-compose.yml -f docker-compose.dev.yml exec backend python src/scripts/alembic_wrapper.py upgrade head`
 
-**B. Verification:**
+**B. Verification**
     1.  Confirm user login is functional.
     2.  Test importing contacts with `import_source_tag`.
     3.  Verify the tag is displayed correctly in the contacts list.
     4.  Test the bulk-tagging feature for existing contacts.
     5.  Test the selective retagging feature for specific contacts.
     6.  Perform a general check of application stability.
+
+Updated July 1, 2025

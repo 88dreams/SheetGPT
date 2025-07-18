@@ -4,7 +4,7 @@
 
 SheetGPT's API implements a modular domain-driven architecture with FastAPI and PostgreSQL:
 
-```
+```sh
 src/
 ├── api/              # Endpoint definitions by domain
 ├── models/           # SQLAlchemy database models
@@ -26,6 +26,7 @@ src/
 - **Database Query**: Natural language to SQL translation
 
 ### Implementation Quality
+
 - **Fully Asynchronous**: The API is built on a fully asynchronous stack (`FastAPI`, `SQLAlchemy 2.0`, `asyncpg`), ensuring high performance and concurrency.
 - **Statically Typed**: The entire backend codebase is type-hinted and validated with `pyright`, which improves code reliability and reduces runtime errors.
 - **Modern Practices**: The implementation follows modern Python best practices, including the use of up-to-date API patterns for libraries like SQLAlchemy.
@@ -34,9 +35,9 @@ src/
 
 The API is deployed in a production environment with the following architecture:
 
-```
-Client (88gpts.com) → Netlify CDN → HTTPS Request → 
-Digital Ocean App Platform (api.88gpts.com) → 
+```sh
+Client (88gpts.com) → Netlify CDN → HTTPS Request →
+Digital Ocean App Platform (api.88gpts.com) →
 Application Container → PostgreSQL (SSL) → Response
 ```
 
@@ -68,9 +69,9 @@ Application Container → PostgreSQL (SSL) → Response
 
 ### Request Flow
 
-```
-HTTP Request → FastAPI Router → Pydantic Validation → 
-Service Layer (Facade) → Specialized Services → 
+```sh
+HTTP Request → FastAPI Router → Pydantic Validation →
+Service Layer (Facade) → Specialized Services →
 SQLAlchemy ORM → PostgreSQL → Response Formatting
 ```
 
@@ -104,7 +105,7 @@ SQLAlchemy ORM → PostgreSQL → Response Formatting
 
 ### Natural Language Queries
 
-- **Claude AI Translation**: Convert questions to SQL with context awareness 
+- **Claude AI Translation**: Convert questions to SQL with context awareness
 - **Schema-Aware Generation**: Foreign key relationship handling
 - **Security Validation**: Restricted operations with injection prevention
 - **Entity Name Enhancement**: Human-readable relationship display
@@ -253,22 +254,22 @@ async def get_streaming_response(self, conversation_id, message):
 
 ### Authentication
 
-```
+```sh
 POST /api/v1/auth/register - Create new user account
-POST /api/v1/auth/login - Authenticate and get JWT tokens  
+POST /api/v1/auth/login - Authenticate and get JWT tokens
 GET /api/v1/auth/me - Get current user profile
 POST /api/v1/auth/refresh - Refresh access token
 ```
 
-### Entity Management
+### Entity Management API
 
-```
+```sh
 GET /api/v1/sports/entities/{entity_type} - List entities with filtering
   Query Parameters (New/Updated for June 2025):
     - Standard pagination: `page`, `page_size` (or `limit`)
     - Sorting: `sort_by` (or `sort_field`), `sort_direction`
     - Filtering: `filters` (array of objects: `field`, `operator`, `value`).
-      - Supports new multi-column search via a special filter: 
+      - Supports new multi-column search via a special filter:
         `field`: "search_columns:colName1,colName2,...", `operator`: "contains", `value`: "searchTerm"
 
 POST /api/v1/sports/entities/{entity_type} - Create new entity
@@ -283,7 +284,7 @@ GET /api/v1/sports/fields/{entity_type} - Get field definitions
 
 ### Chat System
 
-```
+```sh
 GET /api/v1/chat/conversations - List user conversations
 POST /api/v1/chat/conversations - Create new conversation
 GET /api/v1/chat/conversations/{id} - Get single conversation
@@ -297,7 +298,7 @@ POST /api/v1/chat/conversations/{id}/upload - Upload file to conversation
 
 ### Database Management
 
-```
+```sh
 POST /api/v1/db/query - Execute SQL or natural language query
 POST /api/v1/db/query/translate - Translate question to SQL only
 POST /api/v1/db/export - Export query results to CSV or Sheets
@@ -308,7 +309,7 @@ GET /api/v1/db-management/schema-summary - Get a structured summary of the datab
 
 ### Export Functionality
 
-```
+```sh
 POST /api/v1/sports/export - Export entities to Google Sheets
   Parameters:
     - entity_type: Type of entity to export
@@ -341,7 +342,7 @@ GET /api/v1/export/auth/token - Get OAuth token for Google Drive integration
 
 ### Contacts (New Section or Update Existing)
 
-```
+```sh
 GET /api/v1/contacts/ - List contacts with filters and pagination.
   Response: PaginatedContactsResponse (contains list of ContactWithBrandsResponse)
   - ContactWithBrandsResponse includes nested Brand details via ContactBrandAssociationResponse.brand (uses BrandRead schema for nested brand).
@@ -381,6 +382,16 @@ POST /api/v1/contacts/import/record - Save a single contact record (New - stubbe
   - Request Body: Contains data for a single contact, matching the structure expected by the backend for creating/updating one contact (similar to one item from `import/data` but for a single record).
   - Response: Success/failure, potentially the created/updated contact details.
   - *Note: This endpoint is proposed based on the "Save and Next" UI stub and needs backend implementation.*
+```
+
+### Corporates (New Section)
+
+```sh
+GET /api/v1/corporates - List all corporate entities
+POST /api/v1/corporates - Create a new corporate entity
+GET /api/v1/corporates/{id} - Get a corporate entity by ID
+PUT /api/v1/corporates/{id} - Update a corporate entity
+DELETE /api/v1/corporates/{id} - Delete a corporate entity
 ```
 
 ## Schema System
@@ -454,7 +465,7 @@ async def update_entity(self, db: AsyncSession, entity_id: UUID, data: dict) -> 
         raise self._handle_db_error(e)
 ```
 
-### State Management Best Practices
+### State Management Patterns
 
 The frontend implements structured state management patterns to prevent circular dependencies and update loops:
 

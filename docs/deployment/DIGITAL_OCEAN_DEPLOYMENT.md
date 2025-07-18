@@ -33,7 +33,7 @@ Our production deployment uses the following architecture:
 For simpler deployments, you can also use a combined approach where:
 
 1. **Single Docker Container** - Using a multi-stage build to:
-   - Build the frontend React application (first stage)
+   - Build the React frontend (first stage)
    - Set up the Python backend (later stage)
    - Include the built frontend assets with the backend
 
@@ -168,29 +168,29 @@ Our `src/main.py` has been updated to serve the frontend assets:
 frontend_dist = Path("frontend/dist")
 if frontend_dist.exists() and frontend_dist.is_dir():
     app_logger.info(f"Found frontend build at {frontend_dist.absolute()}")
-    
+   
     # Mount static files from frontend build
     app.mount("/assets", StaticFiles(directory=frontend_dist / "assets"), name="static")
     app_logger.info("Mounted frontend assets")
-    
+   
     @app.get("/", include_in_schema=False)
     async def serve_frontend():
         """Serve the frontend index.html"""
         app_logger.info("Serving frontend index.html")
         return FileResponse(frontend_dist / "index.html")
-    
+   
     # Handle all frontend routes to enable client-side routing
     @app.get("/{path:path}", include_in_schema=False)
     async def serve_frontend_paths(path: str):
         # If path starts with "api", let it fall through to the API routes
         if path.startswith("api/"):
             raise HTTPException(status_code=404, detail="API route not found")
-            
+           
         # Check if the path exists as a static file
         file_path = frontend_dist / path
         if file_path.exists() and file_path.is_file():
             return FileResponse(file_path)
-            
+           
         # Otherwise serve index.html for client-side routing
         app_logger.info(f"Serving index.html for client-side route: /{path}")
         return FileResponse(frontend_dist / "index.html")
@@ -208,8 +208,9 @@ docker-compose up app
 ```
 
 Verify that both the API and frontend are accessible:
-- Frontend: http://localhost:8080
-- API: http://localhost:8080/api
+
+- Frontend: <http://localhost:8080>
+- API: <http://localhost:8080/api>
 
 ## Digital Ocean Deployment Steps
 
@@ -234,8 +235,9 @@ Here are the exact settings we used for our production deployment on Digital Oce
    - Dockerfile Path: `Dockerfile.production`
    - Build Target: `backend-prod` (this ensures the production stage is used)
    - HTTP Port: 8000
-   - Build Command: 
-     ```
+   - Build Command:
+
+     ```sh
      docker build --target backend-prod -t ${APP_IMAGE_NAME} -f Dockerfile.production .
      ```
 
@@ -275,7 +277,7 @@ Here are the exact settings we used for our production deployment on Digital Oce
 
 5. **HTTP Settings**:
    - Port: 8000
-   - Routes: 
+   - Routes:
      - HTTP requests to `/` route to port 8000
      - CORS headers added automatically
    - Health Check:
@@ -328,6 +330,7 @@ Alternatively, you can set up a pre-deployment job in your deployment settings t
 ### Logs
 
 Access logs through the Digital Ocean App Platform UI:
+
 1. Navigate to your app
 2. Click on "Logs"
 3. Filter by component or log level
@@ -335,6 +338,7 @@ Access logs through the Digital Ocean App Platform UI:
 ### Health Checks
 
 The application includes a comprehensive health check endpoint at `/health` which provides:
+
 - Database connection status
 - System information
 - Memory usage
@@ -343,6 +347,7 @@ The application includes a comprehensive health check endpoint at `/health` whic
 ### Scaling
 
 To scale your application:
+
 1. Navigate to your app in Digital Ocean
 2. Click on "Settings" > "Resources"
 3. Adjust the resources as needed:
@@ -361,6 +366,7 @@ To scale your application:
 ### Frontend Assets Not Found
 
 Check the logs for any errors related to the frontend build:
+
 - Verify that the `frontend/dist` directory is correctly copied to the container
 - Check that the assets were mounted correctly
 - Look for 404 errors in the logs for missing assets
@@ -373,6 +379,7 @@ doctl apps logs <APP_ID> --follow --tail 100
 ### Database Connection Issues
 
 If the application can't connect to the database:
+
 - Verify the database connection string format
 - Check if the database is up and running
 - Ensure the app has proper network access to the database
@@ -389,6 +396,7 @@ python -c "from src.utils.database import get_engine; from sqlalchemy import tex
 ### Environment-Specific Bugs
 
 Some issues may only appear in production:
+
 - Check the logs for any errors
 - Verify environment variables are correctly set
 - Test specific API endpoints to isolate the issue
@@ -405,6 +413,7 @@ We've implemented multiple layers of security for our production deployment:
 ### CORS Configuration
 
 Our production CORS configuration is highly restrictive:
+
 ```python
 app.add_middleware(
     CORSMiddleware,
@@ -415,11 +424,11 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
     allow_headers=[
-        "Content-Type", 
-        "Authorization", 
-        "X-Request-ID", 
-        "Accept", 
-        "Origin", 
+        "Content-Type",
+        "Authorization",
+        "X-Request-ID",
+        "Accept",
+        "Origin",
         "X-Requested-With"
     ],
     expose_headers=["Content-Type", "X-Request-ID", "X-Total-Count"],
@@ -430,6 +439,7 @@ app.add_middleware(
 ### Database Security
 
 Our PostgreSQL database uses multiple security layers:
+
 - SSL required for all connections
 - Private network (VPC) connectivity between app and database
 - Connection pooling with maximum connection limits
@@ -441,9 +451,10 @@ Our PostgreSQL database uses multiple security layers:
 ### API Keys and Secrets
 
 We follow these practices for secret management:
+
 - API keys and secrets stored as encrypted environment variables
 - Key rotation schedule (every 90 days for production)
-- Limited API key permissions based on principle of least privilege
+- Limited API key permissions based on the principle of least privilege
 - Secret scanning in CI/CD pipeline to prevent accidental commits
 - Separate API keys for development and production environments
 - Access logs for all sensitive operations
@@ -455,6 +466,7 @@ We follow these practices for secret management:
 ### Rate Limiting and DDoS Protection
 
 We've implemented comprehensive protection:
+
 ```python
 app.add_middleware(
     RateLimitingMiddleware,
@@ -471,11 +483,12 @@ app.add_middleware(
 ### HTTP Security Headers
 
 Our production application adds these security headers:
+
 ```python
 @app.middleware("http")
 async def add_security_headers(request, call_next):
     response = await call_next(request)
-    
+   
     # Content Security Policy
     response.headers["Content-Security-Policy"] = (
         "default-src 'self'; "
@@ -485,21 +498,22 @@ async def add_security_headers(request, call_next):
         "img-src 'self' data:; "
         "connect-src 'self' https://api.88gpts.com https://anthropic.com;"
     )
-    
+   
     # Other security headers
-    response.headers["X-Content-Type-Options"] = "nosniff"
+        response.headers["X-Content-Type-Options"] = "nosniff"
     response.headers["X-Frame-Options"] = "DENY"
     response.headers["X-XSS-Protection"] = "1; mode=block"
     response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
     response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
     response.headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=()"
-    
+   
     return response
 ```
 
 ### Authentication Security
 
 Our JWT implementation uses these security features:
+
 - Short-lived access tokens (30 minutes)
 - Separate refresh tokens with longer validity
 - Token invalidation on logout
@@ -512,9 +526,10 @@ Our JWT implementation uses these security features:
 ### Application Layer Security
 
 Additional security measures:
+
 - Input validation on all API endpoints
 - SQL injection protection using parameterized queries
-- Regular security scanning with vulnerability assessment
+- Regular security scanning with a vulnerability assessment
 - Content validation for uploaded files
 - Request payload size limits
 - Cross-Site Request Forgery (CSRF) protection
@@ -548,15 +563,15 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v2
-        
+       
       - name: Install doctl
         uses: digitalocean/action-doctl@v2
         with:
           token: ${{ secrets.DIGITALOCEAN_ACCESS_TOKEN }}
-          
+         
       - name: Deploy to Digital Ocean
         run: doctl apps create deployment ${{ secrets.DO_APP_ID }}
-        
+       
       - name: Wait for deployment
         run: |
           DEPLOYMENT_ID=$(doctl apps list-deployments ${{ secrets.DO_APP_ID }} --format ID --no-header | head -n 1)
@@ -566,7 +581,7 @@ jobs:
           done
 ```
 
-2. Add GitHub secrets:
+1. Add GitHub secrets:
    - `DIGITALOCEAN_ACCESS_TOKEN`: Your Digital Ocean API token
    - `DO_APP_ID`: Your Digital Ocean App ID
 

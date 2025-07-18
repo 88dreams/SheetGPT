@@ -58,6 +58,7 @@ resolver = EntityResolver(fuzzy_threshold=0.8)
 ```
 
 Name standardization is applied before fuzzy matching to improve results:
+
 - Converting to lowercase
 - Removing special characters
 - Handling common abbreviations (e.g., "United States" → "USA")
@@ -304,6 +305,7 @@ When a Brand is created or updated with a partner field, the following resolutio
 ### Partner Field Validation
 
 The system enforces business rules for partner fields:
+
 - If `partner_relationship` is specified, `partner` must also be provided
 - The `partner_relationship` field is validated against predefined options (Sponsor, Partner, Supplier, etc.)
 - Both fields are optional, but must satisfy the dependency constraint

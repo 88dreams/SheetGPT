@@ -2,7 +2,7 @@
 
 ## Overview
 
-This document describes the setup of the contacts-related database tables for SheetGPT's LinkedIn integration feature. 
+This document describes the setup of the contacts-related database tables for SheetGPT's LinkedIn integration feature.
 These tables enable the storage and management of professional contacts imported from LinkedIn CSV exports or entered manually.
 
 ## Database Tables
@@ -15,6 +15,7 @@ The contacts feature relies on two primary tables:
 ### Table Structure
 
 #### Contacts Table
+
 ```sql
 CREATE TABLE contacts (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -34,6 +35,7 @@ CREATE TABLE contacts (
 ```
 
 #### Contact Brand Associations Table
+
 ```sql
 CREATE TABLE contact_brand_associations (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),

@@ -9,22 +9,27 @@ Welcome to the SheetGPT documentation. This directory contains comprehensive doc
 The documentation is organized into the following sections:
 
 ### Architecture
+
 - [API Architecture](architecture/API_ARCHITECTURE.md) - Overview of the API design and structure
 - [Technical Description](architecture/TECHNICAL_DESCRIPTION.md) - Detailed technical overview of the codebase
 - [Sports API Endpoints](architecture/SPORTS_API_ENDPOINTS.md) - Documentation of the sports database API endpoints
 - [API Examples](architecture/API_EXAMPLES.md) - Example API requests and responses
+  - [Corporate Entity](features/CORPORATE_ENTITY.md) - Standalone corporate entities
 
 ### Features
+
 - [Claude API Integration](features/CLAUDE_API_INTEGRATION.md) - Details about the Claude AI integration
 - [Sport Field Feature](features/SPORT_FIELD_FEATURE.md) - Documentation for the sport field enhancement feature
 
 ### Maintenance
+
 - [Database Maintenance](maintenance/DATABASE_MAINTENANCE.md) - Guide for database maintenance procedures
 - [Alembic Guide](maintenance/ALEMBIC_GUIDE.md) - Guide for using Alembic with the project
 - [Testing Guide](maintenance/TESTING_GUIDE.md) - Comprehensive guide to testing the application
 - [Troubleshooting](maintenance/TROUBLESHOOTING.md) - Common issues and solutions
 
 ### Deployment
+
 - [Digital Ocean Deployment](deployment/DIGITAL_OCEAN_DEPLOYMENT.md) - Guide for deploying the backend to Digital Ocean
 - [Netlify Deployment](deployment/NETLIFY_DEPLOYMENT_STEPS.md) - Guide for deploying the frontend to Netlify
 - [Production Preparation](deployment/PRODUCTION_PREPARATION.md) - Checklist for production readiness
@@ -32,6 +37,7 @@ The documentation is organized into the following sections:
 - [CI/CD Pipeline](deployment/CI_CD_PIPELINE.md) - Documentation of the continuous integration and deployment process
 
 ### Other
+
 - [DEV_INTRO_TESTING.md](DEV_INTRO_TESTING.md) - Introduction to testing for new developers
 - [NEW_AGENT.md](NEW_AGENT.md) - Guide for creating new AI agents
 - [PROGRESS.md](PROGRESS.md) - Project progress and status updates
@@ -54,7 +60,7 @@ The application is now deployed and running in production:
 
 ### Deployment Architecture
 
-```
+```sh
 User → 88gpts.com/sheetgpt (Netlify) → Frontend Application
                   ↓
                   API Requests
@@ -63,6 +69,7 @@ User → api.88gpts.com (Digital Ocean) → Backend API → PostgreSQL Database
 ```
 
 For details on the production architecture and deployment process, see:
+
 - [Technical Description - Production Architecture](architecture/TECHNICAL_DESCRIPTION.md#production-architecture)
 - [Digital Ocean Deployment](deployment/DIGITAL_OCEAN_DEPLOYMENT.md)
 - [Netlify Deployment](deployment/NETLIFY_DEPLOYMENT_STEPS.md)

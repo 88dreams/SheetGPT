@@ -14,7 +14,7 @@ The testing structure is organized into three main categories:
 
 ### Directory Structure
 
-```
+```text
 tests/
 ├── README.md                      # Testing overview
 ├── conftest.py                    # Pytest configuration for backend tests
@@ -298,7 +298,7 @@ class TestSportsRoutes:
         mock_get_all_brands.assert_called_once_with(mock_session)
 ```
 
-### Integration Tests
+### Integration Tests - Data Import/Export Flow
 
 Follow these patterns for integration tests:
 
@@ -409,7 +409,7 @@ To maintain consistency across tests, use these templates as starting points:
    - Reset mocks between tests
    - Use transaction rollback for database tests
 
-### Frontend Testing
+### Frontend Testing - DataTable Component
 
 1. **Component Testing**:
    - Test rendering with different props
@@ -425,7 +425,7 @@ To maintain consistency across tests, use these templates as starting points:
    - Test cleanup functions
    - Verify dependencies are respected
 
-### Backend Testing
+### Backend Testing - BrandService
 
 1. **Service Testing**:
    - Mock database sessions
@@ -441,7 +441,7 @@ To maintain consistency across tests, use these templates as starting points:
    - Test error responses
    - Mock service layer calls
 
-### Integration Testing
+### Integration Testing - Data Import/Export Flow
 
 1. **Workflow Testing**:
    - Test complete user flows
@@ -452,21 +452,21 @@ To maintain consistency across tests, use these templates as starting points:
 
 ## Troubleshooting
 
-### Frontend Tests
+### Frontend Tests - DataTable Component
 
 - **Failing Component Tests**: Check for missing mocks or improper cleanup
 - **React Warnings**: Ensure proper cleanup in useEffect hooks
 - **Timeout Errors**: Increase timeout for async tests
 - **Snapshot Failures**: Update snapshots if UI changes were intentional
 
-### Backend Tests
+### Backend Tests - BrandService
 
 - **Database Errors**: Verify test database is set up correctly
 - **Import Errors**: Check Python path in conftest.py
 - **Async Test Errors**: Use pytest-asyncio markers
 - **Auth Errors**: Mock authentication in middleware
 
-### Integration Tests
+### Integration Tests - Data Import/Export Flow Troubleshooting
 
 - **Authentication Issues**: Verify test user credentials
 - **Timeout Errors**: Increase TEST_TIMEOUT value
@@ -483,6 +483,7 @@ npm run test:coverage
 ```
 
 The coverage report is generated in the `coverage/` directory and includes:
+
 - Line coverage
 - Branch coverage
 - Function coverage

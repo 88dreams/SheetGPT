@@ -65,6 +65,7 @@ export default {
 ```
 
 Key configuration points:
+
 - Uses `jsdom` as the test environment to simulate a browser environment
 - Configures TypeScript support with `ts-jest`
 - Sets up test matching patterns to find test files
@@ -169,6 +170,7 @@ jest.mock('@headlessui/react', () => {
 ```
 
 This file:
+
 - Imports Jest DOM matchers for enhanced DOM testing
 - Mocks `console.error` to filter out specific React warnings
 - Mocks browser APIs like `ResizeObserver`
@@ -291,7 +293,7 @@ For more detailed information about the CI/CD pipeline, see [CI/CD Pipeline](../
 
 Tests are organized in `__tests__` directories alongside the components they test:
 
-```
+```text
 frontend/src/
 ├── components/
 │   └── data/
@@ -528,13 +530,14 @@ const specificButton = buttons[0]; // Select the first button
 If you see warnings about updates not wrapped in act(), you can:
 
 1. Wrap your code in act():
+
 ```typescript
 act(() => {
   // Code that causes state updates
 });
 ```
 
-2. Use the mock in jest-setup.ts that filters these warnings
+2.Use the mock in jest-setup.ts that filters these warnings
 
 ### 4. Testing Asynchronous Code
 
@@ -575,4 +578,4 @@ it('should load data asynchronously', async () => {
 
 10. **Keep Mocks Simple**: Only mock what you need to, and keep mocks as simple as possible.
 
-By following these guidelines, you can write effective tests that provide confidence in your code and catch regressions early. 
+By following these guidelines, you can write effective tests that provide confidence in your code and catch regressions early.

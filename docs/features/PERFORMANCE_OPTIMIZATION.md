@@ -7,6 +7,7 @@ This document provides guidance on the performance optimization techniques being
 ### When to Use React.memo
 
 Apply React.memo to components that:
+
 - Render frequently but rarely change their props
 - Have expensive rendering logic
 - Receive complex object props that maintain reference equality
@@ -31,6 +32,7 @@ const ExpensiveComponent = React.memo((props: Props) => {
 ### Proper useCallback Usage
 
 Always use useCallback for:
+
 - Event handlers passed as props to child components
 - Functions used in dependency arrays of hooks
 - Functions that create or manipulate expensive resources
@@ -50,6 +52,7 @@ const handleClick = useCallback(() => {
 ### Optimizing useMemo
 
 Use useMemo for:
+
 - Expensive calculations
 - Creating derived data from props or state
 - Preventing unnecessary re-creation of complex objects
@@ -162,6 +165,7 @@ const VirtualizedList = ({ items }) => (
 ### React DevTools Profiler
 
 Use the React DevTools Profiler to:
+
 - Identify components that render too often
 - Measure render durations
 - Visualize component updates in the component tree

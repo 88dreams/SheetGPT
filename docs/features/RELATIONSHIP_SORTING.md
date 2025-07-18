@@ -241,15 +241,18 @@ export function useSorting() {
 The following entity types support relationship field sorting:
 
 ### Team
+
 - `league_name` - Sort by the name of the team's league
 - `league_sport` - Sort by the sport of the team's league
 - `division_conference_name` - Sort by division/conference name
 
 ### Division/Conference
+
 - `league_name` - Sort by the name of the division's league
 - `league_sport` - Sort by the sport of the division's league
 
 ### Game
+
 - `team_name` - Sort by home team name
 - `away_team_name` - Sort by away team name
 - `stadium_name` - Sort by stadium name
@@ -257,6 +260,7 @@ The following entity types support relationship field sorting:
 - `league_sport` - Sort by league sport
 
 ### Broadcast Rights
+
 - `broadcast_company_name` - Sort by broadcast company name
 - `entity_name` - Sort by the name of the related entity (game, team, etc.)
 - `entity_type` - Sort by entity type
@@ -264,6 +268,7 @@ The following entity types support relationship field sorting:
 - `league_sport` - Sort by league sport (for related entities)
 
 ### Production Services
+
 - `production_company_name` - Sort by production company name
 - `entity_name` - Sort by the name of the related entity
 - `entity_type` - Sort by entity type
@@ -279,7 +284,7 @@ The following entity types support relationship field sorting:
    - Verifies proper styling and icon display for relationship fields
    - Tests sort icon display based on sort state
    - Tests interaction handlers
-   
+
 2. **Formatter Utilities**
    - Tests `isSortableRelationshipField` with various field types
    - Verifies identification of known relationship fields

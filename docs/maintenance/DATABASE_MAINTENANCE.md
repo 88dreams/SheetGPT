@@ -14,6 +14,7 @@ This guide covers recommended database maintenance procedures for SheetGPT. Regu
 ## Maintenance Tasks Overview
 
 The SheetGPT database requires regular maintenance to:
+
 - Eliminate duplicate records
 - Repair invalid entity relationships
 - Standardize entity names
@@ -45,7 +46,7 @@ python src/scripts/db_cleanup.py
    - Divisions/Conferences
    - Brands
    - Players
-   
+
 2. **Deduplicates Relationship Tables**
    - Broadcast Rights
    - Production Services
@@ -55,12 +56,12 @@ python src/scripts/db_cleanup.py
 3. **Repairs Entity Relationships**
    - Teams missing Division/Conference assignments
    - Broadcast Rights missing territory information
-   
+
 4. **Standardizes Entity Names**
    - Removes redundant suffixes
    - Standardizes abbreviation formats
    - Eliminates extra spaces
-   
+
 5. **Adds Missing Constraints**
    - Unique constraints to prevent future duplicates
    - Case-insensitive constraints where appropriate
@@ -76,21 +77,24 @@ python src/scripts/db_cleanup.py
 Always follow these steps when running database cleanup:
 
 1. **Backup your database first**
+
    ```bash
    python src/scripts/db_management.py backup
    ```
 
 2. **Run in dry-run mode**
+
    ```bash
    python src/scripts/db_cleanup.py --dry-run
    ```
-   
+
 3. **Review the output carefully**
    - Check which duplicates would be removed
    - Verify which constraints would be added
    - Note any potential issues
 
 4. **Run with actual changes**
+
    ```bash
    python src/scripts/db_cleanup.py
    ```
@@ -155,16 +159,19 @@ We recommend setting up scheduled maintenance tasks:
 ### Weekly Tasks
 
 - Run database backup
+
   ```bash
   python src/scripts/db_management.py backup
   ```
 
 - Run database statistics
+
   ```bash
   python src/scripts/db_management.py stats
   ```
 
 - Export critical data to Google Sheets
+
   ```bash
   # Create a backup of critical entities in Google Drive
   python src/scripts/export_critical_data.py --folder-name="Database Backups"
@@ -173,26 +180,31 @@ We recommend setting up scheduled maintenance tasks:
 ### Monthly Tasks
 
 - Run database cleanup
+
   ```bash
   python src/scripts/db_cleanup.py
   ```
 
 - Run database optimization
+
   ```bash
   python src/scripts/db_vacuum.py
   ```
 
 - Archive old conversations
+
   ```bash
   python src/scripts/db_management.py archive --older-than=90d
   ```
 
 - Rotate old backups
+
   ```bash
   python src/scripts/db_management.py rotate-backups --keep=10
   ```
 
 - Export and archive entity relationships
+
   ```bash
   # Export entity relationship data with full column visibility
   python src/scripts/export_entity_relationships.py --folder-name="Monthly Archives"
@@ -242,6 +254,7 @@ python src/scripts/export_entity_data.py --entity-type=broadcast_rights --visibl
 ```
 
 Key benefits of Google Sheets backups:
+
 - Human-readable format for easy data inspection
 - Cloud storage provides additional backup location
 - Accessible for review without database access

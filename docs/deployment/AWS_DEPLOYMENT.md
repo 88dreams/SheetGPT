@@ -4,7 +4,7 @@
 
 ## Architecture Overview
 
-```
+```text
                                      ┌──────────────┐
                                      │   Route 53   │
                                      │   (DNS)      │
@@ -36,6 +36,7 @@
 ## Components and Services
 
 ### 1. Frontend Hosting
+
 - **S3 + CloudFront**
   - Static website hosting for React application
   - Global CDN distribution for low-latency access
@@ -43,6 +44,7 @@
   - Custom domain support with Route 53 integration
 
 ### 2. Backend Services
+
 - **ECS (Elastic Container Service)**
   - Docker container management for FastAPI application
   - Auto-scaling based on CPU/memory utilization
@@ -50,6 +52,7 @@
   - Health monitoring and automatic container replacement
 
 ### 3. Database
+
 - **RDS (PostgreSQL)**
   - Managed PostgreSQL database for reliable data storage
   - Automated backups with point-in-time recovery
@@ -57,6 +60,7 @@
   - Encryption at rest for data security
 
 ### 4. Additional Services
+
 - **Route 53**: DNS management with health checks
 - **CloudWatch**: Monitoring, logging, and alerting
 - **API Gateway**: API management and documentation
@@ -348,6 +352,7 @@ rds:
    - Configure SSL certificates in ACM
 
 2. **Database Migration**
+
    ```bash
    # Export local database
    pg_dump -Fc sheetgpt > sheetgpt.dump
@@ -357,6 +362,7 @@ rds:
    ```
 
 3. **Application Deployment**
+
    ```bash
    # Deploy frontend
    cd frontend
@@ -431,4 +437,4 @@ aws rds restore-db-instance-from-db-snapshot --db-snapshot-identifier backup-sna
 
 ## Current Status
 
-> **Note**: This deployment guide is a reference for future AWS deployment. The project currently uses Docker Compose for local development as described in the [README.md](../README.md) file. When ready to deploy to AWS, this guide can be used as a starting point. 
+> **Note**: This deployment guide is a reference for future AWS deployment. The project currently uses Docker Compose for local development as described in the [README.md](../README.md) file. When ready to deploy to AWS, this guide can be used as a starting point.

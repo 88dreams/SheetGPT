@@ -26,7 +26,7 @@ This controls various aspects of the application:
 
 The frontend now includes a production-specific environment file (`frontend/.env.production`):
 
-```
+```text
 VITE_API_URL=/api/v1
 VITE_ENVIRONMENT=production
 VITE_ENABLE_QUERY_VALIDATION=true

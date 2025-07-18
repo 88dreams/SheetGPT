@@ -6,7 +6,7 @@ This document explains how we fixed SSL connection issues with PostgreSQL when d
 
 When deploying to Digital Ocean App Platform with PostgreSQL database, we encountered the following error when using `ssl=true` or `sslmode=require` in the connection string:
 
-```
+```text
 TypeError: connect() got an unexpected keyword argument 'sslmode'
 ```
 
@@ -59,6 +59,7 @@ engine = create_async_engine(
 3. **Connection Configuration**: We pass the SSL context via the `connect_args` parameter to `create_async_engine()`
 
 This approach:
+
 - Works with asyncpg's expectations for SSL configuration
 - Maintains security with SSL encryption
 - Is compatible with Digital Ocean's PostgreSQL service

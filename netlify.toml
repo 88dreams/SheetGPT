@@ -9,14 +9,11 @@
   publish = "frontend/dist"
 
 [build.environment]
-  # 3. Explicitly set the Node.js and Yarn versions to ensure consistency.
-  #    We are matching the Yarn version from the working Digital Ocean environment.
+  # 3. Explicitly set the Node.js version to ensure consistency.
   NODE_VERSION = "18"
-  YARN_VERSION = "1.22.22"
   
-  # 4. Set NODE_ENV to "development" to force installation of devDependencies
-  #    which are required for the build command.
-  NODE_ENV = "development" 
+  # 4. Set NODE_ENV to "production" to ensure Vite builds correctly.
+  NODE_ENV = "production" 
 
 # Redirects for the React SPA running in a sub-path.
 # This is crucial for handling client-side routing correctly on Netlify.

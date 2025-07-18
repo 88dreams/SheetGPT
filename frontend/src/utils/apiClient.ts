@@ -9,17 +9,19 @@ const isDocker = window.location.hostname !== 'localhost' && window.location.hos
 // IMPORTANT: All mock data and development fallbacks have been removed
 // In Docker, we use the VITE_API_URL environment variable or a relative URL
 const getApiUrl = () => {
-  // Vite exposes env variables on the import.meta.env object
+  // For local development, always target localhost:8000.
+  // The browser runs on the host and needs to connect to the mapped port.
+  if (import.meta.env.DEV) {
+    return 'http://localhost:8000';
+  }
+
+  // For production builds (like on Netlify), use the environment variable
+  // provided by the deployment environment.
   if (import.meta.env.VITE_API_URL) {
     return import.meta.env.VITE_API_URL;
   }
-
-  // Fallback for local development if the .env file is not configured
-  if (import.meta.env.DEV) {
-    return 'https://localhost:8000';
-  }
-
-  // Default for production or other environments if VITE_API_URL is not set
+  
+  // As a final fallback for production, return an empty string to use a relative path.
   return '';
 };
 

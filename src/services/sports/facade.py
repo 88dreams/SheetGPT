@@ -13,7 +13,7 @@ from src.models.sports_models import (
     League, Team, Player, Game, Stadium, 
     BroadcastRights, ProductionService,
     Brand, GameBroadcast, LeagueExecutive,
-    DivisionConference
+    DivisionConference, Corporate
 )
 from src.schemas.sports import (
     LeagueCreate, LeagueUpdate,
@@ -43,6 +43,7 @@ from src.services.sports.brand_service import BrandService
 from src.services.sports.game_broadcast_service import GameBroadcastService
 from src.services.sports.league_executive_service import LeagueExecutiveService
 from src.services.sports.division_conference_service import DivisionConferenceService
+from src.services.sports.corporate_service import CorporateService
 from src.utils.database import get_db_session as get_session # Added import
 from src.services.sports.base_service import BaseEntityService # Corrected import path
 
@@ -112,6 +113,7 @@ class SportsService:
         self.player_service = PlayerService()
         self.game_service = GameService()
         self.brand_service = BrandService()
+        self.corporate_service = CorporateService()
     
     async def get_relationship_sort_config(self, entity_type: str, sort_by: str) -> Optional[Dict[str, Any]]:
         """
@@ -289,6 +291,7 @@ class SportsService:
         # Standard handling for direct model fields or fallback from failed relationship sort
         query = select(model_class)
         
+        # Original query construction
         sort_attr = getattr(model_class, sort_by, None)
         if sort_attr:
             sort_column = sort_attr
@@ -298,18 +301,41 @@ class SportsService:
                 query = query.order_by(sort_column.asc())
         else:
             logger.warning(f"Field {sort_by} not found in {entity_type} model, defaulting to id sorting")
-            sort_column = getattr(model_class, "id") # Fallback to id
+            sort_column = getattr(model_class, "id")
             if sort_direction.lower() == "desc":
                 query = query.order_by(sort_column.desc())
             else:
                 query = query.order_by(sort_column.asc())
+
+        paginated_query = query.offset((page - 1) * limit).limit(limit)
+
+        try:
+            # First attempt to execute the query as constructed
+            result = await db.execute(paginated_query)
+            entities = result.scalars().all()
+        except SQLAlchemyError as e:
+            # Check if the error is due to an undefined column, which likely means a schema mismatch
+            if "undefined_column" in str(e).lower() or "does not exist" in str(e).lower():
+                logger.warning(f"Sorting by '{sort_by}' failed for {entity_type}, likely due to a schema mismatch. Error: {e}. Falling back to sorting by 'id'.")
                 
-        query = query.offset((page - 1) * limit).limit(limit)
-        
-        result = await db.execute(query)
-        entities = result.scalars().all()
-        
-        logger.info(f"Returning {len(entities)} entities sorted by direct field {sort_by}")
+                # Construct a fallback query, sorting by 'id'
+                fallback_query = select(model_class)
+                id_sort_column = getattr(model_class, "id")
+                if sort_direction.lower() == "desc":
+                    fallback_query = fallback_query.order_by(id_sort_column.desc())
+                else:
+                    fallback_query = fallback_query.order_by(id_sort_column.asc())
+                
+                paginated_fallback_query = fallback_query.offset((page - 1) * limit).limit(limit)
+                
+                # Execute the fallback query
+                result = await db.execute(paginated_fallback_query)
+                entities = result.scalars().all()
+            else:
+                # If it's a different SQL error, re-raise it
+                raise
+
+        logger.info(f"Returning {len(entities)} entities for {entity_type}")
         
         total_pages = math.ceil(total_count / limit) if total_count > 0 else 0
         return {
@@ -355,6 +381,35 @@ class SportsService:
     ) -> Tuple[List[Dict[str, Any]], int]:
         logger.debug(f"Service: Getting entities for {entity_type} with page={page}, page_size={page_size}, sort_field={sort_field}, sort_direction={sort_direction}, filters={filters}, include_related={include_related}")
         
+        if entity_type == 'corporate':
+            async with get_session() as session:
+                # Use the CorporateService to get all corporate entities
+                all_corporates = await self.corporate_service.get_all(session)
+                
+                # Manual filtering and sorting for corporate entities
+                # (Assuming corporate entities don't have complex relationships for now)
+                
+                filtered_corporates = all_corporates
+                if filters:
+                    # Implement basic filtering if needed
+                    pass
+                    
+                if sort_field and hasattr(Corporate, sort_field):
+                    filtered_corporates.sort(
+                        key=lambda x: getattr(x, sort_field) or '',
+                        reverse=(sort_direction == 'desc')
+                    )
+
+                total_count = len(filtered_corporates)
+                
+                start_index = (page - 1) * page_size
+                end_index = start_index + page_size
+                paginated_corporates = filtered_corporates[start_index:end_index]
+                
+                # Convert to dicts for response, filtering out any None results
+                corporate_dicts = [d for d in (self._model_to_dict(c) for c in paginated_corporates) if d is not None]
+                return corporate_dicts, total_count
+
         async with get_session() as session:
             model_class = self.ENTITY_TYPES.get(entity_type)
             if not model_class:

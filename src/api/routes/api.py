@@ -1,7 +1,11 @@
 from fastapi import APIRouter
 from typing import Dict
 
-from src.api.routes import auth, chat, export, data_management, sports, sports_v2, admin, db_management, docs, linkedin, contacts
+from src.api.routes import (
+    auth, chat, export, data_management, sports, 
+    sports_v2, admin, db_management, docs, linkedin, contacts,
+    corporate
+)
 
 router = APIRouter()
 
@@ -43,6 +47,7 @@ router.include_router(
 # Include sports v2 routes with enhanced entity resolution
 router.include_router(
     sports_v2.router,
+    prefix="/sports/v2",
     tags=["Sports V2"]
 )
 
@@ -63,6 +68,7 @@ router.include_router(
 # Include documentation routes
 router.include_router(
     docs.router,
+    prefix="/docs",
     tags=["Documentation"]
 )
 
@@ -78,6 +84,13 @@ router.include_router(
     contacts.router,
     prefix="/contacts",
     tags=["Contacts"]
+)
+
+# Include Corporates routes
+router.include_router(
+    corporate.router,
+    prefix="/corporate",
+    tags=["Corporates"]
 )
 
 @router.get("/status")

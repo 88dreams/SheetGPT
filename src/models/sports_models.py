@@ -610,6 +610,11 @@ class Brand(TimestampedBase):
         Text,
         nullable=True
     )
+    # Free-form notes supplied by users
+    notes: Mapped[Optional[str]] = mapped_column(
+        Text,
+        nullable=True
+    )
 
     # Relationships
     production_services: Mapped[List["ProductionService"]] = relationship(
@@ -985,3 +990,24 @@ class Management(TimestampedBase):
     notes: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
 
     creators: Mapped[List["Creator"]] = relationship(back_populates="management")
+
+
+class Corporate(TimestampedBase):
+    """Model for corporate entities."""
+    
+    __tablename__ = "corporate"
+    __table_args__ = (
+        Index('ix_corporate_name', 'name'),
+        Index('ix_corporate_industry', 'industry'),
+        Index('ix_corporate_country', 'country'),
+    )
+
+    id: Mapped[UUID] = mapped_column(SQLUUID, primary_key=True, default=uuid4)
+    name: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
+    nickname: Mapped[Optional[str]] = mapped_column(String(100), nullable=True, index=True)
+    country: Mapped[str] = mapped_column(String(100), nullable=False)
+    media_department: Mapped[str] = mapped_column(String(255), nullable=False)
+    industry: Mapped[Optional[str]] = mapped_column(String(100), nullable=True, index=True)
+    notes: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    domain: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    citation: Mapped[Optional[str]] = mapped_column(Text, nullable=True)

@@ -25,10 +25,17 @@
   to = "/sheetgpt"
   status = 302 # Temporary redirect
 
+# This rule ensures that assets like CSS and JS are loaded correctly
+# from the /sheetgpt/ sub-path.
+[[redirects]]
+  from = "/sheetgpt/assets/*"
+  to = "/assets/:splat"
+  status = 200
+
 # Primary redirect rule for the Single Page Application (SPA).
 # This rule is crucial: it serves your app's index.html for any path
 # under /sheetgpt/, allowing React Router to handle the URL.
 [[redirects]]
   from = "/sheetgpt/*"
-  to = "/sheetgpt/index.html"
+  to = "/index.html"
   status = 200 
